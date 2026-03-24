@@ -15,8 +15,17 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return health status', () => {
+      const result = appController.getHealth();
+      expect(result.status).toBe('ok');
+      expect(result.message).toBe('KWIKSELLER API is running');
+      expect(result.timestamp).toBeDefined();
+    });
+
+    it('should return API info', () => {
+      const result = appController.getInfo();
+      expect(result.name).toBe('@kwikseller/api');
+      expect(result.version).toBe('0.0.1');
     });
   });
 });

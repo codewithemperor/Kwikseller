@@ -1,12 +1,17 @@
 {
-  "name": "Kwikseller",
+  "name": "kwikseller",
   "private": true,
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "check-types": "turbo run check-types",
+    "dev:marketplace": "turbo run dev --filter=@kwikseller/marketplace",
+    "dev:vendor": "turbo run dev --filter=@kwikseller/vendor",
+    "dev:admin": "turbo run dev --filter=@kwikseller/admin",
+    "dev:rider": "turbo run dev --filter=@kwikseller/rider",
+    "dev:api": "turbo run dev --filter=@kwikseller/api"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

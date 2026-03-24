@@ -1,9 +1,17 @@
 {
-  "name": "@repo/typescript-config",
-  "version": "0.0.0",
+  "name": "@kwikseller/typescript-config",
+  "version": "0.0.1",
   "private": true,
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  }
+  "main": "./base.json",
+  "exports": {
+    ".": "./base.json",
+    "./base.json": "./base.json",
+    "./nextjs.json": "./nextjs.json",
+    "./react-library.json": "./react-library.json"
+  },
+  "files": [
+    "base.json",
+    "nextjs.json",
+    "react-library.json"
+  ]
 }
