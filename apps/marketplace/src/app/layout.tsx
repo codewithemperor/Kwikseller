@@ -1,18 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@kwikseller/ui/sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@kwikseller/utils";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Heading font - Poppins (modern, geometric sans-serif)
+const fontHeading = Poppins({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-heading",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Text/Body font - Inter (excellent readability)
+const fontText = Inter({
   subsets: ["latin"],
+  variable: "--font-text",
+  display: "swap",
+});
+
+// Monospace font - JetBrains Mono (for code, numbers)
+const fontMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -98,20 +111,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
+    <html 
+      lang="en" 
+      className={`${fontHeading.variable} ${fontText.variable} ${fontMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="font-text antialiased bg-background text-foreground">
         <QueryProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster position="top-right" richColors closeButton />
-          </ThemeProvider>
+          <AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster position="top-right" richColors closeButton />
+            </ThemeProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

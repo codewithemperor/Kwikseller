@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * SectionHeader - Section title with optional actions

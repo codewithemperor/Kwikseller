@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ChevronRight, Home } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * Breadcrumb - Navigation breadcrumb component

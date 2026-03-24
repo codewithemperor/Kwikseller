@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Package, Search, FileX, Inbox, FolderX } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * EmptyState - Empty state display component

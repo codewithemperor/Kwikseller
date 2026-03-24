@@ -101,7 +101,7 @@ export function getInitials(name: string): string {
 export function getDisplayName(firstName?: string, lastName?: string, email?: string): string {
   if (firstName && lastName) return `${firstName} ${lastName}`
   if (firstName) return firstName
-  if (email) return email.split('@')[0]
+  if (email) return email.split('@')[0] ?? 'User'
   return 'User'
 }
 
@@ -251,3 +251,32 @@ export type { User, AuthTokens, LoginCredentials, RegisterData, AuthContextValue
 
 // Export hooks
 export { usePWA } from './hooks';
+
+// Export HTTP client
+export {
+  httpClient,
+  api,
+  getWithMeta,
+  getPaginated,
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+  isAuthenticated,
+  TOKEN_STORAGE_KEYS,
+  DEFAULT_CONFIG,
+  type ApiResponse,
+  type ApiErrorResponse,
+  type RefreshTokenRequest,
+  type RefreshTokenResponse,
+  type RequestConfig,
+  type PaginationParams,
+  type PaginatedResponse,
+  type HttpMethod,
+  type ApiClient,
+  type TypedAxiosError,
+  type RequestInterceptor,
+  type ResponseInterceptor,
+  type ErrorInterceptor,
+  type HttpClientConfig,
+} from './http';

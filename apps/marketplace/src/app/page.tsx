@@ -14,10 +14,17 @@ import {
   CheckCircle,
   Star
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { InstallBanner, OfflineBanner } from '@/components/pwa'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Badge,
+  OfflineBanner,
+} from '@kwikseller/ui'
+import { InstallBanner } from '@/components/pwa'
 
 export default function HomePage() {
   const features = [

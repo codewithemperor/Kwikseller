@@ -1,6 +1,10 @@
 {
   "name": "kwikseller",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -11,7 +15,8 @@
     "dev:vendor": "turbo run dev --filter=@kwikseller/vendor",
     "dev:admin": "turbo run dev --filter=@kwikseller/admin",
     "dev:rider": "turbo run dev --filter=@kwikseller/rider",
-    "dev:api": "turbo run dev --filter=@kwikseller/api"
+    "dev:api": "turbo run dev --filter=@kwikseller/api",
+    "dev:app": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/marketplace"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
@@ -21,5 +26,8 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "axios": "^1.13.6"
   }
 }

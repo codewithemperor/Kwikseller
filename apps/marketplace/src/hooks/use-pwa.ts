@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores'
+import { notificationsApi } from '@kwikseller/api-client'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -123,21 +124,16 @@ export function useNotificationPermission() {
     try {
       const registration = await navigator.serviceWorker.ready
       
-      // Get VAPID public key from server
-      const response = await fetch('/api/v1/notifications/push/vapid-public-key')
-      const { data: vapidKey } = await response.json()
+      // Get VAPID public key from server using axios
+      const { data: vapidKey } = await notificationsApi.getVapidKey()
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: vapidKey,
       })
 
-      // Send subscription to server
-      await fetch('/api/v1/notifications/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription.toJSON()),
-      })
+      // Send subscription to server using axios
+      await notificationsApi.subscribePush(subscription.toJSON())
 
       return subscription
     } catch (error) {

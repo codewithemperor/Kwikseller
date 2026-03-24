@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * ErrorBoundary - Error boundary with fallback UI
@@ -26,6 +26,8 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  static displayName = 'ErrorBoundary';
+  
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -79,8 +81,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return this.props.children;
   }
 }
-
-ErrorBoundary.displayName = 'ErrorBoundary';
 
 // Functional error fallback component
 export interface ErrorFallbackProps {

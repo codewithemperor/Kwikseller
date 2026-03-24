@@ -6,6 +6,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Set global prefix for all routes
+  const apiVersion = process.env.API_VERSION || 'v1';
+  app.setGlobalPrefix(`api/${apiVersion}`);
+
   // Enable CORS for all kwikseller subdomains
   app.enableCors({
     origin: [
@@ -14,6 +18,7 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
+      'http://localhost:3003',
     ],
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
@@ -45,6 +50,7 @@ async function bootstrap() {
   const port = process.env.PORT ?? 4000;
   await app.listen(port);
   console.log(`🚀 KWIKSELLER API is running on: http://localhost:${port}`);
+  console.log(`📡 API endpoint: http://localhost:${port}/api/${apiVersion}`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();

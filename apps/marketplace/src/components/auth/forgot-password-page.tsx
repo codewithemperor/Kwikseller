@@ -14,9 +14,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Input,
+  Label,
 } from "@kwikseller/ui";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { authApi } from "@kwikseller/api-client";
 import { toast } from "sonner";
 
 const forgotPasswordSchema = z.object({
@@ -49,19 +50,7 @@ export function ForgotPasswordPage({
     setIsLoading(true);
 
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-      const response = await fetch(`${apiUrl}/auth/forgot-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send reset email");
-      }
+      await authApi.forgotPassword(data.email);
 
       setIsSuccess(true);
       toast.success("Reset link sent! Check your email.");

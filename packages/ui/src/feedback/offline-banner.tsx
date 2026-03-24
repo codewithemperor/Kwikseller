@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Wifi, WifiOff, RefreshCw, X } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * OfflineBanner - Auto-shows when offline, auto-hides on reconnect

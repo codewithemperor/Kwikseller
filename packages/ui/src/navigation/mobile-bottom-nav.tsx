@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * MobileBottomNav - 5-tab bottom navigation for Marketplace mobile + Rider app

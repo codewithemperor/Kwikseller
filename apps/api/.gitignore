@@ -1,2 +1,38 @@
+# Build
 dist
+build
 .turbo
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+!prisma/migrations
+*.db
+*.db-journal
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Node
+node_modules/

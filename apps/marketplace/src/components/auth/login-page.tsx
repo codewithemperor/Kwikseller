@@ -7,11 +7,18 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Mail, Lock, Eye, EyeOff, Store } from 'lucide-react';
-import { cn } from '@kwikseller/ui/utils';
-import { Button } from '@kwikseller/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@kwikseller/ui/card';
+import {
+  cn,
+  Button,
+  Input,
+  Label,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@kwikseller/ui';
 import { useAuth } from '@kwikseller/utils';
 import { toast } from 'sonner';
 

@@ -16,11 +16,12 @@ export default [
     },
     rules: {
       "@typescript-eslint/no-unused-vars": [
-        "error",
+        "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
 ];

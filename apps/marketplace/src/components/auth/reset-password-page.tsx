@@ -15,9 +15,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Input,
+  Label,
 } from "@kwikseller/ui";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { authApi } from "@kwikseller/api-client";
 import { toast } from "sonner";
 
 const resetPasswordSchema = z
@@ -76,23 +77,7 @@ export function ResetPasswordPage({ loginPath }: ResetPasswordPageProps) {
     setIsLoading(true);
 
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-      const response = await fetch(`${apiUrl}/auth/reset-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token,
-          newPassword: data.password,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to reset password");
-      }
+      await authApi.resetPassword(token, data.password);
 
       setIsSuccess(true);
       toast.success("Password reset successful!");

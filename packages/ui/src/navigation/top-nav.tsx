@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Menu, Search, Bell, X } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 // import { Avatar, AvatarFallback, AvatarImage } from './avatar';
 
 /**

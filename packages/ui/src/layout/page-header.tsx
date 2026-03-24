@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * PageHeader - Page title and action header component

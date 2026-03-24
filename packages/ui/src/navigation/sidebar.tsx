@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../components/utils';
 
 /**
  * Sidebar - Collapsible navigation sidebar with nested menu support

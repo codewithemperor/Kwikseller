@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { Download, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Button, Card } from '@kwikseller/ui'
 
 interface InstallBannerProps {
   variant?: 'banner' | 'card'

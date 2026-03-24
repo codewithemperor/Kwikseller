@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
     "@kwikseller/api-client": "workspace:*",
+    "@kwikseller/fonts": "workspace:*",
     "@kwikseller/types": "workspace:*",
     "@kwikseller/ui": "workspace:*",
     "@kwikseller/utils": "workspace:*",

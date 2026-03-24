@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import webpush, { PushSubscription, WebPushError } from 'web-push';
 
@@ -29,10 +29,11 @@ export interface PushSubscriptionData {
 }
 
 @Injectable()
-export class PushService {
+export class PushService implements OnModuleInit {
   private readonly logger = new Logger(PushService.name);
   private readonly vapidPublicKey: string;
   private readonly vapidPrivateKey: string;
+  private isConfigured = false;
 
   // Push notification event types
   static readonly EVENTS = {
@@ -55,15 +56,45 @@ export class PushService {
       'VAPID_PRIVATE_KEY',
       '',
     );
+  }
 
-    // Configure web-push with VAPID keys
-    webpush.setVapidDetails(
-      this.configService.get<string>('VAPID_EMAIL', 'support@kwikseller.com'),
-      this.vapidPublicKey,
-      this.vapidPrivateKey,
-    );
+  onModuleInit() {
+    // Only configure web-push if VAPID keys are provided
+    if (this.vapidPublicKey && this.vapidPrivateKey) {
+      try {
+        // Ensure subject is a valid URL (mailto: or https://)
+        let subject = this.configService.get<string>(
+          'VAPID_SUBJECT',
+          'mailto:support@kwikseller.com',
+        );
 
-    this.logger.log('PushService initialized with VAPID keys');
+        // Add mailto: prefix if it's just an email
+        if (subject && !subject.startsWith('mailto:') && !subject.startsWith('http')) {
+          subject = `mailto:${subject}`;
+        }
+
+        webpush.setVapidDetails(
+          subject,
+          this.vapidPublicKey,
+          this.vapidPrivateKey,
+        );
+        this.isConfigured = true;
+        this.logger.log('PushService initialized with VAPID keys');
+      } catch (error) {
+        this.logger.warn(
+          'PushService failed to initialize VAPID. Push notifications disabled.',
+          error instanceof Error ? error.message : 'Unknown error',
+        );
+        this.logger.warn(
+          'Run "npx web-push generate-vapid-keys" to generate keys and add them to .env',
+        );
+      }
+    } else {
+      this.logger.warn(
+        'VAPID keys not configured. Push notifications disabled. ' +
+        'Run "npx web-push generate-vapid-keys" to generate keys.',
+      );
+    }
   }
 
   /**
@@ -74,12 +105,23 @@ export class PushService {
   }
 
   /**
+   * Check if push notifications are configured
+   */
+  isEnabled(): boolean {
+    return this.isConfigured;
+  }
+
+  /**
    * Send a push notification to a specific subscription
    */
   async sendPush(
     subscription: PushSubscriptionData,
     payload: PushPayload,
   ): Promise<boolean> {
+    if (!this.isConfigured) {
+      this.logger.debug('Push notifications not configured, skipping notification');
+      return false;
+    }
     try {
       const pushSubscription: PushSubscription = {
         endpoint: subscription.endpoint,
