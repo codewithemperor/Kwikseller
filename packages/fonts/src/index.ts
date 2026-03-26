@@ -3,30 +3,30 @@
 
 /**
  * Font Family Configuration
- * 
+ *
  * These fonts are configured for use with Tailwind CSS.
  * Add them to your tailwind.config.ts like:
- * 
+ *
  * import { fontConfig } from '@kwikseller/fonts'
- * 
+ *
  * // In your tailwind.config.ts theme.extend:
  * fontFamily: fontConfig
  */
 
 // Font family names as CSS variables
 export const FONT_FAMILIES = {
-  heading: 'var(--font-heading)',
-  text: 'var(--font-text)',
-  mono: 'var(--font-mono)',
-} as const
+  heading: "var(--font-heading)",
+  text: "var(--font-text)",
+  mono: "var(--font-mono)",
+} as const;
 
 // Tailwind font configuration
 export const fontConfig = {
-  heading: [FONT_FAMILIES.heading, 'system-ui', 'sans-serif'],
-  text: [FONT_FAMILIES.text, 'system-ui', 'sans-serif'],
-  mono: [FONT_FAMILIES.mono, 'Consolas', 'monospace'],
-  sans: [FONT_FAMILIES.text, 'system-ui', 'sans-serif'],
-}
+  heading: [FONT_FAMILIES.heading, "system-ui", "sans-serif"],
+  text: [FONT_FAMILIES.text, "system-ui", "sans-serif"],
+  mono: [FONT_FAMILIES.mono, "Consolas", "monospace"],
+  sans: [FONT_FAMILIES.text, "system-ui", "sans-serif"],
+};
 
 // Font imports for Next.js apps
 // Use these in your root layout.tsx
@@ -37,7 +37,7 @@ export const fontImports = {
    * Great for headings, titles, and display text
    */
   heading: {
-    name: 'fontHeading',
+    name: "fontHeading",
     import: "import { Poppins } from 'next/font/google'",
     config: `const fontHeading = Poppins({
   subsets: ['latin'],
@@ -45,7 +45,7 @@ export const fontImports = {
   variable: '--font-heading',
   display: 'swap',
 })`,
-    variable: '--font-heading',
+    variable: "--font-heading",
   },
 
   /**
@@ -54,14 +54,14 @@ export const fontImports = {
    * Excellent readability for body text
    */
   text: {
-    name: 'fontText',
-    import: "import { Inter } from 'next/font/google'",
+    name: "fontText",
+    import: "import { Montserrat  } from 'next/font/google'",
     config: `const fontText = Inter({
   subsets: ['latin'],
   variable: '--font-text',
   display: 'swap',
 })`,
-    variable: '--font-text',
+    variable: "--font-text",
   },
 
   /**
@@ -70,24 +70,24 @@ export const fontImports = {
    * Perfect for code snippets, numbers, and technical content
    */
   mono: {
-    name: 'fontMono',
+    name: "fontMono",
     import: "import { JetBrains_Mono } from 'next/font/google'",
     config: `const fontMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
 })`,
-    variable: '--font-mono',
+    variable: "--font-mono",
   },
-}
+};
 
 // CSS classes for font families
 export const fontClasses = {
-  heading: 'font-heading',
-  text: 'font-text',
-  mono: 'font-mono',
-  sans: 'font-sans',
-}
+  heading: "font-heading",
+  text: "font-text",
+  mono: "font-mono",
+  sans: "font-sans",
+};
 
 // Example usage documentation
 export const fontUsageExamples = `
@@ -136,7 +136,7 @@ export default config
 // <h1 className="font-heading text-3xl font-bold">Heading</h1>
 // <p className="font-text text-base">Body text</p>
 // <code className="font-mono text-sm">Code snippet</code>
-`
+`;
 
 // Export types
-export type FontFamily = keyof typeof FONT_FAMILIES
+export type FontFamily = keyof typeof FONT_FAMILIES;
