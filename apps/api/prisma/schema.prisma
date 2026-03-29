@@ -1,0 +1,791 @@
+// KWIKSELLER - Africa's Most Powerful Commerce Operating System
+// Prisma Schema - Complete Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER & AUTH ====================
+
+enum UserRole {
+  BUYER
+  VENDOR
+  ADMIN
+  RIDER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  PENDING
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  phone         String?
+  passwordHash  String
+  role          UserRole      @default(BUYER)
+  status        UserStatus    @default(PENDING)
+  emailVerified Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  profile       UserProfile?
+  addresses     Address[]
+  kycDocuments  KycDocument[]
+  store         Store?
+  subscription  Subscription?
+  kwikCoins     KwikCoins?
+  coinTransactions CoinTransaction[]
+  vendorMilestones VendorMilestone[]
+  referralsAsReferrer Referral[]  @relation("Referrer")
+  referralsAsReferee  Referral[]  @relation("Referee")
+  ordersAsBuyer Order[]           @relation("BuyerOrders")
+  carts         Cart[]
+  notifications Notification[]
+  pushSubscriptions PushSubscription[]
+  rider         Rider?
+  adCampaigns   AdCampaign[]
+  wallet        Wallet?
+  withdrawals   Withdrawal[]
+  adminPermission AdminPermission?
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model UserProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  firstName   String?
+  lastName    String?
+  avatarUrl   String?
+  bio         String?
+  dateOfBirth DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  country     String   @default("Nigeria")
+  postalCode  String?
+  isDefault   Boolean  @default(false)
+  type        String   @default("SHIPPING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+}
+
+model KycDocument {
+  id           String      @id @default(cuid())
+  userId       String
+  type         String
+  documentUrl  String
+  status       KycStatus   @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  rejectionReason String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ==================== ADMIN PERMISSIONS ====================
+
+enum AdminRole {
+  SUPER_ADMIN
+  FINANCE
+  VENDOR_SUPPORT
+  OPERATIONS
+  MARKETING
+  CONTENT
+}
+
+model AdminPermission {
+  id          String     @id @default(cuid())
+  adminUserId String     @unique
+  role        AdminRole  @default(CONTENT)
+  permissions String
+  grantedBy   String
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user User @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+}
+
+// ==================== STORE ====================
+
+model Store {
+  id                  String   @id @default(cuid())
+  vendorId            String   @unique
+  name                String
+  slug                String   @unique
+  description         String?
+  logoUrl             String?
+  bannerUrl           String?
+  category            String?
+  isVerified          Boolean  @default(false)
+  onboardingComplete  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  vendor      User          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  products    Product[]
+  orders      Order[]       @relation("StoreOrders")
+  poolProducts StorePoolProduct[]
+
+  @@index([vendorId])
+  @@index([slug])
+}
+
+// ==================== SUBSCRIPTION ====================
+
+enum SubscriptionPlan {
+  STARTER
+  GROWTH
+  PRO
+  SCALE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+}
+
+model Subscription {
+  id                  String             @id @default(cuid())
+  vendorId            String             @unique
+  plan                SubscriptionPlan   @default(STARTER)
+  status              SubscriptionStatus @default(PENDING)
+  startDate           DateTime?
+  endDate             DateTime?
+  productLimit        Int                @default(10)
+  adCreditsIncluded   Int                @default(0)
+  autoRenew           Boolean            @default(false)
+  paymentToken        String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+// ==================== KWIKCOINS & CREDITS ====================
+
+model KwikCoins {
+  id              String   @id @default(cuid())
+  vendorId        String   @unique
+  balance         Int      @default(0)
+  totalEarned     Int      @default(0)
+  totalSpent      Int      @default(0)
+  totalPurchased  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+enum CoinTransactionType {
+  EARNED
+  SPENT
+  PURCHASED
+  ADJUSTED
+  REFERRAL
+}
+
+model CoinTransaction {
+  id            String              @id @default(cuid())
+  vendorId      String
+  amount        Int
+  type          CoinTransactionType
+  source        String?
+  balanceAfter  Int
+  createdAt     DateTime            @default(now())
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+model Milestone {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String
+  description   String?
+  coinsAwarded  Int
+  isRepeatable  Boolean  @default(false)
+}
+
+model VendorMilestone {
+  id            String   @id @default(cuid())
+  vendorId      String
+  milestoneKey  String
+  claimedAt     DateTime @default(now())
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, milestoneKey])
+}
+
+model Referral {
+  id            String   @id @default(cuid())
+  referrerId    String
+  refereeId     String   @unique
+  status        String   @default("PENDING")
+  coinsAwarded  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+}
+
+// ==================== PRODUCTS ====================
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+  PENDING
+}
+
+model Product {
+  id              String        @id @default(cuid())
+  storeId         String
+  name            String
+  slug            String
+  description     String?
+  price           Float
+  comparePrice    Float?
+  sku             String?
+  stock           Int           @default(0)
+  status          ProductStatus @default(DRAFT)
+  categoryId      String?
+  isPoolProduct   Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variants    ProductVariant[]
+  images      ProductImage[]
+  category    Category?       @relation(fields: [categoryId], references: [id])
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  adCampaigns AdCampaign[]
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model ProductVariant {
+  id          String   @id @default(cuid())
+  productId   String
+  name        String
+  options     String
+  price       Float
+  stock       Int      @default(0)
+  sku         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+model ProductImage {
+  id          String   @id @default(cuid())
+  productId   String
+  url         String
+  alt         String?
+  position    Int      @default(0)
+  isMain      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  parentId    String?
+  imageUrl    String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+}
+
+// ==================== CART ====================
+
+model Cart {
+  id          String     @id @default(cuid())
+  userId      String?
+  sessionId   String?
+  expiresAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  cartId      String
+  productId   String
+  variantId   String?
+  quantity    Int
+  price       Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+}
+
+// ==================== ORDERS ====================
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  buyerId       String
+  storeId       String
+  status        OrderStatus   @default(PENDING)
+  subtotal      Float
+  shippingFee   Float         @default(0)
+  totalAmount   Float
+  paymentStatus PaymentStatus @default(PENDING)
+  addressId     String
+  poolOrderId   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  buyer       User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  store       Store       @relation("StoreOrders", fields: [storeId], references: [id])
+  address     Address     @relation(fields: [addressId], references: [id])
+  items       OrderItem[]
+  payment     Payment?
+  escrow      Escrow?
+  delivery     Delivery?
+  commission  Commission?
+
+  @@index([buyerId])
+  @@index([storeId])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String
+  variantId   String?
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+  isPoolItem  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+}
+
+// ==================== PAYMENTS ====================
+
+enum PaymentGateway {
+  PAYSTACK
+  FLUTTERWAVE
+}
+
+enum PaymentType {
+  ORDER
+  SUBSCRIPTION
+  CREDIT_PURCHASE
+}
+
+model Payment {
+  id            String         @id @default(cuid())
+  orderId       String?        @unique
+  entityType    PaymentType
+  entityId      String
+  amount        Float
+  gateway       PaymentGateway
+  reference     String         @unique
+  status        PaymentStatus  @default(PENDING)
+  metadata      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([reference])
+  @@index([entityType, entityId])
+}
+
+// ==================== ESCROW ====================
+
+enum EscrowStatus {
+  HELD
+  RELEASED
+  DISPUTED
+  PARTIAL
+}
+
+model Escrow {
+  id             String        @id @default(cuid())
+  orderId        String        @unique
+  vendorId       String
+  amount         Float
+  status         EscrowStatus  @default(HELD)
+  releaseAt      DateTime?
+  releasedAt     DateTime?
+  disputeReason  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+// ==================== WALLET ====================
+
+model Wallet {
+  id                String   @id @default(cuid())
+  vendorId          String   @unique
+  availableBalance  Float    @default(0)
+  pendingBalance    Float    @default(0)
+  totalEarned       Float    @default(0)
+  totalWithdrawn    Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model Withdrawal {
+  id            String          @id @default(cuid())
+  vendorId      String
+  amount        Float
+  bankCode      String
+  accountNumber String
+  accountName   String
+  status        WithdrawalStatus @default(PENDING)
+  reference     String?
+  processedAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+// ==================== COMMISSION ====================
+
+model Commission {
+  id                  String   @id @default(cuid())
+  orderId             String   @unique
+  vendorId            String
+  saleAmount          Float
+  platformFeePercent  Float
+  platformFeeAmount   Float
+  vendorEarnings      Float
+  plan                String
+  settledAt           DateTime?
+  createdAt           DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+// ==================== POOL ====================
+
+model PoolProduct {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  wholesalePrice  Float
+  category        String?
+  stock           Int      @default(0)
+  supplierId      String?
+  images          String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  storeProducts StorePoolProduct[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model StorePoolProduct {
+  id              String   @id @default(cuid())
+  storeId         String
+  poolProductId   String
+  retailPrice     Float
+  markup          Float    @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  poolProduct PoolProduct @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, poolProductId])
+  @@index([storeId])
+}
+
+// ==================== ADS ====================
+
+enum AdType {
+  FEATURED
+  BANNER
+  SEARCH_BOOST
+  FLASH_DEAL
+}
+
+enum AdStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  PENDING
+}
+
+model AdCampaign {
+  id            String    @id @default(cuid())
+  vendorId      String
+  productId     String?
+  name          String
+  type          AdType
+  budget        Int
+  spent         Int       @default(0)
+  startDate     DateTime
+  endDate       DateTime?
+  status        AdStatus  @default(PENDING)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vendor      User            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  impressions AdImpression[]
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+model AdImpression {
+  id           String   @id @default(cuid())
+  campaignId   String
+  date         DateTime @default(now())
+  impressions  Int      @default(0)
+  clicks       Int      @default(0)
+  conversions  Int      @default(0)
+
+  campaign AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+}
+
+// ==================== RIDERS ====================
+
+model Rider {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  vehicleType      String
+  plateNumber      String?
+  isAvailable      Boolean  @default(false)
+  rating           Float    @default(0)
+  totalDeliveries  Int      @default(0)
+  totalEarnings    Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@index([isAvailable])
+}
+
+enum DeliveryStatus {
+  ASSIGNED
+  ACCEPTED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model Delivery {
+  id               String         @id @default(cuid())
+  orderId          String         @unique
+  riderId          String
+  status           DeliveryStatus @default(ASSIGNED)
+  pickupPhotoUrl   String?
+  deliveryPhotoUrl String?
+  otp              String?
+  assignedAt       DateTime       @default(now())
+  pickedUpAt       DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+  rider Rider @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  @@index([riderId])
+  @@index([status])
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  data      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  deviceName String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ==================== LOGS ====================
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  recipient String
+  template  String
+  status    String
+  error     String?
+  sentAt    DateTime @default(now())
+
+  @@index([recipient])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  changes   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([action])
+}
+
+// ==================== SYSTEM CONFIG ====================
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

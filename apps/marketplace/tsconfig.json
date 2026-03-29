@@ -1,0 +1,24 @@
+{
+  "extends": "@kwikseller/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@kwikseller/ui": ["../../packages/ui/src"],
+      "@kwikseller/types": ["../../packages/types/src"],
+      "@kwikseller/utils": ["../../packages/utils/src"],
+      "@kwikseller/api-client": ["../../packages/api-client/src"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
