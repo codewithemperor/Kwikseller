@@ -5,50 +5,19 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Loader2, Mail, Lock, Eye, EyeOff, Store, User, Phone, Building2, ChevronRight } from 'lucide-react';
+import { Mail, Lock, Store, User, Phone, Building2, ChevronRight } from 'lucide-react';
 import {
-  cn,
   Button,
-  Input,
-  Label,
   Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
-  CardTitle,
-  Badge,
-} from '@kwikseller/ui';
+  CardFooter,
+  Chip,
+  Spinner,
+} from '@heroui/react';
+import { cn, TextInput, PasswordInput } from '@kwikseller/ui';
 import { useAuth } from '@kwikseller/utils';
 import { toast } from 'sonner';
-
-// Register schema
-const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  confirmPassword: z.string(),
-  firstName: z.string().min(2, 'First name is required'),
-  lastName: z.string().min(2, 'Last name is required'),
-  phone: z.string().optional(),
-  role: z.enum(['BUYER', 'VENDOR']),
-  // Vendor-specific fields
-  storeName: z.string().optional(),
-  storeCategory: z.string().optional(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-}).refine((data) => {
-  if (data.role === 'VENDOR') {
-    return !!data.storeName && data.storeName.length >= 3;
-  }
-  return true;
-}, {
-  message: 'Store name is required for vendors',
-  path: ['storeName'],
-});
-
-type RegisterFormData = z.infer<typeof registerSchema>;
+import { registerSchema, type RegisterFormData } from '@kwikseller/types';
 
 // Portal config
 export interface RegisterPortalConfig {
@@ -71,7 +40,6 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register: registerUser, isLoading } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(1);
   const [selectedRole, setSelectedRole] = useState<'BUYER' | 'VENDOR'>(
@@ -79,11 +47,10 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   );
 
   const {
-    register,
+    control,
     handleSubmit,
-    watch,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -91,7 +58,11 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
     },
   });
 
-  const role = watch('role');
+  const handleRoleSelect = (role: 'BUYER' | 'VENDOR') => {
+    setSelectedRole(role);
+    setValue('role', role);
+    setStep(2);
+  };
 
   const onSubmit = async (data: RegisterFormData) => {
     setError(null);
@@ -115,19 +86,13 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
     }
   };
 
-  const handleRoleSelect = (role: 'BUYER' | 'VENDOR') => {
-    setSelectedRole(role);
-    setValue('role', role);
-    setStep(2);
-  };
-
   // Step 1: Role selection
   if (step === 1 && portal.showRoleSelector) {
     return (
-      <div className={cn('min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4', className)}>
-        <Card className="w-full max-w-lg">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
+      <div className={cn('min-h-screen flex items-center justify-center p-4', className)}>
+        <Card className="w-full max-w-lg p-6">
+          <CardHeader className="flex-col items-center gap-2 pb-4">
+            <div className="flex justify-center mb-2">
               <div className={cn(
                 'w-12 h-12 rounded-xl flex items-center justify-center text-white',
                 portal.themeColor === 'blue' && 'bg-blue-600',
@@ -139,25 +104,25 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
                 <Store className="w-6 h-6" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold">Join {portal.name}</CardTitle>
-            <CardDescription>Choose how you want to use the platform</CardDescription>
+            <h1 className="text-2xl font-bold">Join {portal.name}</h1>
+            <p className="text-sm text-default-500">Choose how you want to use the platform</p>
           </CardHeader>
           
-          <CardContent className="space-y-4">
+          <div className="flex flex-col gap-4 py-4">
             <button
               onClick={() => handleRoleSelect('BUYER')}
               className="w-full p-6 text-left border rounded-xl hover:border-primary hover:bg-primary/5 transition-colors"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <User className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-lg">I want to shop</h3>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    <ChevronRight className="w-5 h-5 text-default-400" />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-default-500 mt-1">
                     Browse products, track orders, and earn KwikCoins rewards
                   </p>
                 </div>
@@ -169,24 +134,24 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
               className="w-full p-6 text-left border rounded-xl hover:border-primary hover:bg-primary/5 transition-colors"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-green-600" />
+                <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-lg">I want to sell</h3>
-                    <Badge variant="secondary" className="text-xs">Popular</Badge>
+                    <Chip size="sm" variant="soft" color="success">Popular</Chip>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-default-500 mt-1">
                     Create your store, list products, and grow your business
                   </p>
                 </div>
               </div>
             </button>
-          </CardContent>
+          </div>
           
-          <CardFooter className="justify-center">
-            <p className="text-sm text-muted-foreground">
+          <CardFooter className="justify-center px-0">
+            <p className="text-sm text-default-500">
               Already have an account?{' '}
               <Link href={portal.loginPath} className="text-primary hover:underline font-medium">
                 Sign in
@@ -200,10 +165,10 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
   // Step 2: Registration form
   return (
-    <div className={cn('min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4', className)}>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
+    <div className={cn('min-h-screen flex items-center justify-center p-4', className)}>
+      <Card className="w-full max-w-md p-6">
+        <CardHeader className="flex-col items-center gap-2 pb-4">
+          <div className="flex justify-center mb-2">
             {portal.logo || (
               <div className={cn(
                 'w-12 h-12 rounded-xl flex items-center justify-center text-white',
@@ -217,168 +182,116 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
               </div>
             )}
           </div>
-          <CardTitle className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold">
             Create your {selectedRole === 'VENDOR' ? 'vendor' : 'buyer'} account
-          </CardTitle>
-          <CardDescription>
+          </h1>
+          <p className="text-sm text-default-500">
             {selectedRole === 'VENDOR' 
               ? 'Start selling on Africa\'s largest marketplace'
               : 'Join millions of shoppers across Africa'}
-          </CardDescription>
+          </p>
         </CardHeader>
         
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg">
-                {error}
-              </div>
-            )}
-            
-            {/* Name fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  {...register('firstName')}
-                  disabled={isSubmitting || isLoading}
-                />
-                {errors.firstName && (
-                  <p className="text-sm text-red-500">{errors.firstName.message}</p>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  {...register('lastName')}
-                  disabled={isSubmitting || isLoading}
-                />
-                {errors.lastName && (
-                  <p className="text-sm text-red-500">{errors.lastName.message}</p>
-                )}
-              </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {error && (
+            <div className="p-3 text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg">
+              {error}
             </div>
-            
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="pl-10"
-                  {...register('email')}
-                  disabled={isSubmitting || isLoading}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
-            </div>
-            
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone (optional)</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+234 801 234 5678"
-                  className="pl-10"
-                  {...register('phone')}
-                  disabled={isSubmitting || isLoading}
-                />
-              </div>
-            </div>
-            
-            {/* Vendor-specific: Store name */}
-            {role === 'VENDOR' && (
-              <div className="space-y-2">
-                <Label htmlFor="storeName">Store name</Label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="storeName"
-                    placeholder="My Awesome Store"
-                    className="pl-10"
-                    {...register('storeName')}
-                    disabled={isSubmitting || isLoading}
-                  />
-                </div>
-                {errors.storeName && (
-                  <p className="text-sm text-red-500">{errors.storeName.message}</p>
-                )}
-              </div>
-            )}
-            
-            {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Create a password"
-                  className="pl-10 pr-10"
-                  {...register('password')}
-                  disabled={isSubmitting || isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-red-500">{errors.password.message}</p>
-              )}
-            </div>
-            
-            {/* Confirm Password */}
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  className="pl-10"
-                  {...register('confirmPassword')}
-                  disabled={isSubmitting || isLoading}
-                />
-              </div>
-              {errors.confirmPassword && (
-                <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
-              )}
-            </div>
-            
-            {/* Hidden role field */}
-            <input type="hidden" {...register('role')} />
-          </CardContent>
+          )}
           
-          <CardFooter className="flex flex-col gap-4">
+          {/* Name fields */}
+          <div className="grid grid-cols-2 gap-4">
+            <TextInput
+              name="firstName"
+              control={control}
+              label="First name"
+              placeholder="John"
+              isRequired
+              isDisabled={isSubmitting || isLoading}
+            />
+            
+            <TextInput
+              name="lastName"
+              control={control}
+              label="Last name"
+              placeholder="Doe"
+              isRequired
+              isDisabled={isSubmitting || isLoading}
+            />
+          </div>
+          
+          {/* Email */}
+          <TextInput
+            name="email"
+            control={control}
+            type="email"
+            label="Email"
+            placeholder="you@example.com"
+            startContent={<Mail className="w-4 h-4 text-default-400" />}
+            isRequired
+            isDisabled={isSubmitting || isLoading}
+          />
+          
+          {/* Phone */}
+          <TextInput
+            name="phone"
+            control={control}
+            type="tel"
+            label="Phone (optional)"
+            placeholder="+234 801 234 5678"
+            startContent={<Phone className="w-4 h-4 text-default-400" />}
+            isDisabled={isSubmitting || isLoading}
+          />
+          
+          {/* Vendor-specific: Store name */}
+          {selectedRole === 'VENDOR' && (
+            <TextInput
+              name="storeName"
+              control={control}
+              label="Store name"
+              placeholder="My Awesome Store"
+              startContent={<Building2 className="w-4 h-4 text-default-400" />}
+              isRequired
+              isDisabled={isSubmitting || isLoading}
+            />
+          )}
+          
+          {/* Password */}
+          <PasswordInput
+            name="password"
+            control={control}
+            label="Password"
+            placeholder="Create a password"
+            startContent={<Lock className="w-4 h-4 text-default-400" />}
+            isRequired
+            isDisabled={isSubmitting || isLoading}
+          />
+          
+          {/* Confirm Password */}
+          <PasswordInput
+            name="confirmPassword"
+            control={control}
+            label="Confirm password"
+            placeholder="Confirm your password"
+            startContent={<Lock className="w-4 h-4 text-default-400" />}
+            isRequired
+            isDisabled={isSubmitting || isLoading}
+          />
+          
+          {/* Hidden role field - controlled via setValue */}
+          <input type="hidden" value={selectedRole} />
+          
+          <CardFooter className="flex flex-col gap-4 px-0 pt-4">
             <Button
               type="submit"
-              className="w-full"
-              disabled={isSubmitting || isLoading}
+              className="w-full h-12 font-medium"
+              isDisabled={isSubmitting || isLoading}
             >
-              {(isSubmitting || isLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {(isSubmitting || isLoading) && <Spinner size="sm" className="mr-2" />}
               Create Account
             </Button>
             
-            <p className="text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center text-default-500">
               Already have an account?{' '}
               <Link href={portal.loginPath} className="text-primary hover:underline font-medium">
                 Sign in

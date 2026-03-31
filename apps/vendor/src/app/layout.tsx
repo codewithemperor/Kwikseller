@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@kwikseller/ui/sonner";
+import { Toaster } from "sonner";
+import { ThemeProvider } from "next-themes";
+import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
 
 // Heading font - Poppins
 const fontHeading = Poppins({
@@ -52,8 +54,19 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="font-text antialiased bg-background text-foreground">
-        {children}
-        <Toaster position="top-right" richColors closeButton />
+        <HeroUIProviderWrapper>
+          <AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster position="top-right" richColors closeButton />
+            </ThemeProvider>
+          </AuthProvider>
+        </HeroUIProviderWrapper>
       </body>
     </html>
   );

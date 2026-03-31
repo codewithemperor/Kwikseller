@@ -15,5 +15,8 @@
     "@kwikseller/eslint-config": "workspace:*",
     "@kwikseller/typescript-config": "workspace:*",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
   }
 }

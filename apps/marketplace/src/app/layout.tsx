@@ -1,21 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, Figtree, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@kwikseller/ui/sonner";
+import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "next-themes";
-import { AuthProvider } from "@kwikseller/utils";
+import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
+import { Toast } from "@heroui/react";
 
 // Heading font - Poppins (modern, geometric sans-serif)
-const fontHeading = Poppins({
+const fontHeading = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
   display: "swap",
 });
 
 // Text/Body font - Inter (excellent readability)
-const fontText = Inter({
+const fontText = Figtree({
   subsets: ["latin"],
   variable: "--font-text",
   display: "swap",
@@ -33,7 +34,8 @@ export const metadata: Metadata = {
     default: "KWIKSELLER - Africa's Most Powerful Commerce Operating System",
     template: "%s | KWIKSELLER",
   },
-  description: "KWIKSELLER is Africa's most powerful commerce operating system. Create your online store, sell products, manage orders, and grow your business with our comprehensive platform.",
+  description:
+    "KWIKSELLER is Africa's most powerful commerce operating system. Create your online store, sell products, manage orders, and grow your business with our comprehensive platform.",
   keywords: [
     "KWIKSELLER",
     "Africa",
@@ -56,7 +58,8 @@ export const metadata: Metadata = {
     url: "https://app.kwikseller.com",
     siteName: "KWIKSELLER",
     title: "KWIKSELLER - Africa's Most Powerful Commerce Operating System",
-    description: "Create your online store, sell products, manage orders, and grow your business with Africa's most comprehensive commerce platform.",
+    description:
+      "Create your online store, sell products, manage orders, and grow your business with Africa's most comprehensive commerce platform.",
     images: [
       {
         url: "/og-image.png",
@@ -69,7 +72,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "KWIKSELLER - Africa's Most Powerful Commerce Operating System",
-    description: "Create your online store, sell products, and grow your business with Africa's most comprehensive commerce platform.",
+    description:
+      "Create your online store, sell products, and grow your business with Africa's most comprehensive commerce platform.",
     images: ["/og-image.png"],
     creator: "@kwikseller",
   },
@@ -111,25 +115,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html 
-      lang="en" 
+    <html
+      lang="en"
       className={`${fontHeading.variable} ${fontText.variable} ${fontMono.variable}`}
       suppressHydrationWarning
     >
-      <body className="font-text antialiased bg-background text-foreground">
-        <QueryProvider>
-          <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toaster position="top-right" richColors closeButton />
-            </ThemeProvider>
-          </AuthProvider>
-        </QueryProvider>
+      <body className="font-sans antialiased bg-background text-foreground">
+        <HeroUIProviderWrapper>
+          <QueryProvider>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+                <Toast.Provider placement="top end" maxVisibleToasts={3} />
+                <Toaster position="top-right" richColors closeButton />
+              </ThemeProvider>
+            </AuthProvider>
+          </QueryProvider>
+        </HeroUIProviderWrapper>
       </body>
     </html>
   );

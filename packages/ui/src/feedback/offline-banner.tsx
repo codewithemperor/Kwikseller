@@ -1,150 +1,102 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { Wifi, WifiOff, RefreshCw, X } from 'lucide-react';
-import { cn } from '../components/utils';
-
-/**
- * OfflineBanner - Auto-shows when offline, auto-hides on reconnect
- */
+import React, { useState, useEffect } from 'react'
+import { Card, Chip } from '@heroui/react'
+import { cn } from '../lib/utils'
+import { Wifi, WifiOff } from 'lucide-react'
 
 export interface OfflineBannerProps {
-  /** Additional class names */
-  className?: string;
-  /** Custom message */
-  message?: string;
-  /** Show reconnect button */
-  showReconnect?: boolean;
-  /** Reconnect callback */
-  onReconnect?: () => void;
-  /** Dismissible */
-  dismissible?: boolean;
-  /** Position */
-  position?: 'top' | 'bottom';
+  className?: string
 }
 
-export function OfflineBanner({
-  className,
-  message = 'You are offline. Some features may be unavailable.',
-  showReconnect = true,
-  onReconnect,
-  dismissible = false,
-  position = 'top',
-}: OfflineBannerProps) {
-  const [isOnline, setIsOnline] = React.useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
-  const [dismissed, setDismissed] = React.useState(false);
-  const [isRetrying, setIsRetrying] = React.useState(false);
+/**
+ * OfflineBanner - A shared offline detection banner
+ * Uses HeroUI Card component
+ */
+export function OfflineBanner({ className }: OfflineBannerProps) {
+  const [isOnline, setIsOnline] = useState(true)
 
-  React.useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => {
-      setIsOnline(false);
-      setDismissed(false);
-    };
+  useEffect(() => {
+    // Check initial online status
+    setIsOnline(navigator.onLine)
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  const handleReconnect = async () => {
-    setIsRetrying(true);
-    try {
-      // Try to fetch a small resource to check connectivity
-      await fetch('/favicon.ico', { method: 'HEAD', cache: 'no-store' });
-      onReconnect?.();
-    } catch {
-      // Still offline
-    } finally {
-      setIsRetrying(false);
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
     }
-  };
+  }, [])
 
-  // Don't render if online or dismissed
-  if (isOnline || dismissed) {
-    return null;
-  }
+  if (isOnline) return null
 
   return (
-    <div
-      className={cn(
-        'fixed left-0 right-0 z-[60] flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 text-amber-950 text-sm font-medium',
-        position === 'top' ? 'top-0' : 'bottom-0',
-        className
-      )}
-      role="alert"
+    <Card
+      className={cn('sticky top-0 z-50 rounded-none bg-warning px-4 py-3', className)}
     >
-      <WifiOff className="h-4 w-4 shrink-0" />
-      <span className="flex-1 text-center">{message}</span>
-      {showReconnect && (
-        <button
-          onClick={handleReconnect}
-          disabled={isRetrying}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-        >
-          <RefreshCw className={cn('h-3 w-3', isRetrying && 'animate-spin')} />
-          <span className="hidden sm:inline">Retry</span>
-        </button>
-      )}
-      {dismissible && (
-        <button
-          onClick={() => setDismissed(true)}
-          className="p-1 rounded hover:bg-amber-600"
-          aria-label="Dismiss"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  );
+      <div className="flex items-center justify-center gap-2 text-warning-foreground">
+        <WifiOff className="w-4 h-4" />
+        <span className="text-sm font-medium">
+          You&apos;re offline - Some features may not be available
+        </span>
+      </div>
+    </Card>
+  )
 }
 
-OfflineBanner.displayName = 'OfflineBanner';
+/**
+ * ConnectionStatus - A connection status indicator
+ * Uses HeroUI Chip component
+ */
+export function ConnectionStatus({ className }: OfflineBannerProps) {
+  const [isOnline, setIsOnline] = useState(true)
 
-// Connection status indicator
-export function ConnectionStatus({ className }: { className?: string }) {
-  const [isOnline, setIsOnline] = React.useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
 
-  React.useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   return (
-    <div
-      className={cn(
-        'inline-flex items-center gap-1.5 text-xs',
-        isOnline ? 'text-green-600' : 'text-amber-500',
-        className
-      )}
-    >
+    <div className={cn('flex items-center gap-2', className)}>
       {isOnline ? (
-        <>
-          <Wifi className="h-3 w-3" />
-          <span>Online</span>
-        </>
+        <Chip
+          size="sm"
+          variant="soft"
+          color="success"
+        >
+          <div className="flex items-center gap-1">
+            <Wifi className="w-3 h-3" />
+            <span>Online</span>
+          </div>
+        </Chip>
       ) : (
-        <>
-          <WifiOff className="h-3 w-3" />
-          <span>Offline</span>
-        </>
+        <Chip
+          size="sm"
+          variant="soft"
+          color="danger"
+        >
+          <div className="flex items-center gap-1">
+            <WifiOff className="w-3 h-3" />
+            <span>Offline</span>
+          </div>
+        </Chip>
       )}
     </div>
-  );
+  )
 }
+
+export default OfflineBanner

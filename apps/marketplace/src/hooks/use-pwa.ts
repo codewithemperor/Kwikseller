@@ -124,15 +124,16 @@ export function useNotificationPermission() {
     try {
       const registration = await navigator.serviceWorker.ready
       
-      // Get VAPID public key from server using axios
-      const { data: vapidKey } = await notificationsApi.getVapidKey()
+      // Get VAPID public key from server
+      const response = await notificationsApi.getVapidKey()
+      const vapidKey = response.data as string
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: vapidKey,
       })
 
-      // Send subscription to server using axios
+      // Send subscription to server
       await notificationsApi.subscribePush(subscription.toJSON())
 
       return subscription

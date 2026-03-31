@@ -44,14 +44,14 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     screenshots: [
       {
-        url: "/screenshots/home.png",
+        src: "/screenshots/home.png",
         sizes: "1280x720",
         type: "image/png",
         form_factor: "wide",
         label: "KWIKSELLER Marketplace",
       },
       {
-        url: "/screenshots/mobile.png",
+        src: "/screenshots/mobile.png",
         sizes: "750x1334",
         type: "image/png",
         form_factor: "narrow",

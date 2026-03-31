@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@kwikseller/utils';
-import { Spinner } from '@kwikseller/ui';
+import { useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@kwikseller/utils";
+import { Spinner } from "@heroui/react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -42,19 +42,26 @@ export function ProtectedRoute({
   children,
   requiredRole,
   requiredPermission,
-  loginPath = '/login',
+  loginPath = "/login",
   roleRedirects = {
-    BUYER: '/',
-    VENDOR: '/dashboard',
-    ADMIN: '/admin',
-    RIDER: '/deliveries',
+    BUYER: "/",
+    VENDOR: "/dashboard",
+    ADMIN: "/admin",
+    RIDER: "/deliveries",
   },
   loadingComponent,
   unauthorizedComponent,
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isInitialized, isLoading, user, hasRole, hasPermission } = useAuth();
+  const {
+    isAuthenticated,
+    isInitialized,
+    isLoading,
+    user,
+    hasRole,
+    hasPermission,
+  } = useAuth();
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -69,14 +76,14 @@ export function ProtectedRoute({
     // Check role requirement
     if (requiredRole && !hasRole(requiredRole)) {
       // Redirect to their appropriate dashboard
-      const redirectPath = user ? roleRedirects[user.role] : '/';
-      router.push(redirectPath || '/');
+      const redirectPath = user ? roleRedirects[user.role] : "/";
+      router.push(redirectPath || "/");
       return;
     }
 
     // Check permission requirement (for admin routes)
     if (requiredPermission && !hasPermission(requiredPermission)) {
-      router.push('/admin/unauthorized');
+      router.push("/admin/unauthorized");
       return;
     }
   }, [

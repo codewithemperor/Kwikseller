@@ -7,7 +7,15 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "peerDependencies": {
+    "@heroui/react": "^3.0.0",
+    "@heroui/styles": "^3.0.0",
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
   "dependencies": {
+    "@heroui/react": "^3.0.1",
+    "@heroui/styles": "^3.0.1",
     "axios": "^1.7.7",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.3.1",
@@ -17,6 +25,8 @@
   "devDependencies": {
     "@kwikseller/eslint-config": "workspace:*",
     "@kwikseller/typescript-config": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "typescript": "^5"
   }
 }

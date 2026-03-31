@@ -1,66 +1,69 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { cn } from '../components/utils';
-
-/**
- * PageHeader - Page title and action header component
- */
+import React from 'react'
+import { Button } from '@heroui/react'
+import { cn } from '../lib/utils'
+import { ArrowLeft } from 'lucide-react'
 
 export interface PageHeaderProps {
-  /** Page title */
-  title: string;
-  /** Page description */
-  description?: string;
-  /** Breadcrumb slot */
-  breadcrumb?: React.ReactNode;
-  /** Action buttons slot */
-  actions?: React.ReactNode;
-  /** Back button slot */
-  backButton?: React.ReactNode;
-  /** Additional class names */
-  className?: string;
-  /** Center aligned */
-  centered?: boolean;
+  title: string
+  description?: string
+  backButton?: boolean
+  onBack?: () => void
+  actions?: React.ReactNode
+  breadcrumbs?: React.ReactNode
+  className?: string
 }
 
+/**
+ * PageHeader - A shared page header component
+ */
 export function PageHeader({
   title,
   description,
-  breadcrumb,
+  backButton = false,
+  onBack,
   actions,
-  backButton,
+  breadcrumbs,
   className,
-  centered = false,
 }: PageHeaderProps) {
   return (
-    <div className={cn('space-y-4', className)}>
-      {breadcrumb && (
-        <div className="mb-2">
-          {breadcrumb}
+    <div className={cn('border-b border-divider bg-background', className)}>
+      {breadcrumbs && (
+        <div className="px-6 pt-4">
+          {breadcrumbs}
         </div>
       )}
-      <div className={cn(
-        'flex items-center gap-4',
-        centered ? 'justify-center text-center flex-col' : 'justify-between'
-      )}>
-        <div className={cn('flex items-center gap-4', centered && 'flex-col')}>
-          {backButton}
+      
+      <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-4">
+          {backButton && (
+            <Button
+              isIconOnly
+              variant="ghost"
+              onPress={onBack}
+              className="mr-2"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
+            <h1 className="text-2xl font-bold">{title}</h1>
             {description && (
-              <p className="text-muted-foreground mt-1">{description}</p>
+              <p className="text-default-500 mt-1">{description}</p>
             )}
           </div>
         </div>
-        {actions && !centered && (
-          <div className="flex items-center gap-2 shrink-0">
+        
+        {actions && (
+          <div className="flex items-center gap-2">
             {actions}
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }
 
-PageHeader.displayName = 'PageHeader';
+export default PageHeader

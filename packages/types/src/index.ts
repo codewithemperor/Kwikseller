@@ -1,6 +1,9 @@
 // KWIKSELLER - Shared TypeScript Types
 // All domain types for the application
 
+// Export auth validation schemas
+export * from './auth'
+
 // ==================== USER & AUTH ====================
 
 export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER'

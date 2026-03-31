@@ -15,9 +15,7 @@ import {
   LogOut,
   Activity
 } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, Button, Chip } from '@heroui/react'
 
 export default function AdminPanel() {
   const platformStats = [
@@ -91,10 +89,10 @@ export default function AdminPanel() {
             <div className="flex h-16 items-center justify-between px-6">
               <h1 className="text-xl font-semibold">Super Admin Dashboard</h1>
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon">
+                <Button isIconOnly variant="ghost">
                   <Bell className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="icon">
+                <Button isIconOnly variant="ghost">
                   <LogOut className="w-5 h-5" />
                 </Button>
               </div>
@@ -106,63 +104,58 @@ export default function AdminPanel() {
             {/* Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
               {platformStats.map((stat, index) => (
-                <Card key={index}>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                <Card key={index} className="p-4">
+                  <div className="flex flex-row items-center justify-between pb-2">
+                    <span className="text-sm font-medium text-default-500">
                       {stat.title}
-                    </CardTitle>
-                    <stat.icon className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stat.value}</div>
-                    <p className="text-xs text-green-600">{stat.change} from last month</p>
-                  </CardContent>
+                    </span>
+                    <stat.icon className="h-4 w-4 text-default-500" />
+                  </div>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-success">{stat.change} from last month</p>
                 </Card>
               ))}
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               {/* Pending Tasks */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pending Tasks</CardTitle>
-                  <CardDescription>Items requiring your attention</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {pendingTasks.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant={item.priority === 'high' ? 'destructive' : item.priority === 'medium' ? 'default' : 'secondary'}
-                          >
-                            {item.count}
-                          </Badge>
-                          <span className="text-sm">{item.task}</span>
-                        </div>
-                        <Button variant="ghost" size="sm">View</Button>
+              <Card className="p-4">
+                <div className="mb-4">
+                  <h3 className="font-semibold">Pending Tasks</h3>
+                  <p className="text-sm text-default-500">Items requiring your attention</p>
+                </div>
+                <div className="space-y-4">
+                  {pendingTasks.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Chip 
+                          size="sm"
+                          color={item.priority === 'high' ? 'danger' : item.priority === 'medium' ? 'warning' : 'default'}
+                        >
+                          {item.count}
+                        </Chip>
+                        <span className="text-sm">{item.task}</span>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
+                      <Button variant="ghost" size="sm">View</Button>
+                    </div>
+                  ))}
+                </div>
               </Card>
 
               {/* Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest platform events</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
-                        <span>{activity.action}</span>
-                        <span className="text-muted-foreground">{activity.time}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
+              <Card className="p-4">
+                <div className="mb-4">
+                  <h3 className="font-semibold">Recent Activity</h3>
+                  <p className="text-sm text-default-500">Latest platform events</p>
+                </div>
+                <div className="space-y-4">
+                  {recentActivity.map((activity, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <span>{activity.action}</span>
+                      <span className="text-default-500">{activity.time}</span>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </div>
           </div>
