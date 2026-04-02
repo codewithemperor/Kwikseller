@@ -27,3 +27,7 @@ export type {
   DateRange,
   TimeFieldInputProps,
 } from './form-inputs'
+
+// OTP Components
+export { OTPInput, OTPModal } from './otp-input'
+export type { OTPInputProps, OTPModalProps } from './otp-input'

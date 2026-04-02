@@ -230,6 +230,7 @@ export const authApi = {
     phone?: string
     firstName?: string
     lastName?: string
+    storeName?: string
   }) => api.post('/auth/register', data),
 
   logout: () => {
@@ -245,11 +246,11 @@ export const authApi = {
   forgotPassword: (email: string) =>
     api.post('/auth/forgot-password', { email }),
 
-  resetPassword: (token: string, password: string) =>
-    api.post('/auth/reset-password', { token, password }),
+  resetPassword: (data: { email: string; otp: string; newPassword: string }) =>
+    api.post('/auth/reset-password', data),
 
-  verifyEmail: (token: string) =>
-    api.post('/auth/verify-email', { token }),
+  verifyEmail: (data: { email: string; otp: string }) =>
+    api.post('/auth/verify-email', data),
 
   resendVerification: (email: string) =>
     api.post('/auth/resend-verification', { email }),

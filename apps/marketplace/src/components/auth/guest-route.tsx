@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@kwikseller/utils";
-import { Spinner } from "@heroui/react";
+import { useAuthStore } from "@kwikseller/utils";
 
 interface GuestRouteProps {
   children: React.ReactNode;
@@ -11,47 +10,37 @@ interface GuestRouteProps {
    * Redirect path if already authenticated
    */
   redirectPath?: string;
-  /**
-   * Loading component
-   */
-  loadingComponent?: React.ReactNode;
 }
 
 /**
  * GuestRoute - Redirects authenticated users away from auth pages
  * Use this for login, register, forgot-password, reset-password pages
+ *
+ * Note: No loading spinner - just renders children immediately for better UX
+ * The auth check happens in the background and redirects if needed
  */
 export function GuestRoute({
   children,
   redirectPath = "/",
-  loadingComponent,
 }: GuestRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, isInitialized, isLoading } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  const tokens = useAuthStore((state) => state.tokens);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  const isAuthenticated = !!user && !!tokens?.accessToken;
 
   useEffect(() => {
-    if (!isInitialized) return;
-
-    if (isAuthenticated) {
+    if (isInitialized && isAuthenticated) {
       router.push(redirectPath);
     }
   }, [isInitialized, isAuthenticated, router, redirectPath]);
 
-  // Show loading state
-  if (!isInitialized || isLoading) {
-    return loadingComponent ? (
-      <>{loadingComponent}</>
-    ) : (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-default-100">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  // Already authenticated - show nothing while redirecting
-  if (isAuthenticated) {
+  // If authenticated, return null while redirecting
+  if (isInitialized && isAuthenticated) {
     return null;
   }
 
+  // Otherwise, render children immediately
   return <>{children}</>;
 }

@@ -256,11 +256,29 @@ export async function retry<T>(
 export { AuthProvider, useAuth, AuthContext } from "./auth";
 export type {
   User,
-  AuthTokens,
-  LoginCredentials,
-  RegisterData,
+  LoginResponse,
+  OTPResponse,
   AuthContextValue,
 } from "./auth";
+
+// Export stores
+export {
+  useAuthStore,
+  useUser,
+  useAccessToken,
+  useHasRole,
+  useHasPermission,
+  useAuthLoading,
+  useAuthInitialized,
+  type UserStore,
+  type UserProfile,
+  type AuthTokens,
+  type AuthState,
+  type UserRole,
+  type UserStatus,
+  type LoginCredentials,
+  type RegisterData,
+} from "./stores";
 
 // Export providers
 export { HeroUIProviderWrapper } from "./providers";

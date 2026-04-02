@@ -81,7 +81,10 @@ export class ForgotPasswordDto {
 
 export class ResetPasswordDto {
   @IsString()
-  token: string;
+  otp: string;
+
+  @IsEmail()
+  email: string;
 
   @IsString()
   @MinLength(8)
@@ -93,7 +96,22 @@ export class ResetPasswordDto {
 
 export class VerifyEmailDto {
   @IsString()
-  token: string;
+  otp: string;
+
+  @IsEmail()
+  email: string;
+}
+
+export class VerifyOTPDto {
+  @IsString()
+  otp: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  type?: 'email-verification' | 'password-reset' | 'login-verification';
 }
 
 export class ResendVerificationDto {

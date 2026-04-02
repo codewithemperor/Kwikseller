@@ -2,15 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@kwikseller/utils";
-import { Spinner } from "@heroui/react";
+import { useAuthStore, UserRole } from "@kwikseller/utils";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   /**
    * Required role(s) to access the route
    */
-  requiredRole?: string | string[];
+  requiredRole?: UserRole | UserRole[];
   /**
    * Required permission for admin routes
    */
@@ -29,15 +28,17 @@ interface ProtectedRouteProps {
     RIDER?: string;
   };
   /**
-   * Loading component
-   */
-  loadingComponent?: React.ReactNode;
-  /**
-   * Unauthorized component
+   * Unauthorized component to show instead of redirecting
    */
   unauthorizedComponent?: React.ReactNode;
 }
 
+/**
+ * ProtectedRoute - Guards routes that require authentication
+ *
+ * Note: No loading spinner - the check happens in background
+ * Unauthenticated users are redirected to login
+ */
 export function ProtectedRoute({
   children,
   requiredRole,
@@ -49,19 +50,18 @@ export function ProtectedRoute({
     ADMIN: "/admin",
     RIDER: "/deliveries",
   },
-  loadingComponent,
   unauthorizedComponent,
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const {
-    isAuthenticated,
-    isInitialized,
-    isLoading,
-    user,
-    hasRole,
-    hasPermission,
-  } = useAuth();
+  
+  const user = useAuthStore((state) => state.user);
+  const tokens = useAuthStore((state) => state.tokens);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const hasRole = useAuthStore((state) => state.hasRole);
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+
+  const isAuthenticated = !!user && !!tokens?.accessToken;
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -100,19 +100,8 @@ export function ProtectedRoute({
     user,
   ]);
 
-  // Show loading state
-  if (!isInitialized || isLoading) {
-    return loadingComponent ? (
-      <>{loadingComponent}</>
-    ) : (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  // Not authenticated
-  if (!isAuthenticated) {
+  // Not initialized or not authenticated - show nothing
+  if (!isInitialized || !isAuthenticated) {
     return null;
   }
 
@@ -121,10 +110,10 @@ export function ProtectedRoute({
     return unauthorizedComponent ? (
       <>{unauthorizedComponent}</>
     ) : (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-muted-foreground mt-2">
             You don&apos;t have permission to access this page.
           </p>
         </div>
@@ -137,10 +126,10 @@ export function ProtectedRoute({
     return unauthorizedComponent ? (
       <>{unauthorizedComponent}</>
     ) : (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-muted-foreground mt-2">
             You don&apos;t have the required permissions.
           </p>
         </div>

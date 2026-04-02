@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@heroui/react';
 
 /**
@@ -10,9 +10,16 @@ import { Button } from '@heroui/react';
 export function ThemeToggle({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
-    setMounted(true);
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      // Use requestAnimationFrame to avoid synchronous setState in effect
+      requestAnimationFrame(() => {
+        setMounted(true);
+      });
+    }
   }, []);
 
   if (!mounted) {

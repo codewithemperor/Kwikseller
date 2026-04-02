@@ -1,33 +1,38 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
-import {
-  Button,
-  Card,
-  CardHeader,
-  CardFooter,
-  Spinner,
-} from '@heroui/react';
-import { TextInput } from '@kwikseller/ui';
-import { authApi } from '@kwikseller/api-client';
-import { toast } from 'sonner';
-import { forgotPasswordSchema, type ForgotPasswordFormData } from '@kwikseller/types';
+import React from "react";
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Mail, ArrowLeft, Store } from "lucide-react";
+import { Button, Spinner } from "@heroui/react";
+import { cn, TextInput, OTPModal } from "@kwikseller/ui";
+import { kwikToast } from "@kwikseller/utils";
+import { forgotPasswordSchema, type ForgotPasswordFormData } from "@kwikseller/types";
+import { authApi } from "@kwikseller/api-client";
 
 interface ForgotPasswordPageProps {
   loginPath: string;
   appName?: string;
+  themeColor?: "blue" | "green" | "purple" | "orange" | "default";
 }
+
+const themeMap: Record<NonNullable<ForgotPasswordPageProps["themeColor"]>, string> = {
+  blue: "bg-blue-600",
+  green: "bg-green-600",
+  purple: "bg-purple-600",
+  orange: "bg-orange-600",
+  default: "bg-primary",
+};
 
 export function ForgotPasswordPage({
   loginPath,
-  appName = 'KWIKSELLER',
+  appName = "KWIKSELLER",
+  themeColor = "default",
 }: ForgotPasswordPageProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [showOTPModal, setShowOTPModal] = React.useState(false);
+  const [userEmail, setUserEmail] = React.useState("");
 
   const {
     control,
@@ -35,111 +40,123 @@ export function ForgotPasswordPage({
     formState: { isSubmitting },
   } = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
   });
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
-
     try {
       await authApi.forgotPassword(data.email);
-
-      setIsSuccess(true);
-      toast.success('Reset link sent! Check your email.');
-    } catch {
-      toast.error('Failed to send reset email. Please try again.');
+      setUserEmail(data.email);
+      setShowOTPModal(true);
+      kwikToast.success("Verification code sent to your email!");
+    } catch (error) {
+      // Don't reveal if email exists or not
+      kwikToast.success("If the email exists, a verification code has been sent.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-6">
-          <CardHeader className="flex-col items-center gap-2 pb-4">
-            <div className="flex justify-center mb-2">
-              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-success" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold">Check your email</h1>
-            <p className="text-sm text-default-500 text-center">
-              We&apos;ve sent a password reset link to your email address. The
-              link will expire in 1 hour.
-            </p>
-          </CardHeader>
+  const handleVerifyOTP = async (otp: string) => {
+    // After OTP verification, redirect to reset password with email and OTP
+    window.location.href = `/reset-password?email=${encodeURIComponent(userEmail)}&verified=true`;
+    setShowOTPModal(false);
+  };
 
-          <div className="text-center text-sm text-default-500 py-4">
-            <p>Didn&apos;t receive the email? Check your spam folder or</p>
-            <button
-              onClick={() => setIsSuccess(false)}
-              className="text-primary hover:underline"
-            >
-              try another email address
-            </button>
-          </div>
+  const handleResendOTP = async () => {
+    await authApi.forgotPassword(userEmail);
+    kwikToast.success("Verification code sent!");
+  };
 
-          <CardFooter className="justify-center px-0">
-            <Link
-              href={loginPath}
-              className="text-sm text-primary hover:underline"
-            >
-              <span className="flex items-center gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                Back to login
-              </span>
-            </Link>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
+  const iconColor = themeMap[themeColor];
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-6">
-        <CardHeader className="flex-col items-center gap-2 pb-4">
-          <h1 className="text-2xl font-bold">Forgot your password?</h1>
-          <p className="text-sm text-default-500 text-center">
-            Enter your email address and we&apos;ll send you a link to reset
-            your password.
-          </p>
-        </CardHeader>
+    <>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        {/* Background orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <TextInput
-            name="email"
-            control={control}
-            type="email"
-            label="Email"
-            placeholder="you@example.com"
-            startContent={<Mail className="w-4 h-4 text-default-400" />}
-            isRequired
-            isDisabled={isLoading || isSubmitting}
-          />
+        <div className="relative w-full max-w-md">
+          {/* Card */}
+          <div className="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40 p-8">
+            {/* Header */}
+            <div className="flex flex-col items-center gap-3 mb-8">
+              <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg", iconColor)}>
+                <Store className="w-7 h-7" />
+              </div>
+              <div className="text-center space-y-1">
+                <h1 className="text-2xl font-semibold tracking-tight">Forgot password?</h1>
+                <p className="text-sm text-muted-foreground">
+                  Enter your email and we&apos;ll send you a verification code
+                </p>
+              </div>
+            </div>
 
-          <CardFooter className="flex flex-col gap-4 px-0 pt-4">
-            <Button
-              type="submit"
-              className="w-full h-12 font-medium"
-              isDisabled={isLoading || isSubmitting}
-            >
-              {(isLoading || isSubmitting) && <Spinner size="sm" className="mr-2" />}
-              Send Reset Link
-            </Button>
+            {/* Form */}
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+              <TextInput
+                name="email"
+                control={control}
+                type="email"
+                label="Email address"
+                placeholder="you@example.com"
+                startContent={<Mail className="w-4 h-4 text-muted-foreground" />}
+                isRequired
+                isDisabled={isSubmitting || isLoading}
+              />
 
-            <Link
-              href={loginPath}
-              className="text-sm text-primary hover:underline"
-            >
-              <span className="flex items-center gap-2">
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                size="lg"
+                isPending={isSubmitting || isLoading}
+                isDisabled={isSubmitting || isLoading}
+                onPress={() => {}}
+                className="mt-2 font-semibold rounded-xl"
+              >
+                {({ isPending }) =>
+                  isPending ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="sm" />
+                      Sending code…
+                    </span>
+                  ) : (
+                    "Send Verification Code"
+                  )
+                }
+              </Button>
+
+              <Link
+                href={loginPath}
+                className="text-sm text-center text-muted-foreground flex items-center justify-center gap-2 hover:text-foreground transition-colors"
+              >
                 <ArrowLeft className="w-4 h-4" />
                 Back to login
-              </span>
-            </Link>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+              </Link>
+            </form>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} {appName} · All rights reserved
+          </p>
+        </div>
+      </div>
+
+      {/* OTP Modal */}
+      <OTPModal
+        isOpen={showOTPModal}
+        onClose={() => setShowOTPModal(false)}
+        onVerify={handleVerifyOTP}
+        onResend={handleResendOTP}
+        email={userEmail}
+        type="password-reset"
+        isLoading={isLoading}
+      />
+    </>
   );
 }

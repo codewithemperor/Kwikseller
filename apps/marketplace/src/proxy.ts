@@ -1,76 +1,128 @@
 /**
- * KWIKSELLER Marketplace - Subdomain Proxy Configuration
- * 
- * This proxy handles subdomain routing for the marketplace app.
- * In Next.js 16, proxy.ts replaces middleware.ts for subdomain routing.
+ * KWIKSELLER Marketplace — Middleware / Proxy
+ *
+ * Responsibilities
+ * ────────────────
+ * 1. Subdomain routing  (vendor / admin / rider redirects)
+ * 2. www → apex redirect
+ * 3. Security headers on every HTML response
+ *
+ * Auth redirects (login ↔ dashboard) are intentionally kept
+ * client-side via GuestRoute / ProtectedRoute because:
+ *   - The Zustand auth store lives in localStorage (not cookies),
+ *     so middleware has no reliable way to read it.
+ *   - Doing auth checks here would require duplicating token logic.
+ *
+ * If you later move to HttpOnly cookie tokens, add an `authMiddleware`
+ * section here that reads `request.cookies.get('accessToken')`.
  */
 
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MAIN_DOMAIN = "kwikseller.com";
+
+/** Subdomains that belong to sibling apps — redirect if hit on wrong host. */
+const SIBLING_SUBDOMAINS = ["vendor", "admin", "rider"] as const;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function isStaticAsset(pathname: string): boolean {
+  return (
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/static/") ||
+    // Any path segment that looks like a file (has an extension)
+    /\.[a-z0-9]+$/i.test(pathname)
+  );
+}
+
+function isApiRoute(pathname: string): boolean {
+  return pathname.startsWith("/api/");
+}
 
 /**
- * Main marketplace domain
+ * Add standard security headers to a response.
+ * These are safe to apply to every HTML page response.
  */
-const MAIN_DOMAIN = 'kwikseller.com';
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()",
+  );
+  return response;
+}
 
-export function proxy(request: NextRequest) {
+/**
+ * Build an absolute redirect URL, preserving the pathname and search params.
+ * Uses 301 for permanent redirects (www → apex, wrong subdomain).
+ */
+function permanentRedirect(
+  targetOrigin: string,
+  request: NextRequest,
+): NextResponse {
   const url = new URL(request.url);
-  const hostname = url.hostname;
-  
-  // Handle API requests - forward to backend
-  if (url.pathname.startsWith('/api/')) {
-    // For API routes, we handle them via Next.js API routes
-    // which internally call the backend
+  const destination = `${targetOrigin}${url.pathname}${url.search}`;
+  return NextResponse.redirect(destination, { status: 301 });
+}
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
+
+export function proxy(request: NextRequest): NextResponse {
+  const url = new URL(request.url);
+  const { hostname, pathname } = url;
+
+  // ── 1. Short-circuit: pass static assets and API routes straight through ──
+  if (isStaticAsset(pathname) || isApiRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Check for subdomain
-  const isSubdomain = hostname.includes(MAIN_DOMAIN) && 
-    hostname !== MAIN_DOMAIN && 
-    !hostname.startsWith('www.');
-
-  // If accessing via a different subdomain (vendor, admin, rider), redirect
-  if (isSubdomain) {
-    const subdomain = hostname.split('.')[0];
-    
-    // Redirect to correct app based on subdomain
-    if (subdomain === 'vendor') {
-      return NextResponse.redirect(`https://vendor.${MAIN_DOMAIN}${url.pathname}`);
-    }
-    if (subdomain === 'admin') {
-      return NextResponse.redirect(`https://admin.${MAIN_DOMAIN}${url.pathname}`);
-    }
-    if (subdomain === 'rider') {
-      return NextResponse.redirect(`https://rider.${MAIN_DOMAIN}${url.pathname}`);
-    }
+  // ── 2. www → apex redirect ────────────────────────────────────────────────
+  if (hostname === `www.${MAIN_DOMAIN}`) {
+    return permanentRedirect(`https://${MAIN_DOMAIN}`, request);
   }
 
-  // Handle www redirect to main domain
-  if (hostname.startsWith('www.')) {
-    return NextResponse.redirect(`https://${MAIN_DOMAIN}${url.pathname}`);
+  // ── 3. Sibling-subdomain guard ────────────────────────────────────────────
+  //
+  // If a user somehow lands on e.g. vendor.kwikseller.com while browsing the
+  // marketplace app (e.g. a stale bookmark), redirect them to the correct app.
+  // In a monorepo / multi-app setup each subdomain is its own Next.js app, so
+  // this primarily guards against misconfigured proxies or direct URL entry.
+  const subdomain = hostname.endsWith(`.${MAIN_DOMAIN}`)
+    ? hostname.slice(0, hostname.length - MAIN_DOMAIN.length - 1)
+    : null;
+
+  if (
+    subdomain &&
+    SIBLING_SUBDOMAINS.includes(
+      subdomain as (typeof SIBLING_SUBDOMAINS)[number],
+    )
+  ) {
+    return permanentRedirect(`https://${subdomain}.${MAIN_DOMAIN}`, request);
   }
 
-  // Continue with normal request
+  // ── 4. Normal request — continue and add security headers ─────────────────
   const response = NextResponse.next();
-
-  // Add headers for PWA support
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-
-  return response;
+  return applySecurityHeaders(response);
 }
+
+// ─── Matcher ──────────────────────────────────────────────────────────────────
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
+     * Run on all paths EXCEPT:
+     * - _next/static  (compiled JS / CSS)
+     * - _next/image   (Next.js image optimiser)
+     * - favicon.ico
+     * - Any file with an extension (fonts, images, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*$).*)',
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.[a-z0-9]+$).*)",
   ],
 };
 

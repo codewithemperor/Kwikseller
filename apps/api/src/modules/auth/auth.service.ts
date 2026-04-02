@@ -5,16 +5,16 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
 
-import { PrismaService } from '../../database/prisma.service';
-import { EmailService } from '../../common/services/email.service';
-import { CacheService } from '../../common/services/cache.service';
-import { AuditService } from '../../common/services/audit.service';
+import { PrismaService } from "../../database/prisma.service";
+import { EmailService } from "../../common/services/email.service";
+import { CacheService } from "../../common/services/cache.service";
+import { AuditService } from "../../common/services/audit.service";
 
 import {
   RegisterDto,
@@ -26,7 +26,8 @@ import {
   ChangePasswordDto,
   UserRole,
   ResendVerificationDto,
-} from './dto/auth.dto';
+  VerifyOTPDto,
+} from "./dto/auth.dto";
 
 export interface JwtPayload {
   sub: string;
@@ -73,6 +74,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly accessTokenExpiry = 15 * 60; // 15 minutes
   private readonly refreshTokenExpiry = 7 * 24 * 60 * 60; // 7 days
+  private readonly otpExpiry = 10 * 60; // 10 minutes
 
   constructor(
     private readonly prisma: PrismaService,
@@ -84,6 +86,13 @@ export class AuthService {
   ) {}
 
   /**
+   * Generate a 6-digit OTP
+   */
+  private generateOTP(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  /**
    * Register a new user
    */
   async register(dto: RegisterDto, ipAddress: string) {
@@ -93,17 +102,19 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException("User with this email already exists");
     }
 
     // Validate admin registration requires invite token
     if (dto.role === UserRole.ADMIN) {
       if (!dto.inviteToken) {
-        throw new ForbiddenException('Admin registration requires an invite token');
+        throw new ForbiddenException(
+          "Admin registration requires an invite token",
+        );
       }
       const validInvite = await this.validateAdminInvite(dto.inviteToken);
       if (!validInvite) {
-        throw new ForbiddenException('Invalid or expired invite token');
+        throw new ForbiddenException("Invalid or expired invite token");
       }
     }
 
@@ -118,7 +129,7 @@ export class AuthService {
           email: dto.email,
           passwordHash,
           role: dto.role,
-          status: 'PENDING',
+          status: "PENDING",
           emailVerified: false,
           phone: dto.phone,
         },
@@ -141,8 +152,8 @@ export class AuthService {
         await tx.subscription.create({
           data: {
             vendorId: newUser.id,
-            plan: 'STARTER',
-            status: 'ACTIVE',
+            plan: "STARTER",
+            status: "ACTIVE",
             productLimit: 10,
           },
         });
@@ -167,7 +178,7 @@ export class AuthService {
         await tx.rider.create({
           data: {
             userId: newUser.id,
-            vehicleType: dto.vehicleType || 'BIKE',
+            vehicleType: dto.vehicleType || "BIKE",
             plateNumber: dto.plateNumber,
           },
         });
@@ -193,30 +204,30 @@ export class AuthService {
       return newUser;
     });
 
-    // Generate email verification token
-    const verificationToken = uuidv4();
+    // Generate email verification OTP
+    const otp = this.generateOTP();
     await this.cacheService.set(
-      `email-verification:${verificationToken}`,
-      { userId: user.id, email: user.email },
-      24 * 60 * 60, // 24 hours
+      `email-verification:${user.email}`,
+      { userId: user.id, email: user.email, otp },
+      this.otpExpiry,
     );
 
-    // Send verification email
+    // Send verification email with OTP
     await this.emailService.sendEmail(
       user.email,
-      'Verify Your Email - KWIKSELLER',
-      'email-verify',
+      "Verify Your Email - KWIKSELLER",
+      "email-verify",
       {
-        name: dto.firstName || 'User',
-        verificationUrl: `${this.config.get('FRONTEND_URL')}/verify-email?token=${verificationToken}`,
+        name: dto.firstName || "User",
+        otp,
       },
     );
 
     // Log audit
     await this.auditService.log({
       userId: user.id,
-      action: 'USER_REGISTERED',
-      entity: 'User',
+      action: "USER_REGISTERED",
+      entity: "User",
       entityId: user.id,
       changes: { email: user.email, role: user.role },
       ipAddress,
@@ -225,8 +236,10 @@ export class AuthService {
     this.logger.log(`User registered: ${user.email} (${user.role})`);
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message:
+        "Registration successful. Please check your email for the verification code.",
       userId: user.id,
+      email: user.email,
     };
   }
 
@@ -245,20 +258,59 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
-    if (user.status === 'BANNED') {
-      throw new ForbiddenException('Your account has been banned');
+    if (user.status === "BANNED") {
+      throw new ForbiddenException("Your account has been banned");
     }
 
-    if (user.status === 'SUSPENDED') {
-      throw new ForbiddenException('Your account has been suspended');
+    if (user.status === "SUSPENDED") {
+      throw new ForbiddenException("Your account has been suspended");
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // Check if email is verified before generating tokens
+    if (!user.emailVerified) {
+      // Generate and send OTP for email verification
+      const otp = this.generateOTP();
+      await this.cacheService.set(
+        `email-verification:${user.email}`,
+        { userId: user.id, email: user.email, otp },
+        this.otpExpiry,
+      );
+
+      // Send verification email with OTP
+      await this.emailService.sendEmail(
+        user.email,
+        "Verify Your Email - KWIKSELLER",
+        "email-verify",
+        {
+          name: user.profile?.firstName || "User",
+          otp,
+        },
+      );
+
+      // Log audit
+      await this.auditService.log({
+        userId: user.id,
+        action: "LOGIN_ATTEMPT_UNVERIFIED",
+        entity: "User",
+        entityId: user.id,
+        ipAddress,
+      });
+
+      // Throw special exception for unverified email
+      throw new ForbiddenException({
+        code: "EMAIL_NOT_VERIFIED",
+        message:
+          "Email not verified. A verification code has been sent to your email.",
+        email: user.email,
+      });
     }
 
     // Generate tokens
@@ -279,18 +331,18 @@ export class AuthService {
     );
 
     // Update user status to active if pending
-    if (user.status === 'PENDING' && user.emailVerified) {
+    if (user.status === "PENDING" && user.emailVerified) {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { status: 'ACTIVE' },
+        data: { status: "ACTIVE" },
       });
     }
 
     // Log audit
     await this.auditService.log({
       userId: user.id,
-      action: 'USER_LOGIN',
-      entity: 'User',
+      action: "USER_LOGIN",
+      entity: "User",
       entityId: user.id,
       ipAddress,
     });
@@ -311,16 +363,18 @@ export class AuthService {
     let payload: JwtPayload;
     try {
       payload = this.jwtService.verify(dto.refreshToken, {
-        secret: this.config.get('jwt.refreshSecret'),
+        secret: this.config.get("jwt.refreshSecret"),
       });
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     // Check if token is blacklisted
-    const blacklisted = await this.cacheService.get(`blacklist:${dto.refreshToken}`);
+    const blacklisted = await this.cacheService.get(
+      `blacklist:${dto.refreshToken}`,
+    );
     if (blacklisted) {
-      throw new UnauthorizedException('Token has been revoked');
+      throw new UnauthorizedException("Token has been revoked");
     }
 
     // Get user
@@ -335,13 +389,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
 
     // Blacklist the old refresh token (rotation)
     await this.cacheService.set(
       `blacklist:${dto.refreshToken}`,
-      { userId: user.id, reason: 'rotation' },
+      { userId: user.id, reason: "rotation" },
       this.refreshTokenExpiry,
     );
 
@@ -351,8 +405,8 @@ export class AuthService {
     // Log audit
     await this.auditService.log({
       userId: user.id,
-      action: 'TOKEN_REFRESHED',
-      entity: 'User',
+      action: "TOKEN_REFRESHED",
+      entity: "User",
       entityId: user.id,
       ipAddress,
     });
@@ -368,7 +422,7 @@ export class AuthService {
       // Blacklist the refresh token
       await this.cacheService.set(
         `blacklist:${refreshToken}`,
-        { userId, reason: 'logout' },
+        { userId, reason: "logout" },
         this.refreshTokenExpiry,
       );
     }
@@ -376,15 +430,15 @@ export class AuthService {
     // Log audit
     await this.auditService.log({
       userId,
-      action: 'USER_LOGOUT',
-      entity: 'User',
+      action: "USER_LOGOUT",
+      entity: "User",
       entityId: userId,
       ipAddress,
     });
 
     this.logger.log(`User logged out: ${userId}`);
 
-    return { message: 'Logged out successfully' };
+    return { message: "Logged out successfully" };
   }
 
   /**
@@ -405,7 +459,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
 
     return this.formatUserResponse(user);
@@ -422,50 +476,57 @@ export class AuthService {
 
     // Always return success to prevent email enumeration
     if (!user) {
-      return { message: 'If the email exists, a reset link has been sent' };
+      return {
+        message: "If the email exists, a verification code has been sent",
+      };
     }
 
-    // Generate reset token
-    const resetToken = uuidv4();
+    // Generate OTP
+    const otp = this.generateOTP();
     await this.cacheService.set(
-      `password-reset:${resetToken}`,
-      { userId: user.id, email: user.email },
-      60 * 60, // 1 hour
+      `password-reset:${user.email}`,
+      { userId: user.id, email: user.email, otp },
+      this.otpExpiry,
     );
 
-    // Send reset email
+    // Send reset email with OTP
     await this.emailService.sendEmail(
       user.email,
-      'Reset Your Password - KWIKSELLER',
-      'password-reset',
+      "Reset Your Password - KWIKSELLER",
+      "password-reset",
       {
-        name: user.profile?.firstName || 'User',
-        resetUrl: `${this.config.get('FRONTEND_URL')}/reset-password?token=${resetToken}`,
+        name: user.profile?.firstName || "User",
+        otp,
       },
     );
 
     // Log audit
     await this.auditService.log({
       userId: user.id,
-      action: 'PASSWORD_RESET_REQUESTED',
-      entity: 'User',
+      action: "PASSWORD_RESET_REQUESTED",
+      entity: "User",
       entityId: user.id,
       ipAddress,
     });
 
-    return { message: 'If the email exists, a reset link has been sent' };
+    return {
+      message: "If the email exists, a verification code has been sent",
+      email: user.email,
+    };
   }
 
   /**
-   * Reset password
+   * Reset password with OTP
    */
   async resetPassword(dto: ResetPasswordDto, ipAddress: string) {
-    const resetData = await this.cacheService.get<{ userId: string; email: string }>(
-      `password-reset:${dto.token}`,
-    );
+    const resetData = await this.cacheService.get<{
+      userId: string;
+      email: string;
+      otp: string;
+    }>(`password-reset:${dto.email}`);
 
-    if (!resetData) {
-      throw new BadRequestException('Invalid or expired reset token');
+    if (!resetData || resetData.otp !== dto.otp) {
+      throw new BadRequestException("Invalid or expired verification code");
     }
 
     // Hash new password
@@ -474,59 +535,98 @@ export class AuthService {
     // Update password
     await this.prisma.user.update({
       where: { id: resetData.userId },
-      data: { passwordHash, status: 'ACTIVE' },
+      data: { passwordHash, status: "ACTIVE" },
     });
 
-    // Delete reset token
-    await this.cacheService.del(`password-reset:${dto.token}`);
+    // Delete reset OTP
+    await this.cacheService.del(`password-reset:${dto.email}`);
 
     // Log audit
     await this.auditService.log({
       userId: resetData.userId,
-      action: 'PASSWORD_RESET_COMPLETED',
-      entity: 'User',
+      action: "PASSWORD_RESET_COMPLETED",
+      entity: "User",
       entityId: resetData.userId,
       ipAddress,
     });
 
-    return { message: 'Password reset successfully' };
+    return { message: "Password reset successfully" };
   }
 
   /**
-   * Verify email
+   * Verify email with OTP
+   * Returns tokens and user data for automatic login after verification
    */
   async verifyEmail(dto: VerifyEmailDto, ipAddress: string) {
-    const verificationData = await this.cacheService.get<{ userId: string; email: string }>(
-      `email-verification:${dto.token}`,
-    );
+    const verificationData = await this.cacheService.get<{
+      userId: string;
+      email: string;
+      otp: string;
+    }>(`email-verification:${dto.email}`);
 
-    if (!verificationData) {
-      throw new BadRequestException('Invalid or expired verification token');
+    if (!verificationData || verificationData.otp !== dto.otp) {
+      throw new BadRequestException("Invalid or expired verification code");
     }
 
-    // Update user
-    await this.prisma.user.update({
+    // Get user with all relations before updating
+    const user = await this.prisma.user.findUnique({
       where: { id: verificationData.userId },
-      data: { emailVerified: true, status: 'ACTIVE' },
+      include: {
+        profile: true,
+        store: true,
+        subscription: true,
+        adminPermission: true,
+      },
     });
 
-    // Delete verification token
-    await this.cacheService.del(`email-verification:${dto.token}`);
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    // Update user - mark email as verified and status as active
+    await this.prisma.user.update({
+      where: { id: verificationData.userId },
+      data: { emailVerified: true, status: "ACTIVE" },
+    });
+
+    // Delete verification OTP
+    await this.cacheService.del(`email-verification:${dto.email}`);
+
+    // Generate tokens for auto-login
+    const tokens = await this.generateTokens(user);
+
+    // Create session in Redis
+    const sessionId = uuidv4();
+    await this.cacheService.set(
+      `session:${sessionId}`,
+      {
+        userId: user.id,
+        userAgent: "Email Verification",
+        ipAddress,
+        createdAt: Date.now(),
+      },
+      this.refreshTokenExpiry,
+    );
 
     // Log audit
     await this.auditService.log({
       userId: verificationData.userId,
-      action: 'EMAIL_VERIFIED',
-      entity: 'User',
+      action: "EMAIL_VERIFIED",
+      entity: "User",
       entityId: verificationData.userId,
       ipAddress,
     });
 
-    return { message: 'Email verified successfully' };
+    this.logger.log(`Email verified and auto-login: ${user.email}`);
+
+    return {
+      ...tokens,
+      user: this.formatUserResponse(user),
+    };
   }
 
   /**
-   * Resend verification email
+   * Resend verification email with OTP
    */
   async resendVerification(dto: ResendVerificationDto, _ipAddress: string) {
     const user = await this.prisma.user.findUnique({
@@ -535,46 +635,60 @@ export class AuthService {
     });
 
     if (!user || user.emailVerified) {
-      return { message: 'If the email exists and is unverified, a new link has been sent' };
+      return {
+        message:
+          "If the email exists and is unverified, a new code has been sent",
+      };
     }
 
-    // Generate new verification token
-    const verificationToken = uuidv4();
+    // Generate new OTP
+    const otp = this.generateOTP();
     await this.cacheService.set(
-      `email-verification:${verificationToken}`,
-      { userId: user.id, email: user.email },
-      24 * 60 * 60,
+      `email-verification:${user.email}`,
+      { userId: user.id, email: user.email, otp },
+      this.otpExpiry,
     );
 
-    // Send verification email
+    // Send verification email with OTP
     await this.emailService.sendEmail(
       user.email,
-      'Verify Your Email - KWIKSELLER',
-      'email-verify',
+      "Verify Your Email - KWIKSELLER",
+      "email-verify",
       {
-        name: user.profile?.firstName || 'User',
-        verificationUrl: `${this.config.get('FRONTEND_URL')}/verify-email?token=${verificationToken}`,
+        name: user.profile?.firstName || "User",
+        otp,
       },
     );
 
-    return { message: 'If the email exists and is unverified, a new link has been sent' };
+    return {
+      message:
+        "If the email exists and is unverified, a new code has been sent",
+      email: user.email,
+    };
   }
 
   /**
    * Change password
    */
-  async changePassword(userId: string, dto: ChangePasswordDto, ipAddress: string) {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    ipAddress: string,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
 
-    const passwordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    const passwordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
     if (!passwordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException("Current password is incorrect");
     }
 
     // Hash new password
@@ -589,13 +703,13 @@ export class AuthService {
     // Log audit
     await this.auditService.log({
       userId,
-      action: 'PASSWORD_CHANGED',
-      entity: 'User',
+      action: "PASSWORD_CHANGED",
+      entity: "User",
       entityId: userId,
       ipAddress,
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: "Password changed successfully" };
   }
 
   /**
@@ -616,7 +730,7 @@ export class AuthService {
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.config.get('jwt.refreshSecret'),
+      secret: this.config.get("jwt.refreshSecret"),
       expiresIn: `${this.refreshTokenExpiry}s`,
     });
 
@@ -695,17 +809,21 @@ export class AuthService {
    */
   private async getAdminInvite(
     token: string,
-  ): Promise<{ role: string; permissions: string[]; grantedBy: string } | null> {
+  ): Promise<{
+    role: string;
+    permissions: string[];
+    grantedBy: string;
+  } | null> {
     return this.cacheService.get(`admin-invite:${token}`);
   }
-
+PP
   /**
    * Validate JWT token (for guards)
    */
   async validateToken(token: string): Promise<JwtPayload | null> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
-      
+
       // Check if token is blacklisted
       const blacklisted = await this.cacheService.get(`blacklist:${token}`);
       if (blacklisted) {

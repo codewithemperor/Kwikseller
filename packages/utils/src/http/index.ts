@@ -3,7 +3,7 @@
  */
 
 // Main client
-export { httpClient, api, getWithMeta, getPaginated } from './client'
+export { httpClient, api, getWithMeta, getPaginated, ApiError } from './client'
 
 // Token management
 export {

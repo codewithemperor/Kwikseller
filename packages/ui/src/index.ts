@@ -13,6 +13,7 @@ export {
   capitalize,
   getInitials,
   generateId,
+  maskEmail,
 } from "./lib/utils";
 
 // ==================== Form Input Components ====================
@@ -40,6 +41,10 @@ export type {
   NumberInputProps,
   TextareaInputProps,
 } from "./inputs";
+
+// OTP Components
+export { OTPInput, OTPModal } from "./inputs";
+export type { OTPInputProps, OTPModalProps } from "./inputs";
 
 // ==================== Custom Commerce Components ====================
 // These are KWIKSELLER-specific components shared across all apps
@@ -93,3 +98,6 @@ export type { LoadingOverlayProps } from "./feedback/loading-overlay";
 // Offline Banner
 export { OfflineBanner, ConnectionStatus } from "./feedback/offline-banner";
 export type { OfflineBannerProps } from "./feedback/offline-banner";
+
+export { OTPVerification } from "./components/otp-verification";
+export type { OTPVerificationProps } from "./components/otp-verification";

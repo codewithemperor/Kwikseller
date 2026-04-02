@@ -1,20 +1,38 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { getFromStorage, setToStorage, removeFromStorage } from '../index';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import {
+  useAuthStore,
+  UserStore,
+  type LoginCredentials,
+  type RegisterData,
+} from "../stores/auth-store";
+import {
+  api,
+  ApiError,
+  setTokens as setHttpTokens,
+  clearTokens as clearHttpTokens,
+} from "../http";
 
-// Types
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export interface User {
   id: string;
   email: string;
   phone?: string;
-  role: 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER';
-  status: 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'PENDING';
+  role: "BUYER" | "VENDOR" | "ADMIN" | "RIDER";
+  status: "ACTIVE" | "SUSPENDED" | "BANNED" | "PENDING";
   emailVerified: boolean;
   profile?: {
     firstName?: string;
     lastName?: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
   };
   store?: {
     id: string;
@@ -31,285 +49,345 @@ export interface User {
   permissions?: string[];
 }
 
-export interface AuthTokens {
+export interface TokenData {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
   refreshExpiresIn: number;
 }
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-  deviceId?: string;
+/**
+ * What api.post() actually returns after double-unwrapping:
+ *   Server:      { success, data: { accessToken, refreshToken, user, ... } }
+ *   axios:       response.data  → { success, data: { accessToken, ... } }
+ *   api.post():  .data.data     → { accessToken, refreshToken, user, ... }  ← flat
+ */
+export type AuthApiResponse = TokenData & { user: User };
+
+export interface LoginResponse {
+  success: boolean;
+  data?: AuthApiResponse;
+  error?: string;
+  code?: string;
+  message?: string;
+  requiresOTP?: boolean;
+  email?: string;
 }
 
-export interface RegisterData {
-  email: string;
-  password: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  role: 'BUYER' | 'VENDOR' | 'RIDER';
-  inviteToken?: string;
-  vehicleType?: string;
-  plateNumber?: string;
+export interface OTPResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  data?: AuthApiResponse;
+  /** True when a session was stored in Zustand — callers should redirect. */
+  sessionCreated?: boolean;
 }
 
 export interface AuthContextValue {
-  user: User | null;
+  user: UserStore | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isInitialized: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: RegisterData) => Promise<{ message: string; userId: string }>;
+  login: (credentials: LoginCredentials) => Promise<LoginResponse>;
+  register: (
+    data: RegisterData,
+  ) => Promise<{ message: string; userId: string; email?: string }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  updateUser: (user: Partial<User>) => void;
-  getAccessToken: () => string | null;
+  updateUser: (user: Partial<UserStore>) => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string | string[]) => boolean;
+  verifyOTP: (email: string, otp: string) => Promise<OTPResponse>;
+  resendOTP: (email: string) => Promise<OTPResponse>;
 }
 
-// Storage keys
-const STORAGE_KEYS = {
-  ACCESS_TOKEN: 'kwikseller_access_token',
-  REFRESH_TOKEN: 'kwikseller_refresh_token',
-  USER: 'kwikseller_user',
-};
+// ─── Context ──────────────────────────────────────────────────────────────────
 
-// API base URL
-const getApiUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-  }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-};
-
-// Create context
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Auth Provider Props
 interface AuthProviderProps {
   children: ReactNode;
-  /**
-   * Redirect path after login (role-based)
-   */
-  redirectAfterLogin?: {
-    BUYER?: string;
-    VENDOR?: string;
-    ADMIN?: string;
-    RIDER?: string;
-  };
-  /**
-   * Callback when user becomes unauthenticated
-   */
   onUnauthenticated?: () => void;
 }
 
-// Auth Provider Component
+function toStoreUser(user: User): UserStore {
+  return {
+    id: user.id,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    status: user.status,
+    emailVerified: user.emailVerified,
+    profile: user.profile,
+    store: user.store,
+    subscription: user.subscription,
+    permissions: user.permissions,
+  };
+}
+
+/**
+ * Safely extract session data from the flat api response.
+ * Returns null if tokens or user are missing.
+ */
+function extractSession(
+  res: unknown,
+): { user: User; tokens: TokenData } | null {
+  const r = res as Partial<AuthApiResponse>;
+  if (!r?.accessToken || !r?.user) return null;
+  return {
+    user: r.user,
+    tokens: {
+      accessToken: r.accessToken,
+      refreshToken: r.refreshToken,
+      expiresIn: r.expiresIn,
+      refreshExpiresIn: r.refreshExpiresIn,
+    },
+  };
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export function AuthProvider({
   children,
-  redirectAfterLogin = {
-    BUYER: '/',
-    VENDOR: '/dashboard',
-    ADMIN: '/admin',
-    RIDER: '/deliveries',
-  },
   onUnauthenticated,
 }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const {
+    user,
+    tokens,
+    isLoading,
+    isInitialized,
+    login: storeLogin,
+    logout: storeLogout,
+    updateUser: storeUpdateUser,
+    setLoading,
+    setInitialized,
+    hasRole,
+    hasPermission,
+  } = useAuthStore();
 
-  // Initialize auth state from storage
   useEffect(() => {
-    const initializeAuth = async () => {
+    const timer = setTimeout(() => setInitialized(true), 0);
+    return () => clearTimeout(timer);
+  }, [setInitialized]);
+
+  const storeSession = useCallback(
+    (user: User, tokenData: TokenData) => {
+      setHttpTokens(tokenData.accessToken, tokenData.refreshToken);
+      storeLogin(toStoreUser(user), tokenData);
+    },
+    [storeLogin],
+  );
+
+  const clearSession = useCallback(() => {
+    clearHttpTokens();
+    storeLogout();
+  }, [storeLogout]);
+
+  // ── Login ──────────────────────────────────────────────────────────────────
+
+  const login = useCallback(
+    async (credentials: LoginCredentials): Promise<LoginResponse> => {
+      setLoading(true);
       try {
-        const storedUser = getFromStorage<User | null>(STORAGE_KEYS.USER, null);
-        const accessToken = getFromStorage<string | null>(STORAGE_KEYS.ACCESS_TOKEN, null);
-        
-        if (storedUser && accessToken) {
-          // Verify token is still valid
-          try {
-            const response = await fetch(`${getApiUrl()}/auth/me`, {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              setUser(data);
-              setToStorage(STORAGE_KEYS.USER, data);
-            } else {
-              // Token invalid, try refresh
-              await refreshSession();
-            }
-          } catch {
-            // Network error, use stored user
-            setUser(storedUser);
-          }
+        const userAgent =
+          typeof window !== "undefined" ? navigator.userAgent : "Unknown";
+
+        // Returns flat: { accessToken, refreshToken, expiresIn, refreshExpiresIn, user }
+        const res = await api.post<AuthApiResponse>(
+          "/auth/login",
+          credentials,
+          {
+            headers: { "user-agent": userAgent },
+            skipAuthRefresh: true,
+          } as Record<string, unknown>,
+        );
+
+        const session = extractSession(res);
+        if (session) {
+          storeSession(session.user, session.tokens);
+          // setLoading is reset by storeLogin inside useAuthStore
+          return { success: true, data: res };
         }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-      } finally {
-        setIsInitialized(true);
+
+        setLoading(false);
+        return {
+          success: false,
+          error: "Login failed — no session data returned",
+        };
+      } catch (err) {
+        setLoading(false);
+
+        // ApiError is thrown by our http client for all non-2xx responses.
+        // It preserves statusCode, code, and message from the server body.
+        if (err instanceof ApiError) {
+          if (err.statusCode === 403 && err.code === "EMAIL_NOT_VERIFIED") {
+            const payload = err.data as
+              | { user?: { email?: string } }
+              | undefined;
+            return {
+              success: false,
+              code: "EMAIL_NOT_VERIFIED",
+              requiresOTP: true,
+              message: err.message,
+              email: payload?.user?.email || credentials.email,
+            };
+          }
+          return { success: false, error: err.message };
+        }
+
+        // Fallback for unexpected errors
+        const msg = (err as { message?: string })?.message ?? "Login failed";
+        return { success: false, error: msg };
       }
-    };
+    },
+    [storeSession, setLoading],
+  );
 
-    initializeAuth();
-  }, []);
+  // ── Register ───────────────────────────────────────────────────────────────
 
-  // Login
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${getApiUrl()}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
+  const register = useCallback(
+    async (data: RegisterData) => {
+      setLoading(true);
+      try {
+        const result = await api.post<{
+          message: string;
+          userId: string;
+          email?: string;
+        }>("/auth/register", data, {
+          skipAuthRefresh: true,
+        } as Record<string, unknown>);
+        setLoading(false);
+        return result;
+      } catch (err) {
+        setLoading(false);
+        const msg =
+          err instanceof ApiError
+            ? err.message
+            : ((err as { message?: string })?.message ?? "Registration failed");
+        throw new Error(msg);
       }
+    },
+    [setLoading],
+  );
 
-      const data = await response.json();
-      
-      // Store tokens and user
-      setToStorage(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
-      setToStorage(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
-      setToStorage(STORAGE_KEYS.USER, data.user);
-      
-      setUser(data.user);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // ── Logout ─────────────────────────────────────────────────────────────────
 
-  // Register
-  const register = useCallback(async (data: RegisterData) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${getApiUrl()}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
-      }
-
-      const result = await response.json();
-      return result;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Logout
   const logout = useCallback(async () => {
     try {
-      const refreshToken = getFromStorage<string | null>(STORAGE_KEYS.REFRESH_TOKEN, null);
-      
-      if (refreshToken) {
-        await fetch(`${getApiUrl()}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ refreshToken }),
-        });
+      if (tokens?.refreshToken && tokens?.accessToken) {
+        await api.post("/auth/logout", { refreshToken: tokens.refreshToken });
       }
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
+      // Ignore — clear session regardless
     } finally {
-      // Clear storage and state
-      removeFromStorage(STORAGE_KEYS.ACCESS_TOKEN);
-      removeFromStorage(STORAGE_KEYS.REFRESH_TOKEN);
-      removeFromStorage(STORAGE_KEYS.USER);
-      setUser(null);
+      clearSession();
       onUnauthenticated?.();
     }
-  }, [onUnauthenticated]);
+  }, [tokens, clearSession, onUnauthenticated]);
 
-  // Refresh session
+  // ── Refresh session ────────────────────────────────────────────────────────
+
   const refreshSession = useCallback(async () => {
-    const refreshToken = getFromStorage<string | null>(STORAGE_KEYS.REFRESH_TOKEN, null);
-    
-    if (!refreshToken) {
-      logout();
+    if (!tokens?.refreshToken) {
+      clearSession();
       return;
     }
-
     try {
-      const response = await fetch(`${getApiUrl()}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
+      const res = await api.post<AuthApiResponse>("/auth/refresh", {
+        refreshToken: tokens.refreshToken,
       });
-
-      if (!response.ok) {
-        logout();
-        return;
+      const session = extractSession(res);
+      if (session) {
+        storeSession(session.user, session.tokens);
+      } else {
+        clearSession();
       }
-
-      const data = await response.json();
-      
-      setToStorage(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
-      setToStorage(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      logout();
+    } catch {
+      clearSession();
     }
-  }, [logout]);
+  }, [tokens, clearSession, storeSession]);
 
-  // Update user
-  const updateUser = useCallback((userData: Partial<User>) => {
-    setUser((prev) => {
-      if (!prev) return null;
-      const updated = { ...prev, ...userData };
-      setToStorage(STORAGE_KEYS.USER, updated);
-      return updated;
-    });
-  }, []);
+  // ── Update user ────────────────────────────────────────────────────────────
 
-  // Get access token
-  const getAccessToken = useCallback(() => {
-    return getFromStorage<string | null>(STORAGE_KEYS.ACCESS_TOKEN, null);
-  }, []);
+  const updateUser = useCallback(
+    (userData: Partial<UserStore>) => storeUpdateUser(userData),
+    [storeUpdateUser],
+  );
 
-  // Check permission
-  const hasPermission = useCallback((permission: string): boolean => {
-    if (!user) return false;
-    if (user.role === 'ADMIN') {
-      // Admin with no permissions record = Super Admin (all permissions)
-      if (!user.permissions || user.permissions.length === 0) return true;
-      return user.permissions.includes(permission) || user.permissions.includes('*');
-    }
-    return false;
-  }, [user]);
+  // ── Verify OTP ─────────────────────────────────────────────────────────────
+  //
+  // Returns the same flat shape as login.
+  // extractSession() handles it identically.
 
-  // Check role
-  const hasRole = useCallback((role: string | string[]): boolean => {
-    if (!user) return false;
-    const roles = Array.isArray(role) ? role : [role];
-    return roles.includes(user.role);
-  }, [user]);
+  const verifyOTP = useCallback(
+    async (email: string, otp: string): Promise<OTPResponse> => {
+      setLoading(true);
+      try {
+        const res = await api.post<AuthApiResponse>("/auth/verify-email", {
+          email,
+          otp,
+        });
+
+        const session = extractSession(res);
+        let sessionCreated = false;
+
+        if (session) {
+          storeSession(session.user, session.tokens);
+          sessionCreated = true;
+        }
+
+        setLoading(false);
+        return {
+          success: true,
+          message: "Email verified successfully",
+          data: res,
+          sessionCreated,
+        };
+      } catch (err) {
+        setLoading(false);
+        const msg =
+          err instanceof ApiError
+            ? err.message
+            : ((err as { message?: string })?.message ?? "Verification failed");
+        return { success: false, error: msg };
+      }
+    },
+    [storeSession, setLoading],
+  );
+
+  // ── Resend OTP ─────────────────────────────────────────────────────────────
+
+  const resendOTP = useCallback(
+    async (email: string): Promise<OTPResponse> => {
+      setLoading(true);
+      try {
+        const res = await api.post<{ message?: string }>(
+          "/auth/resend-verification",
+          { email },
+        );
+        setLoading(false);
+        return {
+          success: true,
+          message: res?.message || "Verification code sent",
+        };
+      } catch (err) {
+        setLoading(false);
+        const msg =
+          err instanceof ApiError
+            ? err.message
+            : ((err as { message?: string })?.message ??
+              "Failed to resend code");
+        return { success: false, error: msg };
+      }
+    },
+    [setLoading],
+  );
+
+  // ── Context value ──────────────────────────────────────────────────────────
 
   const value: AuthContextValue = {
     user,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !!tokens?.accessToken,
     isLoading,
     isInitialized,
     login,
@@ -317,26 +395,21 @@ export function AuthProvider({
     logout,
     refreshSession,
     updateUser,
-    getAccessToken,
     hasPermission,
-    hasRole,
+    hasRole: (role) => hasRole(role as Parameters<typeof hasRole>[0]),
+    verifyOTP,
+    resendOTP,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// useAuth hook
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
 
-// Export context for advanced usage
 export { AuthContext };

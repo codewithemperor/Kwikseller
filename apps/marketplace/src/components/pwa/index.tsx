@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Download, X } from 'lucide-react'
 import { Button, Card } from '@heroui/react'
 
@@ -24,13 +24,21 @@ export function InstallBanner({ variant = 'card' }: InstallBannerProps) {
   const [dismissed, setDismissed] = useState(false)
   const [canInstall, setCanInstall] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
+  const hasCheckedInstall = useRef(false)
 
   useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true)
-      return
-    }
+    // Prevent multiple checks
+    if (hasCheckedInstall.current) return
+    hasCheckedInstall.current = true
+
+    // Use requestAnimationFrame to avoid synchronous setState in effect
+    requestAnimationFrame(() => {
+      // Check if already installed
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        setIsInstalled(true)
+        return
+      }
+    })
 
     // Handle beforeinstallprompt event
     const handleBeforeInstall = (e: BeforeInstallPromptEvent) => {

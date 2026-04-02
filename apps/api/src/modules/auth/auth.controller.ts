@@ -9,12 +9,14 @@ import {
   HttpCode,
   HttpStatus,
   Patch,
+  Optional,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiHeader,
 } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
@@ -60,14 +62,20 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user' })
+  @ApiHeader({
+    name: 'user-agent',
+    required: false,
+    description: 'Browser/Client user agent (optional - auto-captured by browser)',
+  })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 403, description: 'Email not verified - OTP sent to email' })
   async login(
     @Body() dto: LoginDto,
     @Ip() ipAddress: string,
-    @Headers('user-agent') userAgent: string,
+    @Optional() @Headers('user-agent') userAgent: string,
   ) {
-    return this.authService.login(dto, ipAddress, userAgent);
+    return this.authService.login(dto, ipAddress, userAgent || 'Unknown');
   }
 
   /**
@@ -115,13 +123,13 @@ export class AuthController {
   }
 
   /**
-   * Forgot password
+   * Forgot password - Send OTP code
    */
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset' })
-  @ApiResponse({ status: 200, description: 'Reset email sent if email exists' })
+  @ApiOperation({ summary: 'Request password reset OTP' })
+  @ApiResponse({ status: 200, description: 'OTP sent if email exists' })
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
     @Ip() ipAddress: string,
@@ -130,14 +138,14 @@ export class AuthController {
   }
 
   /**
-   * Reset password
+   * Reset password with OTP
    */
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiOperation({ summary: 'Reset password with OTP code' })
   @ApiResponse({ status: 200, description: 'Password reset successful' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async resetPassword(
     @Body() dto: ResetPasswordDto,
     @Ip() ipAddress: string,
@@ -146,14 +154,14 @@ export class AuthController {
   }
 
   /**
-   * Verify email
+   * Verify email with OTP
    */
   @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify email address' })
+  @ApiOperation({ summary: 'Verify email address with OTP code' })
   @ApiResponse({ status: 200, description: 'Email verified successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyEmail(
     @Body() dto: VerifyEmailDto,
     @Ip() ipAddress: string,

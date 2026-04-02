@@ -77,6 +77,7 @@ export class EmailService implements OnModuleInit {
     const templateMap: Record<string, string> = {
       'welcome': this.getWelcomeTemplate(),
       'email-verify': this.getEmailVerifyTemplate(),
+      'otp-verify': this.getOTPTemplate(),
       'password-reset': this.getPasswordResetTemplate(),
       'password-changed': this.getPasswordChangedTemplate(),
       'order-confirmed': this.getOrderTemplate('confirmed'),
@@ -219,13 +220,32 @@ export class EmailService implements OnModuleInit {
       <h1 class="title">Verify Your Email Address</h1>
       <div class="content">
         <p>Hello {{name}},</p>
-        <p>Thank you for registering with KWIKSELLER. Please verify your email address to activate your account.</p>
+        <p>Thank you for registering with KWIKSELLER. Please use the following code to verify your email address:</p>
       </div>
-      <div class="highlight" style="text-align:center;">
-        <p>Click the button below to verify your email:</p>
-        <a href="{{verificationUrl}}" class="button">Verify Email</a>
-        <p style="margin-top:20px;color:#6B7280;font-size:14px;">This link expires in 24 hours.</p>
+      <div class="highlight" style="text-align:center;background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 100%);padding:30px;">
+        <p style="margin-bottom:10px;color:#6B7280;font-size:14px;">Your verification code is:</p>
+        <h2 style="font-size:36px;letter-spacing:8px;font-weight:bold;color:#1A56DB;margin:0;">{{otp}}</h2>
+        <p style="margin-top:20px;color:#6B7280;font-size:14px;">This code expires in 10 minutes.</p>
       </div>
+      <div class="warning"><p><strong>Security Note:</strong> If you didn't request this code, please ignore this email.</p></div>
+      <div class="footer"><p>© {{year}} KWIKSELLER. All rights reserved.</p></div>
+    </div></body></html>`;
+  }
+
+  private getOTPTemplate(): string {
+    return `<!DOCTYPE html><html><head>${this.getStyles()}</head><body><div class="container">
+      <div class="header"><div class="logo">🛒 KWIKSELLER</div></div>
+      <h1 class="title">{{title}}</h1>
+      <div class="content">
+        <p>Hello {{name}},</p>
+        <p>{{message}}</p>
+      </div>
+      <div class="highlight" style="text-align:center;background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 100%);padding:30px;">
+        <p style="margin-bottom:10px;color:#6B7280;font-size:14px;">Your verification code is:</p>
+        <h2 style="font-size:36px;letter-spacing:8px;font-weight:bold;color:#1A56DB;margin:0;">{{otp}}</h2>
+        <p style="margin-top:20px;color:#6B7280;font-size:14px;">This code expires in 10 minutes.</p>
+      </div>
+      <div class="warning"><p><strong>Security Note:</strong> If you didn't request this code, please ignore this email and secure your account.</p></div>
       <div class="footer"><p>© {{year}} KWIKSELLER. All rights reserved.</p></div>
     </div></body></html>`;
   }
@@ -238,11 +258,12 @@ export class EmailService implements OnModuleInit {
         <p>Hello {{name}},</p>
         <p>We received a request to reset your password for your KWIKSELLER account.</p>
       </div>
-      <div class="highlight" style="text-align:center;">
-        <a href="{{resetUrl}}" class="button">Reset Password</a>
-        <p style="margin-top:20px;color:#6B7280;font-size:14px;">This link expires in 1 hour.</p>
+      <div class="highlight" style="text-align:center;background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 100%);padding:30px;">
+        <p style="margin-bottom:10px;color:#6B7280;font-size:14px;">Your verification code is:</p>
+        <h2 style="font-size:36px;letter-spacing:8px;font-weight:bold;color:#1A56DB;margin:0;">{{otp}}</h2>
+        <p style="margin-top:20px;color:#6B7280;font-size:14px;">This code expires in 10 minutes.</p>
       </div>
-      <div class="warning"><p><strong>Security Note:</strong> If you didn't request this, please ignore this email.</p></div>
+      <div class="warning"><p><strong>Security Note:</strong> If you didn't request this, please ignore this email and consider changing your password.</p></div>
       <div class="footer"><p>© {{year}} KWIKSELLER. All rights reserved.</p></div>
     </div></body></html>`;
   }

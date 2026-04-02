@@ -1,0 +1,40 @@
+{
+  "name": "kwikseller",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "dev:marketplace": "turbo run dev --filter=@kwikseller/marketplace",
+    "dev:vendor": "turbo run dev --filter=@kwikseller/vendor",
+    "dev:admin": "turbo run dev --filter=@kwikseller/admin",
+    "dev:rider": "turbo run dev --filter=@kwikseller/rider",
+    "dev:api": "turbo run dev --filter=@kwikseller/api",
+    "dev:app": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/marketplace"
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^16.2.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "prettier": "^3.7.4",
+    "turbo": "^2.8.17",
+    "typescript": "5.9.2"
+  },
+  "packageManager": "bun@1.3.10",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@heroui/react": "^3.0.1",
+    "@heroui/styles": "^3.0.1",
+    "axios": "^1.13.6",
+    "framer-motion": "^12.38.0"
+  }
+}
