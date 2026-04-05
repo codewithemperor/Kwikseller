@@ -83,6 +83,18 @@ export interface OTPResponse {
   sessionCreated?: boolean;
 }
 
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
 export interface AuthContextValue {
   user: UserStore | null;
   isAuthenticated: boolean;
@@ -99,6 +111,8 @@ export interface AuthContextValue {
   hasRole: (role: string | string[]) => boolean;
   verifyOTP: (email: string, otp: string) => Promise<OTPResponse>;
   resendOTP: (email: string) => Promise<OTPResponse>;
+  forgotPassword: (email: string) => Promise<ForgotPasswordResponse>;
+  resetPassword: (data: { email: string; otp: string; newPassword: string }) => Promise<ResetPasswordResponse>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -118,7 +132,12 @@ function toStoreUser(user: User): UserStore {
     role: user.role,
     status: user.status,
     emailVerified: user.emailVerified,
-    profile: user.profile,
+    profile: user.profile
+      ? {
+          ...user.profile,
+          avatarUrl: user.profile.avatarUrl ?? undefined,
+        }
+      : undefined,
     store: user.store,
     subscription: user.subscription,
     permissions: user.permissions,
@@ -138,9 +157,9 @@ function extractSession(
     user: r.user,
     tokens: {
       accessToken: r.accessToken,
-      refreshToken: r.refreshToken,
-      expiresIn: r.expiresIn,
-      refreshExpiresIn: r.refreshExpiresIn,
+      refreshToken: r.refreshToken ?? "",
+      expiresIn: r.expiresIn ?? 0,
+      refreshExpiresIn: r.refreshExpiresIn ?? 0,
     },
   };
 }
@@ -383,6 +402,68 @@ export function AuthProvider({
     [setLoading],
   );
 
+  // ── Forgot Password ───────────────────────────────────────────────────────
+
+  const forgotPassword = useCallback(
+    async (email: string): Promise<ForgotPasswordResponse> => {
+      setLoading(true);
+      try {
+        await api.post<{ message?: string }>(
+          "/auth/forgot-password",
+          { email },
+          { skipAuthRefresh: true } as Record<string, unknown>,
+        );
+        setLoading(false);
+        return {
+          success: true,
+          message: "Verification code sent to your email",
+        };
+      } catch (err) {
+        setLoading(false);
+        const msg =
+          err instanceof ApiError
+            ? err.message
+            : ((err as { message?: string })?.message ??
+              "Failed to send verification code");
+        return { success: false, error: msg };
+      }
+    },
+    [setLoading],
+  );
+
+  // ── Reset Password ────────────────────────────────────────────────────────
+
+  const resetPassword = useCallback(
+    async (data: {
+      email: string;
+      otp: string;
+      newPassword: string;
+    }): Promise<ResetPasswordResponse> => {
+      setLoading(true);
+      try {
+        await api.post<{ message?: string }>(
+          "/auth/reset-password",
+          data,
+          { skipAuthRefresh: true } as Record<string, unknown>,
+        );
+        setLoading(false);
+        return {
+          success: true,
+          message: "Password reset successfully",
+        };
+      } catch (err) {
+        setLoading(false);
+        const msg =
+          err instanceof ApiError
+            ? err.message
+            : ((err as { message?: string })?.message ??
+              "Failed to reset password");
+        return { success: false, error: msg };
+      }
+    },
+    [setLoading],
+  );
+
   // ── Context value ──────────────────────────────────────────────────────────
 
   const value: AuthContextValue = {
@@ -399,6 +480,8 @@ export function AuthProvider({
     hasRole: (role) => hasRole(role as Parameters<typeof hasRole>[0]),
     verifyOTP,
     resendOTP,
+    forgotPassword,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

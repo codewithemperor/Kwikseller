@@ -258,6 +258,8 @@ export type {
   User,
   LoginResponse,
   OTPResponse,
+  ForgotPasswordResponse,
+  ResetPasswordResponse,
   AuthContextValue,
 } from "./auth";
 

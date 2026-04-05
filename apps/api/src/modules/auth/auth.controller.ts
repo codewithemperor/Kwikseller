@@ -129,7 +129,8 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset OTP' })
-  @ApiResponse({ status: 200, description: 'OTP sent if email exists' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiResponse({ status: 404, description: 'Email not found' })
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
     @Ip() ipAddress: string,

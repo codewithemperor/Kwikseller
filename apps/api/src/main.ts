@@ -1,13 +1,13 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { ValidationPipe } from "@nestjs/common";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Set global prefix for all routes
-  const apiVersion = process.env.API_VERSION || 'v1';
+  const apiVersion = process.env.API_VERSION || "v1";
   app.setGlobalPrefix(`api/${apiVersion}`);
 
   // Enable CORS for all kwikseller subdomains
@@ -15,14 +15,15 @@ async function bootstrap() {
     origin: [
       /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.com$/,
       /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.local$/,
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:3003',
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "172.20.10.2",
     ],
     credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Accept, Authorization',
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type, Accept, Authorization",
   });
 
   // Global validation pipe
@@ -39,13 +40,13 @@ async function bootstrap() {
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('KWIKSELLER API')
-    .setDescription('KWIKSELLER NestJS API Backend')
-    .setVersion('1.0')
+    .setTitle("KWIKSELLER API")
+    .setDescription("KWIKSELLER NestJS API Backend")
+    .setVersion("1.0")
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup("api/docs", app, document);
 
   const port = process.env.PORT ?? 4000;
   await app.listen(port);

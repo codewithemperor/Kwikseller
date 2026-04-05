@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
   Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -474,11 +475,9 @@ export class AuthService {
       include: { profile: true },
     });
 
-    // Always return success to prevent email enumeration
+    // Return error if email not found
     if (!user) {
-      return {
-        message: "If the email exists, a verification code has been sent",
-      };
+      throw new NotFoundException("No account found with this email address");
     }
 
     // Generate OTP
@@ -510,7 +509,7 @@ export class AuthService {
     });
 
     return {
-      message: "If the email exists, a verification code has been sent",
+      message: "Verification code sent to your email",
       email: user.email,
     };
   }
@@ -807,16 +806,14 @@ export class AuthService {
   /**
    * Get admin invite details
    */
-  private async getAdminInvite(
-    token: string,
-  ): Promise<{
+  private async getAdminInvite(token: string): Promise<{
     role: string;
     permissions: string[];
     grantedBy: string;
   } | null> {
     return this.cacheService.get(`admin-invite:${token}`);
   }
-PP
+  PP;
   /**
    * Validate JWT token (for guards)
    */
