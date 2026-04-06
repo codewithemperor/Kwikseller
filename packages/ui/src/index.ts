@@ -43,8 +43,8 @@ export type {
 } from "./inputs";
 
 // OTP Components
-export { OTPInput, OTPModal } from "./inputs";
-export type { OTPInputProps, OTPModalProps } from "./inputs";
+export { OTPInput, OTPModal, SubmitButton } from "./inputs";
+export type { OTPInputProps, OTPModalProps, SubmitButtonProps } from "./inputs";
 
 // ==================== Custom Commerce Components ====================
 // These are KWIKSELLER-specific components shared across all apps

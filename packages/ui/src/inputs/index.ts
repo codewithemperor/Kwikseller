@@ -14,7 +14,7 @@ export {
   DatePicker,
   DateRangePicker,
   Time,
-} from './form-inputs'
+} from "./form-inputs";
 
 export type {
   BaseInputProps,
@@ -26,8 +26,12 @@ export type {
   DateRangePickerInputProps,
   DateRange,
   TimeFieldInputProps,
-} from './form-inputs'
+} from "./form-inputs";
 
 // OTP Components
-export { OTPInput, OTPModal } from './otp-input'
-export type { OTPInputProps, OTPModalProps } from './otp-input'
+export { OTPInput, OTPModal } from "./otp-input";
+export type { OTPInputProps, OTPModalProps } from "./otp-input";
+
+// Submit Button
+export { SubmitButton } from "./submit-button";
+export type { SubmitButtonProps } from "./submit-button";

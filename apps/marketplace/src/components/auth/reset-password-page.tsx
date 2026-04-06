@@ -6,19 +6,27 @@ import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Lock, Store, CheckCircle, ArrowLeft, Check } from "lucide-react";
-import { Button, Spinner, InputOTP } from "@heroui/react";
-import { cn, PasswordInput } from "@kwikseller/ui";
+import { InputOTP } from "@heroui/react";
+import { cn, PasswordInput, SubmitButton } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import {
   resetPasswordSchema,
   type ResetPasswordFormData,
 } from "@kwikseller/types";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface ResetPasswordPageProps {
   loginPath: string;
   appName?: string;
   themeColor?: "blue" | "green" | "purple" | "orange" | "default";
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Theme map
+// ─────────────────────────────────────────────────────────────────────────────
 
 const themeMap: Record<
   NonNullable<ResetPasswordPageProps["themeColor"]>,
@@ -31,7 +39,10 @@ const themeMap: Record<
   default: "bg-primary",
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
 // Password validation rules — each returns true when satisfied
+// ─────────────────────────────────────────────────────────────────────────────
+
 const passwordRules = [
   {
     id: "length",
@@ -55,7 +66,11 @@ const passwordRules = [
   },
 ];
 
-interface PasswordStrengthProps {
+// ─────────────────────────────────────────────────────────────────────────────
+// PasswordChecklist
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PasswordChecklistProps {
   password: string;
   confirmPassword: string;
 }
@@ -63,7 +78,7 @@ interface PasswordStrengthProps {
 function PasswordChecklist({
   password,
   confirmPassword,
-}: PasswordStrengthProps) {
+}: PasswordChecklistProps) {
   const passwordsMatch =
     password.length > 0 &&
     confirmPassword.length > 0 &&
@@ -133,6 +148,10 @@ function PasswordChecklist({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ResetPasswordPage (FIXED)
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function ResetPasswordPage({
   loginPath,
   appName = "KWIKSELLER",
@@ -144,24 +163,34 @@ export function ResetPasswordPage({
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [userEmail, setUserEmail] = useState("");
-  const [otpValue, setOtpValue] = useState("");
-
-  useEffect(() => {
-    const email = searchParams.get("email");
-    if (email) setUserEmail(decodeURIComponent(email));
-  }, [searchParams]);
 
   const {
     control,
     handleSubmit,
-    formState: { isSubmitting },
+    setValue, // ✅ needed to sync email and otp
+    formState: { isSubmitting, isValid },
   } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { email: "", otp: "", password: "", confirmPassword: "" },
-    mode: "onChange",
+    mode: "onChange", // re-validate on every keystroke
   });
 
-  // Watch passwords live for the checklist
+  // 1️⃣ Sync email from URL to the form field
+  useEffect(() => {
+    const emailParam = searchParams.get("email");
+    if (emailParam) {
+      const decodedEmail = decodeURIComponent(emailParam);
+      setUserEmail(decodedEmail);
+      setValue("email", decodedEmail, { shouldValidate: true });
+    }
+  }, [searchParams, setValue]);
+
+  // 2️⃣ Handle OTP changes – sync to form field
+  const handleOtpChange = (value: string) => {
+    setValue("otp", value, { shouldValidate: true });
+  };
+
+  // Watch passwords for the checklist
   const watchedPassword = useWatch({
     control,
     name: "password",
@@ -174,19 +203,16 @@ export function ResetPasswordPage({
   });
 
   const onSubmit = async (data: ResetPasswordFormData) => {
+    // email is already in data (validated), but we also have userEmail from URL
     if (!userEmail) {
       kwikToast.error("Email is missing — please restart the flow.");
-      return;
-    }
-    if (otpValue.length !== 6) {
-      kwikToast.error("Please enter the complete 6-digit code.");
       return;
     }
 
     try {
       const result = await resetPassword({
-        email: userEmail,
-        otp: otpValue,
+        email: userEmail, // could also use data.email
+        otp: data.otp, // guaranteed 6 digits by schema
         newPassword: data.password,
       });
 
@@ -207,8 +233,10 @@ export function ResetPasswordPage({
   const iconColor = themeMap[themeColor];
   const busy = isSubmitting || isLoading;
 
-  // ── Success screen ─────────────────────────────────────────────────────────
+  // ✅ Button enabled only when the whole form is valid and not busy
+  const canSubmit = isValid && !busy;
 
+  // ── Success screen ──────────────────────────────────────────────────────────
   if (isSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -235,10 +263,10 @@ export function ResetPasswordPage({
     );
   }
 
-  // ── Reset form ─────────────────────────────────────────────────────────────
-
+  // ── Reset form ──────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      {/* Decorative blobs */}
       <div
         className="absolute inset-0 overflow-hidden pointer-events-none"
         aria-hidden
@@ -281,31 +309,27 @@ export function ResetPasswordPage({
             className="flex flex-col gap-5"
             noValidate
           >
-            {/* OTP — HeroUI InputOTP */}
+            {/* OTP Input - now synced to react-hook-form */}
             <div className="flex flex-col items-center gap-2">
               <label className="self-start text-sm font-medium">
                 Verification code
               </label>
               <InputOTP
                 maxLength={6}
-                value={otpValue}
-                onChange={setOtpValue}
+                value={control._formValues?.otp || ""}
+                onChange={handleOtpChange}
                 isDisabled={busy}
-                classNames={{
-                  base: "gap-2",
-                  input: "text-xl font-semibold",
-                }}
               >
-                <InputOTP.Group>
-                  <InputOTP.Slot index={0} />
-                  <InputOTP.Slot index={1} />
-                  <InputOTP.Slot index={2} />
+                <InputOTP.Group className="gap-2">
+                  <InputOTP.Slot index={0} className="text-xl font-semibold" />
+                  <InputOTP.Slot index={1} className="text-xl font-semibold" />
+                  <InputOTP.Slot index={2} className="text-xl font-semibold" />
                 </InputOTP.Group>
                 <InputOTP.Separator />
-                <InputOTP.Group>
-                  <InputOTP.Slot index={3} />
-                  <InputOTP.Slot index={4} />
-                  <InputOTP.Slot index={5} />
+                <InputOTP.Group className="gap-2">
+                  <InputOTP.Slot index={3} className="text-xl font-semibold" />
+                  <InputOTP.Slot index={4} className="text-xl font-semibold" />
+                  <InputOTP.Slot index={5} className="text-xl font-semibold" />
                 </InputOTP.Group>
               </InputOTP>
             </div>
@@ -313,7 +337,7 @@ export function ResetPasswordPage({
             {/* Divider */}
             <div className="border-t border-border/50" />
 
-            {/* New password */}
+            {/* Password fields + live checklist */}
             <div className="space-y-2">
               <PasswordInput
                 name="password"
@@ -338,34 +362,19 @@ export function ResetPasswordPage({
                 isDisabled={busy}
               />
 
-              {/* Live password checklist */}
               <PasswordChecklist
                 password={watchedPassword}
                 confirmPassword={watchedConfirm}
               />
             </div>
 
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              size="lg"
+            {/* Submit Button - fixed disabled logic */}
+            <SubmitButton
               isPending={busy}
-              isDisabled={busy || otpValue.length !== 6}
-              onPress={() => {}}
-              className="font-semibold rounded-xl"
-            >
-              {({ isPending }) =>
-                isPending ? (
-                  <span className="flex items-center gap-2">
-                    <Spinner size="sm" />
-                    Resetting…
-                  </span>
-                ) : (
-                  "Reset Password"
-                )
-              }
-            </Button>
+              isDisabled={!canSubmit} // ✅ disabled when cannot submit
+              label="Reset Password"
+              pendingLabel="Resetting…"
+            />
 
             <Link
               href={loginPath}
