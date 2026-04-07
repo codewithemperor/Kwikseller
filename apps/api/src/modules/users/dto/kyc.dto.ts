@@ -1,21 +1,17 @@
-import { IsEnum, IsOptional, IsString, IsNotEmpty } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString, IsNotEmpty } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { KycDocumentType as PrismaKycDocumentType } from "@prisma/client";
 
-export enum KycDocumentType {
-  NIN = 'NIN',
-  CAC = 'CAC',
-  BVN = 'BVN',
-  PASSPORT = 'PASSPORT',
-  DRIVERS_LICENSE = 'DRIVERS_LICENSE',
-  VOTERS_CARD = 'VOTERS_CARD',
-}
+// Re-export Prisma's KycDocumentType for use in DTOs
+export const KycDocumentType = PrismaKycDocumentType;
+export type KycDocumentType = PrismaKycDocumentType;
 
 export class UploadKycDto {
   @ApiProperty({ enum: KycDocumentType, example: KycDocumentType.NIN })
   @IsEnum(KycDocumentType)
   documentType: KycDocumentType;
 
-  @ApiPropertyOptional({ description: 'Document number (optional)' })
+  @ApiPropertyOptional({ description: "Document number (optional)" })
   @IsOptional()
   @IsString()
   documentNumber?: string;
@@ -34,7 +30,7 @@ export class KycDocumentResponseDto {
   @ApiProperty()
   documentUrl: string;
 
-  @ApiProperty({ enum: ['PENDING', 'APPROVED', 'REJECTED'] })
+  @ApiProperty({ enum: ["PENDING", "APPROVED", "REJECTED"] })
   status: string;
 
   @ApiPropertyOptional()
@@ -54,12 +50,12 @@ export class KycDocumentResponseDto {
 }
 
 export class KycReviewDto {
-  @ApiProperty({ enum: ['APPROVED', 'REJECTED'] })
+  @ApiProperty({ enum: ["APPROVED", "REJECTED"] })
   @IsString()
   @IsNotEmpty()
-  status: 'APPROVED' | 'REJECTED';
+  status: "APPROVED" | "REJECTED";
 
-  @ApiPropertyOptional({ description: 'Required if rejected' })
+  @ApiPropertyOptional({ description: "Required if rejected" })
   @IsOptional()
   @IsString()
   rejectionReason?: string;

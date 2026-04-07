@@ -1,26 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Inter, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono, Space_Grotesk, Figtree } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
+import { Toast } from "@heroui/react";
 
-// Heading font - Poppins
-const fontHeading = Poppins({
+// Heading font - Poppins (modern, geometric sans-serif)
+const fontHeading = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
   display: "swap",
 });
 
-// Text/Body font - Inter
-const fontText = Inter({
+// Text/Body font - Inter (excellent readability)
+const fontText = Figtree({
   subsets: ["latin"],
   variable: "--font-text",
   display: "swap",
 });
 
-// Monospace font - JetBrains Mono
+// Monospace font - JetBrains Mono (for code, numbers)
 const fontMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
@@ -32,16 +33,20 @@ export const metadata: Metadata = {
     default: "KWIKSELLER Rider - Delivery App",
     template: "%s | KWIKSELLER Rider",
   },
-  description: "KWIKSELLER Rider App - Manage deliveries, track earnings, and complete orders on the go.",
+  description:
+    "KWIKSELLER Rider App - Manage deliveries, track earnings, and complete orders on the go.",
   manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1A56DB",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#1A56DB" },
+    { media: "(prefers-color-scheme: dark)", color: "#1E40AF" },
+  ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
@@ -50,8 +55,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html 
-      lang="en" 
+    <html
+      lang="en"
       className={`${fontHeading.variable} ${fontText.variable} ${fontMono.variable}`}
       suppressHydrationWarning
     >
@@ -65,7 +70,8 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               {children}
-              <Toaster position="top-center" />
+              <Toast.Provider placement="top end" maxVisibleToasts={3} />
+              <Toaster position="top-right" richColors closeButton />
             </ThemeProvider>
           </AuthProvider>
         </HeroUIProviderWrapper>

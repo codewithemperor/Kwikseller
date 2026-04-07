@@ -46,9 +46,14 @@ export class AdminPermissionsGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
 
-    // Check if user is admin
-    if (user.role !== 'ADMIN') {
+    // Check if user is admin or super_admin
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Admin access required');
+    }
+
+    // SUPER_ADMIN users bypass all permission checks
+    if (user.role === 'SUPER_ADMIN') {
+      return true;
     }
 
     // Get admin permission record

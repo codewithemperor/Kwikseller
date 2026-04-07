@@ -1,10 +1,20 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional, IsPhoneNumber, ValidateIf, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsOptional,
+  IsPhoneNumber,
+  ValidateIf,
+  Matches,
+} from "class-validator";
 
 export enum UserRole {
-  BUYER = 'BUYER',
-  VENDOR = 'VENDOR',
-  ADMIN = 'ADMIN',
-  RIDER = 'RIDER',
+  BUYER = "BUYER",
+  VENDOR = "VENDOR",
+  ADMIN = "ADMIN",
+  RIDER = "RIDER",
+  SUPER_ADMIN = "SUPER_ADMIN",
 }
 
 export class RegisterDto {
@@ -14,7 +24,8 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    message:
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
   })
   password: string;
 
@@ -30,7 +41,7 @@ export class RegisterDto {
   lastName?: string;
 
   @IsOptional()
-  @IsPhoneNumber('NG')
+  @IsPhoneNumber("NG")
   phone?: string;
 
   // Vendor-specific fields
@@ -89,7 +100,8 @@ export class ResetPasswordDto {
   @IsString()
   @MinLength(8)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    message:
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
   })
   newPassword: string;
 }
@@ -111,7 +123,7 @@ export class VerifyOTPDto {
 
   @IsOptional()
   @IsString()
-  type?: 'email-verification' | 'password-reset' | 'login-verification';
+  type?: "email-verification" | "password-reset" | "login-verification";
 }
 
 export class ResendVerificationDto {
@@ -126,7 +138,8 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(8)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    message:
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
   })
   newPassword: string;
 }
@@ -136,6 +149,6 @@ export class OAuthDto {
   accessToken: string;
 
   @IsOptional()
-  @IsEnum(['google', 'facebook', 'apple'])
+  @IsEnum(["google", "facebook", "apple"])
   provider?: string;
 }

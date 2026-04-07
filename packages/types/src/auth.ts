@@ -36,8 +36,10 @@ export const registerSchema = z
     firstName: z.string().min(2, "First name must be at least 2 characters"),
     lastName: z.string().min(2, "Last name must be at least 2 characters"),
     phone: z.string().optional(),
-    role: z.enum(["BUYER", "VENDOR"]),
+    role: z.enum(["BUYER", "VENDOR", "RIDER"]),
     storeName: z.string().optional(),
+    vehicleType: z.string().optional(),
+    plateNumber: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -57,6 +59,74 @@ export const registerSchema = z
   );
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
+
+// ==================== RIDER REGISTER ====================
+
+// Vehicle types for riders
+export type VehicleType = "BIKE" | "MOTORCYCLE" | "CAR" | "TRUCK";
+
+// Rider registration schema - base schema without refinements, then add rider-specific fields
+const riderBaseSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  phone: z.string().min(1, "Phone number is required"),
+  role: z.enum(["BUYER", "VENDOR", "RIDER"]),
+  vehicleType: z.enum(["BIKE", "MOTORCYCLE", "CAR", "TRUCK"]),
+  plateNumber: z.string().min(1, "Plate number is required"),
+});
+
+export const riderRegisterSchema = riderBaseSchema.refine(
+  (data) => data.password === data.confirmPassword,
+  {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  },
+);
+
+export type RiderRegisterFormData = z.infer<typeof riderRegisterSchema>;
+
+// ==================== VENDOR REGISTER ====================
+
+// Vendor registration schema - base schema without refinements, then add vendor-specific fields
+const vendorBaseSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  phone: z.string().optional(),
+  role: z.enum(["BUYER", "VENDOR", "RIDER"]),
+  storeName: z.string().min(3, "Store name must be at least 3 characters"),
+});
+
+export const vendorRegisterSchema = vendorBaseSchema.refine(
+  (data) => data.password === data.confirmPassword,
+  {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  },
+);
+
+export type VendorRegisterFormData = z.infer<typeof vendorRegisterSchema>;
 
 // ==================== FORGOT PASSWORD ====================
 

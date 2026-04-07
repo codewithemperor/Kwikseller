@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, ArrowLeft, Store } from "lucide-react";
 import { Button, Spinner } from "@heroui/react";
 import { cn, TextInput } from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
+import { kwikToast, useAuth, usePendingResetEmail } from "@kwikseller/utils";
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormData,
@@ -40,6 +40,7 @@ export function ForgotPasswordPage({
 }: ForgotPasswordPageProps) {
   const router = useRouter();
   const { forgotPassword, isLoading } = useAuth();
+  const { setPendingResetEmail } = usePendingResetEmail();
 
   const {
     control,
@@ -55,11 +56,14 @@ export function ForgotPasswordPage({
       const result = await forgotPassword(data.email);
 
       if (result.success) {
+        // Store email in Zustand (memory only - NOT localStorage or URL)
+        setPendingResetEmail(data.email);
+        
         kwikToast.success(
           result.message || "Verification code sent to your email!",
         );
-        // Route straight to reset page with email pre-filled
-        router.push(`${resetPath}?email=${encodeURIComponent(data.email)}`);
+        // Redirect to reset page WITHOUT email in URL
+        router.push(resetPath);
       } else {
         kwikToast.error(result.error || "Failed to send verification code");
       }

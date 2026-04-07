@@ -26,6 +26,7 @@ interface ProtectedRouteProps {
     VENDOR?: string;
     ADMIN?: string;
     RIDER?: string;
+    SUPER_ADMIN?: string;
   };
   /**
    * Unauthorized component to show instead of redirecting
@@ -49,6 +50,7 @@ export function ProtectedRoute({
     VENDOR: "/dashboard",
     ADMIN: "/admin",
     RIDER: "/deliveries",
+    SUPER_ADMIN: "/admin",
   },
   unauthorizedComponent,
 }: ProtectedRouteProps) {

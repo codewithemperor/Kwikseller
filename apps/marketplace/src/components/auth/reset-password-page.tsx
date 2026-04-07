@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Lock, Store, CheckCircle, ArrowLeft, Check } from "lucide-react";
 import { InputOTP } from "@heroui/react";
 import { cn, PasswordInput, SubmitButton } from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
+import { kwikToast, useAuth, usePendingResetEmail } from "@kwikseller/utils";
 import {
   resetPasswordSchema,
   type ResetPasswordFormData,
@@ -20,6 +20,7 @@ import {
 
 interface ResetPasswordPageProps {
   loginPath: string;
+  forgotPasswordPath?: string;
   appName?: string;
   themeColor?: "blue" | "green" | "purple" | "orange" | "default";
 }
@@ -100,7 +101,7 @@ function PasswordChecklist({
           >
             <span
               className={cn(
-                "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200",
+                "shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200",
                 passed
                   ? "bg-emerald-500/15 dark:bg-emerald-500/20"
                   : "bg-muted",
@@ -129,7 +130,7 @@ function PasswordChecklist({
       >
         <span
           className={cn(
-            "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200",
+            "shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200",
             passwordsMatch
               ? "bg-emerald-500/15 dark:bg-emerald-500/20"
               : "bg-muted",
@@ -149,43 +150,49 @@ function PasswordChecklist({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ResetPasswordPage (FIXED)
+// ResetPasswordPage (with Zustand email storage)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ResetPasswordPage({
   loginPath,
+  forgotPasswordPath = "/forgot-password",
   appName = "KWIKSELLER",
   themeColor = "default",
 }: ResetPasswordPageProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { resetPassword, isLoading } = useAuth();
+  const { pendingResetEmail, clearPendingResetEmail } = usePendingResetEmail();
 
   const [isSuccess, setIsSuccess] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const {
     control,
     handleSubmit,
-    setValue, // ✅ needed to sync email and otp
+    setValue,
     formState: { isSubmitting, isValid },
   } = useForm<ResetPasswordFormData>({
-    resolver: zodResolver(resetPasswordSchema),
+    resolver: zodResolver(
+      resetPasswordSchema,
+    ) as Resolver<ResetPasswordFormData>,
     defaultValues: { email: "", otp: "", password: "", confirmPassword: "" },
-    mode: "onChange", // re-validate on every keystroke
+    mode: "onChange",
   });
 
-  // 1️⃣ Sync email from URL to the form field
+  // Get email from Zustand (memory) on mount
   useEffect(() => {
-    const emailParam = searchParams.get("email");
-    if (emailParam) {
-      const decodedEmail = decodeURIComponent(emailParam);
-      setUserEmail(decodedEmail);
-      setValue("email", decodedEmail, { shouldValidate: true });
+    if (pendingResetEmail) {
+      setUserEmail(pendingResetEmail);
+      setValue("email", pendingResetEmail, { shouldValidate: true });
     }
-  }, [searchParams, setValue]);
+    // else {
+    //   // No email in store - redirect back to forgot password
+    //   kwikToast.error("Please start the password reset process from the beginning.");
+    //   router.replace(forgotPasswordPath);
+    // }
+  }, [pendingResetEmail, setValue, router, forgotPasswordPath]);
 
-  // 2️⃣ Handle OTP changes – sync to form field
+  // Handle OTP changes
   const handleOtpChange = (value: string) => {
     setValue("otp", value, { shouldValidate: true });
   };
@@ -203,20 +210,23 @@ export function ResetPasswordPage({
   });
 
   const onSubmit = async (data: ResetPasswordFormData) => {
-    // email is already in data (validated), but we also have userEmail from URL
     if (!userEmail) {
       kwikToast.error("Email is missing — please restart the flow.");
+      router.push(forgotPasswordPath);
       return;
     }
 
     try {
       const result = await resetPassword({
-        email: userEmail, // could also use data.email
-        otp: data.otp, // guaranteed 6 digits by schema
+        email: userEmail,
+        otp: data.otp,
         newPassword: data.password,
       });
 
       if (result.success) {
+        // Clear the stored email from memory
+        clearPendingResetEmail();
+
         setIsSuccess(true);
         kwikToast.success(result.message || "Password reset successfully!");
         setTimeout(() => router.push(loginPath), 2000);
@@ -232,11 +242,21 @@ export function ResetPasswordPage({
 
   const iconColor = themeMap[themeColor];
   const busy = isSubmitting || isLoading;
-
-  // ✅ Button enabled only when the whole form is valid and not busy
   const canSubmit = isValid && !busy;
 
-  // ── Success screen ──────────────────────────────────────────────────────────
+  // Loading state while checking for email
+  if (!userEmail && !isSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Success screen
   if (isSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -263,7 +283,7 @@ export function ResetPasswordPage({
     );
   }
 
-  // ── Reset form ──────────────────────────────────────────────────────────────
+  // Reset form
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       {/* Decorative blobs */}
@@ -309,7 +329,7 @@ export function ResetPasswordPage({
             className="flex flex-col gap-5"
             noValidate
           >
-            {/* OTP Input - now synced to react-hook-form */}
+            {/* OTP Input */}
             <div className="flex flex-col items-center gap-2">
               <label className="self-start text-sm font-medium">
                 Verification code
@@ -368,10 +388,10 @@ export function ResetPasswordPage({
               />
             </div>
 
-            {/* Submit Button - fixed disabled logic */}
+            {/* Submit Button */}
             <SubmitButton
               isPending={busy}
-              isDisabled={!canSubmit} // ✅ disabled when cannot submit
+              isDisabled={!canSubmit}
               label="Reset Password"
               pendingLabel="Resetting…"
             />

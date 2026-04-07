@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL")
 }
 
 // ==================== USER & AUTH ====================
@@ -17,6 +18,36 @@ enum UserRole {
   VENDOR
   ADMIN
   RIDER
+  SUPER_ADMIN
+}
+
+enum VerificationStatus {
+  NOT_SUBMITTED
+  PENDING_REVIEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum OnboardingStep {
+  NOT_STARTED
+  PROFILE_SETUP
+  DOCUMENT_UPLOAD
+  BANK_DETAILS
+  VEHICLE_INFO
+  COMPLETED
+}
+
+enum KycDocumentType {
+  CAC           // Vendor - Corporate Affairs Commission
+  BVN           // Vendor - Bank Verification Number
+  TIN           // Vendor - Tax Identification Number
+  NIN           // Rider - National Identity Number
+  DRIVERS_LICENSE // Rider
+  VEHICLE_REGISTRATION // Rider
+  VEHICLE_INSURANCE    // Rider
+  PASSPORT      // Common
+  UTILITY_BILL  // Common - Proof of address
 }
 
 enum UserStatus {
@@ -99,21 +130,22 @@ model Address {
 }
 
 model KycDocument {
-  id           String      @id @default(cuid())
-  userId       String
-  type         String
-  documentUrl  String
-  status       KycStatus   @default(PENDING)
-  reviewedBy   String?
-  reviewedAt   DateTime?
+  id              String           @id @default(cuid())
+  userId          String
+  type            KycDocumentType
+  documentUrl     String
+  status          KycStatus        @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
   rejectionReason String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
+  @@index([type])
 }
 
 enum KycStatus {
@@ -149,18 +181,29 @@ model AdminPermission {
 // ==================== STORE ====================
 
 model Store {
-  id                  String   @id @default(cuid())
-  vendorId            String   @unique
-  name                String
-  slug                String   @unique
-  description         String?
-  logoUrl             String?
-  bannerUrl           String?
-  category            String?
-  isVerified          Boolean  @default(false)
-  onboardingComplete  Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                      String             @id @default(cuid())
+  vendorId                String             @unique
+  name                    String
+  slug                    String             @unique
+  description             String?
+  logoUrl                 String?
+  bannerUrl               String?
+  category                String?
+  isVerified              Boolean            @default(false)
+  onboardingComplete      Boolean            @default(false)
+  onboardingStep          OnboardingStep     @default(NOT_STARTED)
+  onboardingSubmittedAt   DateTime?
+  verificationStatus      VerificationStatus @default(NOT_SUBMITTED)
+  verificationReviewedAt  DateTime?
+  verificationReviewedBy  String?
+  rejectionReason         String?
+  // Bank details for payouts
+  bankCode                String?
+  bankName                String?
+  accountNumber           String?
+  accountName             String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
   vendor      User          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   products    Product[]
@@ -169,6 +212,7 @@ model Store {
 
   @@index([vendorId])
   @@index([slug])
+  @@index([verificationStatus])
 }
 
 // ==================== SUBSCRIPTION ====================
@@ -671,21 +715,40 @@ model AdImpression {
 // ==================== RIDERS ====================
 
 model Rider {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  vehicleType      String
-  plateNumber      String?
-  isAvailable      Boolean  @default(false)
-  rating           Float    @default(0)
-  totalDeliveries  Int      @default(0)
-  totalEarnings    Float    @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                      String             @id @default(cuid())
+  userId                  String             @unique
+  vehicleType             String
+  vehicleBrand            String?
+  vehicleModel            String?
+  vehicleYear             Int?
+  vehicleColor            String?
+  plateNumber             String?
+  licenseNumber           String?
+  licenseExpiry           DateTime?
+  isAvailable             Boolean            @default(false)
+  onboardingComplete      Boolean            @default(false)
+  onboardingStep          OnboardingStep     @default(NOT_STARTED)
+  onboardingSubmittedAt   DateTime?
+  verificationStatus      VerificationStatus @default(NOT_SUBMITTED)
+  verificationReviewedAt  DateTime?
+  verificationReviewedBy  String?
+  rejectionReason         String?
+  // Bank details for payouts
+  bankCode                String?
+  bankName                String?
+  accountNumber           String?
+  accountName             String?
+  rating                  Float              @default(0)
+  totalDeliveries         Int                @default(0)
+  totalEarnings           Float              @default(0)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveries Delivery[]
 
   @@index([isAvailable])
+  @@index([verificationStatus])
 }
 
 enum DeliveryStatus {

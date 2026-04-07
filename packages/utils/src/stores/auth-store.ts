@@ -18,8 +18,10 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 // ==================== Types ====================
 
-export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER';
+export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER' | 'SUPER_ADMIN';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'PENDING';
+export type VerificationStatus = 'NOT_SUBMITTED' | 'PENDING_REVIEW' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+export type OnboardingStep = 'NOT_STARTED' | 'PROFILE_SETUP' | 'DOCUMENT_UPLOAD' | 'BANK_DETAILS' | 'VEHICLE_INFO' | 'COMPLETED';
 
 export interface UserProfile {
   firstName?: string;
@@ -41,6 +43,16 @@ export interface UserStore {
     slug: string;
     isVerified: boolean;
     onboardingComplete: boolean;
+    verificationStatus?: VerificationStatus;
+    onboardingStep?: OnboardingStep;
+  };
+  rider?: {
+    id: string;
+    vehicleType: string;
+    isAvailable: boolean;
+    onboardingComplete: boolean;
+    verificationStatus?: VerificationStatus;
+    onboardingStep?: OnboardingStep;
   };
   subscription?: {
     plan: string;
@@ -86,6 +98,8 @@ interface AuthStoreState {
   tokens: AuthTokens | null;
   isLoading: boolean;
   isInitialized: boolean;
+  // NOT persisted - only in memory for password reset flow
+  pendingResetEmail: string | null;
 }
 
 interface AuthStoreActions {
@@ -101,6 +115,10 @@ interface AuthStoreActions {
   getRefreshToken: () => string | null;
   hasRole: (role: UserRole | UserRole[]) => boolean;
   hasPermission: (permission: string) => boolean;
+  // Password reset email methods (memory only)
+  setPendingResetEmail: (email: string) => void;
+  getPendingResetEmail: () => string | null;
+  clearPendingResetEmail: () => void;
 }
 
 export type AuthState = AuthStoreState & AuthStoreActions;
@@ -115,6 +133,7 @@ export const useAuthStore = create<AuthState>()(
       tokens: null,
       isLoading: false,
       isInitialized: false,
+      pendingResetEmail: null,
       
       // Setters
       setUser: (user) => set({ user }),
@@ -134,6 +153,7 @@ export const useAuthStore = create<AuthState>()(
         user: null, 
         tokens: null, 
         isLoading: false,
+        pendingResetEmail: null, // Clear reset email on logout
       }),
       
       updateUser: (userData) => set((state) => ({
@@ -157,7 +177,10 @@ export const useAuthStore = create<AuthState>()(
         const user = get().user;
         if (!user) return false;
         
-        // Admin with no permissions = Super Admin (all permissions)
+        // SUPER_ADMIN has all permissions
+        if (user.role === 'SUPER_ADMIN') return true;
+        
+        // Admin with no permissions array = full access (legacy support)
         if (user.role === 'ADMIN') {
           if (!user.permissions || user.permissions.length === 0) return true;
           return user.permissions.includes(permission) || user.permissions.includes('*');
@@ -165,6 +188,11 @@ export const useAuthStore = create<AuthState>()(
         
         return false;
       },
+      
+      // Password reset email methods (memory only - NOT persisted)
+      setPendingResetEmail: (email) => set({ pendingResetEmail: email }),
+      getPendingResetEmail: () => get().pendingResetEmail,
+      clearPendingResetEmail: () => set({ pendingResetEmail: null }),
     }),
     {
       name: AUTH_STORAGE_KEY,
@@ -172,6 +200,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         tokens: state.tokens,
+        // NOTE: pendingResetEmail is NOT included here - it stays in memory only!
       }),
       onRehydrateStorage: () => (state) => {
         // Mark as initialized after rehydration
@@ -220,3 +249,101 @@ export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
  * Auth initialized state
  */
 export const useAuthInitialized = () => useAuthStore((state) => state.isInitialized);
+
+// ==================== Onboarding & Verification Hooks ====================
+
+/**
+ * Check if vendor needs onboarding
+ */
+export const useVendorNeedsOnboarding = () => {
+  const user = useAuthStore((state) => state.user);
+  if (!user || user.role !== 'VENDOR') return false;
+  return !user.store?.onboardingComplete;
+};
+
+/**
+ * Check if rider needs onboarding
+ */
+export const useRiderNeedsOnboarding = () => {
+  const user = useAuthStore((state) => state.user);
+  if (!user || user.role !== 'RIDER') return false;
+  return !user.rider?.onboardingComplete;
+};
+
+/**
+ * Get vendor verification status
+ */
+export const useVendorVerificationStatus = (): VerificationStatus | null => {
+  const user = useAuthStore((state) => state.user);
+  if (!user || user.role !== 'VENDOR') return null;
+  return user.store?.verificationStatus ?? 'NOT_SUBMITTED';
+};
+
+/**
+ * Get rider verification status
+ */
+export const useRiderVerificationStatus = (): VerificationStatus | null => {
+  const user = useAuthStore((state) => state.user);
+  if (!user || user.role !== 'RIDER') return null;
+  return user.rider?.verificationStatus ?? 'NOT_SUBMITTED';
+};
+
+/**
+ * Check if user is verified (approved after onboarding)
+ */
+export const useIsUserVerified = () => {
+  const user = useAuthStore((state) => state.user);
+  if (!user) return false;
+  
+  if (user.role === 'VENDOR') {
+    return user.store?.verificationStatus === 'APPROVED';
+  }
+  
+  if (user.role === 'RIDER') {
+    return user.rider?.verificationStatus === 'APPROVED';
+  }
+  
+  // BUYER, ADMIN, SUPER_ADMIN are always "verified"
+  return true;
+};
+
+/**
+ * Get user's onboarding step
+ */
+export const useOnboardingStep = (): OnboardingStep | null => {
+  const user = useAuthStore((state) => state.user);
+  if (!user) return null;
+  
+  if (user.role === 'VENDOR') {
+    return user.store?.onboardingStep ?? 'NOT_STARTED';
+  }
+  
+  if (user.role === 'RIDER') {
+    return user.rider?.onboardingStep ?? 'NOT_STARTED';
+  }
+  
+  return null;
+};
+
+/**
+ * Check if user is SUPER_ADMIN
+ */
+export const useIsSuperAdmin = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'SUPER_ADMIN';
+};
+
+/**
+ * Hook to access pending reset email
+ */
+export const usePendingResetEmail = () => {
+  const pendingResetEmail = useAuthStore((state) => state.pendingResetEmail);
+  const setPendingResetEmail = useAuthStore((state) => state.setPendingResetEmail);
+  const clearPendingResetEmail = useAuthStore((state) => state.clearPendingResetEmail);
+  
+  return {
+    pendingResetEmail,
+    setPendingResetEmail,
+    clearPendingResetEmail,
+  };
+};

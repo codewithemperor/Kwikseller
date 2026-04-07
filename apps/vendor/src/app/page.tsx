@@ -1,100 +1,43 @@
 // KWIKSELLER Vendor Dashboard - Landing Page
-// For vendors to manage their online store
+// Redirects to dashboard/onboarding if authenticated, or login if not
 
 'use client'
 
-import { Store, Package, ShoppingCart, DollarSign, TrendingUp, Bell, Settings, LogOut } from 'lucide-react'
-import { Button, Card } from '@heroui/react'
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuthStore, useVendorNeedsOnboarding } from "@kwikseller/utils"
 
-export default function VendorDashboard() {
-  const stats = [
-    { title: 'Total Revenue', value: '₦1,234,567', change: '+12.5%', icon: DollarSign },
-    { title: 'Orders', value: '145', change: '+8.2%', icon: ShoppingCart },
-    { title: 'Products', value: '89', change: '+3', icon: Package },
-    { title: 'Conversion', value: '3.2%', change: '+0.5%', icon: TrendingUp },
-  ]
+export default function VendorPage() {
+  const router = useRouter()
+  const user = useAuthStore((state) => state.user)
+  const tokens = useAuthStore((state) => state.tokens)
+  const isInitialized = useAuthStore((state) => state.isInitialized)
+  const vendorNeedsOnboarding = useVendorNeedsOnboarding()
 
-  const recentOrders = [
-    { id: 'ORD-001', customer: 'John Doe', amount: '₦15,000', status: 'Processing' },
-    { id: 'ORD-002', customer: 'Jane Smith', amount: '₦28,500', status: 'Shipped' },
-    { id: 'ORD-003', customer: 'Mike Johnson', amount: '₦9,800', status: 'Delivered' },
-    { id: 'ORD-004', customer: 'Sarah Wilson', amount: '₦45,000', status: 'Pending' },
-  ]
+  const isAuthenticated = !!user && !!tokens?.accessToken
 
+  useEffect(() => {
+    if (!isInitialized) return
+
+    if (isAuthenticated) {
+      // For vendors, check if they need onboarding
+      if (user?.role === "VENDOR" && vendorNeedsOnboarding) {
+        router.push("/onboarding")
+      } else {
+        router.push("/dashboard")
+      }
+    } else {
+      router.push("/login")
+    }
+  }, [isInitialized, isAuthenticated, router, user, vendorNeedsOnboarding])
+
+  // Show loading state while checking auth
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <Store className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-lg">KWIKSELLER</span>
-              <span className="text-sm text-default-500 ml-2">Vendor Dashboard</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button isIconOnly variant="ghost">
-                <Bell className="w-5 h-5" />
-              </Button>
-              <Button isIconOnly variant="ghost">
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button isIconOnly variant="ghost">
-                <LogOut className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Welcome back! 👋</h1>
-          <p className="text-default-500">Here&apos;s what&apos;s happening with your store today.</p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="p-4">
-              <div className="flex flex-row items-center justify-between pb-2">
-                <span className="text-sm font-medium text-default-500">
-                  {stat.title}
-                </span>
-                <stat.icon className="h-4 w-4 text-default-500" />
-              </div>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-success">{stat.change} from last month</p>
-            </Card>
-          ))}
-        </div>
-
-        {/* Recent Orders */}
-        <Card className="p-4">
-          <div className="mb-4">
-            <h3 className="font-semibold">Recent Orders</h3>
-            <p className="text-sm text-default-500">Latest orders from your store</p>
-          </div>
-          <div className="space-y-4">
-            {recentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <p className="font-medium">{order.id}</p>
-                  <p className="text-sm text-default-500">{order.customer}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">{order.amount}</p>
-                  <p className="text-sm text-default-500">{order.status}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </main>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading...</p>
+      </div>
     </div>
   )
 }

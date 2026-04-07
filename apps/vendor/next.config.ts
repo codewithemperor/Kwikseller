@@ -2,26 +2,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.kwikseller.com",
-      },
-      {
-        protocol: "https",
-        hostname: "*.amazonaws.com",
-      },
-    ],
-  },
-  experimental: {
-    optimizePackageImports: ["lucide-react", "recharts"],
-  },
-  // Turbopack handles monorepo packages natively
+  // Configure Turbopack (Next.js 16 uses Turbopack by default)
   turbopack: {},
+  allowedDevOrigins: ["172.20.10.2"],
+
+  // Proxy all /api/v1 requests to the NestJS backend
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${process.env.API_URL || "http://localhost:4000"}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

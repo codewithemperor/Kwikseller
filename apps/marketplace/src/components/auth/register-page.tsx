@@ -31,6 +31,12 @@ export interface RegisterPortalConfig {
   loginPath: string;
   defaultRole?: "BUYER" | "VENDOR";
   showRoleSelector?: boolean;
+  /**
+   * If provided, clicking "I want to sell" will redirect to this URL instead of
+   * showing the vendor registration form. This allows vendors to register on
+   * a separate vendor app.
+   */
+  vendorRegisterUrl?: string;
 }
 
 interface RegisterPageProps {
@@ -84,6 +90,12 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   // ── Role selection ─────────────────────────────────────────────────────────
 
   const handleRoleSelect = (role: "BUYER" | "VENDOR") => {
+    // If vendor is selected and we have a vendor redirect URL, navigate there
+    if (role === "VENDOR" && portal.vendorRegisterUrl) {
+      window.location.href = portal.vendorRegisterUrl;
+      return;
+    }
+    
     setSelectedRole(role);
     setValue("role", role);
     setStep(2);

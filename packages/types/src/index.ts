@@ -6,7 +6,7 @@ export * from './auth'
 
 // ==================== USER & AUTH ====================
 
-export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER'
+export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER' | 'SUPER_ADMIN'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'PENDING'
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type AdminRole = 'SUPER_ADMIN' | 'FINANCE' | 'VENDOR_SUPPORT' | 'OPERATIONS' | 'MARKETING' | 'CONTENT'

@@ -62,6 +62,16 @@ export interface AuthUser {
     slug: string;
     isVerified: boolean;
     onboardingComplete: boolean;
+    verificationStatus?: string;
+    onboardingStep?: string;
+  };
+  rider?: {
+    id: string;
+    vehicleType: string;
+    isAvailable: boolean;
+    onboardingComplete: boolean;
+    verificationStatus?: string;
+    onboardingStep?: string;
   };
   subscription?: {
     plan: string;
@@ -480,6 +490,24 @@ export class AuthService {
       throw new NotFoundException("No account found with this email address");
     }
 
+    // BLOCK: SUPER_ADMIN cannot reset password
+    if (user.role === UserRole.SUPER_ADMIN) {
+      // Log the attempt but return success to not reveal existence
+      this.logger.warn(`Password reset attempted for SUPER_ADMIN: ${dto.email}`);
+      await this.auditService.log({
+        userId: user.id,
+        action: "PASSWORD_RESET_BLOCKED",
+        entity: "User",
+        entityId: user.id,
+        ipAddress,
+      });
+      // Return success message but don't send OTP
+      return {
+        message: "If this email is registered, a verification code has been sent",
+        email: dto.email,
+      };
+    }
+
     // Generate OTP
     const otp = this.generateOTP();
     await this.cacheService.set(
@@ -767,9 +795,14 @@ export class AuthService {
         : undefined,
     };
 
-    // Add permissions for admin users
+    // Add permissions for admin/super_admin users
     if (user.role === UserRole.ADMIN && user.adminPermission) {
       response.permissions = JSON.parse(user.adminPermission.permissions);
+    }
+
+    // SUPER_ADMIN has all permissions
+    if (user.role === UserRole.SUPER_ADMIN) {
+      response.permissions = ['*']; // All permissions
     }
 
     // Add store for vendor users
@@ -780,6 +813,20 @@ export class AuthService {
         slug: user.store.slug,
         isVerified: user.store.isVerified,
         onboardingComplete: user.store.onboardingComplete,
+        verificationStatus: user.store.verificationStatus,
+        onboardingStep: user.store.onboardingStep,
+      };
+    }
+
+    // Add rider info for rider users
+    if (user.role === UserRole.RIDER && user.rider) {
+      response.rider = {
+        id: user.rider.id,
+        vehicleType: user.rider.vehicleType,
+        isAvailable: user.rider.isAvailable,
+        onboardingComplete: user.rider.onboardingComplete,
+        verificationStatus: user.rider.verificationStatus,
+        onboardingStep: user.rider.onboardingStep,
       };
     }
 
@@ -813,7 +860,7 @@ export class AuthService {
   } | null> {
     return this.cacheService.get(`admin-invite:${token}`);
   }
-  PP;
+
   /**
    * Validate JWT token (for guards)
    */

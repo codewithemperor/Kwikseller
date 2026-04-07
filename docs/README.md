@@ -43,12 +43,12 @@
 
 ### Frontend Apps
 
-| App | Port | URL |
-|-----|------|-----|
-| Marketplace | 3000 | http://localhost:3000 |
-| Vendor | 3001 | http://localhost:3001 |
-| Admin | 3002 | http://localhost:3002 |
-| Rider | 3003 | http://localhost:3003 |
+| App | Port | URL | Description |
+|-----|------|-----|-------------|
+| Marketplace | 3000 | http://localhost:3000 | Buyer-facing storefront |
+| Vendor | 3001 | http://localhost:3001 | Vendor dashboard (login at root) |
+| Admin | 3002 | http://localhost:3002 | Admin panel |
+| Rider | 3003 | http://localhost:3003 | Rider delivery app |
 
 ---
 
@@ -84,14 +84,55 @@ KWIKSELLER uses a **unified authentication system** with a single API for all us
 │              /api/v1/auth/*                          │
 ├─────────────────────────────────────────────────────┤
 │  Supported Roles:                                    │
-│  • BUYER    - Standard customers                     │
-│  • VENDOR   - Business owners / Sellers              │
-│  • ADMIN    - Platform administrators                │
-│  • RIDER    - Delivery partners                      │
+│  • BUYER      - Standard customers                   │
+│  • VENDOR     - Business owners / Sellers            │
+│  • ADMIN      - Platform administrators              │
+│  • RIDER      - Delivery partners                    │
+│  • SUPER_ADMIN - Super administrators                │
 └─────────────────────────────────────────────────────┘
 ```
 
 For detailed information, see [AUTH-SYSTEM.md](./AUTH-SYSTEM.md).
+
+---
+
+## 📱 App Routing Structure
+
+### Vendor App Routes
+
+| Route | Description | Auth Required |
+|-------|-------------|---------------|
+| `/` | Login page | ❌ No |
+| `/dashboard` | Vendor dashboard | ✅ Yes (VENDOR role) |
+| `/login` | Login page | ❌ No |
+| `/register` | Registration page | ❌ No |
+| `/forgot-password` | Password reset request | ❌ No |
+| `/reset-password` | Password reset confirmation | ❌ No |
+
+### Rider App Routes
+
+| Route | Description | Auth Required |
+|-------|-------------|---------------|
+| `/` | Landing page | ❌ No |
+| `/login` | Login page | ❌ No |
+| `/register` | Registration page | ❌ No |
+
+### Admin App Routes
+
+| Route | Description | Auth Required |
+|-------|-------------|---------------|
+| `/` | Landing page | ❌ No |
+| `/login` | Login page | ❌ No |
+
+### Marketplace App Routes
+
+| Route | Description | Auth Required |
+|-------|-------------|---------------|
+| `/` | Homepage/Storefront | ❌ No |
+| `/login` | Login page | ❌ No |
+| `/register` | Registration with role selector | ❌ No |
+| `/forgot-password` | Password reset request | ❌ No |
+| `/reset-password` | Password reset confirmation | ❌ No |
 
 ---
 
@@ -143,6 +184,30 @@ bun run check-types
 
 ---
 
+## 🔄 Recent Updates
+
+### Authentication System
+- ✅ Unified auth system with single API for all user types
+- ✅ OTP-based email verification (6-digit code)
+- ✅ OTP-based password reset
+- ✅ JWT token management with refresh tokens
+- ✅ Zustand-based client state management with localStorage persistence
+- ✅ Role-based route protection (ProtectedRoute component)
+- ✅ Guest route protection (GuestRoute component)
+
+### Vendor App
+- ✅ Login page shown directly at root route (`/`)
+- ✅ Dashboard at `/dashboard` route with VENDOR role protection
+- ✅ Registration with vendor-specific fields
+- ✅ Password reset flow
+
+### Shared Packages
+- ✅ `@kwikseller/ui` - Shared UI components (inputs, OTP verification, etc.)
+- ✅ `@kwikseller/utils` - Auth context, stores, HTTP client, utilities
+- ✅ `@kwikseller/types` - Shared TypeScript types and schemas
+
+---
+
 ## 📝 Contributing
 
 When adding new features:
@@ -154,5 +219,5 @@ When adding new features:
 
 ---
 
-**Last Updated:** 2024
-**Version:** 1.0.0
+**Last Updated:** January 2025
+**Version:** 1.1.0
