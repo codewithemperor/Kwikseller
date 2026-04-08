@@ -5,7 +5,6 @@ const riderPortal: RiderPortalConfig = {
   description: 'Sign in to manage deliveries and track earnings',
   themeColor: 'orange',
   redirectPath: '/dashboard',
-  onboardingPath: '/onboarding',
   showRegisterLink: true,
   registerPath: '/register',
 };

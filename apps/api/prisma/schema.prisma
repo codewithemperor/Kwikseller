@@ -59,7 +59,7 @@ enum UserStatus {
 
 model User {
   id            String        @id @default(cuid())
-  email         String        @unique
+  email         String
   phone         String?
   passwordHash  String
   role          UserRole      @default(BUYER)
@@ -90,6 +90,7 @@ model User {
   adminPermission AdminPermission?
   auditLogs     AuditLog[]
 
+  @@unique([email, role])
   @@index([email])
   @@index([role])
   @@index([status])
@@ -717,12 +718,10 @@ model AdImpression {
 model Rider {
   id                      String             @id @default(cuid())
   userId                  String             @unique
-  vehicleType             String
   vehicleBrand            String?
   vehicleModel            String?
   vehicleYear             Int?
   vehicleColor            String?
-  plateNumber             String?
   licenseNumber           String?
   licenseExpiry           DateTime?
   isAvailable             Boolean            @default(false)

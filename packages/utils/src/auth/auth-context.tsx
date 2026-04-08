@@ -26,7 +26,7 @@ export interface User {
   id: string;
   email: string;
   phone?: string;
-  role: "BUYER" | "VENDOR" | "ADMIN" | "RIDER";
+  role: "BUYER" | "VENDOR" | "ADMIN" | "RIDER" | "SUPER_ADMIN";
   status: "ACTIVE" | "SUSPENDED" | "BANNED" | "PENDING";
   emailVerified: boolean;
   profile?: {
@@ -39,6 +39,11 @@ export interface User {
     name: string;
     slug: string;
     isVerified: boolean;
+    onboardingComplete: boolean;
+  };
+  rider?: {
+    id: string;
+    isAvailable: boolean;
     onboardingComplete: boolean;
   };
   subscription?: {
@@ -109,10 +114,22 @@ export interface AuthContextValue {
   updateUser: (user: Partial<UserStore>) => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string | string[]) => boolean;
-  verifyOTP: (email: string, otp: string) => Promise<OTPResponse>;
-  resendOTP: (email: string) => Promise<OTPResponse>;
-  forgotPassword: (email: string) => Promise<ForgotPasswordResponse>;
-  resetPassword: (data: { email: string; otp: string; newPassword: string }) => Promise<ResetPasswordResponse>;
+  verifyOTP: (
+    email: string,
+    otp: string,
+    role: LoginCredentials["role"],
+  ) => Promise<OTPResponse>;
+  resendOTP: (email: string, role: LoginCredentials["role"]) => Promise<OTPResponse>;
+  forgotPassword: (
+    email: string,
+    role: LoginCredentials["role"],
+  ) => Promise<ForgotPasswordResponse>;
+  resetPassword: (data: {
+    email: string;
+    otp: string;
+    newPassword: string;
+    role: LoginCredentials["role"];
+  }) => Promise<ResetPasswordResponse>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -139,6 +156,7 @@ function toStoreUser(user: User): UserStore {
         }
       : undefined,
     store: user.store,
+    rider: user.rider,
     subscription: user.subscription,
     permissions: user.permissions,
   };
@@ -339,12 +357,17 @@ export function AuthProvider({
   // extractSession() handles it identically.
 
   const verifyOTP = useCallback(
-    async (email: string, otp: string): Promise<OTPResponse> => {
+    async (
+      email: string,
+      otp: string,
+      role: LoginCredentials["role"],
+    ): Promise<OTPResponse> => {
       setLoading(true);
       try {
         const res = await api.post<AuthApiResponse>("/auth/verify-email", {
           email,
           otp,
+          role,
         });
 
         const session = extractSession(res);
@@ -377,12 +400,15 @@ export function AuthProvider({
   // ── Resend OTP ─────────────────────────────────────────────────────────────
 
   const resendOTP = useCallback(
-    async (email: string): Promise<OTPResponse> => {
+    async (
+      email: string,
+      role: LoginCredentials["role"],
+    ): Promise<OTPResponse> => {
       setLoading(true);
       try {
         const res = await api.post<{ message?: string }>(
           "/auth/resend-verification",
-          { email },
+          { email, role },
         );
         setLoading(false);
         return {
@@ -405,12 +431,15 @@ export function AuthProvider({
   // ── Forgot Password ───────────────────────────────────────────────────────
 
   const forgotPassword = useCallback(
-    async (email: string): Promise<ForgotPasswordResponse> => {
+    async (
+      email: string,
+      role: LoginCredentials["role"],
+    ): Promise<ForgotPasswordResponse> => {
       setLoading(true);
       try {
         await api.post<{ message?: string }>(
           "/auth/forgot-password",
-          { email },
+          { email, role },
           { skipAuthRefresh: true } as Record<string, unknown>,
         );
         setLoading(false);
@@ -438,6 +467,7 @@ export function AuthProvider({
       email: string;
       otp: string;
       newPassword: string;
+      role: LoginCredentials["role"];
     }): Promise<ResetPasswordResponse> => {
       setLoading(true);
       try {

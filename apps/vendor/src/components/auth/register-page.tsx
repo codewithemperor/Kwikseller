@@ -9,7 +9,6 @@ import {
   Mail,
   Lock,
   Store,
-  User,
   Phone,
   Building2,
   AlertCircle,
@@ -19,15 +18,12 @@ import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface VendorRegisterConfig {
   name: string;
   logo?: React.ReactNode;
   description: string;
   themeColor?: "blue" | "green" | "purple" | "orange" | "default";
   redirectPath: string;
-  onboardingPath?: string;
   loginPath: string;
 }
 
@@ -43,8 +39,6 @@ const themeMap: Record<string, string> = {
   orange: "bg-orange-600",
   default: "bg-primary",
 };
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function RegisterPage({ config, className }: RegisterPageProps) {
   const router = useRouter();
@@ -70,20 +64,15 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
   });
 
   const redirectToApp = React.useCallback(() => {
-    // For vendors, check if onboarding is needed
-    const onboardingPath = config.onboardingPath || "/onboarding";
-    
-    // Small delay to ensure auth state is updated
     setTimeout(() => {
-      router.push(onboardingPath);
+      router.push(config.redirectPath);
     }, 400);
-  }, [router, config.onboardingPath]);
-
-  // ── Registration submit ────────────────────────────────────────────────────
+  }, [router, config.redirectPath]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setError(null);
     setIsSubmitting(true);
+
     try {
       const result = await registerUser({
         email: data.email,
@@ -92,10 +81,10 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
         lastName: data.lastName,
         phone: data.phone,
         role: "VENDOR",
-        storeName: data.storeName, // Include store name for vendor registration
+        storeName: data.storeName,
+        storeCategory: "other",
       });
 
-      // Registration succeeded — move to OTP screen
       setUserEmail(data.email);
       setShowOTP(true);
       kwikToast.info(
@@ -113,13 +102,10 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
     }
   };
 
-  // ── OTP handlers ───────────────────────────────────────────────────────────
-
   const handleVerifyOTP = async (otp: string) => {
-    const result = await verifyOTP(userEmail, otp);
+    const result = await verifyOTP(userEmail, otp, "VENDOR");
 
     if (!result.success) {
-      // Throw so OTPVerification displays the inline error
       throw new Error(result.error || "Verification failed");
     }
 
@@ -127,219 +113,178 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
     setShowOTP(false);
 
     if (result.sessionCreated) {
-      // Session is in Zustand — go to onboarding for vendors
       kwikToast.success(`Welcome to ${config.name}!`);
       redirectToApp();
     } else {
-      // Server verified but issued no tokens
       kwikToast.info("Account verified! Please sign in to continue.");
       router.push(`${config.loginPath}?registered=true`);
     }
   };
 
   const handleResendOTP = async () => {
-    const result = await resendOTP(userEmail);
-    if (!result.success)
+    const result = await resendOTP(userEmail, "VENDOR");
+    if (!result.success) {
       throw new Error(result.error || "Failed to resend code");
+    }
     kwikToast.success("Verification code sent!");
   };
-
-  // ── Shared UI ──────────────────────────────────────────────────────────────
 
   const iconColor = themeMap[config.themeColor || "orange"];
   const busy = isSubmitting || isLoading;
 
-  const ambientOrbs = (
-    <div
-      className="absolute inset-0 overflow-hidden pointer-events-none"
-      aria-hidden
-    >
-      <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
-    </div>
-  );
-
   const portalIcon = (
     <div
       className={cn(
-        "w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg",
+        "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
         iconColor,
       )}
     >
-      {config.logo ?? <Store className="w-7 h-7" />}
+      {config.logo ?? <Store className="h-7 w-7" />}
     </div>
   );
 
-  // ── OTP screen (shown immediately after successful registration) ───────────
-
   if (showOTP) {
     return (
-      <div
-        className={cn(
-          "min-h-screen flex items-center justify-center p-4 bg-background",
-          className,
-        )}
-      >
-        {ambientOrbs}
-        <div className="relative w-full max-w-md">
-          <div className="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40 p-8">
-            <div className="flex flex-col items-center gap-3 mb-4">
-              {portalIcon}
-            </div>
-            <OTPVerification
-              email={userEmail}
-              onVerify={handleVerifyOTP}
-              onResend={handleResendOTP}
-              onBack={() => setShowOTP(false)}
-              isLoading={isLoading}
-            />
-          </div>
+      <div className={cn("w-full max-w-md", className)}>
+        <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
+          <div className="mb-4 flex flex-col items-center gap-3">{portalIcon}</div>
+          <OTPVerification
+            email={userEmail}
+            onVerify={handleVerifyOTP}
+            onResend={handleResendOTP}
+            onBack={() => setShowOTP(false)}
+            isLoading={isLoading}
+          />
         </div>
       </div>
     );
   }
 
-  // ── Registration form ──────────────────────────────────────────────────────
-
   return (
-    <div
-      className={cn(
-        "min-h-screen flex items-center justify-center p-4 bg-background",
-        className,
-      )}
-    >
-      {ambientOrbs}
-      <div className="relative w-full max-w-md">
-        <div className="rounded-2xl border border-border/60 bg-card text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40 p-8">
-          <div className="flex flex-col items-center gap-3 mb-8">
-            {portalIcon}
-            <h1 className="text-2xl font-semibold">Create your vendor account</h1>
-            <p className="text-sm text-muted-foreground text-center">
-              Start selling on Africa&apos;s largest marketplace
-            </p>
-          </div>
-
-          {error && (
-            <div className="flex items-start gap-2.5 mb-5 p-3.5 rounded-xl text-sm bg-destructive/10 border border-destructive/20 text-destructive">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-4"
-            noValidate
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <TextInput
-                name="firstName"
-                control={control}
-                label="First name"
-                placeholder="John"
-                isRequired
-                isDisabled={busy}
-              />
-              <TextInput
-                name="lastName"
-                control={control}
-                label="Last name"
-                placeholder="Doe"
-                isRequired
-                isDisabled={busy}
-              />
-            </div>
-
-            <TextInput
-              name="email"
-              control={control}
-              type="email"
-              label="Email"
-              placeholder="you@example.com"
-              startContent={<Mail className="w-4 h-4 text-muted-foreground" />}
-              isRequired
-              isDisabled={busy}
-            />
-
-            <TextInput
-              name="phone"
-              control={control}
-              type="tel"
-              label="Phone (optional)"
-              placeholder="+234 801 234 5678"
-              startContent={<Phone className="w-4 h-4 text-muted-foreground" />}
-              isDisabled={busy}
-            />
-
-            <TextInput
-              name="storeName"
-              control={control}
-              label="Store name"
-              placeholder="My Awesome Store"
-              startContent={
-                <Building2 className="w-4 h-4 text-muted-foreground" />
-              }
-              isRequired
-              isDisabled={busy}
-            />
-
-            <PasswordInput
-              name="password"
-              control={control}
-              label="Password"
-              placeholder="Create a password"
-              startContent={<Lock className="w-4 h-4 text-muted-foreground" />}
-              isRequired
-              isDisabled={busy}
-            />
-
-            <PasswordInput
-              name="confirmPassword"
-              control={control}
-              label="Confirm password"
-              placeholder="Confirm your password"
-              startContent={<Lock className="w-4 h-4 text-muted-foreground" />}
-              isRequired
-              isDisabled={busy}
-            />
-
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              size="lg"
-              isPending={busy}
-              isDisabled={busy}
-              onPress={() => {}}
-              className="mt-2 font-semibold rounded-xl"
-            >
-              {({ isPending }) =>
-                isPending ? (
-                  <span className="flex items-center gap-2">
-                    <Spinner size="sm" />
-                    Creating account…
-                  </span>
-                ) : (
-                  "Create Vendor Account"
-                )
-              }
-            </Button>
-
-            <p className="text-sm text-center text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                href={config.loginPath}
-                className="text-primary hover:underline font-medium"
-              >
-                Sign in
-              </Link>
-            </p>
-          </form>
+    <div className={cn("w-full max-w-md", className)}>
+      <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          {portalIcon}
+          <h1 className="text-2xl font-semibold">Create your vendor account</h1>
+          <p className="text-center text-sm text-muted-foreground">
+            Start selling on Africa&apos;s largest marketplace
+          </p>
         </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} {config.name} · All rights reserved
-        </p>
+        {error && (
+          <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-col gap-4"
+          noValidate
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <TextInput
+              name="firstName"
+              control={control}
+              label="First name"
+              placeholder="John"
+              isRequired
+              isDisabled={busy}
+            />
+            <TextInput
+              name="lastName"
+              control={control}
+              label="Last name"
+              placeholder="Doe"
+              isRequired
+              isDisabled={busy}
+            />
+          </div>
+
+          <TextInput
+            name="email"
+            control={control}
+            type="email"
+            label="Email"
+            placeholder="you@example.com"
+            startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
+            isRequired
+            isDisabled={busy}
+          />
+
+          <TextInput
+            name="phone"
+            control={control}
+            type="tel"
+            label="Phone (optional)"
+            placeholder="+234 801 234 5678"
+            startContent={<Phone className="h-4 w-4 text-muted-foreground" />}
+            isDisabled={busy}
+          />
+
+          <TextInput
+            name="storeName"
+            control={control}
+            label="Store name"
+            placeholder="My Awesome Store"
+            startContent={<Building2 className="h-4 w-4 text-muted-foreground" />}
+            isRequired
+            isDisabled={busy}
+          />
+
+          <PasswordInput
+            name="password"
+            control={control}
+            label="Password"
+            placeholder="Create a password"
+            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+            isRequired
+            isDisabled={busy}
+          />
+
+          <PasswordInput
+            name="confirmPassword"
+            control={control}
+            label="Confirm password"
+            placeholder="Confirm your password"
+            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+            isRequired
+            isDisabled={busy}
+          />
+
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            size="lg"
+            isPending={busy}
+            isDisabled={busy}
+            onPress={() => {}}
+            className="mt-2 rounded-xl font-semibold"
+          >
+            {({ isPending }) =>
+              isPending ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" />
+                  Creating account...
+                </span>
+              ) : (
+                "Create Vendor Account"
+              )
+            }
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link
+              href={config.loginPath}
+              className="font-medium text-primary hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   );

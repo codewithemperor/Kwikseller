@@ -8,7 +8,6 @@ const vendorConfig: VendorRegisterConfig = {
   description: "Start selling on Africa's largest marketplace",
   themeColor: "orange",
   redirectPath: "/dashboard",
-  onboardingPath: "/onboarding",
   loginPath: "/login",
 };
 

@@ -53,15 +53,6 @@ export class RegisterDto {
   @IsString()
   storeCategory?: string;
 
-  // Rider-specific fields
-  @ValidateIf((o) => o.role === UserRole.RIDER)
-  @IsString()
-  vehicleType?: string;
-
-  @ValidateIf((o) => o.role === UserRole.RIDER)
-  @IsString()
-  plateNumber?: string;
-
   // Admin registration requires invite token
   @ValidateIf((o) => o.role === UserRole.ADMIN)
   @IsString()
@@ -74,6 +65,9 @@ export class LoginDto {
 
   @IsString()
   password: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
 
   @IsOptional()
   @IsString()
@@ -88,6 +82,9 @@ export class RefreshTokenDto {
 export class ForgotPasswordDto {
   @IsEmail()
   email: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
 }
 
 export class ResetPasswordDto {
@@ -96,6 +93,9 @@ export class ResetPasswordDto {
 
   @IsEmail()
   email: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
 
   @IsString()
   @MinLength(8)
@@ -112,6 +112,9 @@ export class VerifyEmailDto {
 
   @IsEmail()
   email: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
 }
 
 export class VerifyOTPDto {
@@ -121,6 +124,9 @@ export class VerifyOTPDto {
   @IsEmail()
   email: string;
 
+  @IsEnum(UserRole)
+  role: UserRole;
+
   @IsOptional()
   @IsString()
   type?: "email-verification" | "password-reset" | "login-verification";
@@ -129,6 +135,9 @@ export class VerifyOTPDto {
 export class ResendVerificationDto {
   @IsEmail()
   email: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
 }
 
 export class ChangePasswordDto {

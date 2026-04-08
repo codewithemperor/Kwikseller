@@ -38,8 +38,6 @@ export const registerSchema = z
     phone: z.string().optional(),
     role: z.enum(["BUYER", "VENDOR", "RIDER"]),
     storeName: z.string().optional(),
-    vehicleType: z.string().optional(),
-    plateNumber: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -62,9 +60,6 @@ export type RegisterFormData = z.infer<typeof registerSchema>;
 
 // ==================== RIDER REGISTER ====================
 
-// Vehicle types for riders
-export type VehicleType = "BIKE" | "MOTORCYCLE" | "CAR" | "TRUCK";
-
 // Rider registration schema - base schema without refinements, then add rider-specific fields
 const riderBaseSchema = z.object({
   email: z
@@ -82,8 +77,6 @@ const riderBaseSchema = z.object({
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   phone: z.string().min(1, "Phone number is required"),
   role: z.enum(["BUYER", "VENDOR", "RIDER"]),
-  vehicleType: z.enum(["BIKE", "MOTORCYCLE", "CAR", "TRUCK"]),
-  plateNumber: z.string().min(1, "Plate number is required"),
 });
 
 export const riderRegisterSchema = riderBaseSchema.refine(

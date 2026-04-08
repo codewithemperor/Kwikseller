@@ -48,7 +48,6 @@ export interface UserStore {
   };
   rider?: {
     id: string;
-    vehicleType: string;
     isAvailable: boolean;
     onboardingComplete: boolean;
     verificationStatus?: VerificationStatus;
@@ -72,6 +71,7 @@ export interface AuthTokens {
 export interface LoginCredentials {
   email: string;
   password: string;
+  role: UserRole;
   deviceId?: string;
 }
 
@@ -83,8 +83,8 @@ export interface RegisterData {
   phone?: string;
   role: UserRole;
   inviteToken?: string;
-  vehicleType?: string;
-  plateNumber?: string;
+  storeName?: string;
+  storeCategory?: string;
 }
 
 // ==================== Storage ====================
@@ -256,18 +256,14 @@ export const useAuthInitialized = () => useAuthStore((state) => state.isInitiali
  * Check if vendor needs onboarding
  */
 export const useVendorNeedsOnboarding = () => {
-  const user = useAuthStore((state) => state.user);
-  if (!user || user.role !== 'VENDOR') return false;
-  return !user.store?.onboardingComplete;
+  return false;
 };
 
 /**
  * Check if rider needs onboarding
  */
 export const useRiderNeedsOnboarding = () => {
-  const user = useAuthStore((state) => state.user);
-  if (!user || user.role !== 'RIDER') return false;
-  return !user.rider?.onboardingComplete;
+  return false;
 };
 
 /**

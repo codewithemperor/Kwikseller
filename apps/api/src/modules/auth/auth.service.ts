@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import { UserRole as PrismaUserRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 
@@ -25,7 +26,7 @@ import {
   ResetPasswordDto,
   VerifyEmailDto,
   ChangePasswordDto,
-  UserRole,
+  UserRole as AuthUserRole,
   ResendVerificationDto,
   VerifyOTPDto,
 } from "./dto/auth.dto";
@@ -33,7 +34,7 @@ import {
 export interface JwtPayload {
   sub: string;
   email: string;
-  role: UserRole;
+  role: PrismaUserRole;
   sessionId: string;
 }
 
@@ -47,7 +48,7 @@ export interface TokenPair {
 export interface AuthUser {
   id: string;
   email: string;
-  role: UserRole;
+  role: PrismaUserRole;
   status: string;
   emailVerified: boolean;
   permissions?: string[];
@@ -67,7 +68,6 @@ export interface AuthUser {
   };
   rider?: {
     id: string;
-    vehicleType: string;
     isAvailable: boolean;
     onboardingComplete: boolean;
     verificationStatus?: string;
@@ -103,21 +103,60 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  private getEmailRoleCacheKey(prefix: string, email: string, role: string): string {
+    return `${prefix}:${email.toLowerCase()}:${role}`;
+  }
+
+  private getLoginRoles(role: AuthUserRole): PrismaUserRole[] {
+    if (role === AuthUserRole.ADMIN) {
+      return [PrismaUserRole.ADMIN, PrismaUserRole.SUPER_ADMIN];
+    }
+
+    return [role as PrismaUserRole];
+  }
+
+  private async findUsersForLogin(email: string, role: AuthUserRole) {
+    return this.prisma.user.findMany({
+      where: {
+        email,
+        role: { in: this.getLoginRoles(role) },
+      },
+      include: {
+        profile: true,
+        store: true,
+        rider: true,
+        subscription: true,
+        adminPermission: true,
+      },
+    });
+  }
+
+  private async findUserByEmailAndRole(email: string, role: AuthUserRole) {
+    return this.prisma.user.findFirst({
+      where: { email, role: role as PrismaUserRole },
+      include: {
+        profile: true,
+        store: true,
+        rider: true,
+        subscription: true,
+        adminPermission: true,
+      },
+    });
+  }
+
   /**
    * Register a new user
    */
   async register(dto: RegisterDto, ipAddress: string) {
     // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+    const existingUser = await this.findUserByEmailAndRole(dto.email, dto.role);
 
     if (existingUser) {
-      throw new ConflictException("User with this email already exists");
+      throw new ConflictException("User with this email already exists for this role");
     }
 
     // Validate admin registration requires invite token
-    if (dto.role === UserRole.ADMIN) {
+    if (dto.role === AuthUserRole.ADMIN) {
       if (!dto.inviteToken) {
         throw new ForbiddenException(
           "Admin registration requires an invite token",
@@ -158,7 +197,7 @@ export class AuthService {
       }
 
       // Role-specific setup
-      if (dto.role === UserRole.VENDOR) {
+      if (dto.role === AuthUserRole.VENDOR) {
         // Create default subscription (Starter)
         await tx.subscription.create({
           data: {
@@ -185,17 +224,15 @@ export class AuthService {
         });
       }
 
-      if (dto.role === UserRole.RIDER) {
+      if (dto.role === AuthUserRole.RIDER) {
         await tx.rider.create({
           data: {
             userId: newUser.id,
-            vehicleType: dto.vehicleType || "BIKE",
-            plateNumber: dto.plateNumber,
           },
         });
       }
 
-      if (dto.role === UserRole.ADMIN && dto.inviteToken) {
+      if (dto.role === AuthUserRole.ADMIN && dto.inviteToken) {
         // Get permissions from invite
         const invite = await this.getAdminInvite(dto.inviteToken);
         if (invite) {
@@ -218,8 +255,8 @@ export class AuthService {
     // Generate email verification OTP
     const otp = this.generateOTP();
     await this.cacheService.set(
-      `email-verification:${user.email}`,
-      { userId: user.id, email: user.email, otp },
+      this.getEmailRoleCacheKey("email-verification", user.email, user.role),
+      { userId: user.id, email: user.email, role: user.role, otp },
       this.otpExpiry,
     );
 
@@ -258,18 +295,16 @@ export class AuthService {
    * Login user
    */
   async login(dto: LoginDto, ipAddress: string, userAgent: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: {
-        profile: true,
-        store: true,
-        subscription: true,
-        adminPermission: true,
-      },
-    });
+    const candidates = await this.findUsersForLogin(dto.email, dto.role);
+    const passwordMatches = await Promise.all(
+      candidates.map((candidate) => bcrypt.compare(dto.password, candidate.passwordHash)),
+    );
+    const user = candidates.find((candidate, index) => passwordMatches[index]);
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException(
+        `No ${dto.role.toLowerCase().replace("_", " ")} account found with these credentials`,
+      );
     }
 
     if (user.status === "BANNED") {
@@ -280,18 +315,15 @@ export class AuthService {
       throw new ForbiddenException("Your account has been suspended");
     }
 
-    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordValid) {
-      throw new UnauthorizedException("Invalid credentials");
-    }
+    this.assertLoginRoleAccess(user, dto.role);
 
     // Check if email is verified before generating tokens
     if (!user.emailVerified) {
       // Generate and send OTP for email verification
       const otp = this.generateOTP();
       await this.cacheService.set(
-        `email-verification:${user.email}`,
-        { userId: user.id, email: user.email, otp },
+        this.getEmailRoleCacheKey("email-verification", user.email, user.role),
+        { userId: user.id, email: user.email, role: user.role, otp },
         this.otpExpiry,
       );
 
@@ -394,6 +426,7 @@ export class AuthService {
       include: {
         profile: true,
         store: true,
+        rider: true,
         subscription: true,
         adminPermission: true,
       },
@@ -480,10 +513,7 @@ export class AuthService {
    * Forgot password
    */
   async forgotPassword(dto: ForgotPasswordDto, ipAddress: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { profile: true },
-    });
+    const user = await this.findUserByEmailAndRole(dto.email, dto.role);
 
     // Return error if email not found
     if (!user) {
@@ -491,7 +521,7 @@ export class AuthService {
     }
 
     // BLOCK: SUPER_ADMIN cannot reset password
-    if (user.role === UserRole.SUPER_ADMIN) {
+    if (user.role === PrismaUserRole.SUPER_ADMIN) {
       // Log the attempt but return success to not reveal existence
       this.logger.warn(`Password reset attempted for SUPER_ADMIN: ${dto.email}`);
       await this.auditService.log({
@@ -511,8 +541,8 @@ export class AuthService {
     // Generate OTP
     const otp = this.generateOTP();
     await this.cacheService.set(
-      `password-reset:${user.email}`,
-      { userId: user.id, email: user.email, otp },
+      this.getEmailRoleCacheKey("password-reset", user.email, user.role),
+      { userId: user.id, email: user.email, role: user.role, otp },
       this.otpExpiry,
     );
 
@@ -549,8 +579,9 @@ export class AuthService {
     const resetData = await this.cacheService.get<{
       userId: string;
       email: string;
+      role: PrismaUserRole;
       otp: string;
-    }>(`password-reset:${dto.email}`);
+    }>(this.getEmailRoleCacheKey("password-reset", dto.email, dto.role));
 
     if (!resetData || resetData.otp !== dto.otp) {
       throw new BadRequestException("Invalid or expired verification code");
@@ -566,7 +597,9 @@ export class AuthService {
     });
 
     // Delete reset OTP
-    await this.cacheService.del(`password-reset:${dto.email}`);
+    await this.cacheService.del(
+      this.getEmailRoleCacheKey("password-reset", dto.email, dto.role),
+    );
 
     // Log audit
     await this.auditService.log({
@@ -588,8 +621,9 @@ export class AuthService {
     const verificationData = await this.cacheService.get<{
       userId: string;
       email: string;
+      role: PrismaUserRole;
       otp: string;
-    }>(`email-verification:${dto.email}`);
+    }>(this.getEmailRoleCacheKey("email-verification", dto.email, dto.role));
 
     if (!verificationData || verificationData.otp !== dto.otp) {
       throw new BadRequestException("Invalid or expired verification code");
@@ -601,6 +635,7 @@ export class AuthService {
       include: {
         profile: true,
         store: true,
+        rider: true,
         subscription: true,
         adminPermission: true,
       },
@@ -617,7 +652,9 @@ export class AuthService {
     });
 
     // Delete verification OTP
-    await this.cacheService.del(`email-verification:${dto.email}`);
+    await this.cacheService.del(
+      this.getEmailRoleCacheKey("email-verification", dto.email, dto.role),
+    );
 
     // Generate tokens for auto-login
     const tokens = await this.generateTokens(user);
@@ -656,10 +693,7 @@ export class AuthService {
    * Resend verification email with OTP
    */
   async resendVerification(dto: ResendVerificationDto, _ipAddress: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { profile: true },
-    });
+    const user = await this.findUserByEmailAndRole(dto.email, dto.role);
 
     if (!user || user.emailVerified) {
       return {
@@ -671,8 +705,8 @@ export class AuthService {
     // Generate new OTP
     const otp = this.generateOTP();
     await this.cacheService.set(
-      `email-verification:${user.email}`,
-      { userId: user.id, email: user.email, otp },
+      this.getEmailRoleCacheKey("email-verification", user.email, user.role),
+      { userId: user.id, email: user.email, role: user.role, otp },
       this.otpExpiry,
     );
 
@@ -776,6 +810,32 @@ export class AuthService {
     };
   }
 
+  private assertLoginRoleAccess(user: any, requestedRole: AuthUserRole): void {
+    const isAdminPortal =
+      requestedRole === AuthUserRole.ADMIN || requestedRole === AuthUserRole.SUPER_ADMIN;
+    const hasMatchingRole = isAdminPortal
+      ? user.role === PrismaUserRole.ADMIN || user.role === PrismaUserRole.SUPER_ADMIN
+      : user.role === (requestedRole as PrismaUserRole);
+
+    if (!hasMatchingRole) {
+      throw new UnauthorizedException(
+        `No ${requestedRole.toLowerCase().replace("_", " ")} account found with these credentials`,
+      );
+    }
+
+    if (
+      requestedRole === AuthUserRole.ADMIN &&
+      user.role === PrismaUserRole.ADMIN &&
+      !user.adminPermission
+    ) {
+      throw new ForbiddenException("Admin account is not configured for portal access");
+    }
+
+    if (requestedRole === AuthUserRole.RIDER && !user.rider) {
+      throw new ForbiddenException("Rider account setup is incomplete");
+    }
+  }
+
   /**
    * Format user response with permissions
    */
@@ -796,17 +856,17 @@ export class AuthService {
     };
 
     // Add permissions for admin/super_admin users
-    if (user.role === UserRole.ADMIN && user.adminPermission) {
+    if (user.role === PrismaUserRole.ADMIN && user.adminPermission) {
       response.permissions = JSON.parse(user.adminPermission.permissions);
     }
 
     // SUPER_ADMIN has all permissions
-    if (user.role === UserRole.SUPER_ADMIN) {
+    if (user.role === PrismaUserRole.SUPER_ADMIN) {
       response.permissions = ['*']; // All permissions
     }
 
     // Add store for vendor users
-    if (user.role === UserRole.VENDOR && user.store) {
+    if (user.role === PrismaUserRole.VENDOR && user.store) {
       response.store = {
         id: user.store.id,
         name: user.store.name,
@@ -819,10 +879,9 @@ export class AuthService {
     }
 
     // Add rider info for rider users
-    if (user.role === UserRole.RIDER && user.rider) {
+    if (user.role === PrismaUserRole.RIDER && user.rider) {
       response.rider = {
         id: user.rider.id,
-        vehicleType: user.rider.vehicleType,
         isAvailable: user.rider.isAvailable,
         onboardingComplete: user.rider.onboardingComplete,
         verificationStatus: user.rider.verificationStatus,
@@ -831,7 +890,7 @@ export class AuthService {
     }
 
     // Add subscription for vendor users
-    if (user.role === UserRole.VENDOR && user.subscription) {
+    if (user.role === PrismaUserRole.VENDOR && user.subscription) {
       response.subscription = {
         plan: user.subscription.plan,
         status: user.subscription.status,

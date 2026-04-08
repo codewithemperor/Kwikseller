@@ -6,4 +6,4 @@ export { ProtectedRoute } from './protected-route';
 export { GuestRoute } from './guest-route';
 
 export type { RiderPortalConfig } from './login-page';
-export type { RegisterRiderConfig, VehicleType, RiderRegisterFormData } from './register-page';
+export type { RegisterRiderConfig } from './register-page';

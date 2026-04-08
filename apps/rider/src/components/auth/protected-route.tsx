@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore, useRiderNeedsOnboarding } from "@kwikseller/utils";
+import { useAuthStore } from "@kwikseller/utils";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,10 +15,6 @@ interface ProtectedRouteProps {
    * Redirect path if not authenticated
    */
   loginPath?: string;
-  /**
-   * Redirect path if rider needs onboarding
-   */
-  onboardingPath?: string;
   /**
    * Unauthorized component to show instead of redirecting
    */
@@ -35,13 +31,12 @@ interface ProtectedRouteProps {
  * For the Rider app, this checks:
  * 1. User is authenticated
  * 2. User has RIDER role
- * 3. Rider has completed onboarding (redirects to /onboarding if not)
+ * 3. Rider lands directly in the dashboard flow for now
  */
 export function ProtectedRoute({
   children,
   requiredRole = "RIDER",
   loginPath = "/login",
-  onboardingPath = "/onboarding",
   unauthorizedComponent,
   loadingComponent,
 }: ProtectedRouteProps) {
@@ -52,7 +47,6 @@ export function ProtectedRoute({
   const tokens = useAuthStore((state) => state.tokens);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const hasRole = useAuthStore((state) => state.hasRole);
-  const needsOnboarding = useRiderNeedsOnboarding();
 
   const isAuthenticated = !!user && !!tokens?.accessToken;
   const isLoading = !isInitialized;
@@ -74,11 +68,6 @@ export function ProtectedRoute({
       return;
     }
 
-    // Check onboarding - but don't redirect if already on onboarding page
-    if (needsOnboarding && pathname !== onboardingPath) {
-      router.push(onboardingPath);
-      return;
-    }
   }, [
     isInitialized,
     isAuthenticated,
@@ -86,9 +75,7 @@ export function ProtectedRoute({
     router,
     pathname,
     loginPath,
-    onboardingPath,
     hasRole,
-    needsOnboarding,
   ]);
 
   // Loading state

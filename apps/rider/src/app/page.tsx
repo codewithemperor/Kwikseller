@@ -2,31 +2,24 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore, useRiderNeedsOnboarding } from '@kwikseller/utils';
+import { useAuthStore } from '@kwikseller/utils';
 
 export default function RiderApp() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const tokens = useAuthStore((state) => state.tokens);
   const isInitialized = useAuthStore((state) => state.isInitialized);
-  const needsOnboarding = useRiderNeedsOnboarding();
-
   const isAuthenticated = !!user && !!tokens?.accessToken;
 
   useEffect(() => {
     if (!isInitialized) return;
 
     if (isAuthenticated) {
-      // Check if rider needs onboarding
-      if (needsOnboarding) {
-        router.push('/onboarding');
-      } else {
-        router.push('/dashboard');
-      }
+      router.push('/dashboard');
     } else {
       router.push('/login');
     }
-  }, [isInitialized, isAuthenticated, needsOnboarding, router]);
+  }, [isInitialized, isAuthenticated, router]);
 
   // Loading state while checking auth
   return (

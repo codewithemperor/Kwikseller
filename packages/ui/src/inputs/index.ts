@@ -6,6 +6,7 @@ export {
   DatePickerInput,
   DateRangePickerInput,
   TimeFieldInput,
+  SelectInput,
   // convenience aliases
   Text,
   Password,
@@ -14,6 +15,7 @@ export {
   DatePicker,
   DateRangePicker,
   Time,
+  Select,
 } from "./form-inputs";
 
 export type {

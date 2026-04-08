@@ -16,7 +16,10 @@ import {
   DateRangePicker,
   RangeCalendar,
   TimeField,
+  Select,
+  ListBox,
 } from "@heroui/react";
+import type { Key } from "@heroui/react";
 import {
   parseDate,
   parseAbsoluteToLocal,
@@ -579,6 +582,116 @@ export function TimeFieldInput<T extends FieldValues>({
   );
 }
 
+// ==================== SELECT INPUT ====================
+interface SelectOption {
+  id: Key;
+  label: string;
+  isDisabled?: boolean;
+}
+
+interface SelectSection {
+  id: Key;
+  heading: string;
+  options: SelectOption[];
+}
+
+interface SelectInputProps<T extends FieldValues> extends BaseInputProps<T> {
+  options?: SelectOption[];
+  sections?: SelectSection[];
+  selectionMode?: "single" | "multiple";
+  placeholder?: string;
+  disabledKeys?: Iterable<Key>;
+  variant?: "primary" | "secondary";
+  fullWidth?: boolean;
+}
+
+export type { SelectOption, SelectSection, SelectInputProps };
+
+export function SelectInput<T extends FieldValues>({
+  name,
+  control,
+  label,
+  placeholder = "Select one",
+  options,
+  sections,
+  selectionMode = "single",
+  disabledKeys,
+  isRequired = false,
+  isDisabled = false,
+  className,
+  description,
+  variant = "primary",
+  fullWidth = false,
+}: SelectInputProps<T>) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field, fieldState: { error } }) => {
+        // Normalize value: RHF stores plain string/string[]; Select expects Key | Key[] | null
+        const value: Key | Key[] | null =
+          field.value === undefined || field.value === null
+            ? null
+            : field.value;
+
+        return (
+          <Select
+            className={className}
+            isDisabled={isDisabled}
+            isRequired={isRequired}
+            isInvalid={!!error}
+            selectionMode={selectionMode}
+            disabledKeys={disabledKeys}
+            variant={variant}
+            fullWidth={fullWidth}
+            placeholder={placeholder}
+            value={value}
+            onChange={(val) => field.onChange(val)}
+          >
+            <Label>{label}</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {sections
+                  ? sections.map((section) => (
+                      <ListBox.Section key={section.id}>
+                        <Header>{section.heading}</Header>
+                        {section.options.map((opt) => (
+                          <ListBox.Item
+                            key={opt.id}
+                            id={opt.id}
+                            textValue={opt.label}
+                          >
+                            {opt.label}
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
+                        ))}
+                      </ListBox.Section>
+                    ))
+                  : options?.map((opt) => (
+                      <ListBox.Item
+                        key={opt.id}
+                        id={opt.id}
+                        textValue={opt.label}
+                      >
+                        {opt.label}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+              </ListBox>
+            </Select.Popover>
+            {description && !error && <Description>{description}</Description>}
+            <FieldError>{error?.message}</FieldError>
+          </Select>
+        );
+      }}
+    />
+  );
+}
+
 // ==================== EXPORTS ====================
 
 export { TextInput as Text };
@@ -588,3 +701,4 @@ export { TextareaInput as Textarea };
 export { DatePickerInput as DatePicker };
 export { DateRangePickerInput as DateRangePicker };
 export { TimeFieldInput as Time };
+export { SelectInput as Select };

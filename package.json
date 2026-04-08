@@ -11,11 +11,10 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "dev:marketplace": "turbo run dev --filter=@kwikseller/marketplace",
-    "dev:vendor": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/vendor",
-    "dev:admin": "turbo run dev --filter=@kwikseller/admin",
-    "dev:rider": "turbo run dev --filter=@kwikseller/rider",
     "dev:api": "turbo run dev --filter=@kwikseller/api",
+    "dev:vendor": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/vendor",
+    "dev:admin": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/admin",
+    "dev:rider": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/rider",
     "dev:app": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/marketplace"
   },
   "devDependencies": {

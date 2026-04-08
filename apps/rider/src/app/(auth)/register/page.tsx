@@ -9,7 +9,6 @@ const riderPortal: RegisterRiderConfig = {
   themeColor: "orange",
   redirectPath: "/dashboard",
   loginPath: "/login",
-  onboardingPath: "/onboarding",
 };
 
 export default function RegisterPage() {

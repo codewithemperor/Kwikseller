@@ -26,6 +26,7 @@ export {
   DatePickerInput,
   DateRangePickerInput,
   TimeFieldInput,
+  SelectInput,
   Text,
   Password,
   Number,
@@ -33,6 +34,7 @@ export {
   DatePicker,
   DateRangePicker,
   Time,
+  Select,
 } from "./inputs";
 export type {
   BaseInputProps,
