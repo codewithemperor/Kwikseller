@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@kwikseller/utils';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@kwikseller/utils";
 
 export default function RiderApp() {
   const router = useRouter();
@@ -15,9 +15,9 @@ export default function RiderApp() {
     if (!isInitialized) return;
 
     if (isAuthenticated) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     } else {
-      router.push('/login');
+      router.push("/login");
     }
   }, [isInitialized, isAuthenticated, router]);
 

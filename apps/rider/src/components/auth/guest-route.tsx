@@ -15,9 +15,9 @@ interface GuestRouteProps {
 
 /**
  * GuestRoute - Redirects authenticated users away from auth pages
- * 
+ *
  * Use this for login, register, forgot-password, reset-password pages
- * 
+ *
  * If the rider is authenticated, redirect to /dashboard.
  */
 export function GuestRoute({

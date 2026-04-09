@@ -136,7 +136,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
   if (showOTP) {
     return (
-      <div className="">
+      <div className={cn("w-full", className)}>
         <div className="mb-4 flex flex-col items-center gap-3">
           {portalIcon}
         </div>
@@ -152,7 +152,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   }
 
   return (
-    <div className="">
+    <div className={cn("w-full", className)}>
       <div className="mb-6 flex flex-col items-center gap-3">
         {portalIcon}
         <h1 className="text-2xl font-semibold">Become a Rider</h1>

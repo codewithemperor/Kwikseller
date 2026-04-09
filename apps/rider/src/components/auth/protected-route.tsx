@@ -27,7 +27,7 @@ interface ProtectedRouteProps {
 
 /**
  * ProtectedRoute - Guards routes that require authentication
- * 
+ *
  * For the Rider app, this checks:
  * 1. User is authenticated
  * 2. User has RIDER role
@@ -42,7 +42,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const user = useAuthStore((state) => state.user);
   const tokens = useAuthStore((state) => state.tokens);
   const isInitialized = useAuthStore((state) => state.isInitialized);
@@ -67,7 +67,6 @@ export function ProtectedRoute({
       router.push("/");
       return;
     }
-
   }, [
     isInitialized,
     isAuthenticated,

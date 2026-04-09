@@ -35,12 +35,16 @@ export class EmailService implements OnModuleInit {
     const smtpHost = this.configService.get<string>('email.host', 'smtp.sendgrid.net');
     const smtpPort = this.configService.get<number>('email.port', 587);
     const smtpUser = this.configService.get<string>('email.user', 'apikey');
-    const smtpPass = this.configService.get<string>('email.pass');
+    const smtpPassRaw = this.configService.get<string>('email.pass');
+    const smtpPass = smtpHost.includes('gmail.com')
+      ? smtpPassRaw?.replace(/\s+/g, '')
+      : smtpPassRaw?.trim();
+    const secure = smtpPort === 465;
 
     this.transporter = nodemailer.createTransport({
       host: smtpHost,
       port: smtpPort,
-      secure: false,
+      secure,
       auth: smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
       tls: { ciphers: 'SSLv3' },
       pool: true,
@@ -54,6 +58,10 @@ export class EmailService implements OnModuleInit {
     } catch {
       this.logger.warn('Email transporter not verified - emails will be logged only');
     }
+
+    this.logger.debug(
+      `SMTP config loaded host=${smtpHost} port=${smtpPort} secure=${secure} user=${smtpUser} hasPass=${Boolean(smtpPass)}`,
+    );
   }
 
   /**
@@ -131,8 +139,13 @@ export class EmailService implements OnModuleInit {
     const html = templateFn ? templateFn(templateData) : this.getDefaultTemplate(subject, templateData);
     const text = this.htmlToText(html);
 
+    const fromAddress = this.configService.get<string>(
+      'email.from',
+      'noreply@kwikseller.com',
+    );
+
     const mailOptions: nodemailer.SendMailOptions = {
-      from: `"KWIKSELLER" <${this.configService.get('email.from', 'noreply@kwikseller.com')}>`,
+      from: fromAddress,
       to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       html,

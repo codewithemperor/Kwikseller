@@ -44,8 +44,11 @@ import { UsersModule } from './modules/users/users.module';
             host: process.env.SMTP_HOST || 'smtp.sendgrid.net',
             port: parseInt(process.env.SMTP_PORT || '587', 10),
             user: process.env.SMTP_USER || 'apikey',
-            pass: process.env.SENDGRID_API_KEY || '',
-            from: process.env.SENDGRID_FROM_EMAIL || 'noreply@kwikseller.com',
+            pass: process.env.SMTP_PASS || process.env.SENDGRID_API_KEY || '',
+            from:
+              process.env.SMTP_FROM ||
+              process.env.SENDGRID_FROM_EMAIL ||
+              'noreply@kwikseller.com',
           },
           cloudinary: {
             cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

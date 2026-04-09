@@ -121,3 +121,19 @@ export const useThemeState = () => useUIStore((state) => ({
   theme: state.theme,
   setTheme: state.setTheme,
 }))
+
+// Re-export cart store
+export { useCartStore } from './cart-store'
+export type { CartItem } from './cart-store'
+
+// Re-export recently viewed store
+export { useRecentlyViewedStore } from './recently-viewed-store'
+export type { RecentlyViewedItem } from './recently-viewed-store'
+
+// Re-export wishlist store
+export { useWishlistStore } from './wishlist-store'
+export type { WishlistItem } from './wishlist-store'
+
+// Re-export compare store
+export { useCompareStore } from './compare-store'
+export type { CompareProduct } from './compare-store'

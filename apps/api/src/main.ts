@@ -10,17 +10,28 @@ async function bootstrap() {
   const apiVersion = process.env.API_VERSION || "v1";
   app.setGlobalPrefix(`api/${apiVersion}`);
 
-  // Enable CORS for all kwikseller subdomains
+  const configuredOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const defaultOrigins = [
+    /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.com$/,
+    /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.local$/,
+    /^http:\/\/192\.168\.0\.105(?::\d+)?$/,
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+    "http://127.0.0.1:3003",
+    "http://172.20.10.2",
+  ];
+
   app.enableCors({
-    origin: [
-      /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.com$/,
-      /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.local$/,
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      "http://localhost:3003",
-      "172.20.10.2",
-    ],
+    origin: [...defaultOrigins, ...configuredOrigins],
     credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     allowedHeaders: "Content-Type, Accept, Authorization",

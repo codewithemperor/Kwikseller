@@ -145,147 +145,143 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
 
   if (showOTP) {
     return (
-      <div className={cn("w-full max-w-md", className)}>
-        <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-          <div className="mb-4 flex flex-col items-center gap-3">{portalIcon}</div>
-          <OTPVerification
-            email={userEmail}
-            onVerify={handleVerifyOTP}
-            onResend={handleResendOTP}
-            onBack={() => setShowOTP(false)}
-            isLoading={isLoading}
-          />
-        </div>
+      <div className={cn("w-full", className)}>
+        <div className="mb-4 flex flex-col items-center gap-3">{portalIcon}</div>
+        <OTPVerification
+          email={userEmail}
+          onVerify={handleVerifyOTP}
+          onResend={handleResendOTP}
+          onBack={() => setShowOTP(false)}
+          isLoading={isLoading}
+        />
       </div>
     );
   }
 
   return (
-    <div className={cn("w-full max-w-md", className)}>
-      <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          {portalIcon}
-          <h1 className="text-2xl font-semibold">Create your vendor account</h1>
-          <p className="text-center text-sm text-muted-foreground">
-            Start selling on Africa&apos;s largest marketplace
-          </p>
+    <div className={cn("w-full", className)}>
+      <div className="mb-8 flex flex-col items-center gap-3">
+        {portalIcon}
+        <h1 className="text-2xl font-semibold">Create your vendor account</h1>
+        <p className="text-center text-sm text-muted-foreground">
+          Start selling on Africa&apos;s largest marketplace
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+        noValidate
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <TextInput
+            name="firstName"
+            control={control}
+            label="First name"
+            placeholder="John"
+            isRequired
+            isDisabled={busy}
+          />
+          <TextInput
+            name="lastName"
+            control={control}
+            label="Last name"
+            placeholder="Doe"
+            isRequired
+            isDisabled={busy}
+          />
         </div>
 
-        {error && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        <TextInput
+          name="email"
+          control={control}
+          type="email"
+          label="Email"
+          placeholder="you@example.com"
+          startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={busy}
+        />
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-          noValidate
+        <TextInput
+          name="phone"
+          control={control}
+          type="tel"
+          label="Phone (optional)"
+          placeholder="+234 801 234 5678"
+          startContent={<Phone className="h-4 w-4 text-muted-foreground" />}
+          isDisabled={busy}
+        />
+
+        <TextInput
+          name="storeName"
+          control={control}
+          label="Store name"
+          placeholder="My Awesome Store"
+          startContent={<Building2 className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={busy}
+        />
+
+        <PasswordInput
+          name="password"
+          control={control}
+          label="Password"
+          placeholder="Create a password"
+          startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={busy}
+        />
+
+        <PasswordInput
+          name="confirmPassword"
+          control={control}
+          label="Confirm password"
+          placeholder="Confirm your password"
+          startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={busy}
+        />
+
+        <Button
+          type="submit"
+          variant="primary"
+          fullWidth
+          size="lg"
+          isPending={busy}
+          isDisabled={busy}
+          onPress={() => {}}
+          className="mt-2 rounded-xl font-semibold"
         >
-          <div className="grid grid-cols-2 gap-4">
-            <TextInput
-              name="firstName"
-              control={control}
-              label="First name"
-              placeholder="John"
-              isRequired
-              isDisabled={busy}
-            />
-            <TextInput
-              name="lastName"
-              control={control}
-              label="Last name"
-              placeholder="Doe"
-              isRequired
-              isDisabled={busy}
-            />
-          </div>
+          {({ isPending }) =>
+            isPending ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" />
+                Creating account...
+              </span>
+            ) : (
+              "Create Vendor Account"
+            )
+          }
+        </Button>
 
-          <TextInput
-            name="email"
-            control={control}
-            type="email"
-            label="Email"
-            placeholder="you@example.com"
-            startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={busy}
-          />
-
-          <TextInput
-            name="phone"
-            control={control}
-            type="tel"
-            label="Phone (optional)"
-            placeholder="+234 801 234 5678"
-            startContent={<Phone className="h-4 w-4 text-muted-foreground" />}
-            isDisabled={busy}
-          />
-
-          <TextInput
-            name="storeName"
-            control={control}
-            label="Store name"
-            placeholder="My Awesome Store"
-            startContent={<Building2 className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={busy}
-          />
-
-          <PasswordInput
-            name="password"
-            control={control}
-            label="Password"
-            placeholder="Create a password"
-            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={busy}
-          />
-
-          <PasswordInput
-            name="confirmPassword"
-            control={control}
-            label="Confirm password"
-            placeholder="Confirm your password"
-            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={busy}
-          />
-
-          <Button
-            type="submit"
-            variant="primary"
-            fullWidth
-            size="lg"
-            isPending={busy}
-            isDisabled={busy}
-            onPress={() => {}}
-            className="mt-2 rounded-xl font-semibold"
+        <p className="text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link
+            href={config.loginPath}
+            className="font-medium text-primary hover:underline"
           >
-            {({ isPending }) =>
-              isPending ? (
-                <span className="flex items-center gap-2">
-                  <Spinner size="sm" />
-                  Creating account...
-                </span>
-              ) : (
-                "Create Vendor Account"
-              )
-            }
-          </Button>
-
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href={config.loginPath}
-              className="font-medium text-primary hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </div>
+            Sign in
+          </Link>
+        </p>
+      </form>
     </div>
   );
 }

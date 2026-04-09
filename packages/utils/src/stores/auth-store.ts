@@ -1,27 +1,38 @@
 /**
  * KWIKSELLER - Auth Store
- * 
+ *
  * Client-side session management using Zustand with persistence.
  * This replaces the need for server-side sessions - tokens are stored
  * in localStorage and managed via this store.
- * 
+ *
  * Usage:
  * ```tsx
  * import { useAuthStore } from '@kwikseller/utils';
- * 
+ *
  * const { user, tokens, login, logout } = useAuthStore();
  * ```
  */
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 // ==================== Types ====================
 
-export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER' | 'SUPER_ADMIN';
-export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'PENDING';
-export type VerificationStatus = 'NOT_SUBMITTED' | 'PENDING_REVIEW' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
-export type OnboardingStep = 'NOT_STARTED' | 'PROFILE_SETUP' | 'DOCUMENT_UPLOAD' | 'BANK_DETAILS' | 'VEHICLE_INFO' | 'COMPLETED';
+export type UserRole = "BUYER" | "VENDOR" | "ADMIN" | "RIDER" | "SUPER_ADMIN";
+export type UserStatus = "ACTIVE" | "SUSPENDED" | "BANNED" | "PENDING";
+export type VerificationStatus =
+  | "NOT_SUBMITTED"
+  | "PENDING_REVIEW"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED";
+export type OnboardingStep =
+  | "NOT_STARTED"
+  | "PROFILE_SETUP"
+  | "DOCUMENT_UPLOAD"
+  | "BANK_DETAILS"
+  | "VEHICLE_INFO"
+  | "COMPLETED";
 
 export interface UserProfile {
   firstName?: string;
@@ -89,7 +100,7 @@ export interface RegisterData {
 
 // ==================== Storage ====================
 
-const AUTH_STORAGE_KEY = 'kwikseller_auth';
+const AUTH_STORAGE_KEY = "kwikseller_auth";
 
 // ==================== Store State ====================
 
@@ -134,61 +145,67 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       isInitialized: false,
       pendingResetEmail: null,
-      
+
       // Setters
       setUser: (user) => set({ user }),
       setTokens: (tokens) => set({ tokens }),
       setLoading: (isLoading) => set({ isLoading }),
       setInitialized: (isInitialized) => set({ isInitialized }),
-      
+
       // Auth actions
-      login: (user, tokens) => set({ 
-        user, 
-        tokens, 
-        isLoading: false,
-        isInitialized: true,
-      }),
-      
-      logout: () => set({ 
-        user: null, 
-        tokens: null, 
-        isLoading: false,
-        pendingResetEmail: null, // Clear reset email on logout
-      }),
-      
-      updateUser: (userData) => set((state) => ({
-        user: state.user ? { ...state.user, ...userData } : null,
-      })),
-      
+      login: (user, tokens) =>
+        set({
+          user,
+          tokens,
+          isLoading: false,
+          isInitialized: true,
+        }),
+
+      logout: () =>
+        set({
+          user: null,
+          tokens: null,
+          isLoading: false,
+          pendingResetEmail: null, // Clear reset email on logout
+        }),
+
+      updateUser: (userData) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...userData } : null,
+        })),
+
       updateTokens: (tokens) => set({ tokens }),
-      
+
       // Getters
       getAccessToken: () => get().tokens?.accessToken ?? null,
       getRefreshToken: () => get().tokens?.refreshToken ?? null,
-      
+
       hasRole: (role) => {
         const user = get().user;
         if (!user) return false;
         const roles = Array.isArray(role) ? role : [role];
         return roles.includes(user.role);
       },
-      
+
       hasPermission: (permission) => {
         const user = get().user;
         if (!user) return false;
-        
+
         // SUPER_ADMIN has all permissions
-        if (user.role === 'SUPER_ADMIN') return true;
-        
+        if (user.role === "SUPER_ADMIN") return true;
+
         // Admin with no permissions array = full access (legacy support)
-        if (user.role === 'ADMIN') {
+        if (user.role === "ADMIN") {
           if (!user.permissions || user.permissions.length === 0) return true;
-          return user.permissions.includes(permission) || user.permissions.includes('*');
+          return (
+            user.permissions.includes(permission) ||
+            user.permissions.includes("*")
+          );
         }
-        
+
         return false;
       },
-      
+
       // Password reset email methods (memory only - NOT persisted)
       setPendingResetEmail: (email) => set({ pendingResetEmail: email }),
       getPendingResetEmail: () => get().pendingResetEmail,
@@ -208,8 +225,8 @@ export const useAuthStore = create<AuthState>()(
           state.isInitialized = true;
         }
       },
-    }
-  )
+    },
+  ),
 );
 
 // ==================== Convenience Hooks ====================
@@ -226,18 +243,19 @@ export const useUser = () => {
 /**
  * Get access token (for API calls)
  */
-export const useAccessToken = () => useAuthStore((state) => state.getAccessToken)();
+export const useAccessToken = () =>
+  useAuthStore((state) => state.getAccessToken)();
 
 /**
  * Check if user has specific role
  */
-export const useHasRole = (role: UserRole | UserRole[]) => 
+export const useHasRole = (role: UserRole | UserRole[]) =>
   useAuthStore((state) => state.hasRole)(role);
 
 /**
  * Check if user has specific permission
  */
-export const useHasPermission = (permission: string) => 
+export const useHasPermission = (permission: string) =>
   useAuthStore((state) => state.hasPermission)(permission);
 
 /**
@@ -248,7 +266,8 @@ export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
 /**
  * Auth initialized state
  */
-export const useAuthInitialized = () => useAuthStore((state) => state.isInitialized);
+export const useAuthInitialized = () =>
+  useAuthStore((state) => state.isInitialized);
 
 // ==================== Onboarding & Verification Hooks ====================
 
@@ -271,8 +290,8 @@ export const useRiderNeedsOnboarding = () => {
  */
 export const useVendorVerificationStatus = (): VerificationStatus | null => {
   const user = useAuthStore((state) => state.user);
-  if (!user || user.role !== 'VENDOR') return null;
-  return user.store?.verificationStatus ?? 'NOT_SUBMITTED';
+  if (!user || user.role !== "VENDOR") return null;
+  return user.store?.verificationStatus ?? "NOT_SUBMITTED";
 };
 
 /**
@@ -280,8 +299,8 @@ export const useVendorVerificationStatus = (): VerificationStatus | null => {
  */
 export const useRiderVerificationStatus = (): VerificationStatus | null => {
   const user = useAuthStore((state) => state.user);
-  if (!user || user.role !== 'RIDER') return null;
-  return user.rider?.verificationStatus ?? 'NOT_SUBMITTED';
+  if (!user || user.role !== "RIDER") return null;
+  return user.rider?.verificationStatus ?? "NOT_SUBMITTED";
 };
 
 /**
@@ -290,15 +309,15 @@ export const useRiderVerificationStatus = (): VerificationStatus | null => {
 export const useIsUserVerified = () => {
   const user = useAuthStore((state) => state.user);
   if (!user) return false;
-  
-  if (user.role === 'VENDOR') {
-    return user.store?.verificationStatus === 'APPROVED';
+
+  if (user.role === "VENDOR") {
+    return user.store?.verificationStatus === "APPROVED";
   }
-  
-  if (user.role === 'RIDER') {
-    return user.rider?.verificationStatus === 'APPROVED';
+
+  if (user.role === "RIDER") {
+    return user.rider?.verificationStatus === "APPROVED";
   }
-  
+
   // BUYER, ADMIN, SUPER_ADMIN are always "verified"
   return true;
 };
@@ -309,15 +328,15 @@ export const useIsUserVerified = () => {
 export const useOnboardingStep = (): OnboardingStep | null => {
   const user = useAuthStore((state) => state.user);
   if (!user) return null;
-  
-  if (user.role === 'VENDOR') {
-    return user.store?.onboardingStep ?? 'NOT_STARTED';
+
+  if (user.role === "VENDOR") {
+    return user.store?.onboardingStep ?? "NOT_STARTED";
   }
-  
-  if (user.role === 'RIDER') {
-    return user.rider?.onboardingStep ?? 'NOT_STARTED';
+
+  if (user.role === "RIDER") {
+    return user.rider?.onboardingStep ?? "NOT_STARTED";
   }
-  
+
   return null;
 };
 
@@ -326,7 +345,7 @@ export const useOnboardingStep = (): OnboardingStep | null => {
  */
 export const useIsSuperAdmin = () => {
   const user = useAuthStore((state) => state.user);
-  return user?.role === 'SUPER_ADMIN';
+  return user?.role === "SUPER_ADMIN";
 };
 
 /**
@@ -334,9 +353,13 @@ export const useIsSuperAdmin = () => {
  */
 export const usePendingResetEmail = () => {
   const pendingResetEmail = useAuthStore((state) => state.pendingResetEmail);
-  const setPendingResetEmail = useAuthStore((state) => state.setPendingResetEmail);
-  const clearPendingResetEmail = useAuthStore((state) => state.clearPendingResetEmail);
-  
+  const setPendingResetEmail = useAuthStore(
+    (state) => state.setPendingResetEmail,
+  );
+  const clearPendingResetEmail = useAuthStore(
+    (state) => state.clearPendingResetEmail,
+  );
+
   return {
     pendingResetEmail,
     setPendingResetEmail,

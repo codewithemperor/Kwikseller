@@ -22,13 +22,13 @@ export default function AuthLayout({
 
         <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex flex-1 items-center justify-center">
-            <div className="w-full max-w-md rounded-[32px] border border-border/60 bg-background/80 shadow-2xl backdrop-blur">
+            <div className="w-full max-w-lg rounded-[32px] border border-border/60 bg-background/80 shadow-2xl backdrop-blur">
               <div className="min-h-[84vh] p-6 sm:p-8">{children}</div>
             </div>
           </div>
 
           <p className="mt-3 pb-2 text-center text-xs text-muted-foreground">
-            © 2026 Kwikseller · All rights reserved.
+            Copyright 2026 Kwikseller. All rights reserved.
           </p>
         </div>
       </div>

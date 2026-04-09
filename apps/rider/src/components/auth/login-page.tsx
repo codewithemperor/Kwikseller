@@ -145,119 +145,113 @@ export function LoginPage({ portal, className }: LoginPageProps) {
 
   if (showOTP) {
     return (
-      <div className={cn("w-full max-w-md", className)}>
-        <div>
-          <div className="mb-4 flex flex-col items-center gap-3">
-            {portalIcon}
-          </div>
-          <OTPVerification
-            email={userEmail}
-            onVerify={handleVerifyOTP}
-            onResend={handleResendOTP}
-            onBack={() => {
-              setShowOTP(false);
-              setServerError(null);
-            }}
-            isLoading={isLoading}
-          />
+      <div className={cn("w-full", className)}>
+        <div className="mb-4 flex flex-col items-center gap-3">
+          {portalIcon}
         </div>
+        <OTPVerification
+          email={userEmail}
+          onVerify={handleVerifyOTP}
+          onResend={handleResendOTP}
+          onBack={() => {
+            setShowOTP(false);
+            setServerError(null);
+          }}
+          isLoading={isLoading}
+        />
       </div>
     );
   }
 
   return (
-    <div className={cn("w-full max-w-md", className)}>
-      <div>
-        <div className="mb-8 flex flex-col items-center gap-3">
-          {portalIcon}
-          <div className="space-y-1 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Welcome back
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {portal.description}
-            </p>
-          </div>
+    <div className={cn("w-full", className)}>
+      <div className="mb-8 flex flex-col items-center gap-3">
+        {portalIcon}
+        <div className="space-y-1 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Welcome back
+          </h1>
+          <p className="text-sm text-muted-foreground">{portal.description}</p>
         </div>
+      </div>
 
-        {serverError && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/15">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{serverError}</span>
-          </div>
-        )}
+      {serverError && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/15">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{serverError}</span>
+        </div>
+      )}
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-          noValidate
-        >
-          <TextInput
-            name="email"
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+        noValidate
+      >
+        <TextInput
+          name="email"
+          control={control}
+          type="email"
+          label="Email address"
+          placeholder="you@example.com"
+          startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={isSubmitting || isLoading}
+        />
+
+        <div className="flex flex-col gap-1.5">
+          <PasswordInput
+            name="password"
             control={control}
-            type="email"
-            label="Email address"
-            placeholder="you@example.com"
-            startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
+            label="Password"
+            placeholder="Enter your password"
+            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
             isRequired
             isDisabled={isSubmitting || isLoading}
           />
-
-          <div className="flex flex-col gap-1.5">
-            <PasswordInput
-              name="password"
-              control={control}
-              label="Password"
-              placeholder="Enter your password"
-              startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
-              isRequired
-              isDisabled={isSubmitting || isLoading}
-            />
-            <div className="flex justify-end">
-              <Link
-                href="/forgot-password"
-                className="text-xs font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </div>
+        </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            fullWidth
-            size="lg"
-            isPending={isSubmitting || isLoading}
-            isDisabled={isSubmitting || isLoading}
-            onPress={() => {}}
-            className="mt-2 rounded-xl bg-orange-600 font-semibold hover:bg-orange-700"
-          >
-            {({ isPending }) =>
-              isPending ? (
-                <span className="flex items-center gap-2">
-                  <Spinner size="sm" />
-                  Signing in...
-                </span>
-              ) : (
-                `Sign in to ${portal.name}`
-              )
-            }
-          </Button>
+        <Button
+          type="submit"
+          variant="primary"
+          fullWidth
+          size="lg"
+          isPending={isSubmitting || isLoading}
+          isDisabled={isSubmitting || isLoading}
+          onPress={() => {}}
+          className="mt-2 rounded-xl bg-orange-600 font-semibold hover:bg-orange-700"
+        >
+          {({ isPending }) =>
+            isPending ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" />
+                Signing in...
+              </span>
+            ) : (
+              `Sign in to ${portal.name}`
+            )
+          }
+        </Button>
 
-          {portal.showRegisterLink && portal.registerPath && (
-            <p className="pt-1 text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link
-                href={portal.registerPath}
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Become a Rider
-              </Link>
-            </p>
-          )}
-        </form>
-      </div>
+        {portal.showRegisterLink && portal.registerPath && (
+          <p className="pt-1 text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
+            <Link
+              href={portal.registerPath}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Become a Rider
+            </Link>
+          </p>
+        )}
+      </form>
     </div>
   );
 }

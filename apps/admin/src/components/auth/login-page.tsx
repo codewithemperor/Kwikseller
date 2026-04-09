@@ -34,8 +34,7 @@ function isEmailNotVerified(result: {
 
   const text = `${result.error ?? ""} ${result.message ?? ""}`.toLowerCase();
   return (
-    text.includes("email not verified") ||
-    text.includes("email_not_verified")
+    text.includes("email not verified") || text.includes("email_not_verified")
   );
 }
 
@@ -128,118 +127,116 @@ export function AdminLoginPage({ config, className }: AdminLoginPageProps) {
 
   if (showOTP) {
     return (
-      <div className={cn("w-full max-w-md", className)}>
-        <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-          <div className="mb-4 flex flex-col items-center gap-3">{portalIcon}</div>
-          <OTPVerification
-            email={userEmail}
-            onVerify={handleVerifyOTP}
-            onResend={handleResendOTP}
-            onBack={() => {
-              setShowOTP(false);
-              setServerError(null);
-            }}
-            isLoading={isLoading}
-          />
+      <div className={cn("w-full", className)}>
+        <div className="mb-4 flex flex-col items-center gap-3">
+          {portalIcon}
         </div>
+        <OTPVerification
+          email={userEmail}
+          onVerify={handleVerifyOTP}
+          onResend={handleResendOTP}
+          onBack={() => {
+            setShowOTP(false);
+            setServerError(null);
+          }}
+          isLoading={isLoading}
+        />
       </div>
     );
   }
 
   return (
-    <div className={cn("w-full max-w-md", className)}>
-      <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          {portalIcon}
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {config?.name ?? "Admin Panel"}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {config?.description ?? "Sign in to access the admin dashboard"}
+    <div className={cn("w-full", className)}>
+      <div className="mb-8 flex flex-col items-center gap-3">
+        {portalIcon}
+        <div className="space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {config?.name ?? "Admin Panel"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {config?.description ?? "Sign in to access the admin dashboard"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3">
+        <div className="flex items-start gap-2.5">
+          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+          <div className="text-sm text-violet-700 dark:text-violet-300">
+            <p className="font-medium">Admin Access Only</p>
+            <p className="mt-0.5 text-xs opacity-80">
+              Password reset is disabled for admin accounts. Contact Super
+              Admin for assistance.
             </p>
           </div>
         </div>
+      </div>
 
-        <div className="mb-6 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3">
-          <div className="flex items-start gap-2.5">
-            <Shield className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
-            <div className="text-sm text-violet-700 dark:text-violet-300">
-              <p className="font-medium">Admin Access Only</p>
-              <p className="mt-0.5 text-xs opacity-80">
-                Password reset is disabled for admin accounts. Contact Super
-                Admin for assistance.
-              </p>
-            </div>
-          </div>
+      {serverError && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/15">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{serverError}</span>
         </div>
+      )}
 
-        {serverError && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/15">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{serverError}</span>
-          </div>
-        )}
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+        noValidate
+      >
+        <TextInput
+          name="email"
+          control={control}
+          type="email"
+          label="Email address"
+          placeholder="admin@example.com"
+          startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={isSubmitting || isLoading}
+        />
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-          noValidate
+        <PasswordInput
+          name="password"
+          control={control}
+          label="Password"
+          placeholder="Enter your password"
+          startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={isSubmitting || isLoading}
+        />
+
+        <Button
+          type="submit"
+          variant="solid"
+          fullWidth
+          size="lg"
+          isPending={isSubmitting || isLoading}
+          isDisabled={isSubmitting || isLoading}
+          onPress={() => {}}
+          className="mt-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-700 font-semibold hover:from-violet-700 hover:to-purple-800"
         >
-          <TextInput
-            name="email"
-            control={control}
-            type="email"
-            label="Email address"
-            placeholder="admin@example.com"
-            startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={isSubmitting || isLoading}
-          />
+          {({ isPending }) =>
+            isPending ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" />
+                Signing in...
+              </span>
+            ) : (
+              "Sign in to Admin Panel"
+            )
+          }
+        </Button>
+      </form>
 
-          <PasswordInput
-            name="password"
-            control={control}
-            label="Password"
-            placeholder="Enter your password"
-            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={isSubmitting || isLoading}
-          />
-
-          <Button
-            type="submit"
-            variant="solid"
-            fullWidth
-            size="lg"
-            isPending={isSubmitting || isLoading}
-            isDisabled={isSubmitting || isLoading}
-            onPress={() => {}}
-            className="mt-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-700 font-semibold hover:from-violet-700 hover:to-purple-800"
-          >
-            {({ isPending }) =>
-              isPending ? (
-                <span className="flex items-center gap-2">
-                  <Spinner size="sm" />
-                  Signing in...
-                </span>
-              ) : (
-                "Sign in to Admin Panel"
-              )
-            }
-          </Button>
-        </form>
-
-        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <Crown className="h-3.5 w-3.5 text-violet-500" />
-            Super Admin
-          </span>
-          <span className="flex items-center gap-1.5">
-            <UserCog className="h-3.5 w-3.5 text-violet-500" />
-            Sub Admin
-          </span>
-        </div>
+      <div className="mt-6 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Crown className="h-3.5 w-3.5 text-violet-500" />
+          Super Admin
+        </span>
+        <span className="flex items-center gap-1.5">
+          <UserCog className="h-3.5 w-3.5 text-violet-500" />
+          Sub Admin
+        </span>
       </div>
     </div>
   );

@@ -2,9 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
-  // Configure Turbopack (Next.js 16 uses Turbopack by default)
-  turbopack: {},
-  allowedDevOrigins: ["172.20.10.2"],
+  allowedDevOrigins: ["*", "192.168.0.105"],
 
   // Proxy all /api/v1 requests to the NestJS backend
   async rewrites() {

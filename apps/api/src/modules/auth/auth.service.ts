@@ -103,7 +103,11 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  private getEmailRoleCacheKey(prefix: string, email: string, role: string): string {
+  private getEmailRoleCacheKey(
+    prefix: string,
+    email: string,
+    role: string,
+  ): string {
     return `${prefix}:${email.toLowerCase()}:${role}`;
   }
 
@@ -152,7 +156,9 @@ export class AuthService {
     const existingUser = await this.findUserByEmailAndRole(dto.email, dto.role);
 
     if (existingUser) {
-      throw new ConflictException("User with this email already exists for this role");
+      throw new ConflictException(
+        "User with this email already exists for this role",
+      );
     }
 
     // Validate admin registration requires invite token
@@ -297,7 +303,9 @@ export class AuthService {
   async login(dto: LoginDto, ipAddress: string, userAgent: string) {
     const candidates = await this.findUsersForLogin(dto.email, dto.role);
     const passwordMatches = await Promise.all(
-      candidates.map((candidate) => bcrypt.compare(dto.password, candidate.passwordHash)),
+      candidates.map((candidate) =>
+        bcrypt.compare(dto.password, candidate.passwordHash),
+      ),
     );
     const user = candidates.find((candidate, index) => passwordMatches[index]);
 
@@ -523,7 +531,9 @@ export class AuthService {
     // BLOCK: SUPER_ADMIN cannot reset password
     if (user.role === PrismaUserRole.SUPER_ADMIN) {
       // Log the attempt but return success to not reveal existence
-      this.logger.warn(`Password reset attempted for SUPER_ADMIN: ${dto.email}`);
+      this.logger.warn(
+        `Password reset attempted for SUPER_ADMIN: ${dto.email}`,
+      );
       await this.auditService.log({
         userId: user.id,
         action: "PASSWORD_RESET_BLOCKED",
@@ -533,7 +543,8 @@ export class AuthService {
       });
       // Return success message but don't send OTP
       return {
-        message: "If this email is registered, a verification code has been sent",
+        message:
+          "If this email is registered, a verification code has been sent",
         email: dto.email,
       };
     }
@@ -812,9 +823,11 @@ export class AuthService {
 
   private assertLoginRoleAccess(user: any, requestedRole: AuthUserRole): void {
     const isAdminPortal =
-      requestedRole === AuthUserRole.ADMIN || requestedRole === AuthUserRole.SUPER_ADMIN;
+      requestedRole === AuthUserRole.ADMIN ||
+      requestedRole === AuthUserRole.SUPER_ADMIN;
     const hasMatchingRole = isAdminPortal
-      ? user.role === PrismaUserRole.ADMIN || user.role === PrismaUserRole.SUPER_ADMIN
+      ? user.role === PrismaUserRole.ADMIN ||
+        user.role === PrismaUserRole.SUPER_ADMIN
       : user.role === (requestedRole as PrismaUserRole);
 
     if (!hasMatchingRole) {
@@ -828,7 +841,9 @@ export class AuthService {
       user.role === PrismaUserRole.ADMIN &&
       !user.adminPermission
     ) {
-      throw new ForbiddenException("Admin account is not configured for portal access");
+      throw new ForbiddenException(
+        "Admin account is not configured for portal access",
+      );
     }
 
     if (requestedRole === AuthUserRole.RIDER && !user.rider) {
@@ -862,7 +877,7 @@ export class AuthService {
 
     // SUPER_ADMIN has all permissions
     if (user.role === PrismaUserRole.SUPER_ADMIN) {
-      response.permissions = ['*']; // All permissions
+      response.permissions = ["*"]; // All permissions
     }
 
     // Add store for vendor users

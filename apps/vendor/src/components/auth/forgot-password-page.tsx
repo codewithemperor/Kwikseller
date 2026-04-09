@@ -72,74 +72,72 @@ export function ForgotPasswordPage({
   const busy = isSubmitting || isLoading;
 
   return (
-    <div className="w-full max-w-md">
-      <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div
-            className={cn(
-              "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
-              iconColor,
-            )}
-          >
-            <Store className="h-7 w-7" />
-          </div>
-          <div className="space-y-1 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Forgot password?
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Enter your email and we&apos;ll send you a verification code
-            </p>
-          </div>
-        </div>
-
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-          noValidate
+    <div className="w-full">
+      <div className="mb-8 flex flex-col items-center gap-3">
+        <div
+          className={cn(
+            "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
+            iconColor,
+          )}
         >
-          <TextInput
-            name="email"
-            control={control}
-            type="email"
-            label="Email address"
-            placeholder="you@example.com"
-            startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
-            isRequired
-            isDisabled={busy}
-          />
-
-          <Button
-            type="submit"
-            variant="primary"
-            fullWidth
-            size="lg"
-            isPending={busy}
-            isDisabled={busy}
-            onPress={() => {}}
-            className="mt-2 rounded-xl font-semibold"
-          >
-            {({ isPending }) =>
-              isPending ? (
-                <span className="flex items-center gap-2">
-                  <Spinner size="sm" />
-                  Sending code...
-                </span>
-              ) : (
-                "Send Verification Code"
-              )
-            }
-          </Button>
-
-          <Link
-            href={loginPath}
-            className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to login
-          </Link>
-        </form>
+          <Store className="h-7 w-7" />
+        </div>
+        <div className="space-y-1 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Forgot password?
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Enter your email and we&apos;ll send you a verification code
+          </p>
+        </div>
       </div>
+
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+        noValidate
+      >
+        <TextInput
+          name="email"
+          control={control}
+          type="email"
+          label="Email address"
+          placeholder="you@example.com"
+          startContent={<Mail className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={busy}
+        />
+
+        <Button
+          type="submit"
+          variant="primary"
+          fullWidth
+          size="lg"
+          isPending={busy}
+          isDisabled={busy}
+          onPress={() => {}}
+          className="mt-2 rounded-xl font-semibold"
+        >
+          {({ isPending }) =>
+            isPending ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" />
+                Sending code...
+              </span>
+            ) : (
+              "Send Verification Code"
+            )
+          }
+        </Button>
+
+        <Link
+          href={loginPath}
+          className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to login
+        </Link>
+      </form>
     </div>
   );
 }

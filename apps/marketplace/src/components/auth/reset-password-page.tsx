@@ -215,139 +215,133 @@ export function ResetPasswordPage({
 
   if (!userEmail && !isSuccess) {
     return (
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-border/60 bg-card p-10 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-          <div className="h-14 w-14 animate-pulse rounded-2xl bg-muted" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="flex w-full flex-col items-center gap-4 py-8 text-card-foreground">
+        <div className="h-14 w-14 animate-pulse rounded-2xl bg-muted" />
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   if (isSuccess) {
     return (
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center gap-5 rounded-2xl border border-border/60 bg-card p-10 text-center text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-            <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">All done!</h1>
-            <p className="text-sm text-muted-foreground">
-              Your password has been reset. Redirecting to login...
-            </p>
-          </div>
-          <Link
-            href={loginPath}
-            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            Go to login now
-          </Link>
+      <div className="flex w-full flex-col items-center gap-5 py-8 text-center text-card-foreground">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+          <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
         </div>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">All done!</h1>
+          <p className="text-sm text-muted-foreground">
+            Your password has been reset. Redirecting to login...
+          </p>
+        </div>
+        <Link
+          href={loginPath}
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Go to login now
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-md">
-      <div className="rounded-2xl border border-border/60 bg-card p-8 text-card-foreground shadow-xl dark:shadow-2xl dark:shadow-black/40">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div
-            className={cn(
-              "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
-              iconColor,
+    <div className="w-full">
+      <div className="mb-8 flex flex-col items-center gap-3">
+        <div
+          className={cn(
+            "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
+            iconColor,
+          )}
+        >
+          <Store className="h-7 w-7" />
+        </div>
+        <div className="space-y-1 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Reset your password
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Enter the code we sent to{" "}
+            {userEmail ? (
+              <span className="font-medium text-foreground">{userEmail}</span>
+            ) : (
+              "your email"
             )}
+          </p>
+        </div>
+      </div>
+
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-5"
+        noValidate
+      >
+        <div className="flex flex-col items-center gap-2">
+          <label className="self-start text-sm font-medium">
+            Verification code
+          </label>
+          <InputOTP
+            maxLength={6}
+            value={control._formValues?.otp || ""}
+            onChange={handleOtpChange}
+            isDisabled={busy}
           >
-            <Store className="h-7 w-7" />
-          </div>
-          <div className="space-y-1 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Reset your password
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Enter the code we sent to{" "}
-              {userEmail ? (
-                <span className="font-medium text-foreground">{userEmail}</span>
-              ) : (
-                "your email"
-              )}
-            </p>
-          </div>
+            <InputOTP.Group className="gap-2">
+              <InputOTP.Slot index={0} className="text-xl font-semibold" />
+              <InputOTP.Slot index={1} className="text-xl font-semibold" />
+              <InputOTP.Slot index={2} className="text-xl font-semibold" />
+            </InputOTP.Group>
+            <InputOTP.Separator />
+            <InputOTP.Group className="gap-2">
+              <InputOTP.Slot index={3} className="text-xl font-semibold" />
+              <InputOTP.Slot index={4} className="text-xl font-semibold" />
+              <InputOTP.Slot index={5} className="text-xl font-semibold" />
+            </InputOTP.Group>
+          </InputOTP>
         </div>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-5"
-          noValidate
-        >
-          <div className="flex flex-col items-center gap-2">
-            <label className="self-start text-sm font-medium">
-              Verification code
-            </label>
-            <InputOTP
-              maxLength={6}
-              value={control._formValues?.otp || ""}
-              onChange={handleOtpChange}
-              isDisabled={busy}
-            >
-              <InputOTP.Group className="gap-2">
-                <InputOTP.Slot index={0} className="text-xl font-semibold" />
-                <InputOTP.Slot index={1} className="text-xl font-semibold" />
-                <InputOTP.Slot index={2} className="text-xl font-semibold" />
-              </InputOTP.Group>
-              <InputOTP.Separator />
-              <InputOTP.Group className="gap-2">
-                <InputOTP.Slot index={3} className="text-xl font-semibold" />
-                <InputOTP.Slot index={4} className="text-xl font-semibold" />
-                <InputOTP.Slot index={5} className="text-xl font-semibold" />
-              </InputOTP.Group>
-            </InputOTP>
-          </div>
+        <div className="border-t border-border/50" />
 
-          <div className="border-t border-border/50" />
-
-          <div className="space-y-2">
-            <PasswordInput
-              name="password"
-              control={control}
-              label="New password"
-              placeholder="Create a new password"
-              startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
-              isRequired
-              isDisabled={busy}
-            />
-            <PasswordInput
-              name="confirmPassword"
-              control={control}
-              label="Confirm password"
-              placeholder="Type it again"
-              startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
-              isRequired
-              isDisabled={busy}
-            />
-
-            <PasswordChecklist
-              password={watchedPassword}
-              confirmPassword={watchedConfirm}
-            />
-          </div>
-
-          <SubmitButton
-            isPending={busy}
-            isDisabled={!canSubmit}
-            label="Reset Password"
-            pendingLabel="Resetting..."
+        <div className="space-y-2">
+          <PasswordInput
+            name="password"
+            control={control}
+            label="New password"
+            placeholder="Create a new password"
+            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+            isRequired
+            isDisabled={busy}
+          />
+          <PasswordInput
+            name="confirmPassword"
+            control={control}
+            label="Confirm password"
+            placeholder="Type it again"
+            startContent={<Lock className="h-4 w-4 text-muted-foreground" />}
+            isRequired
+            isDisabled={busy}
           />
 
-          <Link
-            href={loginPath}
-            className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to login
-          </Link>
-        </form>
-      </div>
+          <PasswordChecklist
+            password={watchedPassword}
+            confirmPassword={watchedConfirm}
+          />
+        </div>
+
+        <SubmitButton
+          isPending={busy}
+          isDisabled={!canSubmit}
+          label="Reset Password"
+          pendingLabel="Resetting..."
+        />
+
+        <Link
+          href={loginPath}
+          className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to login
+        </Link>
+      </form>
     </div>
   );
 }

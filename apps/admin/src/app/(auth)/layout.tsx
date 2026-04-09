@@ -26,7 +26,7 @@ export default function AuthLayout({
           </div>
 
           <p className="mt-3 pb-2 text-center text-xs text-muted-foreground">
-            © 2026 Kwikseller · All rights reserved.
+            Copyright 2026 Kwikseller. All rights reserved.
           </p>
         </div>
       </div>
