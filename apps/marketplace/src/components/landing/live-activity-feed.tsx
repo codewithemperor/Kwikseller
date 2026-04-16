@@ -46,7 +46,7 @@ export function LiveActivityFeed() {
         notifications.length > 1
       )
 
-      return notifications[nextIndex]
+      return notifications[nextIndex] ?? null
     })
 
     setNotificationKey((k) => k + 1)
@@ -99,7 +99,7 @@ export function LiveActivityFeed() {
       <Button
         isIconOnly
         size="sm"
-        variant="flat"
+        variant="ghost"
         className="w-7 h-7 min-w-7 bg-white/80 dark:bg-default-100/80 backdrop-blur-md border border-default-200/50 rounded-full"
         onPress={handleDisableFeed}
         aria-label="Disable activity feed"

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm, useWatch, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Lock, Store, CheckCircle, ArrowLeft, Check } from "lucide-react";
+import { Lock, CheckCircle, ArrowLeft, Check } from "lucide-react";
 import { InputOTP } from "@heroui/react";
 import { cn, PasswordInput, SubmitButton } from "@kwikseller/ui";
 import { kwikToast, useAuth, usePendingResetEmail } from "@kwikseller/utils";
@@ -20,17 +20,6 @@ interface ResetPasswordPageProps {
   appName?: string;
   themeColor?: "blue" | "green" | "purple" | "orange" | "default";
 }
-
-const themeMap: Record<
-  NonNullable<ResetPasswordPageProps["themeColor"]>,
-  string
-> = {
-  blue: "bg-blue-600",
-  green: "bg-green-600",
-  purple: "bg-purple-600",
-  orange: "bg-orange-600",
-  default: "bg-primary",
-};
 
 const passwordRules = [
   {
@@ -142,7 +131,7 @@ export function ResetPasswordPage({
   const { pendingResetEmail, clearPendingResetEmail } = usePendingResetEmail();
 
   const [isSuccess, setIsSuccess] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(pendingResetEmail);
 
   const {
     control,
@@ -153,16 +142,9 @@ export function ResetPasswordPage({
     resolver: zodResolver(
       resetPasswordSchema,
     ) as Resolver<ResetPasswordFormData>,
-    defaultValues: { email: "", otp: "", password: "", confirmPassword: "" },
+    defaultValues: { otp: "", password: "", confirmPassword: "" },
     mode: "onChange",
   });
-
-  useEffect(() => {
-    if (pendingResetEmail) {
-      setUserEmail(pendingResetEmail);
-      setValue("email", pendingResetEmail, { shouldValidate: true });
-    }
-  }, [pendingResetEmail, setValue]);
 
   const handleOtpChange = (value: string) => {
     setValue("otp", value, { shouldValidate: true });
@@ -209,7 +191,6 @@ export function ResetPasswordPage({
     }
   };
 
-  const iconColor = themeMap[themeColor];
   const busy = isSubmitting || isLoading;
   const canSubmit = isValid && !busy;
 
@@ -246,32 +227,22 @@ export function ResetPasswordPage({
 
   return (
     <div className="w-full">
-      <div className="mb-8 flex flex-col items-center gap-3">
-        <div
-          className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
-            iconColor,
+      <div className="mb-8 space-y-1 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Reset your password
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Enter the code we sent to{" "}
+          {userEmail ? (
+            <span className="font-medium text-foreground">{userEmail}</span>
+          ) : (
+            "your email"
           )}
-        >
-          <Store className="h-7 w-7" />
-        </div>
-        <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Reset your password
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Enter the code we sent to{" "}
-            {userEmail ? (
-              <span className="font-medium text-foreground">{userEmail}</span>
-            ) : (
-              "your email"
-            )}
-          </p>
-        </div>
+        </p>
       </div>
 
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit as any)}
         className="flex flex-col gap-5"
         noValidate
       >

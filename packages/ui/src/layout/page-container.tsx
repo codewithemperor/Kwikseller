@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '../components/utils';
+import { cn } from '../lib/utils';
 
 /**
  * PageContainer - Standard page content wrapper

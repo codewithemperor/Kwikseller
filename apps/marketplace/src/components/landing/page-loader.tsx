@@ -22,7 +22,7 @@ const overlayVariants = {
     opacity: 0,
     scale: 0.95,
     filter: 'blur(4px)',
-    transition: { duration: 0.5, ease: 'easeInOut' },
+    transition: { duration: 0.5, ease: 'easeInOut' as const },
   },
 }
 
@@ -31,7 +31,7 @@ const logoVariants = {
   visible: {
     opacity: 1,
     scale: 1,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
   },
 }
 
@@ -47,7 +47,7 @@ const letterVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: 'easeOut' },
+    transition: { duration: 0.4, ease: 'easeOut' as const },
   },
 }
 
@@ -55,7 +55,7 @@ const taglineVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { duration: 0.6, delay: 1.2, ease: 'easeOut' },
+    transition: { duration: 0.6, delay: 1.2, ease: 'easeOut' as const },
   },
 }
 

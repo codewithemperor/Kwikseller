@@ -4,6 +4,6 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src/**/*", "../utils/src/toast.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

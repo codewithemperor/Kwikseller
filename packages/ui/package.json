@@ -16,7 +16,14 @@
     "./page-header": "./src/layout/page-header.tsx",
     "./empty-state": "./src/feedback/empty-state.tsx",
     "./loading-overlay": "./src/feedback/loading-overlay.tsx",
-    "./offline-banner": "./src/feedback/offline-banner.tsx"
+    "./offline-banner": "./src/feedback/offline-banner.tsx",
+    "./product-actions": "./src/marketplace/product-actions.tsx",
+    "./product-card-actions": "./src/marketplace/product-card-actions.tsx",
+    "./vendor-badge": "./src/marketplace/vendor-badge.tsx",
+    "./pool-status-badge": "./src/marketplace/pool-status-badge.tsx",
+    "./role-aware-product-card": "./src/marketplace/role-aware-product-card.tsx",
+    "./marketplace": "./src/marketplace/index.ts",
+    "./portal-configs": "./src/auth/portal-configs.ts"
   },
   "scripts": {
     "lint": "eslint .",

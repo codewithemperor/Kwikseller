@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   RegisterPage as RegisterPageComponent,
   RegisterPortalConfig,
@@ -19,5 +20,15 @@ const marketplacePortal: RegisterPortalConfig = {
 };
 
 export default function RegisterPage() {
-  return <RegisterPageComponent portal={marketplacePortal} />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        </div>
+      }
+    >
+      <RegisterPageComponent portal={marketplacePortal} />
+    </Suspense>
+  );
 }

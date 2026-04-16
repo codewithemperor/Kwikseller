@@ -246,11 +246,11 @@ export function ProductRatingWidget({ className }: { className?: string }) {
                 transition={{ duration: 0.3, delay: 0.4 + index * 0.08 }}
               >
                 <Chip
-                  variant="flat"
+                  variant="soft"
                   size="sm"
-                  startContent={<Icon className="w-3.5 h-3.5 text-accent" />}
                   className="bg-default-100 hover:bg-accent-soft transition-colors cursor-default"
                 >
+                  <Icon className="w-3.5 h-3.5 text-accent mr-1" />
                   <span className="text-xs font-medium text-default-600">{tag.label}</span>
                   <span className="text-xs text-default-400 ml-1 tabular-nums">
                     ({tag.count.toLocaleString()})

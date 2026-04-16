@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Mail,
   Lock,
-  Store,
   User,
   Phone,
   Building2,
@@ -36,14 +35,6 @@ interface RegisterPageProps {
   portal: RegisterPortalConfig;
   className?: string;
 }
-
-const themeMap: Record<string, string> = {
-  blue: "bg-blue-600",
-  green: "bg-green-600",
-  purple: "bg-purple-600",
-  orange: "bg-orange-600",
-  default: "bg-primary",
-};
 
 export function RegisterPage({ portal, className }: RegisterPageProps) {
   const router = useRouter();
@@ -147,26 +138,11 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
     kwikToast.success("Verification code sent!");
   };
 
-  const iconColor = themeMap[portal.themeColor] || themeMap.default;
   const busy = isSubmitting || isLoading;
-
-  const portalIcon = (
-    <div
-      className={cn(
-        "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
-        iconColor,
-      )}
-    >
-      {portal.logo ?? <Store className="h-7 w-7" />}
-    </div>
-  );
 
   if (showOTP) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-4 flex flex-col items-center gap-3">
-          {portalIcon}
-        </div>
         <OTPVerification
           email={userEmail}
           onVerify={handleVerifyOTP}
@@ -181,9 +157,8 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   if (step === 1 && portal.showRoleSelector) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-8 flex flex-col items-center gap-3">
-          {portalIcon}
-          <h1 className="text-2xl font-semibold">Join {portal.name}</h1>
+        <div className="mb-8 text-center">
+          <h1 className="mb-1 text-2xl font-semibold">Join {portal.name}</h1>
           <p className="text-sm text-muted-foreground">
             Choose how you want to use the platform
           </p>
@@ -250,8 +225,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8 flex flex-col items-center gap-3">
-        {portalIcon}
+      <div className="mb-8 space-y-1 text-center">
         <h1 className="text-2xl font-semibold">
           Create your {selectedRole === "VENDOR" ? "vendor" : "buyer"} account
         </h1>

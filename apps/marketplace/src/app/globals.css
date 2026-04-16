@@ -235,33 +235,21 @@ html::-webkit-scrollbar-thumb:hover {
    KWIKSELLER BRAND UTILITIES
    ============================================================ */
 @layer utilities {
-  /* Navy → Orange gradient (logo direction) */
+  /* Flat solid orange accent (replaces navy→orange gradient) */
   .kwik-gradient {
-    background: linear-gradient(
-      135deg,
-      oklch(0.22 0.12 264) 0%,
-      oklch(0.42 0.1 264) 50%,
-      oklch(0.7 0.17 48) 100%
-    );
+    background-color: oklch(0.7 0.17 48); /* solid orange accent */
   }
 
   .kwik-gradient-text {
-    background: linear-gradient(
-      135deg,
-      oklch(0.22 0.12 264) 0%,
-      oklch(0.7 0.17 48) 100%
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: oklch(0.7 0.17 48); /* solid orange accent */
   }
 
   .kwik-shadow {
-    box-shadow: 0 4px 14px 0 oklch(0.22 0.12 264 / 15%);
+    box-shadow: 0 2px 8px oklch(0.22 0.12 264 / 10%);
   }
 
   .kwik-shadow-lg {
-    box-shadow: 0 8px 30px 0 oklch(0.22 0.12 264 / 22%);
+    box-shadow: 0 4px 16px oklch(0.22 0.12 264 / 15%);
   }
 }
 
@@ -354,15 +342,9 @@ html::-webkit-scrollbar-thumb:hover {
     to { transform: rotate(360deg); }
   }
 
-  /* ── Gradient shift ───────────────────────────────────── */
+  /* ── Gradient shift (no-op, kept for class compatibility) ── */
   .animate-gradient-shift {
-    background-size: 200% 200%;
-    animation: gradientShift 8s ease infinite;
-  }
-  @keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    /* No-op: gradients removed, kept for class compatibility */
   }
 
   /* ── Bounce subtle ───────────────────────────────────── */
@@ -462,14 +444,9 @@ html::-webkit-scrollbar-thumb:hover {
     border: 1px solid var(--border);
   }
 
-  /* Text gradient glow */
+  /* Flat accent color (replaces gradient glow) */
   .text-gradient-glow {
-    background: linear-gradient(135deg, var(--accent) 0%, oklch(0.75 0.16 70) 50%, var(--accent) 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: gradientShift 4s ease infinite;
+    color: var(--accent);
   }
 
   /* Decorative blob */
@@ -591,7 +568,7 @@ html::-webkit-scrollbar-thumb:hover {
    TEXT & SHADOW UTILITIES
    ============================================================ */
 @layer utilities {
-  /* Subtle text shadow for headings on gradient backgrounds */
+  /* Subtle text shadow for headings */
   .text-shadow-sm {
     text-shadow: 0 1px 3px oklch(0 0 0 / 20%), 0 1px 2px oklch(0 0 0 / 10%);
   }
@@ -601,42 +578,18 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* ============================================================
-   GRADIENT BORDER
-   Animated gradient border using pseudo-element approach.
-   Apply to a positioned container; the child sits on top
-   of the gradient background padding.
+   FLAT ACCENT BORDER
+   Simple solid accent border.
    ============================================================ */
 @layer utilities {
   .gradient-border {
     position: relative;
-    background: linear-gradient(
-      135deg,
-      oklch(0.22 0.12 264),
-      oklch(0.7 0.17 48),
-      oklch(0.54 0.23 27),
-      oklch(0.22 0.12 264)
-    );
-    background-size: 300% 300%;
-    animation: gradientBorderRotate 6s ease infinite;
+    border: 2px solid var(--accent);
     border-radius: var(--radius, 0.625rem);
   }
   .gradient-border > * {
     position: relative;
     z-index: 1;
-  }
-  /* Inner mask so only the "border" area shows the gradient */
-  .gradient-border::before {
-    content: "";
-    position: absolute;
-    inset: 2px;
-    background: var(--background);
-    border-radius: calc(var(--radius, 0.625rem) - 2px);
-    z-index: 0;
-  }
-  @keyframes gradientBorderRotate {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
   }
 }
 
@@ -753,13 +706,13 @@ html::-webkit-scrollbar-thumb:hover {
 }
 .animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
 
-/* ── Gradient text hover effect ────────────────────────── */
+/* ── Flat text hover effect ───────────────────────────── */
 .text-gradient-hover {
-  background: linear-gradient(135deg, var(--heroui-foreground), var(--heroui-accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  transition: all 0.3s ease;
+  color: var(--foreground);
+  transition: color 0.3s ease;
+}
+.text-gradient-hover:hover {
+  color: var(--accent);
 }
 
 /* ── Glass morphism card ───────────────────────────────── */
@@ -788,3 +741,872 @@ html::-webkit-scrollbar-thumb:hover {
   50% { transform: scale(1.2); }
 }
 .animate-badge-bounce { animation: badge-bounce 0.4s ease; }
+
+/* ============================================================
+   GLASSMORPHISM EFFECTS
+   Lightweight glass utilities (no card-specific styling).
+   ============================================================ */
+@layer utilities {
+  .glass {
+    background: oklch(from var(--background) l c h / 60%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid oklch(1 0 0 / 10%);
+  }
+  .glass-strong {
+    background: oklch(from var(--background) l c h / 80%);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid oklch(1 0 0 / 20%);
+  }
+}
+
+/* ============================================================
+   FLAT TEXT (replaces gradient text with animation)
+   ============================================================ */
+@layer utilities {
+  /* Flat accent color (replaces animated gradient text) */
+  .text-gradient-animate {
+    color: var(--accent);
+  }
+}
+
+/* ============================================================
+   HOVER EFFECT (flat, no gradient glow)
+   Subtle background color change on hover via ::before pseudo.
+   ============================================================ */
+.hover-glow {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.hover-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: oklch(0.7 0.17 48 / 6%);
+  pointer-events: none;
+}
+.hover-glow:hover::before {
+  opacity: 1;
+}
+
+/* ============================================================
+   FLOAT ANIMATION VARIANTS
+   Delayed and slower float variants reusing existing keyframes.
+   ============================================================ */
+@layer utilities {
+  .animate-float-delayed {
+    animation: float 6s ease-in-out 2s infinite;
+  }
+}
+
+/* ============================================================
+   HOVER UNDERLINE ANIMATION
+   Smooth underline slides in from left on hover.
+   ============================================================ */
+.hover-underline {
+  position: relative;
+}
+.hover-underline::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.hover-underline:hover::after {
+  width: 100%;
+}
+
+/* ============================================================
+   CUSTOM SCROLLBAR (ALL ELEMENTS)
+   Applied globally beyond the html element scrollbar.
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(from var(--default) l c h / 60%);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(from var(--default) l c h / 80%);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 25%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(1 0 0 / 40%);
+}
+
+/* ============================================================
+   FLAT DESIGN UTILITIES
+   Non-gradient, clean design system helpers.
+   ============================================================ */
+@layer utilities {
+  /* Flat accent background */
+  .kwik-flat {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  /* Flat dark background */
+  .kwik-flat-dark {
+    background-color: var(--foreground);
+    color: var(--background);
+  }
+
+  /* Flat accent text */
+  .kwik-flat-text {
+    color: var(--accent);
+  }
+
+  /* Subtle accent background for light sections */
+  .kwik-flat-subtle {
+    background-color: var(--accent-soft);
+    color: var(--accent-soft-foreground);
+  }
+
+  /* Accent left border (for cards) */
+  .kwik-border-left {
+    border-left: 3px solid var(--accent);
+  }
+
+  /* Accent top border (for benefit cards) */
+  .kwik-border-top {
+    border-top: 3px solid var(--accent);
+  }
+
+  /* Flat card shadow - subtle and clean */
+  .shadow-clean {
+    box-shadow: 0 1px 3px oklch(0 0 0 / 8%), 0 1px 2px oklch(0 0 0 / 4%);
+  }
+
+  .shadow-clean-md {
+    box-shadow: 0 4px 6px oklch(0 0 0 / 7%), 0 2px 4px oklch(0 0 0 / 4%);
+  }
+
+  .shadow-clean-lg {
+    box-shadow: 0 10px 15px oklch(0 0 0 / 8%), 0 4px 6px oklch(0 0 0 / 3%);
+  }
+
+  /* Flat hover effect */
+  .hover-flat {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .hover-flat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px oklch(0 0 0 / 10%);
+  }
+
+  /* Subtle pattern for visual interest without gradients */
+  .pattern-subtle {
+    background-image: radial-gradient(circle, var(--border) 0.5px, transparent 0.5px);
+    background-size: 16px 16px;
+  }
+
+  /* Clean divider */
+  .divider-accent {
+    border-color: var(--accent);
+    opacity: 0.3;
+  }
+}
+
+/* ============================================================
+   FOCUS RING
+   Accent-colored outline on focus-visible for all elements.
+   ============================================================ */
+*:focus-visible {
+  outline: 2px solid oklch(0.7 0.17 48 / 50%);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   SMOOTH TRANSITIONS FOR INTERACTIVE ELEMENTS
+   ============================================================ */
+button,
+a,
+[role="button"] {
+  transition: all 0.2s ease;
+}
+
+/* ============================================================
+   CARD INTERACTION ENHANCEMENTS
+   Subtle press, shine, and border transition effects.
+   ============================================================ */
+
+/* Press effect — slightly scale down on active/click */
+.press-scale {
+  transition: transform 0.15s ease;
+}
+.press-scale:active {
+  transform: scale(0.97);
+}
+
+/* Card border color transition on hover */
+.card-hover-border {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.card-hover-border:hover {
+  border-color: oklch(0.7 0.17 48 / 30%);
+  box-shadow: 0 0 0 1px oklch(0.7 0.17 48 / 15%);
+}
+
+/* Subtle shine sweep on hover (pseudo-element) */
+.shine-hover {
+  position: relative;
+  overflow: hidden;
+}
+.shine-hover::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 50%;
+  height: 200%;
+  background: oklch(1 0 0 / 4%);
+  transform: rotate(25deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.shine-hover:hover::after {
+  left: 150%;
+}
+
+/* Icon rotate on hover */
+.icon-hover-rotate {
+  transition: transform 0.3s ease;
+}
+.icon-hover-rotate:hover {
+  transform: rotate(15deg);
+}
+
+/* ============================================================
+   SECTION SPACING IMPROVEMENTS
+   Consistent vertical rhythm between sections.
+   ============================================================ */
+@layer utilities {
+  .section-sm { padding-top: 2.5rem; padding-bottom: 2.5rem; }
+  .section-md { padding-top: 4rem; padding-bottom: 4rem; }
+  .section-lg { padding-top: 5rem; padding-bottom: 5rem; }
+  .section-xl { padding-top: 6rem; padding-bottom: 6rem; }
+
+  @media (min-width: 640px) {
+    .section-sm { padding-top: 3rem; padding-bottom: 3rem; }
+    .section-md { padding-top: 5rem; padding-bottom: 5rem; }
+    .section-lg { padding-top: 6rem; padding-bottom: 6rem; }
+    .section-xl { padding-top: 8rem; padding-bottom: 8rem; }
+  }
+}
+
+/* ============================================================
+   ACCESSIBLE SKIP LINK
+   Hidden until focused, for keyboard navigation.
+   ============================================================ */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-radius: 0 0 0.5rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: top 0.2s ease;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ============================================================
+   ROUND 13 STYLING ADDITIONS
+   Micro-interactions, typography polish, responsive helpers
+   ============================================================ */
+
+/* ── Heading Typography Polish ──────────────────────────── */
+@layer base {
+  h1 { font-weight: 800; line-height: 1.1; }
+  h2 { font-weight: 700; line-height: 1.2; }
+  h3 { font-weight: 600; line-height: 1.3; }
+
+  /* Smooth image rendering */
+  img {
+    image-rendering: auto;
+  }
+}
+
+/* ── Hover Scale Effect ───────────────────────────────── */
+@layer utilities {
+  .hover-scale {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-scale:hover {
+    transform: scale(1.03);
+  }
+  .hover-scale-sm {
+    transition: transform 0.25s ease;
+  }
+  .hover-scale-sm:hover {
+    transform: scale(1.015);
+  }
+}
+
+/* ── Border Bottom Accent ────────────────────────────── */
+@layer utilities {
+  .kwik-border-bottom {
+    border-bottom: 2px solid var(--accent);
+  }
+  .kwik-border-right {
+    border-right: 2px solid var(--accent);
+  }
+}
+
+/* ── Accent Shadow Utilities ──────────────────────────── */
+@layer utilities {
+  .shadow-accent {
+    box-shadow: 0 4px 14px oklch(0.7 0.17 48 / 20%);
+  }
+  .shadow-accent-lg {
+    box-shadow: 0 8px 24px oklch(0.7 0.17 48 / 25%);
+  }
+  .shadow-accent-sm {
+    box-shadow: 0 2px 8px oklch(0.7 0.17 48 / 15%);
+  }
+}
+
+/* ── Smooth Focus Ring ─────────────────────────────────── */
+@layer utilities {
+  .focus-ring {
+    transition: box-shadow 0.2s ease;
+  }
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 3px oklch(0.7 0.17 48 / 25%);
+    outline: none;
+  }
+}
+
+/* ── Text Balance for Headings ────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+/* ── Truncate with Ellipsis (single line) ────────────── */
+@layer utilities {
+  .truncate-1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ── Responsive Container ─────────────────────────────── */
+@layer utilities {
+  .container-narrow {
+    width: 100%;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* ── Hover Opacity Effect ─────────────────────────────── */
+@layer utilities {
+  .hover-opacity {
+    transition: opacity 0.2s ease;
+  }
+  .hover-opacity:hover {
+    opacity: 0.7;
+  }
+  .hover-opacity-full {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .group:hover .hover-opacity-full {
+    opacity: 1;
+  }
+}
+
+/* ── Smooth Image Zoom on Hover ───────────────────────── */
+@layer utilities {
+  .img-zoom {
+    overflow: hidden;
+  }
+  .img-zoom img {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .img-zoom:hover img {
+    transform: scale(1.08);
+  }
+}
+
+/* ── Staggered Children Animation Delay ──────────────── */
+@layer utilities {
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 80ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 160ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 320ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+}
+
+/* ── Accent Background Pattern ────────────────────────── */
+@layer utilities {
+  .pattern-accent-dots {
+    background-image: radial-gradient(circle, oklch(0.7 0.17 48 / 15%) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .pattern-accent-grid {
+    background-image:
+      linear-gradient(oklch(0.7 0.17 48 / 8%) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.7 0.17 48 / 8%) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+/* ── Number Tabular Figures ────────────────────────────── */
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ── Interactive Card States ───────────────────────────── */
+@layer utilities {
+  .card-interactive {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    cursor: pointer;
+  }
+  .card-interactive:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px oklch(0 0 0 / 8%), 0 4px 8px oklch(0 0 0 / 4%);
+  }
+  .card-interactive:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px oklch(0 0 0 / 6%);
+  }
+}
+
+/* ── Vertical Divider ─────────────────────────────────── */
+@layer utilities {
+  .divider-v {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border);
+  }
+}
+
+/* ── Max Content Width ────────────────────────────────── */
+@layer utilities {
+  .max-prose {
+    max-width: 65ch;
+  }
+}
+
+/* ============================================================
+   ROUND 14 STYLING ADDITIONS
+   Refined micro-interactions, visual polish, section dividers
+   ============================================================ */
+
+/* ── Section Divider (accent dot with lines) ───────────── */
+@layer utilities {
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 auto;
+    max-width: 200px;
+  }
+  .section-divider::before,
+  .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+}
+
+/* ── Ripple Effect on Click ────────────────────────────── */
+@layer utilities {
+  .ripple {
+    position: relative;
+    overflow: hidden;
+  }
+  .ripple::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: oklch(0.7 0.17 48 / 0%);
+    transition: background 0.4s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ripple:active::before {
+    background: oklch(0.7 0.17 48 / 8%);
+  }
+}
+
+/* ── Pill Badge Base ───────────────────────────────────── */
+@layer utilities {
+  .pill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
+
+/* ── Text Color Transition ─────────────────────────────── */
+@layer utilities {
+  .text-color-transition {
+    transition: color 0.2s ease;
+  }
+}
+
+/* ── Background Color Transition ───────────────────────── */
+@layer utilities {
+  .bg-color-transition {
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+}
+
+/* ── Inset Shadow (inner depth) ────────────────────────── */
+@layer utilities {
+  .shadow-inset {
+    box-shadow: inset 0 2px 4px oklch(0 0 0 / 6%);
+  }
+  .shadow-inset-accent {
+    box-shadow: inset 0 2px 4px oklch(0.7 0.17 48 / 10%);
+  }
+}
+
+/* ── Border Radius Utilities ───────────────────────────── */
+@layer utilities {
+  .rounded-3xl {
+    border-radius: 1.5rem;
+  }
+  .rounded-4xl {
+    border-radius: 2rem;
+  }
+}
+
+/* ── Smooth Color Transition for All ───────────────────── */
+@layer utilities {
+  .transition-colors {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+}
+
+/* ── Letter Spacing Tight ─────────────────────────────── */
+@layer utilities {
+  .tracking-tighter-sm {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ── Aspect Ratio Presets ──────────────────────────────── */
+@layer utilities {
+  .aspect-video {
+    aspect-ratio: 16 / 9;
+  }
+  .aspect-square {
+    aspect-ratio: 1 / 1;
+  }
+  .aspect-portrait {
+    aspect-ratio: 3 / 4;
+  }
+}
+
+/* ── Dot Separator ─────────────────────────────────────── */
+@layer utilities {
+  .dot-separator::before {
+    content: '·';
+    margin: 0 0.375rem;
+    color: var(--muted);
+  }
+}
+
+/* ── Glass Button Effect ───────────────────────────────── */
+.glass-btn {
+  position: relative;
+  overflow: hidden;
+}
+.glass-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: oklch(1 0 0 / 15%);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+.glass-btn:hover::before {
+  left: 125%;
+}
+
+/* ── Gradient Text (flat solid, class name kept for compat) ── */
+@layer utilities {
+  .text-fancy {
+    font-family: var(--font-heading), system-ui, sans-serif;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+  }
+}
+
+/* ── Counter Animation Utility ─────────────────────────── */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-count-up {
+  animation: countUp 0.6s ease-out both;
+}
+
+/* ── Horizontal Scroll Snap ───────────────────────────── */
+@layer utilities {
+  .scroll-snap-x {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-snap-x > * {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Tag Pill Hover ────────────────────────────────────── */
+@layer utilities {
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  .tag-pill:hover {
+    background-color: oklch(0.7 0.17 48 / 10%);
+    color: oklch(0.7 0.17 48);
+  }
+}
+
+/* ── Clean List Reset ──────────────────────────────────── */
+@layer utilities {
+  .list-clean {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+/* ============================================================
+   ROUND 16 STYLING ADDITIONS
+   Enhanced hover effects, eco badges, payment cards, scroll reveal
+   ============================================================ */
+
+/* ── Hover Background Tint ──────────────────────────────── */
+@layer utilities {
+  .hover-tint {
+    transition: background-color 0.2s ease;
+  }
+  .hover-tint:hover {
+    background-color: oklch(0.7 0.17 48 / 5%);
+  }
+}
+
+/* ── Icon Bounce on Hover ─────────────────────────────── */
+@layer utilities {
+  .icon-bounce {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .icon-bounce:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* ── Smooth Card Reveal on Scroll ──────────────────────── */
+@layer utilities {
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  }
+  .scroll-reveal.is-in-view {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Eco Badge Glow ────────────────────────────────────── */
+@layer utilities {
+  .eco-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-color: oklch(0.6 0.16 155);
+    color: oklch(0.98 0 0);
+  }
+}
+
+/* ── Payment Method Card Hover ─────────────────────────── */
+@layer utilities {
+  .payment-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .payment-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px oklch(0 0 0 / 8%);
+    border-color: oklch(0.7 0.17 48 / 20%);
+  }
+}
+
+/* ── Subtle Text Glow ──────────────────────────────────── */
+@layer utilities {
+  .text-glow-subtle {
+    text-shadow: 0 0 20px oklch(0.7 0.17 48 / 15%);
+  }
+}
+
+/* ── Hover Expand ──────────────────────────────────────── */
+@layer utilities {
+  .hover-expand {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-expand:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 20px oklch(0 0 0 / 10%);
+  }
+}
+
+/* ── Smooth Border Radius on Hover ─────────────────────── */
+@layer utilities {
+  .hover-rounded {
+    transition: border-radius 0.3s ease;
+  }
+  .hover-rounded:hover {
+    border-radius: 1rem;
+  }
+}
+
+/* ── Accent Underline Thick ────────────────────────────── */
+@layer utilities {
+  .hover-underline-thick {
+    position: relative;
+  }
+  .hover-underline-thick::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-underline-thick:hover::after {
+    width: 100%;
+  }
+}
+
+/* ── Focus Within Ring ─────────────────────────────────── */
+@layer utilities {
+  .focus-within-ring:focus-within {
+    box-shadow: 0 0 0 3px oklch(0.7 0.17 48 / 20%);
+    border-color: oklch(0.7 0.17 48 / 40%);
+  }
+}
+
+/* ── Skeleton Pulse (Alternate) ────────────────────────── */
+@keyframes skeleton-pulse-alt {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-skeleton-pulse {
+  animation: skeleton-pulse-alt 2s ease-in-out infinite;
+}
+
+/* ── Slide Up Fade (for modals/overlays) ────────────────── */
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slide-up-fade {
+  animation: slideUpFade 0.3s ease-out both;
+}
+
+/* ── Micro-shake on Error ──────────────────────────────── */
+@keyframes micro-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.animate-shake {
+  animation: micro-shake 0.3s ease-in-out;
+}
+
+/* ── Number Counter Tick ───────────────────────────────── */
+@layer utilities {
+  .counter-tick {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+/* ── Responsive Grid Auto-Fill ─────────────────────────── */
+@layer utilities {
+  .grid-auto-fill-sm {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  .grid-auto-fill-md {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .grid-auto-fill-lg {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}

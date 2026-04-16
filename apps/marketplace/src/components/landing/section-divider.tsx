@@ -25,8 +25,7 @@ export function SectionDivider({ icon: Icon, label, className }: SectionDividerP
       role="separator"
     >
       <div className="flex items-center w-full max-w-md">
-        {/* Left gradient line */}
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-accent/40" />
+        <div className="flex-1 h-px bg-accent/40" />
 
         {/* Center chip / icon / label */}
         <div className="flex items-center justify-center px-4">
@@ -48,8 +47,7 @@ export function SectionDivider({ icon: Icon, label, className }: SectionDividerP
           )}
         </div>
 
-        {/* Right gradient line */}
-        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-accent/40" />
+        <div className="flex-1 h-px bg-accent/40" />
       </div>
     </motion.div>
   )

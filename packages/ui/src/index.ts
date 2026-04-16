@@ -103,3 +103,40 @@ export type { OfflineBannerProps } from "./feedback/offline-banner";
 
 export { OTPVerification } from "./components/otp-verification";
 export type { OTPVerificationProps } from "./components/otp-verification";
+
+// ==================== Marketplace Components ====================
+// Role-aware product actions shared between buyer marketplace & vendor portal
+
+// Product Actions — role-based action buttons (cart, wishlist, pool, edit, etc.)
+export { ProductActions, PRODUCT_ACTIONS } from "./marketplace/product-actions";
+export type { ProductActionsProps, UserRole, ProductAction } from "./marketplace/product-actions";
+
+// Product Card Actions — ProductCard wrapper with vendor/buyer actions
+export { ProductCardActions } from "./marketplace/product-card-actions";
+export type { ProductCardActionsProps } from "./marketplace/product-card-actions";
+
+// Vendor Badge — "Verified Vendor" indicator
+export { VendorBadge } from "./marketplace/vendor-badge";
+export type { VendorBadgeProps, VendorBadgeSize, VendorBadgeVariant } from "./marketplace/vendor-badge";
+
+// Pool Status Badge — pool selling status indicator
+export { PoolStatusBadge } from "./marketplace/pool-status-badge";
+export type { PoolStatusBadgeProps, PoolStatus } from "./marketplace/pool-status-badge";
+
+// Role-Aware Product Card — deeply integrated card that changes badges & actions by role
+export { RoleAwareProductCard } from "./marketplace/role-aware-product-card";
+export type {
+  RoleAwareProductCardProps,
+} from "./marketplace/role-aware-product-card";
+
+// ==================== Auth / Portal Configs ====================
+// Centralised portal configurations for all Kwikseller apps
+
+export {
+  PORTALS,
+  getPortalConfig,
+  getLoginUrl,
+  getRedirectUrl,
+  isMfaRequired,
+} from "./auth/portal-configs";
+export type { PortalSlug, PortalConfig } from "./auth/portal-configs";

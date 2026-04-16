@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import React, { useRef, useState, useEffect } from 'react'
-import { motion, useInView } from 'framer-motion'
+import React, { useRef, useState, useEffect } from "react";
+import { motion, useInView } from "framer-motion";
 import {
   Truck,
   MapPin,
@@ -13,59 +13,59 @@ import {
   Shield,
   ArrowRight,
   Zap,
-} from 'lucide-react'
-import { Button, Chip, Card } from '@heroui/react'
-import { cn } from '@kwikseller/ui'
+} from "lucide-react";
+import { Button, Chip, Card } from "@heroui/react";
+import { cn } from "@kwikseller/ui";
 
 // ─── Timeline Step Data ─────────────────────────────────────────
 
 interface TimelineStep {
-  id: number
-  label: string
-  time: string
-  status: 'completed' | 'current' | 'upcoming'
+  id: number;
+  label: string;
+  time: string;
+  status: "completed" | "current" | "upcoming";
 }
 
 const timelineSteps: TimelineStep[] = [
-  { id: 1, label: 'Order Confirmed', time: '10:30 AM', status: 'completed' },
-  { id: 2, label: 'Picked Up by Rider', time: '11:15 AM', status: 'completed' },
-  { id: 3, label: 'In Transit', time: 'Est. 12:45 PM', status: 'current' },
-  { id: 4, label: 'Out for Delivery', time: '', status: 'upcoming' },
-  { id: 5, label: 'Delivered', time: '', status: 'upcoming' },
-]
+  { id: 1, label: "Order Confirmed", time: "10:30 AM", status: "completed" },
+  { id: 2, label: "Picked Up by Rider", time: "11:15 AM", status: "completed" },
+  { id: 3, label: "In Transit", time: "Est. 12:45 PM", status: "current" },
+  { id: 4, label: "Out for Delivery", time: "", status: "upcoming" },
+  { id: 5, label: "Delivered", time: "", status: "upcoming" },
+];
 
 // ─── Feature Data ───────────────────────────────────────────────
 
 const features = [
   {
     id: 1,
-    emoji: '🚀',
-    title: 'Fast Pickup',
-    description: 'Riders arrive within 30 minutes of order confirmation',
+    emoji: "🚀",
+    title: "Fast Pickup",
+    description: "Riders arrive within 30 minutes of order confirmation",
     icon: Zap,
   },
   {
     id: 2,
-    emoji: '📍',
-    title: 'Live GPS Tracking',
-    description: 'Track your rider in real-time on an interactive map',
+    emoji: "📍",
+    title: "Live GPS Tracking",
+    description: "Track your rider in real-time on an interactive map",
     icon: Navigation,
   },
   {
     id: 3,
-    emoji: '🛡️',
-    title: 'Delivery Protection',
-    description: 'All deliveries are insured up to ₦500,000',
+    emoji: "🛡️",
+    title: "Delivery Protection",
+    description: "All deliveries are insured up to ₦500,000",
     icon: Shield,
   },
   {
     id: 4,
-    emoji: '📞',
-    title: 'Direct Communication',
-    description: 'Call or chat with your rider directly',
+    emoji: "📞",
+    title: "Direct Communication",
+    description: "Call or chat with your rider directly",
     icon: Phone,
   },
-]
+];
 
 // ─── Timeline Step Component ────────────────────────────────────
 
@@ -75,19 +75,19 @@ function TimelineStepItem({
   isInView,
   isLast,
 }: {
-  step: TimelineStep
-  index: number
-  isInView: boolean
-  isLast: boolean
+  step: TimelineStep;
+  index: number;
+  isInView: boolean;
+  isLast: boolean;
 }) {
-  const isCompleted = step.status === 'completed'
-  const isCurrent = step.status === 'current'
+  const isCompleted = step.status === "completed";
+  const isCurrent = step.status === "current";
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-      transition={{ duration: 0.4, delay: 0.2 + index * 0.12, ease: 'easeOut' }}
+      transition={{ duration: 0.4, delay: 0.2 + index * 0.12, ease: "easeOut" }}
       className="relative flex gap-4"
     >
       {/* Timeline track */}
@@ -98,7 +98,13 @@ function TimelineStepItem({
             <motion.div
               initial={{ scale: 0 }}
               animate={isInView ? { scale: 1 } : { scale: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 + index * 0.12, type: 'spring', stiffness: 300, damping: 20 }}
+              transition={{
+                duration: 0.3,
+                delay: 0.3 + index * 0.12,
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+              }}
               className="w-8 h-8 rounded-full bg-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-400/30"
             >
               <CheckCircle className="w-5 h-5 text-white" />
@@ -110,19 +116,28 @@ function TimelineStepItem({
               <motion.div
                 className="absolute inset-0 rounded-full bg-accent/40"
                 animate={{ scale: [1, 1.6, 1.6], opacity: [0.6, 0, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                }}
               />
               <motion.div
                 className="absolute inset-0 rounded-full bg-accent/30"
                 animate={{ scale: [1, 1.4, 1.4], opacity: [0.4, 0, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut', delay: 0.4 }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                  delay: 0.4,
+                }}
               />
               <div className="relative w-8 h-8 rounded-full kwik-gradient flex items-center justify-center shadow-lg shadow-accent/40">
                 <Truck className="w-4 h-4 text-white" />
               </div>
             </div>
           )}
-          {step.status === 'upcoming' && (
+          {step.status === "upcoming" && (
             <div className="w-8 h-8 rounded-full bg-white/15 border-2 border-white/20 flex items-center justify-center">
               <Clock className="w-4 h-4 text-white/40" />
             </div>
@@ -134,15 +149,15 @@ function TimelineStepItem({
           <div className="w-0.5 flex-1 min-h-[40px] my-1">
             <div
               className={cn(
-                'w-full h-full rounded-full transition-colors',
-                isCompleted ? 'bg-emerald-400/60' : 'bg-white/10'
+                "w-full h-full rounded-full transition-colors",
+                isCompleted ? "bg-emerald-400/60" : "bg-white/10",
               )}
             />
             {/* Animated progress fill for current step line */}
             {isCurrent && (
               <motion.div
-                className="w-full bg-gradient-to-b from-accent to-accent/30 rounded-full"
-                style={{ height: '100%' }}
+                className="w-full bg-accent/60 rounded-full"
+                style={{ height: "100%" }}
                 initial={{ opacity: 0 }}
                 animate={isInView ? { opacity: 1 } : { opacity: 0 }}
                 transition={{ duration: 0.8, delay: 0.4 + index * 0.12 }}
@@ -153,14 +168,14 @@ function TimelineStepItem({
       </div>
 
       {/* Content */}
-      <div className={cn('pb-8', isLast && 'pb-0')}>
+      <div className={cn("pb-8", isLast && "pb-0")}>
         <div className="flex items-center gap-2 mb-0.5">
           <span
             className={cn(
-              'text-sm font-semibold',
-              isCompleted && 'text-white',
-              isCurrent && 'text-white',
-              step.status === 'upcoming' && 'text-white/40'
+              "text-sm font-semibold",
+              isCompleted && "text-white",
+              isCurrent && "text-white",
+              step.status === "upcoming" && "text-white/40",
             )}
           >
             {step.label}
@@ -168,7 +183,9 @@ function TimelineStepItem({
           {isCurrent && (
             <motion.span
               initial={{ opacity: 0, scale: 0.8 }}
-              animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
+              animate={
+                isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }
+              }
               transition={{ duration: 0.3, delay: 0.5 + index * 0.12 }}
               className="text-[10px] font-medium bg-accent/20 text-accent px-2 py-0.5 rounded-full"
             >
@@ -179,10 +196,10 @@ function TimelineStepItem({
         {step.time && (
           <span
             className={cn(
-              'text-xs',
-              isCompleted && 'text-white/60',
-              isCurrent && 'text-white/70',
-              step.status === 'upcoming' && 'text-white/30'
+              "text-xs",
+              isCompleted && "text-white/60",
+              isCurrent && "text-white/70",
+              step.status === "upcoming" && "text-white/30",
             )}
           >
             {step.time}
@@ -190,7 +207,7 @@ function TimelineStepItem({
         )}
       </div>
     </motion.div>
-  )
+  );
 }
 
 // ─── Feature Card Component ─────────────────────────────────────
@@ -200,17 +217,17 @@ function FeatureCard({
   index,
   isInView,
 }: {
-  feature: (typeof features)[0]
-  index: number
-  isInView: boolean
+  feature: (typeof features)[0];
+  index: number;
+  isInView: boolean;
 }) {
-  const Icon = feature.icon
+  const Icon = feature.icon;
 
   return (
     <motion.div
       initial={{ opacity: 0, x: 30 }}
       animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 30 }}
-      transition={{ duration: 0.5, delay: 0.4 + index * 0.1, ease: 'easeOut' }}
+      transition={{ duration: 0.5, delay: 0.4 + index * 0.1, ease: "easeOut" }}
       className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-4 hover:bg-white/15 transition-colors duration-300 group"
     >
       <div className="flex items-start gap-3.5">
@@ -227,38 +244,38 @@ function FeatureCard({
         </div>
       </div>
     </motion.div>
-  )
+  );
 }
 
 // ─── Main Component ─────────────────────────────────────────────
 
 export function DeliveryTracker() {
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const isInView = useInView(sectionRef, { once: true, margin: '-80px' })
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
 
   // Progress bar percentage based on current step (step 3 of 5 = 60%)
-  const [progress, setProgress] = useState(0)
-  const targetProgress = 60
+  const [progress, setProgress] = useState(0);
+  const targetProgress = 60;
 
   useEffect(() => {
-    if (!isInView) return
-    const duration = 1200
-    const startTime = Date.now()
+    if (!isInView) return;
+    const duration = 1200;
+    const startTime = Date.now();
 
     const animate = () => {
-      const elapsed = Date.now() - startTime
-      const fraction = Math.min(elapsed / duration, 1)
+      const elapsed = Date.now() - startTime;
+      const fraction = Math.min(elapsed / duration, 1);
       // Ease out cubic
-      const eased = 1 - Math.pow(1 - fraction, 3)
-      setProgress(eased * targetProgress)
+      const eased = 1 - Math.pow(1 - fraction, 3);
+      setProgress(eased * targetProgress);
 
       if (fraction < 1) {
-        requestAnimationFrame(animate)
+        requestAnimationFrame(animate);
       }
-    }
+    };
 
-    requestAnimationFrame(animate)
-  }, [isInView])
+    requestAnimationFrame(animate);
+  }, [isInView]);
 
   return (
     <section className="py-16 md:py-20 kwik-gradient relative overflow-hidden">
@@ -270,7 +287,7 @@ export function DeliveryTracker() {
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none" />
       <div className="absolute top-1/2 right-1/4 w-64 h-64 bg-white/[0.03] rounded-full blur-2xl pointer-events-none" />
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-0 md:px-4  relative z-10">
         {/* Section Header */}
         <motion.div
           ref={sectionRef}
@@ -290,7 +307,8 @@ export function DeliveryTracker() {
             Real-Time Delivery Tracking
           </h2>
           <p className="text-white/80 max-w-xl mx-auto text-sm md:text-base">
-            Track every delivery from checkout to doorstep. Stay informed with live updates, rider details, and estimated arrival times.
+            Track every delivery from checkout to doorstep. Stay informed with
+            live updates, rider details, and estimated arrival times.
           </p>
         </motion.div>
 
@@ -311,13 +329,21 @@ export function DeliveryTracker() {
                       <Package className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs text-white/50 font-medium">Order Number</p>
-                      <p className="text-sm font-bold text-white font-mono">#KWS-2024-7854</p>
+                      <p className="text-xs text-white/50 font-medium">
+                        Order Number
+                      </p>
+                      <p className="text-sm font-bold text-white font-mono">
+                        #KWS-2024-7854
+                      </p>
                     </div>
                   </div>
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
-                    animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
+                    animate={
+                      isInView
+                        ? { opacity: 1, scale: 1 }
+                        : { opacity: 0, scale: 0.8 }
+                    }
                     transition={{ duration: 0.3, delay: 0.3 }}
                     className="flex items-center gap-1.5 bg-accent/20 text-accent px-2.5 py-1 rounded-full"
                   >
@@ -350,7 +376,7 @@ export function DeliveryTracker() {
                   <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                     <motion.div
                       className="h-full kwik-gradient rounded-full"
-                      initial={{ width: '0%' }}
+                      initial={{ width: "0%" }}
                       animate={{ width: `${progress}%` }}
                       transition={{ duration: 0.1 }}
                     />
@@ -379,22 +405,28 @@ export function DeliveryTracker() {
               {/* Rider Info */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
-                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                transition={{ duration: 0.5, delay: 0.8, ease: 'easeOut' }}
+                animate={
+                  isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+                }
+                transition={{ duration: 0.5, delay: 0.8, ease: "easeOut" }}
                 className="p-4 md:p-5 border-t border-white/10"
               >
                 <div className="flex items-center gap-3">
                   {/* Rider avatar */}
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-accent to-warning flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md">
+                  <div className="w-11 h-11 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md">
                     EO
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white">Rider: Emeka O.</p>
+                    <p className="text-sm font-semibold text-white">
+                      Rider: Emeka O.
+                    </p>
                     <p className="text-xs text-white/50">Honda CG 125 - Red</p>
                     <div className="flex items-center gap-0.5 mt-0.5">
                       <span className="text-xs text-amber-400">★</span>
-                      <span className="text-xs text-white/70 font-medium">Rating: 4.8</span>
+                      <span className="text-xs text-white/70 font-medium">
+                        Rating: 4.8
+                      </span>
                     </div>
                   </div>
 
@@ -431,7 +463,7 @@ export function DeliveryTracker() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.5, delay: 0.9, ease: 'easeOut' }}
+              transition={{ duration: 0.5, delay: 0.9, ease: "easeOut" }}
               className="mt-2"
             >
               <Button
@@ -446,5 +478,5 @@ export function DeliveryTracker() {
         </div>
       </div>
     </section>
-  )
+  );
 }

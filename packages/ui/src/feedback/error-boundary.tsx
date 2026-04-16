@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { cn } from '../components/utils';
+import { cn } from '../lib/utils';
 
 /**
  * ErrorBoundary - Error boundary with fallback UI

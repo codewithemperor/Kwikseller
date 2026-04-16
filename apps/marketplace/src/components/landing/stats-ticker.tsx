@@ -28,9 +28,9 @@ export function StatsTicker() {
       {/* Top separator line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-white/10" />
 
-      {/* Subtle gradient overlays for fade edges */}
-      <div className="absolute inset-y-0 left-0 w-16 md:w-32 bg-gradient-to-r from-[oklch(0.22_0.12_264)] to-transparent z-10 pointer-events-none" />
-      <div className="absolute inset-y-0 right-0 w-16 md:w-32 bg-gradient-to-l from-[oklch(0.7_0.17_48)] to-transparent z-10 pointer-events-none" />
+      {/* Subtle fade edges */}
+      <div className="absolute inset-y-0 left-0 w-16 md:w-32 bg-foreground to-transparent z-10 pointer-events-none" />
+      <div className="absolute inset-y-0 right-0 w-16 md:w-32 bg-foreground to-transparent z-10 pointer-events-none" />
 
       <div className="group flex items-center py-3">
         <div

@@ -23,6 +23,8 @@
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.13.6",
     "clsx": "^2.1.1",
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.525.0",
     "next": "^16.1.1",
@@ -36,6 +38,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@kwikseller/eslint-config": "workspace:*",
     "@kwikseller/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4",

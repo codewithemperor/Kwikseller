@@ -10,8 +10,8 @@ async function bootstrap() {
   const apiVersion = process.env.API_VERSION || "v1";
   app.setGlobalPrefix(`api/${apiVersion}`);
 
-  const configuredOrigins = (process.env.CORS_ORIGINS || '')
-    .split(',')
+  const configuredOrigins = (process.env.CORS_ORIGINS || "")
+    .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 
@@ -23,11 +23,18 @@ async function bootstrap() {
     "http://localhost:3001",
     "http://localhost:3002",
     "http://localhost:3003",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3002",
-    "http://127.0.0.1:3003",
-    "http://172.20.10.2",
+    "http://192.168.0.101:3000",
+    "http://192.168.0.101:3001",
+    "http://192.168.0.101:3002",
+    "http://192.168.0.101:3003",
+    "http://192.168.0.102:3000",
+    "http://192.168.0.102:3001",
+    "http://192.168.0.102:3002",
+    "http://192.168.0.102:3003",
+    "http://192.168.0.103:3000",
+    "http://192.168.0.103:3001",
+    "http://192.168.0.103:3002",
+    "http://192.168.0.103:3003",
   ];
 
   app.enableCors({

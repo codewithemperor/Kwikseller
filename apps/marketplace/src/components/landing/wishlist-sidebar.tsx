@@ -138,7 +138,7 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                           <div className="mt-1">
                             <Chip
                               size="sm"
-                              variant="flat"
+                              variant="soft"
                               className="text-[10px] h-5"
                             >
                               {item.category}

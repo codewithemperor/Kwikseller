@@ -1,30 +1,30 @@
-'use client'
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react'
-import { motion, useInView, AnimatePresence } from 'framer-motion'
-import { Globe, Users, Package, MapPin } from 'lucide-react'
-import { Chip, Card } from '@heroui/react'
+import React, { useState, useRef, useEffect } from "react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
+import { Globe, Users, Package, MapPin } from "lucide-react";
+import { Chip, Card } from "@heroui/react";
 
 // ─── Country data ────────────────────────────────────────────────
 const countries = [
-  { name: 'Morocco', vendors: 1240, x: 27, y: 12 },
-  { name: 'Egypt', vendors: 1850, x: 62, y: 16 },
-  { name: 'Senegal', vendors: 620, x: 18, y: 30 },
-  { name: 'Nigeria', vendors: 3200, x: 38, y: 40 },
-  { name: 'Ghana', vendors: 980, x: 35, y: 44 },
+  { name: "Morocco", vendors: 1240, x: 27, y: 12 },
+  { name: "Egypt", vendors: 1850, x: 62, y: 16 },
+  { name: "Senegal", vendors: 620, x: 18, y: 30 },
+  { name: "Nigeria", vendors: 3200, x: 38, y: 40 },
+  { name: "Ghana", vendors: 980, x: 35, y: 44 },
   { name: "Côte d'Ivoire", vendors: 750, x: 32, y: 47 },
-  { name: 'Cameroon', vendors: 870, x: 41, y: 50 },
-  { name: 'Ethiopia', vendors: 1100, x: 63, y: 36 },
-  { name: 'Congo', vendors: 430, x: 50, y: 57 },
-  { name: 'Uganda', vendors: 680, x: 57, y: 44 },
-  { name: 'Kenya', vendors: 2100, x: 60, y: 48 },
-  { name: 'Rwanda', vendors: 540, x: 55, y: 46 },
-  { name: 'Tanzania', vendors: 960, x: 57, y: 56 },
-  { name: 'Mozambique', vendors: 380, x: 56, y: 70 },
-  { name: 'South Africa', vendors: 2650, x: 47, y: 82 },
-]
+  { name: "Cameroon", vendors: 870, x: 41, y: 50 },
+  { name: "Ethiopia", vendors: 1100, x: 63, y: 36 },
+  { name: "Congo", vendors: 430, x: 50, y: 57 },
+  { name: "Uganda", vendors: 680, x: 57, y: 44 },
+  { name: "Kenya", vendors: 2100, x: 60, y: 48 },
+  { name: "Rwanda", vendors: 540, x: 55, y: 46 },
+  { name: "Tanzania", vendors: 960, x: 57, y: 56 },
+  { name: "Mozambique", vendors: 380, x: 56, y: 70 },
+  { name: "South Africa", vendors: 2650, x: 47, y: 82 },
+];
 
-const totalVendors = countries.reduce((sum, c) => sum + c.vendors, 0)
+const totalVendors = countries.reduce((sum, c) => sum + c.vendors, 0);
 
 // ─── Country Dot Component ───────────────────────────────────────
 
@@ -32,23 +32,23 @@ function CountryDot({
   country,
   index,
 }: {
-  country: (typeof countries)[0]
-  index: number
+  country: (typeof countries)[0];
+  index: number;
 }) {
-  const [isHovered, setIsHovered] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true, margin: '-20px' })
+  const [isHovered, setIsHovered] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-20px" });
 
   // Scale dot size based on vendor count
-  const minSize = 10
-  const maxSize = 22
-  const minVendors = 380
-  const maxVendors = 3200
-  const scale = (country.vendors - minVendors) / (maxVendors - minVendors)
-  const size = minSize + scale * (maxSize - minSize)
+  const minSize = 10;
+  const maxSize = 22;
+  const minVendors = 380;
+  const maxVendors = 3200;
+  const scale = (country.vendors - minVendors) / (maxVendors - minVendors);
+  const size = minSize + scale * (maxSize - minSize);
 
   // Staggered delay based on index
-  const delay = 0.3 + index * 0.06
+  const delay = 0.3 + index * 0.06;
 
   return (
     <motion.div
@@ -57,18 +57,14 @@ function CountryDot({
       style={{
         left: `${country.x}%`,
         top: `${country.y}%`,
-        transform: 'translate(-50%, -50%)',
+        transform: "translate(-50%, -50%)",
       }}
       initial={{ opacity: 0, scale: 0 }}
-      animate={
-        isInView
-          ? { opacity: 1, scale: 1 }
-          : { opacity: 0, scale: 0 }
-      }
+      animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
       transition={{
         duration: 0.5,
         delay,
-        type: 'spring',
+        type: "spring",
         stiffness: 200,
         damping: 15,
       }}
@@ -81,9 +77,9 @@ function CountryDot({
         style={{
           width: size + 16,
           height: size + 16,
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
         }}
         animate={
           isHovered
@@ -99,7 +95,7 @@ function CountryDot({
         transition={{
           duration: isHovered ? 0.8 : 1.5,
           repeat: Infinity,
-          ease: 'easeOut',
+          ease: "easeOut",
         }}
       />
 
@@ -109,8 +105,8 @@ function CountryDot({
         style={{ width: size, height: size }}
         animate={
           isHovered
-            ? { scale: 1.3, boxShadow: '0 0 20px 4px oklch(0.7 0.17 48 / 50%)' }
-            : { scale: 1, boxShadow: '0 0 8px 1px oklch(0.7 0.17 48 / 30%)' }
+            ? { scale: 1.3, boxShadow: "0 0 20px 4px oklch(0.7 0.17 48 / 50%)" }
+            : { scale: 1, boxShadow: "0 0 8px 1px oklch(0.7 0.17 48 / 30%)" }
         }
         transition={{ duration: 0.2 }}
       >
@@ -137,9 +133,7 @@ function CountryDot({
               </div>
               <div className="flex items-center gap-1 text-xs text-default-500">
                 <Users className="w-3 h-3" />
-                <span>
-                  {country.vendors.toLocaleString()} vendors
-                </span>
+                <span>{country.vendors.toLocaleString()} vendors</span>
               </div>
               {/* Arrow */}
               <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-3 h-3 bg-white/95 dark:bg-default-100/95 border-r border-b border-border rotate-45" />
@@ -148,7 +142,7 @@ function CountryDot({
         )}
       </AnimatePresence>
     </motion.div>
-  )
+  );
 }
 
 // ─── Stat Card Component ─────────────────────────────────────────
@@ -160,49 +154,49 @@ function StatCard({
   suffix,
   delay,
 }: {
-  icon: React.ElementType
-  value: number
-  label: string
-  suffix?: string
-  delay: number
+  icon: React.ElementType;
+  value: number;
+  label: string;
+  suffix?: string;
+  delay: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true, margin: '-40px' })
-  const [count, setCount] = useState(0)
-  const [done, setDone] = useState(false)
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-40px" });
+  const [count, setCount] = useState(0);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!isInView) return
-    const duration = 1800
-    const increment = value / (duration / 16)
-    let start = 0
+    if (!isInView) return;
+    const duration = 1800;
+    const increment = value / (duration / 16);
+    let start = 0;
     const timer = setInterval(() => {
-      start += increment
+      start += increment;
       if (start >= value) {
-        setCount(value)
-        setDone(true)
-        clearInterval(timer)
+        setCount(value);
+        setDone(true);
+        clearInterval(timer);
       } else {
-        setCount(Math.floor(start))
+        setCount(Math.floor(start));
       }
-    }, 16)
-    return () => clearInterval(timer)
-  }, [isInView, value])
+    }, 16);
+    return () => clearInterval(timer);
+  }, [isInView, value]);
 
   const displayValue = done
-    ? label === '15+ Countries'
-      ? '15+'
-      : label === '10K+ Vendors'
-        ? '10K+'
-        : '500K+'
-    : `${count.toLocaleString()}${suffix || ''}`
+    ? label === "15+ Countries"
+      ? "15+"
+      : label === "10K+ Vendors"
+        ? "10K+"
+        : "500K+"
+    : `${count.toLocaleString()}${suffix || ""}`;
 
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 30 }}
       animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ duration: 0.5, delay, ease: 'easeOut' }}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
     >
       <Card className="bg-white/10 backdrop-blur-md border border-white/20 p-5 text-center">
         <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center mx-auto mb-3">
@@ -214,7 +208,7 @@ function StatCard({
         <div className="text-sm text-white/60">{label}</div>
       </Card>
     </motion.div>
-  )
+  );
 }
 
 // ─── Africa Silhouette (CSS clip-path) ───────────────────────────
@@ -224,19 +218,19 @@ function AfricaSilhouette() {
     <div
       className="absolute inset-0 opacity-[0.07] pointer-events-none"
       style={{
-        background: 'linear-gradient(135deg, #fff 0%, #fff 100%)',
+        background: "linear-gradient(135deg, #fff 0%, #fff 100%)",
         clipPath:
-          'polygon(27% 3%, 32% 1%, 38% 2%, 44% 1%, 50% 1%, 55% 2%, 60% 3%, 65% 5%, 68% 9%, 70% 14%, 72% 18%, 71% 22%, 68% 25%, 66% 28%, 68% 32%, 70% 36%, 71% 40%, 69% 44%, 67% 47%, 68% 50%, 70% 53%, 69% 57%, 67% 60%, 65% 64%, 62% 67%, 60% 70%, 58% 73%, 56% 76%, 54% 79%, 52% 82%, 50% 85%, 48% 88%, 46% 90%, 44% 88%, 42% 85%, 40% 82%, 38% 78%, 36% 74%, 34% 70%, 32% 66%, 30% 62%, 28% 58%, 26% 54%, 24% 50%, 22% 46%, 20% 42%, 18% 38%, 16% 34%, 15% 30%, 16% 26%, 18% 22%, 20% 18%, 22% 14%, 24% 10%, 26% 6%)',
+          "polygon(27% 3%, 32% 1%, 38% 2%, 44% 1%, 50% 1%, 55% 2%, 60% 3%, 65% 5%, 68% 9%, 70% 14%, 72% 18%, 71% 22%, 68% 25%, 66% 28%, 68% 32%, 70% 36%, 71% 40%, 69% 44%, 67% 47%, 68% 50%, 70% 53%, 69% 57%, 67% 60%, 65% 64%, 62% 67%, 60% 70%, 58% 73%, 56% 76%, 54% 79%, 52% 82%, 50% 85%, 48% 88%, 46% 90%, 44% 88%, 42% 85%, 40% 82%, 38% 78%, 36% 74%, 34% 70%, 32% 66%, 30% 62%, 28% 58%, 26% 54%, 24% 50%, 22% 46%, 20% 42%, 18% 38%, 16% 34%, 15% 30%, 16% 26%, 18% 22%, 20% 18%, 22% 14%, 24% 10%, 26% 6%)",
       }}
     />
-  )
+  );
 }
 
 // ─── Main Component ──────────────────────────────────────────────
 
 export function AfricaCoverageMap() {
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const isInView = useInView(sectionRef, { once: true, margin: '-80px' })
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
 
   return (
     <section className="py-16 md:py-20 kwik-gradient relative overflow-hidden">
@@ -245,7 +239,7 @@ export function AfricaCoverageMap() {
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none" />
       <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-white/[0.03] rounded-full blur-2xl pointer-events-none" />
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-0 md:px-4  relative z-10">
         {/* Section Header */}
         <motion.div
           ref={sectionRef}
@@ -265,7 +259,8 @@ export function AfricaCoverageMap() {
             Serving Across Africa
           </h2>
           <p className="text-white/60 max-w-xl mx-auto text-sm md:text-base">
-            From North to South, East to West — connecting vendors and buyers across the continent.
+            From North to South, East to West — connecting vendors and buyers
+            across the continent.
           </p>
         </motion.div>
 
@@ -290,17 +285,69 @@ export function AfricaCoverageMap() {
                 className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <line x1="38%" y1="40%" x2="60%" y2="48%" stroke="white" strokeWidth="0.5" strokeDasharray="4 4" />
-                <line x1="35%" y1="44%" x2="38%" y2="40%" stroke="white" strokeWidth="0.5" strokeDasharray="4 4" />
-                <line x1="41%" y1="50%" x2="50%" y2="57%" stroke="white" strokeWidth="0.5" strokeDasharray="4 4" />
-                <line x1="57%" y1="44%" x2="57%" y2="56%" stroke="white" strokeWidth="0.5" strokeDasharray="4 4" />
-                <line x1="47%" y1="82%" x2="56%" y2="70%" stroke="white" strokeWidth="0.5" strokeDasharray="4 4" />
-                <line x1="62%" y1="36%" x2="60%" y2="48%" stroke="white" strokeWidth="0.5" strokeDasharray="4 4" />
+                <line
+                  x1="38%"
+                  y1="40%"
+                  x2="60%"
+                  y2="48%"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1="35%"
+                  y1="44%"
+                  x2="38%"
+                  y2="40%"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1="41%"
+                  y1="50%"
+                  x2="50%"
+                  y2="57%"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1="57%"
+                  y1="44%"
+                  x2="57%"
+                  y2="56%"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1="47%"
+                  y1="82%"
+                  x2="56%"
+                  y2="70%"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1="62%"
+                  y1="36%"
+                  x2="60%"
+                  y2="48%"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  strokeDasharray="4 4"
+                />
               </svg>
 
               {/* Country dots */}
               {countries.map((country, index) => (
-                <CountryDot key={country.name} country={country} index={index} />
+                <CountryDot
+                  key={country.name}
+                  country={country}
+                  index={index}
+                />
               ))}
 
               {/* Legend */}
@@ -363,7 +410,9 @@ export function AfricaCoverageMap() {
                   <motion.div
                     key={country.name}
                     initial={{ opacity: 0, x: 20 }}
-                    animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
+                    animate={
+                      isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }
+                    }
                     transition={{ duration: 0.3, delay: 0.35 + index * 0.04 }}
                     className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors group"
                   >
@@ -385,5 +434,5 @@ export function AfricaCoverageMap() {
         </div>
       </div>
     </section>
-  )
+  );
 }

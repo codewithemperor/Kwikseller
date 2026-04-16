@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import React, { useRef, useCallback } from 'react'
-import { motion, useInView } from 'framer-motion'
+import React, { useRef, useCallback } from "react";
+import { motion, useInView } from "framer-motion";
 import {
   Play,
   Star,
@@ -9,100 +9,100 @@ import {
   ChevronRight,
   BadgeCheck,
   ExternalLink,
-} from 'lucide-react'
-import { Chip, Card } from '@heroui/react'
-import { cn } from '@kwikseller/ui'
+} from "lucide-react";
+import { Chip, Card } from "@heroui/react";
+import { cn } from "@kwikseller/ui";
 
 // ─── Types ───────────────────────────────────────────────────
 
 interface VideoTestimonial {
-  id: string
-  name: string
-  role: string
-  rating: number
-  quote: string
-  initials: string
-  gradient: string
-  duration: string
-  category: string
+  id: string;
+  name: string;
+  role: string;
+  rating: number;
+  quote: string;
+  initials: string;
+  color: string;
+  duration: string;
+  category: string;
 }
 
 // ─── Data ───────────────────────────────────────────────────
 
 const testimonials: VideoTestimonial[] = [
   {
-    id: '1',
-    name: 'Adaeze Okonkwo',
-    role: 'Fashion Designer, Lagos',
+    id: "1",
+    name: "Adaeze Okonkwo",
+    role: "Fashion Designer, Lagos",
     rating: 5,
     quote:
-      'KWIKSELLER transformed my small Ankara business into a brand serving customers across West Africa. The pool selling feature is genius!',
-    initials: 'AO',
-    gradient: 'from-pink-500 to-rose-600',
-    duration: '2:34',
-    category: 'Fashion',
+      "KWIKSELLER transformed my small Ankara business into a brand serving customers across West Africa. The pool selling feature is genius!",
+    initials: "AO",
+    color: "bg-pink-500",
+    duration: "2:34",
+    category: "Fashion",
   },
   {
-    id: '2',
-    name: 'Emmanuel Mensah',
-    role: 'Electronics Dealer, Accra',
+    id: "2",
+    name: "Emmanuel Mensah",
+    role: "Electronics Dealer, Accra",
     rating: 5,
     quote:
-      'The delivery network is incredible. My customers in Kumasi get their orders same-day. Revenue tripled in 6 months.',
-    initials: 'EM',
-    gradient: 'from-blue-500 to-cyan-500',
-    duration: '1:58',
-    category: 'Electronics',
+      "The delivery network is incredible. My customers in Kumasi get their orders same-day. Revenue tripled in 6 months.",
+    initials: "EM",
+    color: "bg-blue-500",
+    duration: "1:58",
+    category: "Electronics",
   },
   {
-    id: '3',
-    name: 'Fatima Abubakar',
-    role: 'Beauty Entrepreneur, Kano',
+    id: "3",
+    name: "Fatima Abubakar",
+    role: "Beauty Entrepreneur, Kano",
     rating: 4,
     quote:
-      'KwikCoins rewards keep me motivated. I\'ve earned enough coins for free ads that brought in 200 new customers.',
-    initials: 'FA',
-    gradient: 'from-purple-500 to-violet-600',
-    duration: '3:12',
-    category: 'Beauty',
+      "KwikCoins rewards keep me motivated. I've earned enough coins for free ads that brought in 200 new customers.",
+    initials: "FA",
+    color: "bg-purple-500",
+    duration: "3:12",
+    category: "Beauty",
   },
   {
-    id: '4',
-    name: 'David Mwangi',
-    role: 'Phone Accessories, Nairobi',
+    id: "4",
+    name: "David Mwangi",
+    role: "Phone Accessories, Nairobi",
     rating: 5,
     quote:
-      'Starting with zero inventory was a game-changer. Pool selling let me test products risk-free before stocking them.',
-    initials: 'DM',
-    gradient: 'from-green-500 to-emerald-600',
-    duration: '2:07',
-    category: 'Phones',
+      "Starting with zero inventory was a game-changer. Pool selling let me test products risk-free before stocking them.",
+    initials: "DM",
+    color: "bg-green-500",
+    duration: "2:07",
+    category: "Phones",
   },
   {
-    id: '5',
-    name: 'Aisha Diallo',
-    role: 'Food Vendor, Dakar',
+    id: "5",
+    name: "Aisha Diallo",
+    role: "Food Vendor, Dakar",
     rating: 5,
     quote:
-      'The escrow protection gives my customers confidence. My return rate dropped to near zero since joining KWIKSELLER.',
-    initials: 'AD',
-    gradient: 'from-orange-500 to-amber-600',
-    duration: '1:45',
-    category: 'Food & Drinks',
+      "The escrow protection gives my customers confidence. My return rate dropped to near zero since joining KWIKSELLER.",
+    initials: "AD",
+    color: "bg-orange-500",
+    duration: "1:45",
+    category: "Food & Drinks",
   },
   {
-    id: '6',
-    name: 'Chidi Nwosu',
-    role: 'Home Decor, Enugu',
+    id: "6",
+    name: "Chidi Nwosu",
+    role: "Home Decor, Enugu",
     rating: 4,
     quote:
-      'Analytics dashboard shows me exactly what\'s trending. I adjust my inventory weekly and profits keep growing.',
-    initials: 'CN',
-    gradient: 'from-teal-500 to-cyan-600',
-    duration: '2:51',
-    category: 'Home & Garden',
+      "Analytics dashboard shows me exactly what's trending. I adjust my inventory weekly and profits keep growing.",
+    initials: "CN",
+    color: "bg-teal-500",
+    duration: "2:51",
+    category: "Home & Garden",
   },
-]
+];
 
 // ─── Animation Variants ─────────────────────────────────────
 
@@ -115,16 +115,16 @@ const containerVariants = {
       delayChildren: 0.2,
     },
   },
-}
+};
 
 const cardVariants = {
   hidden: { opacity: 0, y: 30 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: "easeOut" as const },
   },
-}
+};
 
 // ─── Play Button ────────────────────────────────────────────
 
@@ -135,7 +135,7 @@ function PlayButton() {
       <motion.div
         className="absolute w-16 h-16 rounded-full bg-white/20"
         animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
         className="absolute w-16 h-16 rounded-full bg-white/15"
@@ -143,7 +143,7 @@ function PlayButton() {
         transition={{
           duration: 2,
           repeat: Infinity,
-          ease: 'easeInOut',
+          ease: "easeInOut",
           delay: 0.5,
         }}
       />
@@ -152,12 +152,18 @@ function PlayButton() {
         <Play className="w-6 h-6 text-default-900 ml-0.5" fill="currentColor" />
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Star Rating ────────────────────────────────────────────
 
-function StarRating({ rating, isInView }: { rating: number; isInView: boolean }) {
+function StarRating({
+  rating,
+  isInView,
+}: {
+  rating: number;
+  isInView: boolean;
+}) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((star) => (
@@ -165,28 +171,24 @@ function StarRating({ rating, isInView }: { rating: number; isInView: boolean })
           key={star}
           initial={{ opacity: 0, scale: 0 }}
           animate={
-            isInView
-              ? { opacity: 1, scale: 1 }
-              : { opacity: 0, scale: 0 }
+            isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }
           }
           transition={{
             duration: 0.3,
             delay: star * 0.08,
-            ease: 'backOut',
+            ease: "backOut",
           }}
         >
           <Star
             className={cn(
-              'w-4 h-4 transition-colors',
-              star <= rating
-                ? 'text-warning fill-warning'
-                : 'text-default-200',
+              "w-4 h-4 transition-colors",
+              star <= rating ? "text-warning fill-warning" : "text-default-200",
             )}
           />
         </motion.div>
       ))}
     </div>
-  )
+  );
 }
 
 // ─── Video Testimonial Card ─────────────────────────────────
@@ -196,28 +198,23 @@ function VideoCard({
   index,
   isInView,
 }: {
-  testimonial: VideoTestimonial
-  index: number
-  isInView: boolean
+  testimonial: VideoTestimonial;
+  index: number;
+  isInView: boolean;
 }) {
   return (
     <motion.div
       variants={cardVariants}
       initial="hidden"
-      animate={isInView ? 'visible' : 'hidden'}
+      animate={isInView ? "visible" : "hidden"}
       transition={{ delay: index * 0.08 }}
       className="shrink-0 w-[300px] sm:w-[340px] md:w-auto snap-center md:snap-none"
     >
       <Card className="max-w-[380px] w-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden bg-background">
         {/* ── Video Thumbnail Area ── */}
         <div className="relative aspect-video overflow-hidden group cursor-pointer">
-          {/* Gradient background */}
-          <div
-            className={cn(
-              'absolute inset-0 bg-gradient-to-br',
-              testimonial.gradient,
-            )}
-          />
+          {/* Solid color background */}
+          <div className={cn("absolute inset-0", testimonial.color)} />
 
           {/* Large initials watermark */}
           <div className="absolute inset-0 flex items-center justify-center">
@@ -238,7 +235,7 @@ function VideoCard({
           <div className="absolute top-3 left-3 z-20">
             <Chip
               size="sm"
-              variant="flat"
+              variant="soft"
               className="bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-medium"
             >
               {testimonial.category}
@@ -263,7 +260,9 @@ function VideoCard({
             <h3 className="font-semibold text-sm leading-tight">
               {testimonial.name}
             </h3>
-            <p className="text-xs text-default-400 mt-0.5">{testimonial.role}</p>
+            <p className="text-xs text-default-400 mt-0.5">
+              {testimonial.role}
+            </p>
           </div>
 
           {/* Star rating */}
@@ -291,26 +290,26 @@ function VideoCard({
         </div>
       </Card>
     </motion.div>
-  )
+  );
 }
 
 // ─── Main Export ────────────────────────────────────────────
 
 export function VideoTestimonials() {
-  const headerRef = useRef<HTMLDivElement>(null)
-  const gridRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
-  const isHeaderInView = useInView(headerRef, { once: true, margin: '-80px' })
-  const isGridInView = useInView(gridRef, { once: true, margin: '-40px' })
+  const isHeaderInView = useInView(headerRef, { once: true, margin: "-80px" });
+  const isGridInView = useInView(gridRef, { once: true, margin: "-40px" });
 
-  const scroll = useCallback((direction: 'left' | 'right') => {
-    if (!gridRef.current) return
-    const scrollAmount = 340
+  const scroll = useCallback((direction: "left" | "right") => {
+    if (!gridRef.current) return;
+    const scrollAmount = 340;
     gridRef.current.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    })
-  }, [])
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  }, []);
 
   return (
     <section className="py-20 bg-default-50 relative overflow-hidden">
@@ -321,7 +320,7 @@ export function VideoTestimonials() {
       <div className="absolute top-20 left-10 w-48 h-48 bg-orange-200/20 dark:bg-orange-900/10 rounded-full blur-3xl" />
       <div className="absolute bottom-20 right-10 w-56 h-56 bg-purple-200/20 dark:bg-purple-900/10 rounded-full blur-3xl" />
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-0 md:px-4  relative z-10">
         {/* ─── Section Header ─── */}
         <motion.div
           ref={headerRef}
@@ -329,7 +328,7 @@ export function VideoTestimonials() {
           animate={
             isHeaderInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }
           }
-          transition={{ duration: 0.6, ease: 'easeOut' }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
           className="text-center mb-12"
         >
           <Chip variant="soft" className="mb-4">
@@ -337,8 +336,7 @@ export function VideoTestimonials() {
             Success Stories
           </Chip>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Hear From Our{' '}
-            <span className="kwik-gradient-text">Community</span>
+            Hear From Our <span className="kwik-gradient-text">Community</span>
           </h2>
           <p className="text-default-500 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
             Watch real stories from African entrepreneurs who are building
@@ -350,7 +348,7 @@ export function VideoTestimonials() {
         <div className="hidden md:flex justify-end gap-2 mb-4">
           <button
             type="button"
-            onClick={() => scroll('left')}
+            onClick={() => scroll("left")}
             className="w-10 h-10 rounded-full bg-background border border-divider flex items-center justify-center hover:bg-default-100 transition-colors shadow-sm"
             aria-label="Scroll testimonials left"
           >
@@ -358,7 +356,7 @@ export function VideoTestimonials() {
           </button>
           <button
             type="button"
-            onClick={() => scroll('right')}
+            onClick={() => scroll("right")}
             className="w-10 h-10 rounded-full bg-background border border-divider flex items-center justify-center hover:bg-default-100 transition-colors shadow-sm"
             aria-label="Scroll testimonials right"
           >
@@ -374,7 +372,7 @@ export function VideoTestimonials() {
           <motion.div
             variants={containerVariants}
             initial="hidden"
-            animate={isGridInView ? 'visible' : 'hidden'}
+            animate={isGridInView ? "visible" : "hidden"}
             className="contents"
           >
             {testimonials.map((testimonial, index) => (
@@ -389,5 +387,5 @@ export function VideoTestimonials() {
         </div>
       </div>
     </section>
-  )
+  );
 }

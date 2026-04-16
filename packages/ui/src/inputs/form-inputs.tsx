@@ -658,7 +658,7 @@ export function SelectInput<T extends FieldValues>({
                 {sections
                   ? sections.map((section) => (
                       <ListBox.Section key={section.id}>
-                        <Header>{section.heading}</Header>
+                        <div className="px-2 py-1 text-xs font-semibold text-default-400 uppercase">{section.heading}</div>
                         {section.options.map((opt) => (
                           <ListBox.Item
                             key={opt.id}

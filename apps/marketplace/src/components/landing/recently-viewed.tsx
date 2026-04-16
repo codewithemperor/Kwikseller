@@ -1,60 +1,65 @@
-'use client'
+"use client";
 
-import React, { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
-import { Clock, ChevronLeft, ChevronRight, X, ShoppingCart } from 'lucide-react'
-import { Button, Chip, Card } from '@heroui/react'
-import { useRecentlyViewedStore } from '@/stores'
-import { useCartStore } from '@/stores'
-import { kwikToast } from '@kwikseller/utils'
+import React, { useRef } from "react";
+import { motion, useInView } from "framer-motion";
+import {
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ShoppingCart,
+} from "lucide-react";
+import { Button, Chip, Card } from "@heroui/react";
+import { useRecentlyViewedStore } from "@/stores";
+import { useCartStore } from "@/stores";
+import { kwikToast } from "@kwikseller/utils";
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount)
+  }).format(amount);
 }
 
 export function RecentlyViewed() {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const isInView = useInView(sectionRef, { once: true, margin: '-60px' })
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: "-60px" });
 
-  const items = useRecentlyViewedStore((s) => s.items)
-  const clearAll = useRecentlyViewedStore((s) => s.clearAll)
-  const addItem = useCartStore((s) => s.addItem)
+  const items = useRecentlyViewedStore((s) => s.items);
+  const clearAll = useRecentlyViewedStore((s) => s.clearAll);
+  const addItem = useCartStore((s) => s.addItem);
 
   // Don't render if no items
-  if (items.length === 0) return null
+  if (items.length === 0) return null;
 
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (!scrollRef.current) return
-    const scrollAmount = 320
+  const handleScroll = (direction: "left" | "right") => {
+    if (!scrollRef.current) return;
+    const scrollAmount = 320;
     scrollRef.current.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    })
-  }
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
 
-  const handleAddToCart = (item: typeof items[0]) => {
+  const handleAddToCart = (item: (typeof items)[0]) => {
     addItem({
-      id: item.id,
       productId: item.id,
       name: item.name,
       price: item.price,
       comparePrice: item.comparePrice,
       image: item.image,
       store: item.store,
-    })
-    kwikToast.success(`${item.name} added to cart!`)
-  }
+    });
+    kwikToast.success(`${item.name} added to cart!`);
+  };
 
   const handleClearAll = () => {
-    clearAll()
-    kwikToast.info('Recently viewed history cleared')
-  }
+    clearAll();
+    kwikToast.info("Recently viewed history cleared");
+  };
 
   return (
     <motion.section
@@ -64,7 +69,7 @@ export function RecentlyViewed() {
       transition={{ duration: 0.5 }}
       className="py-12 bg-default-50"
     >
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-0 md:px-4 ">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -90,20 +95,20 @@ export function RecentlyViewed() {
             <div className="hidden md:flex items-center gap-1">
               <Button
                 isIconOnly
-                variant="flat"
+                variant="ghost"
                 size="sm"
                 className="w-8 h-8 min-w-8"
-                onPress={() => handleScroll('left')}
+                onPress={() => handleScroll("left")}
                 aria-label="Scroll left"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <Button
                 isIconOnly
-                variant="flat"
+                variant="ghost"
                 size="sm"
                 className="w-8 h-8 min-w-8"
-                onPress={() => handleScroll('right')}
+                onPress={() => handleScroll("right")}
                 aria-label="Scroll right"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -116,20 +121,22 @@ export function RecentlyViewed() {
         <div
           ref={scrollRef}
           className="flex gap-4 overflow-x-auto scrollbar-thin pb-2 snap-x snap-mandatory"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          style={{ WebkitOverflowScrolling: "touch" }}
         >
           {items.map((item, index) => {
             const discount = item.comparePrice
               ? Math.round(
-                  ((item.comparePrice - item.price) / item.comparePrice) * 100
+                  ((item.comparePrice - item.price) / item.comparePrice) * 100,
                 )
-              : 0
+              : 0;
 
             return (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, x: 20 }}
-                animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
+                animate={
+                  isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }
+                }
                 transition={{ duration: 0.3, delay: index * 0.05 }}
                 className="snap-start flex-shrink-0 w-[160px] md:w-[200px]"
               >
@@ -193,10 +200,10 @@ export function RecentlyViewed() {
                   </div>
                 </Card>
               </motion.div>
-            )
+            );
           })}
         </div>
       </div>
     </motion.section>
-  )
+  );
 }

@@ -1,53 +1,54 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { X, Zap, Truck, Gift } from 'lucide-react'
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Zap, Truck, Gift } from "lucide-react";
 
 const promos = [
   {
     icon: Zap,
-    text: 'Flash Sale! Up to 50% off on Electronics this weekend',
-    color: 'text-warning',
+    text: "Flash Sale! Up to 50% off on Electronics this weekend",
+    color: "text-warning",
   },
   {
     icon: Truck,
-    text: 'Free delivery on orders over ₦10,000 across Nigeria',
-    color: 'text-success',
+    text: "Free delivery on orders over ₦10,000 across Nigeria",
+    color: "text-success",
   },
   {
     icon: Gift,
-    text: 'New vendors get 100 KwikCoins free — Start selling today!',
-    color: 'text-accent',
+    text: "New vendors get 100 KwikCoins free — Start selling today!",
+    color: "text-accent",
   },
-]
+];
 
 export function PromoBanner() {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isDismissed, setIsDismissed] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % promos.length)
-    }, 4000)
-    return () => clearInterval(timer)
-  }, [])
+      setCurrentIndex((prev) => (prev + 1) % promos.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
-  if (isDismissed) return null
+  if (isDismissed) return null;
 
-  const promo = promos[currentIndex]
-  const Icon = promo.icon
+  const promo = promos[currentIndex];
+  if (!promo) return null;
+  const Icon = promo.icon;
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         initial={{ height: 0, opacity: 0 }}
-        animate={{ height: 'auto', opacity: 1 }}
+        animate={{ height: "auto", opacity: 1 }}
         exit={{ height: 0, opacity: 0 }}
         transition={{ duration: 0.3 }}
         className="bg-accent/5 border-b border-accent/10 overflow-hidden"
       >
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-0 md:px-4 ">
           <div className="flex items-center justify-center py-2.5 gap-3 relative">
             <AnimatePresence mode="wait">
               <motion.div
@@ -59,7 +60,9 @@ export function PromoBanner() {
                 className="flex items-center gap-2 text-sm"
               >
                 <Icon className={`w-4 h-4 ${promo.color}`} />
-                <span className="text-default-600 font-medium">{promo.text}</span>
+                <span className="text-default-600 font-medium">
+                  {promo.text}
+                </span>
               </motion.div>
             </AnimatePresence>
 
@@ -69,7 +72,7 @@ export function PromoBanner() {
                 <span
                   key={i}
                   className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                    i === currentIndex ? 'bg-accent' : 'bg-default-300'
+                    i === currentIndex ? "bg-accent" : "bg-default-300"
                   }`}
                 />
               ))}
@@ -87,5 +90,5 @@ export function PromoBanner() {
         </div>
       </motion.div>
     </AnimatePresence>
-  )
+  );
 }

@@ -28,6 +28,9 @@ import {
   ArrowRight,
   LayoutGrid,
   Monitor,
+  Info,
+  CreditCard,
+  Droplets,
 } from 'lucide-react'
 import { cn } from '@kwikseller/ui'
 
@@ -77,19 +80,19 @@ const navItems: NavItemConfig[] = [
   {
     label: 'Vendors',
     links: [
-      { icon: Grid3X3, label: 'Browse Vendors', description: 'Explore all stores', href: '#' },
-      { icon: UserPlus, label: 'Become a Vendor', description: 'Start selling today', href: '#' },
-      { icon: Award, label: 'Top Rated', description: 'Best performing sellers', href: '#' },
-      { icon: LayoutGrid, label: 'Vendor Categories', description: 'Stores by category', href: '#' },
+      { icon: Grid3X3, label: 'Browse Vendors', description: 'Explore all stores', href: '/vendors' },
+      { icon: UserPlus, label: 'Become a Vendor', description: 'Start selling today', href: '/vendors' },
+      { icon: Award, label: 'Top Rated', description: 'Best performing sellers', href: '/vendors' },
+      { icon: LayoutGrid, label: 'Vendor Categories', description: 'Stores by category', href: '/vendors' },
     ],
   },
   {
     label: 'Resources',
     links: [
+      { icon: Info, label: 'About Us', description: 'Our story & mission', href: '/about' },
+      { icon: CreditCard, label: 'Pricing', description: 'Simple, fair plans', href: '/pricing' },
+      { icon: Droplets, label: 'Pool Selling', description: 'Sell without inventory', href: '/pool' },
       { icon: HelpCircle, label: 'Help Center', description: 'FAQs and support', href: '#' },
-      { icon: FileText, label: 'Blog', description: 'Tips and updates', href: '#' },
-      { icon: Globe, label: 'API Docs', description: 'Developer resources', href: '#' },
-      { icon: MessageSquare, label: 'Community', description: 'Join the discussion', href: '#' },
     ],
   },
 ]
@@ -107,7 +110,7 @@ const dropdownVariants = {
     y: 0,
     scale: 1,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       damping: 25,
       stiffness: 300,
       staggerChildren: 0.03,

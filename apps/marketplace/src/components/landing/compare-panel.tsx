@@ -26,11 +26,11 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-const GRADIENT_COLORS = [
-  'from-orange-400 to-rose-500',
-  'from-emerald-400 to-teal-500',
-  'from-violet-400 to-purple-500',
-  'from-amber-400 to-yellow-500',
+const FLAT_COLORS = [
+  'bg-orange-500',
+  'bg-emerald-500',
+  'bg-violet-500',
+  'bg-amber-500',
 ]
 
 // ─── CompareToggle ─────────────────────────────────────────────────
@@ -113,9 +113,7 @@ function ProductColumn({
       {/* Image placeholder */}
       <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-default-100 mb-3">
         <div
-          className={`absolute inset-0 bg-gradient-to-br ${
-            GRADIENT_COLORS[index % GRADIENT_COLORS.length]
-          } opacity-20`}
+          className={`absolute inset-0 ${FLAT_COLORS[index % FLAT_COLORS.length]} opacity-20`}
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -365,9 +363,7 @@ export function ComparePanel() {
                     className="w-8 h-8 rounded-lg overflow-hidden border-2 border-background shadow-sm relative"
                   >
                     <div
-                      className={`absolute inset-0 bg-gradient-to-br ${
-                        GRADIENT_COLORS[index % GRADIENT_COLORS.length]
-                      } opacity-20`}
+                      className={`absolute inset-0 ${FLAT_COLORS[index % FLAT_COLORS.length]} opacity-20`}
                     />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

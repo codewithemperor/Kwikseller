@@ -137,3 +137,7 @@ export type { WishlistItem } from './wishlist-store'
 // Re-export compare store
 export { useCompareStore } from './compare-store'
 export type { CompareProduct } from './compare-store'
+
+// Re-export user preferences store
+export { useUserPreferencesStore } from './user-preferences-store'
+export type { UserPreferences, CurrencyCode, LanguageCode } from './user-preferences-store'

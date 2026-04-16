@@ -1,47 +1,83 @@
 // KWIKSELLER Vendor Dashboard
 // For vendors to manage their online store
 
-'use client'
+"use client";
 
-import { Store, Package, ShoppingCart, DollarSign, TrendingUp, Bell, Settings, LogOut } from 'lucide-react'
-import { Button, Card } from '@heroui/react'
-import { ProtectedRoute } from '@/components/auth'
-import { useAuthStore } from '@kwikseller/utils'
+import {
+  Store,
+  Package,
+  ShoppingCart,
+  DollarSign,
+  TrendingUp,
+  Bell,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import { Button, Card } from "@heroui/react";
+import { ProtectedRoute } from "@/components/auth";
+import { useAuthStore } from "@kwikseller/utils";
 
 function VendorDashboard() {
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useAuthStore();
 
   const stats = [
-    { title: 'Total Revenue', value: '₦1,234,567', change: '+12.5%', icon: DollarSign },
-    { title: 'Orders', value: '145', change: '+8.2%', icon: ShoppingCart },
-    { title: 'Products', value: '89', change: '+3', icon: Package },
-    { title: 'Conversion', value: '3.2%', change: '+0.5%', icon: TrendingUp },
-  ]
+    {
+      title: "Total Revenue",
+      value: "₦1,234,567",
+      change: "+12.5%",
+      icon: DollarSign,
+    },
+    { title: "Orders", value: "145", change: "+8.2%", icon: ShoppingCart },
+    { title: "Products", value: "89", change: "+3", icon: Package },
+    { title: "Conversion", value: "3.2%", change: "+0.5%", icon: TrendingUp },
+  ];
 
   const recentOrders = [
-    { id: 'ORD-001', customer: 'John Doe', amount: '₦15,000', status: 'Processing' },
-    { id: 'ORD-002', customer: 'Jane Smith', amount: '₦28,500', status: 'Shipped' },
-    { id: 'ORD-003', customer: 'Mike Johnson', amount: '₦9,800', status: 'Delivered' },
-    { id: 'ORD-004', customer: 'Sarah Wilson', amount: '₦45,000', status: 'Pending' },
-  ]
+    {
+      id: "ORD-001",
+      customer: "John Doe",
+      amount: "₦15,000",
+      status: "Processing",
+    },
+    {
+      id: "ORD-002",
+      customer: "Jane Smith",
+      amount: "₦28,500",
+      status: "Shipped",
+    },
+    {
+      id: "ORD-003",
+      customer: "Mike Johnson",
+      amount: "₦9,800",
+      status: "Delivered",
+    },
+    {
+      id: "ORD-004",
+      customer: "Sarah Wilson",
+      amount: "₦45,000",
+      status: "Pending",
+    },
+  ];
 
   const handleLogout = async () => {
-    await logout()
-    window.location.href = '/'
-  }
+    await logout();
+    window.location.href = "/";
+  };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-0 md:px-4 ">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center">
                 <Store className="w-5 h-5 text-white" />
               </div>
               <span className="font-bold text-lg">KWIKSELLER</span>
-              <span className="text-sm text-default-500 ml-2">Vendor Dashboard</span>
+              <span className="text-sm text-default-500 ml-2">
+                Vendor Dashboard
+              </span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">
@@ -62,11 +98,13 @@ function VendorDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-0 md:px-4  py-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Welcome back! 👋</h1>
-          <p className="text-default-500">Here&apos;s what&apos;s happening with your store today.</p>
+          <p className="text-default-500">
+            Here&apos;s what&apos;s happening with your store today.
+          </p>
         </div>
 
         {/* Stats Grid */}
@@ -80,7 +118,9 @@ function VendorDashboard() {
                 <stat.icon className="h-4 w-4 text-default-500" />
               </div>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-success">{stat.change} from last month</p>
+              <p className="text-xs text-success">
+                {stat.change} from last month
+              </p>
             </Card>
           ))}
         </div>
@@ -89,11 +129,16 @@ function VendorDashboard() {
         <Card className="p-4">
           <div className="mb-4">
             <h3 className="font-semibold">Recent Orders</h3>
-            <p className="text-sm text-default-500">Latest orders from your store</p>
+            <p className="text-sm text-default-500">
+              Latest orders from your store
+            </p>
           </div>
           <div className="space-y-4">
             {recentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div
+                key={order.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
                 <div>
                   <p className="font-medium">{order.id}</p>
                   <p className="text-sm text-default-500">{order.customer}</p>
@@ -108,7 +153,7 @@ function VendorDashboard() {
         </Card>
       </main>
     </div>
-  )
+  );
 }
 
 export default function DashboardPage() {
@@ -116,5 +161,5 @@ export default function DashboardPage() {
     <ProtectedRoute requiredRole="VENDOR" loginPath="/">
       <VendorDashboard />
     </ProtectedRoute>
-  )
+  );
 }

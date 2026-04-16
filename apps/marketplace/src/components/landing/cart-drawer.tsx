@@ -157,7 +157,7 @@ export function CartDrawer() {
                             <Button
                               isIconOnly
                               size="sm"
-                              variant="flat"
+                              variant="ghost"
                               className="w-7 h-7 min-w-7"
                               onPress={() => updateQuantity(item.productId, item.quantity - 1)}
                               aria-label="Decrease quantity"
@@ -170,7 +170,7 @@ export function CartDrawer() {
                             <Button
                               isIconOnly
                               size="sm"
-                              variant="flat"
+                              variant="ghost"
                               className="w-7 h-7 min-w-7"
                               onPress={() => updateQuantity(item.productId, item.quantity + 1)}
                               aria-label="Increase quantity"

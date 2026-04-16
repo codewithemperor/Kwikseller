@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Store, AlertCircle } from "lucide-react";
+import { Mail, Lock, AlertCircle } from "lucide-react";
 import { Button, Spinner } from "@heroui/react";
 import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
@@ -25,14 +25,6 @@ interface LoginPageProps {
   portal: PortalConfig;
   className?: string;
 }
-
-const themeMap: Record<NonNullable<PortalConfig["themeColor"]>, string> = {
-  blue: "bg-blue-600",
-  green: "bg-green-600",
-  purple: "bg-purple-600",
-  orange: "bg-orange-600",
-  default: "bg-primary",
-};
 
 function isEmailNotVerified(result: {
   success: boolean;
@@ -130,25 +122,9 @@ export function LoginPage({ portal, className }: LoginPageProps) {
     kwikToast.success("Verification code sent!");
   };
 
-  const iconColor = themeMap[portal.themeColor ?? "default"];
-
-  const portalIcon = (
-    <div
-      className={cn(
-        "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
-        iconColor,
-      )}
-    >
-      {portal.logo ?? <Store className="h-7 w-7" />}
-    </div>
-  );
-
   if (showOTP) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-4 flex flex-col items-center gap-3">
-          {portalIcon}
-        </div>
         <OTPVerification
           email={userEmail}
           onVerify={handleVerifyOTP}
@@ -165,14 +141,11 @@ export function LoginPage({ portal, className }: LoginPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8 flex flex-col items-center gap-3">
-        {portalIcon}
-        <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back
-          </h1>
-          <p className="text-sm text-muted-foreground">{portal.description}</p>
-        </div>
+      <div className="mb-8 space-y-1 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Welcome back
+        </h1>
+        <p className="text-sm text-muted-foreground">{portal.description}</p>
       </div>
 
       {serverError && (
