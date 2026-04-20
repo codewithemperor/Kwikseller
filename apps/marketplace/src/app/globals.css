@@ -186,6 +186,8 @@ html {
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: oklch(0.7 0.17 48 / 50%) transparent;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 html::-webkit-scrollbar {
   width: 8px;
@@ -210,6 +212,52 @@ html::-webkit-scrollbar-thumb:hover {
 
   body {
     @apply bg-background text-foreground;
+    /* Responsive base font size */
+    font-size: 0.875rem;     /* 14px - mobile (xs) */
+    line-height: 1.6;
+  }
+
+  @media (min-width: 640px) {
+    body {
+      font-size: 0.9375rem;  /* 15px - sm */
+    }
+  }
+
+  @media (min-width: 768px) {
+    body {
+      font-size: 1rem;       /* 16px - md */
+    }
+  }
+
+  @media (min-width: 1024px) {
+    body {
+      font-size: 1rem;       /* 16px - lg */
+    }
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Prevent zoom on touch / click interactions */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Prevent iOS auto-zoom on input focus (font-size must be >= 16px) */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   /* Space Grotesk for all headings */
@@ -223,12 +271,83 @@ html::-webkit-scrollbar-thumb:hover {
     letter-spacing: -0.03em;
   }
 
-  /* Inter for body text */
+  /* Figtree for body text */
   p {
     font-family: var(--font-text), system-ui, sans-serif;
   }
 
- 
+  /* ── Responsive body text sizes ─────────────────────── */
+  p {
+    font-size: 0.875rem;     /* 14px - mobile */
+    line-height: 1.65;
+  }
+
+  @media (min-width: 640px) {
+    p { font-size: 0.9375rem; }  /* 15px - sm */
+  }
+
+  @media (min-width: 768px) {
+    p { font-size: 1rem; }       /* 16px - md */
+  }
+
+  /* ── Responsive small / caption text ───────────────── */
+  small,
+  .text-caption {
+    font-size: 0.75rem;       /* 12px - mobile */
+    line-height: 1.5;
+  }
+
+  @media (min-width: 640px) {
+    small,
+    .text-caption {
+      font-size: 0.8125rem;  /* 13px - sm */
+    }
+  }
+
+  @media (min-width: 768px) {
+    small,
+    .text-caption {
+      font-size: 0.875rem;   /* 14px - md */
+    }
+  }
+
+  /* ── Responsive lead / large body text ─────────────── */
+  .text-lead {
+    font-size: 0.9375rem;    /* 15px - mobile */
+    line-height: 1.7;
+  }
+
+  @media (min-width: 640px) {
+    .text-lead { font-size: 1rem; }      /* 16px - sm */
+  }
+
+  @media (min-width: 768px) {
+    .text-lead { font-size: 1.0625rem; } /* 17px - md */
+  }
+
+  @media (min-width: 1024px) {
+    .text-lead { font-size: 1.125rem; }  /* 18px - lg */
+  }
+
+  /* ── Responsive label text ─────────────────────────── */
+  label,
+  .text-label {
+    font-size: 0.75rem;      /* 12px - mobile */
+    }
+
+  @media (min-width: 640px) {
+    label,
+    .text-label {
+      font-size: 0.8125rem;  /* 13px - sm */
+    }
+  }
+
+  @media (min-width: 768px) {
+    label,
+    .text-label {
+      font-size: 0.875rem;   /* 14px - md */
+    }
+  }
 }
 
 /* ============================================================
@@ -1040,9 +1159,59 @@ a,
 
 /* ── Heading Typography Polish ──────────────────────────── */
 @layer base {
-  h1 { font-weight: 800; line-height: 1.1; }
-  h2 { font-weight: 700; line-height: 1.2; }
-  h3 { font-weight: 600; line-height: 1.3; }
+  /* ── Responsive Heading Sizes ─────────────────────────── */
+  /* Mobile-first: smaller on xs, scale up at sm/md/lg/xl   */
+  h1 {
+    font-weight: 800;
+    line-height: 1.1;
+    font-size: 1.75rem;    /* 28px - mobile */
+  }
+  h2 {
+    font-weight: 700;
+    line-height: 1.2;
+    font-size: 1.375rem;   /* 22px - mobile */
+  }
+  h3 {
+    font-weight: 600;
+    line-height: 1.3;
+    font-size: 1.125rem;   /* 18px - mobile */
+  }
+  h4 {
+    font-weight: 600;
+    line-height: 1.4;
+    font-size: 1rem;       /* 16px - mobile */
+  }
+  h5 {
+    font-weight: 600;
+    line-height: 1.4;
+    font-size: 0.875rem;   /* 14px - mobile */
+  }
+  h6 {
+    font-weight: 600;
+    line-height: 1.4;
+    font-size: 0.8125rem;  /* 13px - mobile */
+  }
+
+  @media (min-width: 640px) {
+    h1 { font-size: 2.25rem; }   /* 36px - sm */
+    h2 { font-size: 1.75rem; }   /* 28px - sm */
+    h3 { font-size: 1.25rem; }   /* 20px - sm */
+    h4 { font-size: 1.0625rem; } /* 17px - sm */
+  }
+
+  @media (min-width: 768px) {
+    h1 { font-size: 2.5rem; }    /* 40px - md */
+    h2 { font-size: 1.875rem; }  /* 30px - md */
+    h3 { font-size: 1.375rem; }  /* 22px - md */
+    h4 { font-size: 1.125rem; }  /* 18px - md */
+  }
+
+  @media (min-width: 1024px) {
+    h1 { font-size: 3rem; }      /* 48px - lg */
+    h2 { font-size: 2.25rem; }   /* 36px - lg */
+    h3 { font-size: 1.5rem; }    /* 24px - lg */
+    h4 { font-size: 1.25rem; }   /* 20px - lg */
+  }
 
   /* Smooth image rendering */
   img {

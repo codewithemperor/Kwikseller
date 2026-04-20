@@ -38,7 +38,6 @@ import {
 import { Button, Card, Chip, Separator } from "@heroui/react";
 import { motion, useInView } from "framer-motion";
 import { cn } from "@kwikseller/ui";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { SectionDivider } from "@/components/landing/section-divider";
 import { SocialProof } from "@/components/landing/social-proof";
 import { AfricaCoverageMap } from "@/components/landing/africa-coverage-map";
@@ -357,7 +356,7 @@ const partners = [
 
 export default function AboutPage() {
   return (
-    <MarketplaceLayout>
+    <>
       {/* ═══════════════════════════════════════════════════════════
           1. HERO SECTION
           ═══════════════════════════════════════════════════════════ */}
@@ -941,6 +940,6 @@ export default function AboutPage() {
           </AnimatedSection>
         </div>
       </section>
-    </MarketplaceLayout>
+    </>
   );
 }

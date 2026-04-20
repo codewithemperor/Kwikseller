@@ -39,7 +39,6 @@ import {
 import { Button, Card, Chip, Separator } from "@heroui/react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { cn } from "@kwikseller/ui";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 
 // ─── Animation Helpers ─────────────────────────────────────────
 
@@ -429,7 +428,7 @@ export default function PricingPage() {
   };
 
   return (
-    <MarketplaceLayout>
+    <>
       {/* ═══════════════════════════════════════════════════════
           SECTION 1: HERO
           ═══════════════════════════════════════════════════════ */}
@@ -1082,6 +1081,6 @@ export default function PricingPage() {
           </AnimatedSection>
         </div>
       </section>
-    </MarketplaceLayout>
+    </>
   );
 }

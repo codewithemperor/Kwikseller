@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { getMarketplaceProduct } from "@/data/marketplace-home";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { ProductDetailPage } from "@/components/product/product-detail-page";
 
 export default function ProductPage({ params }: { params: { id: string } }) {
@@ -12,8 +11,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <MarketplaceLayout>
-      <ProductDetailPage product={product} />
-    </MarketplaceLayout>
+    <ProductDetailPage product={product} />
   );
 }

@@ -41,7 +41,6 @@ import {
   animate,
 } from "framer-motion";
 import { cn } from "@kwikseller/ui";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -732,7 +731,7 @@ export default function VendorsPage() {
   }, [activeCategory, searchQuery]);
 
   return (
-    <MarketplaceLayout>
+    <>
       {/* ─── 1. Hero Section ─────────────────────────────────── */}
       <section className="bg-accent relative overflow-hidden">
         <div className="absolute inset-0 pattern-grid opacity-10 pointer-events-none" />
@@ -1188,6 +1187,6 @@ export default function VendorsPage() {
           </AnimatedSection>
         </div>
       </section>
-    </MarketplaceLayout>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { LayoutGrid, Grid3X3, Search, ShoppingCart, User } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCartStore } from '@/stores'
 
 interface MobileBottomNavProps {
@@ -17,7 +18,8 @@ interface NavItem {
 
 export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
   const itemCount = useCartStore((s) => s.itemCount)
-  const setCartOpen = useCartStore((s) => s.setCartOpen)
+  const router = useRouter()
+  const pathname = usePathname()
   const [mounted, setMounted] = React.useState(false)
   const count = mounted ? itemCount() : 0
 
@@ -29,7 +31,7 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
     {
       label: 'Home',
       icon: LayoutGrid,
-      action: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+      action: () => router.push('/'),
     },
     {
       label: 'Categories',
@@ -47,7 +49,7 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
     {
       label: 'Cart',
       icon: ShoppingCart,
-      action: () => setCartOpen(true),
+      action: () => router.push('/cart'),
     },
     {
       label: 'Profile',
@@ -58,7 +60,17 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
     },
   ]
 
-  const [activeTab, setActiveTab] = React.useState('Home')
+  const [activeTab, setActiveTab] = React.useState(() => {
+    if (pathname === '/cart') return 'Cart'
+    if (pathname === '/login' || pathname === '/register') return 'Profile'
+    return 'Home'
+  })
+
+  React.useEffect(() => {
+    if (pathname === '/cart') setActiveTab('Cart')
+    else if (pathname === '/login' || pathname === '/register') setActiveTab('Profile')
+    else if (pathname === '/') setActiveTab('Home')
+  }, [pathname])
 
   const handleTap = (item: NavItem) => {
     setActiveTab(item.label)

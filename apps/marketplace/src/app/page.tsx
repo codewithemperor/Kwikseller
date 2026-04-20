@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { QuickViewModal } from "@/components/landing/quick-view-modal";
 import {
   MarketplaceBrandsSection,
@@ -18,7 +17,7 @@ export default function MarketplacePage() {
     React.useState<MarketplaceProduct | null>(null);
 
   return (
-    <MarketplaceLayout>
+    <>
       <MarketplaceHero />
 
       {/* Temporarily disabled as requested: escrow-protected to responsive-support card block. */}
@@ -41,6 +40,6 @@ export default function MarketplacePage() {
         isOpen={!!quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
       />
-    </MarketplaceLayout>
+    </>
   );
 }

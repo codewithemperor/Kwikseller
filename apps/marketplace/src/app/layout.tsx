@@ -6,8 +6,9 @@ import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
+import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 
-// Heading font - Poppins (modern, geometric sans-serif)
+// Heading font - Space Grotesk (modern, geometric sans-serif)
 const fontHeading = Space_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -15,7 +16,7 @@ const fontHeading = Space_Grotesk({
   display: "swap",
 });
 
-// Text/Body font - Inter (excellent readability)
+// Text/Body font - Figtree (excellent readability)
 const fontText = Figtree({
   subsets: ["latin"],
   variable: "--font-text",
@@ -105,8 +106,8 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -130,7 +131,9 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                {children}
+                <MarketplaceLayout>
+                  {children}
+                </MarketplaceLayout>
                 <Toast.Provider placement="top end" maxVisibleToasts={3} />
                 <Toaster position="top-right" richColors closeButton />
               </ThemeProvider>

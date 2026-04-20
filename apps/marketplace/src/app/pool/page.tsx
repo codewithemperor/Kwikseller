@@ -44,7 +44,6 @@ import {
 import { Button, Card, Chip, Separator } from "@heroui/react";
 import { motion, useInView } from "framer-motion";
 import { cn } from "@kwikseller/ui";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 
 // ─── Animation helpers ─────────────────────────────────────────────
 
@@ -637,7 +636,7 @@ export default function PoolPage() {
   const router = useRouter();
 
   return (
-    <MarketplaceLayout>
+    <>
       {/* ═══════════════════════════════════════════════════════════
           1. HERO SECTION
       ═══════════════════════════════════════════════════════════ */}
@@ -1244,7 +1243,7 @@ export default function PoolPage() {
           </AnimatedSection>
         </div>
       </section>
-    </MarketplaceLayout>
+    </>
   );
 }
 
