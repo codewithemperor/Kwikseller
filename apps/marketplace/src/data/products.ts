@@ -1,0 +1,742 @@
+/**
+ * products.ts
+ * Comprehensive dummy product catalog for the marketplace.
+ * Used by the search API and search page until a real backend is connected.
+ */
+
+export interface SearchableProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  comparePrice?: number;
+  image: string;
+  rating: number;
+  reviewCount: number;
+  store: string;
+  category: string;
+  categorySlug: string;
+  description: string;
+  tags: string[];
+  inStock: boolean;
+  isNew?: boolean;
+  isFeatured?: boolean;
+}
+
+export const allProducts: SearchableProduct[] = [
+  // ─── Fashion ─────────────────────────────────────────────────
+  {
+    id: "fash-001",
+    name: "Ankara Maxi Dress",
+    slug: "ankara-maxi-dress",
+    price: 8500,
+    comparePrice: 12000,
+    image: "https://images.unsplash.com/photo-1572804013427-4d7ca7268217?auto=format&fit=crop&w=800&q=80",
+    rating: 4.7,
+    reviewCount: 234,
+    store: "AfroStyle Hub",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Beautiful Ankara maxi dress with vibrant African print. Perfect for occasions and everyday wear.",
+    tags: ["ankara", "dress", "african print", "maxi", "women", "traditional"],
+    inStock: true,
+    isNew: true,
+    isFeatured: true,
+  },
+  {
+    id: "fash-002",
+    name: "Jordans Retro 4",
+    slug: "jordans-retro-4",
+    price: 180000,
+    comparePrice: 220000,
+    image: "https://images.unsplash.com/photo-1584735175315-9d5df23860e6?auto=format&fit=crop&w=800&q=80",
+    rating: 4.9,
+    reviewCount: 512,
+    store: "SneakerVault",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Classic Jordan Retro 4 sneakers. Authentic quality with premium materials.",
+    tags: ["jordans", "sneakers", "retro", "basketball", "shoes", "men"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "fash-003",
+    name: "Lace Complete Material",
+    slug: "lace-complete-material",
+    price: 25000,
+    comparePrice: 35000,
+    image: "https://images.unsplash.com/photo-1558171813-4c088753af8f?auto=format&fit=crop&w=800&q=80",
+    rating: 4.5,
+    reviewCount: 89,
+    store: "AfroStyle Hub",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Premium lace material for special occasions. Comes complete with headtie and accessories.",
+    tags: ["lace", "material", "aso-ebi", "wedding", "traditional", "fabric"],
+    inStock: true,
+  },
+  {
+    id: "fash-004",
+    name: "Men's Slim Fit Suit",
+    slug: "mens-slim-fit-suit",
+    price: 45000,
+    comparePrice: 65000,
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
+    rating: 4.6,
+    reviewCount: 178,
+    store: "Gentleman's Quarter",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Premium slim fit suit for men. Perfect for business meetings and formal events.",
+    tags: ["suit", "men", "formal", "slim fit", "business", "office"],
+    inStock: true,
+  },
+  {
+    id: "fash-005",
+    name: "Leather Crossbody Bag",
+    slug: "leather-crossbody-bag",
+    price: 15000,
+    comparePrice: 20000,
+    image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=80",
+    rating: 4.4,
+    reviewCount: 145,
+    store: "Urban Accessories",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Genuine leather crossbody bag. Minimalist design with adjustable strap.",
+    tags: ["bag", "leather", "crossbody", "women", "accessories", "purse"],
+    inStock: true,
+    isNew: true,
+  },
+  {
+    id: "fash-006",
+    name: "Agbada Set - Premium",
+    slug: "agbada-set-premium",
+    price: 55000,
+    comparePrice: 75000,
+    image: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviewCount: 67,
+    store: "Royal Stitches",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Premium Agbada set with intricate embroidery. Perfect for weddings and cultural events.",
+    tags: ["agbada", "traditional", "men", "wedding", "yoruba", "cultural"],
+    inStock: true,
+    isFeatured: true,
+  },
+
+  // ─── Electronics ─────────────────────────────────────────────
+  {
+    id: "elec-001",
+    name: 'Samsung 55" Smart TV',
+    slug: "samsung-55-smart-tv",
+    price: 320000,
+    comparePrice: 420000,
+    image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviewCount: 345,
+    store: "TechZone",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: 'Samsung 55-inch 4K UHD Smart TV with crystal display and smart hub.',
+    tags: ["samsung", "tv", "smart tv", "55 inch", "4k", "uhd"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "elec-002",
+    name: "Wireless Bluetooth Speaker",
+    slug: "wireless-bluetooth-speaker",
+    price: 12000,
+    comparePrice: 18000,
+    image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80",
+    rating: 4.5,
+    reviewCount: 223,
+    store: "SoundWorld",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: "Portable wireless Bluetooth speaker with deep bass and 12-hour battery life.",
+    tags: ["speaker", "bluetooth", "wireless", "portable", "audio", "music"],
+    inStock: true,
+  },
+  {
+    id: "elec-003",
+    name: "AirPods Pro 2nd Gen",
+    slug: "airpods-pro-2nd-gen",
+    price: 95000,
+    comparePrice: 130000,
+    image: "https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?auto=format&fit=crop&w=800&q=80",
+    rating: 4.9,
+    reviewCount: 678,
+    store: "TechZone",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: "Apple AirPods Pro 2nd Generation with active noise cancellation and adaptive transparency.",
+    tags: ["airpods", "apple", "earbuds", "wireless", "noise cancelling", "audio"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "elec-004",
+    name: "Portable Power Bank 20000mAh",
+    slug: "portable-power-bank",
+    price: 5500,
+    comparePrice: 8000,
+    image: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?auto=format&fit=crop&w=800&q=80",
+    rating: 4.3,
+    reviewCount: 456,
+    store: "PowerDeals",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: "20000mAh portable power bank with fast charging. Dual USB output.",
+    tags: ["power bank", "charger", "portable", "battery", "fast charge"],
+    inStock: true,
+  },
+  {
+    id: "elec-005",
+    name: "Laptop Stand - Adjustable",
+    slug: "laptop-stand-adjustable",
+    price: 8500,
+    comparePrice: 12000,
+    image: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80",
+    rating: 4.6,
+    reviewCount: 189,
+    store: "ErgoTech",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: "Adjustable aluminum laptop stand. Ergonomic design for better posture.",
+    tags: ["laptop", "stand", "ergonomic", "desk", "office", "accessories"],
+    inStock: true,
+    isNew: true,
+  },
+
+  // ─── Phones ──────────────────────────────────────────────────
+  {
+    id: "phone-001",
+    name: "iPhone 15 Pro Max",
+    slug: "iphone-15-pro-max",
+    price: 850000,
+    comparePrice: 950000,
+    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=800&q=80",
+    rating: 4.9,
+    reviewCount: 1024,
+    store: "PhoneHub",
+    category: "Phones",
+    categorySlug: "phones",
+    description: "Apple iPhone 15 Pro Max with A17 Pro chip, 48MP camera system, and titanium design.",
+    tags: ["iphone", "apple", "15 pro max", "smartphone", "5g", "camera"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "phone-002",
+    name: "Samsung Galaxy S24 Ultra",
+    slug: "samsung-galaxy-s24-ultra",
+    price: 650000,
+    comparePrice: 750000,
+    image: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviewCount: 876,
+    store: "PhoneHub",
+    category: "Phones",
+    categorySlug: "phones",
+    description: "Samsung Galaxy S24 Ultra with AI features, 200MP camera, and S Pen.",
+    tags: ["samsung", "galaxy", "s24", "ultra", "smartphone", "android"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "phone-003",
+    name: "Tecno Camon 20 Pro",
+    slug: "tecno-camon-20-pro",
+    price: 120000,
+    comparePrice: 150000,
+    image: "https://images.unsplash.com/photo-1598327106026-d9521da673d1?auto=format&fit=crop&w=800&q=80",
+    rating: 4.4,
+    reviewCount: 345,
+    store: "BudgetPhones",
+    category: "Phones",
+    categorySlug: "phones",
+    description: "Tecno Camon 20 Pro with 64MP camera and AMOLED display.",
+    tags: ["tecno", "camon", "smartphone", "budget", "android", "camera"],
+    inStock: true,
+  },
+  {
+    id: "phone-004",
+    name: "Wireless Earbuds Pro",
+    slug: "wireless-earbuds-pro",
+    price: 8500,
+    comparePrice: 12000,
+    image: "https://images.unsplash.com/photo-1590658268037-6bf12f032f55?auto=format&fit=crop&w=800&q=80",
+    rating: 4.3,
+    reviewCount: 567,
+    store: "SoundWorld",
+    category: "Phones",
+    categorySlug: "phones",
+    description: "Wireless earbuds with ANC, 30-hour battery, and IPX5 water resistance.",
+    tags: ["earbuds", "wireless", "anc", "bluetooth", "audio", "accessories"],
+    inStock: true,
+  },
+
+  // ─── Beauty ──────────────────────────────────────────────────
+  {
+    id: "beau-001",
+    name: "Brazilian Body Wave Hair",
+    slug: "brazilian-body-wave-hair",
+    price: 45000,
+    comparePrice: 60000,
+    image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80",
+    rating: 4.7,
+    reviewCount: 432,
+    store: "GlamHair",
+    category: "Beauty",
+    categorySlug: "beauty",
+    description: "Premium Brazilian body wave hair extensions. 100% human hair, 3 bundles.",
+    tags: ["brazilian", "hair", "extensions", "weave", "body wave", "human hair"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "beau-002",
+    name: "Whitening Face Cream",
+    slug: "whitening-face-cream",
+    price: 3500,
+    comparePrice: 5000,
+    image: "https://images.unsplash.com/photo-1570194065650-d99fb4b38b17?auto=format&fit=crop&w=800&q=80",
+    rating: 4.2,
+    reviewCount: 234,
+    store: "BeautyVault",
+    category: "Beauty",
+    categorySlug: "beauty",
+    description: "Brightening face cream with SPF 30. Suitable for all skin types.",
+    tags: ["cream", "skincare", "whitening", "face", "spf", "beauty"],
+    inStock: true,
+  },
+  {
+    id: "beau-003",
+    name: "MAC Matte Lipstick",
+    slug: "mac-matte-lipstick",
+    price: 6500,
+    comparePrice: 8500,
+    image: "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviewCount: 789,
+    store: "BeautyVault",
+    category: "Beauty",
+    categorySlug: "beauty",
+    description: "MAC matte lipstick in various shades. Long-lasting formula.",
+    tags: ["mac", "lipstick", "matte", "makeup", "cosmetics", "beauty"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "beau-004",
+    name: "Essential Oil Set - 6 Pack",
+    slug: "essential-oil-set",
+    price: 7500,
+    comparePrice: 10000,
+    image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80",
+    rating: 4.5,
+    reviewCount: 167,
+    store: "NaturalGlow",
+    category: "Beauty",
+    categorySlug: "beauty",
+    description: "Set of 6 essential oils: lavender, tea tree, peppermint, eucalyptus, lemon, orange.",
+    tags: ["essential oils", "aromatherapy", "natural", "wellness", "skincare"],
+    inStock: true,
+    isNew: true,
+  },
+  {
+    id: "beau-005",
+    name: "Hair Growth Oil",
+    slug: "hair-growth-oil",
+    price: 4500,
+    comparePrice: 6000,
+    image: "https://images.unsplash.com/photo-1535683577427-ef026b5edea7?auto=format&fit=crop&w=800&q=80",
+    rating: 4.4,
+    reviewCount: 298,
+    store: "NaturalGlow",
+    category: "Beauty",
+    categorySlug: "beauty",
+    description: "Natural hair growth oil with rosemary and castor oil. Promotes healthy hair growth.",
+    tags: ["hair oil", "growth", "natural", "rosemary", "castor", "haircare"],
+    inStock: true,
+  },
+
+  // ─── Home & Garden ───────────────────────────────────────────
+  {
+    id: "home-001",
+    name: "King Size Bed Frame",
+    slug: "king-size-bed-frame",
+    price: 150000,
+    comparePrice: 200000,
+    image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=800&q=80",
+    rating: 4.6,
+    reviewCount: 156,
+    store: "Oak Living",
+    category: "Home & Garden",
+    categorySlug: "home",
+    description: "Solid wood king size bed frame with headboard. Easy assembly.",
+    tags: ["bed", "furniture", "king size", "bedroom", "wood", "home"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "home-002",
+    name: "Coffee Maker Machine",
+    slug: "coffee-maker-machine",
+    price: 35000,
+    comparePrice: 45000,
+    image: "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=800&q=80",
+    rating: 4.5,
+    reviewCount: 234,
+    store: "HomeEssentials",
+    category: "Home & Garden",
+    categorySlug: "home",
+    description: "Programmable coffee maker with 12-cup capacity and built-in grinder.",
+    tags: ["coffee", "maker", "machine", "kitchen", "appliance", "home"],
+    inStock: true,
+  },
+  {
+    id: "home-003",
+    name: "Merano Accent Chair",
+    slug: "merano-accent-chair",
+    price: 199000,
+    comparePrice: 399000,
+    image: "https://images.unsplash.com/photo-1519947486511-46149fa0a254?auto=format&fit=crop&w=800&q=80",
+    rating: 4.9,
+    reviewCount: 148,
+    store: "Oak Living",
+    category: "Home & Garden",
+    categorySlug: "home",
+    description: "A clean modern chair with a warm oak finish, designed for compact living rooms.",
+    tags: ["chair", "furniture", "oak", "modern", "living room", "accent"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "home-004",
+    name: "Non-Stick Cookware Set",
+    slug: "non-stick-cookware-set",
+    price: 28000,
+    comparePrice: 38000,
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80",
+    rating: 4.4,
+    reviewCount: 178,
+    store: "HomeEssentials",
+    category: "Home & Garden",
+    categorySlug: "home",
+    description: "10-piece non-stick cookware set. PFOA-free with soft-grip handles.",
+    tags: ["cookware", "non-stick", "kitchen", "pots", "pans", "cooking"],
+    inStock: true,
+  },
+  {
+    id: "home-005",
+    name: "Smart LED Floor Lamp",
+    slug: "smart-led-floor-lamp",
+    price: 18000,
+    comparePrice: 25000,
+    image: "https://images.unsplash.com/photo-1507473885765-e6ed057ab6fe?auto=format&fit=crop&w=800&q=80",
+    rating: 4.3,
+    reviewCount: 98,
+    store: "LightUp",
+    category: "Home & Garden",
+    categorySlug: "home",
+    description: "Smart LED floor lamp with adjustable color temperature and brightness.",
+    tags: ["lamp", "led", "smart", "floor lamp", "lighting", "home"],
+    inStock: true,
+    isNew: true,
+  },
+
+  // ─── Food & Drinks ──────────────────────────────────────────
+  {
+    id: "food-001",
+    name: "Orijin Bitter Lemon",
+    slug: "orijin-bitter-lemon",
+    price: 800,
+    comparePrice: undefined,
+    image: "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?auto=format&fit=crop&w=800&q=80",
+    rating: 4.1,
+    reviewCount: 567,
+    store: "DrinkMart",
+    category: "Food & Drinks",
+    categorySlug: "food",
+    description: "Classic Nigerian bitter lemon drink. Refreshing and authentic.",
+    tags: ["orijin", "drink", "bitter lemon", "beverage", "nigerian"],
+    inStock: true,
+  },
+  {
+    id: "food-002",
+    name: "Premium Garri (5kg)",
+    slug: "premium-garri-5kg",
+    price: 4500,
+    comparePrice: 5500,
+    image: "https://images.unsplash.com/photo-1505576399279-0d309eed8b6e?auto=format&fit=crop&w=800&q=80",
+    rating: 4.6,
+    reviewCount: 890,
+    store: "AfricanFoods",
+    category: "Food & Drinks",
+    categorySlug: "food",
+    description: "Premium quality white garri. Crispy and perfect for soaking or eba.",
+    tags: ["garri", "food", "african", "staple", "grains", "nigerian"],
+    inStock: true,
+  },
+  {
+    id: "food-003",
+    name: "Organic Honey - 1L",
+    slug: "organic-honey-1l",
+    price: 6500,
+    comparePrice: 8000,
+    image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80",
+    rating: 4.7,
+    reviewCount: 234,
+    store: "NaturalFoods",
+    category: "Food & Drinks",
+    categorySlug: "food",
+    description: "100% organic raw honey. Unprocessed with natural enzymes and nutrients.",
+    tags: ["honey", "organic", "natural", "raw", "healthy", "food"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "food-004",
+    name: "Jollof Rice Spice Mix",
+    slug: "jollof-rice-spice-mix",
+    price: 1500,
+    comparePrice: 2000,
+    image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80",
+    rating: 4.5,
+    reviewCount: 456,
+    store: "AfricanFoods",
+    category: "Food & Drinks",
+    categorySlug: "food",
+    description: "Authentic jollof rice spice mix. Perfect blend of West African spices.",
+    tags: ["spice", "jollof", "rice", "african", "cooking", "seasoning"],
+    inStock: true,
+  },
+
+  // ─── Automobile ──────────────────────────────────────────────
+  {
+    id: "auto-001",
+    name: "Car Phone Mount",
+    slug: "car-phone-mount",
+    price: 3500,
+    comparePrice: 5000,
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=800&q=80",
+    rating: 4.3,
+    reviewCount: 234,
+    store: "AutoGear",
+    category: "Automobile",
+    categorySlug: "automobile",
+    description: "Universal car phone mount with 360° rotation. Suction cup base for windshield or dash.",
+    tags: ["car", "phone mount", "accessories", "dashboard", "auto", "gps"],
+    inStock: true,
+  },
+  {
+    id: "auto-002",
+    name: "Dash Cam HD 1080p",
+    slug: "dash-cam-hd",
+    price: 22000,
+    comparePrice: 30000,
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=800&q=80",
+    rating: 4.5,
+    reviewCount: 178,
+    store: "AutoGear",
+    category: "Automobile",
+    categorySlug: "automobile",
+    description: "Full HD 1080p dash cam with night vision and loop recording.",
+    tags: ["dash cam", "camera", "car", "security", "hd", "auto"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "auto-003",
+    name: "Car Vacuum Cleaner",
+    slug: "car-vacuum-cleaner",
+    price: 8500,
+    comparePrice: 12000,
+    image: "https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&w=800&q=80",
+    rating: 4.2,
+    reviewCount: 145,
+    store: "AutoGear",
+    category: "Automobile",
+    categorySlug: "automobile",
+    description: "Portable car vacuum cleaner with strong suction. 12V DC power.",
+    tags: ["vacuum", "car", "cleaner", "portable", "auto", "cleaning"],
+    inStock: true,
+  },
+
+  // ─── More Fashion items for richer results ───────────────────
+  {
+    id: "fash-007",
+    name: "Nike Air Force 1",
+    slug: "nike-air-force-1",
+    price: 65000,
+    comparePrice: 80000,
+    image: "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviewCount: 923,
+    store: "SneakerVault",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Classic Nike Air Force 1 in white. Timeless style and comfort.",
+    tags: ["nike", "air force", "sneakers", "white", "classic", "shoes"],
+    inStock: true,
+  },
+  {
+    id: "fash-008",
+    name: "Silk Scarf - African Print",
+    slug: "silk-scarf-african-print",
+    price: 5000,
+    comparePrice: 7500,
+    image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80",
+    rating: 4.4,
+    reviewCount: 78,
+    store: "AfroStyle Hub",
+    category: "Fashion",
+    categorySlug: "fashion",
+    description: "Luxurious silk scarf with African print patterns. Versatile styling.",
+    tags: ["scarf", "silk", "african print", "accessories", "women", "headwrap"],
+    inStock: true,
+  },
+
+  // ─── More Electronics ────────────────────────────────────────
+  {
+    id: "elec-006",
+    name: "Smart Watch - Fitness Tracker",
+    slug: "smart-watch-fitness-tracker",
+    price: 25000,
+    comparePrice: 35000,
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
+    rating: 4.6,
+    reviewCount: 567,
+    store: "TechZone",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: "Smart watch with fitness tracking, heart rate monitor, and GPS.",
+    tags: ["smartwatch", "fitness", "tracker", "heart rate", "gps", "wearable"],
+    inStock: true,
+    isFeatured: true,
+  },
+  {
+    id: "elec-007",
+    name: "USB-C Hub 7-in-1",
+    slug: "usb-c-hub-7in1",
+    price: 12000,
+    comparePrice: 16000,
+    image: "https://images.unsplash.com/photo-1625842268584-8f3296236761?auto=format&fit=crop&w=800&q=80",
+    rating: 4.4,
+    reviewCount: 189,
+    store: "ErgoTech",
+    category: "Electronics",
+    categorySlug: "electronics",
+    description: "7-in-1 USB-C hub with HDMI, USB 3.0, SD card reader, and PD charging.",
+    tags: ["usb-c", "hub", "adapter", "hdmi", "accessories", "laptop"],
+    inStock: true,
+  },
+];
+
+/**
+ * Search products by query string.
+ * Searches name, description, category, store, and tags.
+ * Returns results sorted by relevance score.
+ */
+export function searchProducts(query: string, limit = 20): SearchableProduct[] {
+  if (!query.trim()) return [];
+
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+
+  if (terms.length === 0) return [];
+
+  const scored = allProducts
+    .map((product) => {
+      let score = 0;
+      const name = product.name.toLowerCase();
+      const desc = product.description.toLowerCase();
+      const cat = product.category.toLowerCase();
+      const catSlug = product.categorySlug.toLowerCase();
+      const store = product.store.toLowerCase();
+      const tags = product.tags.map((t) => t.toLowerCase());
+
+      for (const term of terms) {
+        // Name match (highest weight)
+        if (name === term) score += 100;
+        else if (name.startsWith(term)) score += 80;
+        else if (name.includes(term)) score += 60;
+
+        // Tag exact match
+        if (tags.some((t) => t === term)) score += 50;
+        else if (tags.some((t) => t.includes(term))) score += 30;
+
+        // Category match
+        if (cat === term || catSlug === term) score += 40;
+        else if (cat.includes(term) || catSlug.includes(term)) score += 25;
+
+        // Store match
+        if (store.includes(term)) score += 15;
+
+        // Description match
+        if (desc.includes(term)) score += 10;
+
+        // Boost featured and new products
+        if (product.isFeatured) score += 5;
+        if (product.isNew) score += 3;
+      }
+
+      return { product, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.product);
+
+  return scored;
+}
+
+/**
+ * Get products by category slug
+ */
+export function getProductsByCategory(categorySlug: string, limit = 20): SearchableProduct[] {
+  return allProducts
+    .filter((p) => p.categorySlug === categorySlug)
+    .slice(0, limit);
+}
+
+/**
+ * Get a single product by ID
+ */
+export function getProductById(id: string): SearchableProduct | undefined {
+  return allProducts.find((p) => p.id === id);
+}
+
+/**
+ * Get featured products
+ */
+export function getFeaturedProducts(limit = 8): SearchableProduct[] {
+  return allProducts.filter((p) => p.isFeatured).slice(0, limit);
+}
+
+/**
+ * Get all unique categories with counts
+ */
+export function getSearchCategories(): { slug: string; name: string; count: number }[] {
+  const catMap = new Map<string, { name: string; count: number }>();
+  for (const p of allProducts) {
+    const existing = catMap.get(p.categorySlug);
+    if (existing) {
+      existing.count++;
+    } else {
+      catMap.set(p.categorySlug, { name: p.category, count: 1 });
+    }
+  }
+  return Array.from(catMap.entries()).map(([slug, { name, count }]) => ({
+    slug,
+    name,
+    count,
+  }));
+}

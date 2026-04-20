@@ -81,9 +81,12 @@ export function MarketplaceProductCard({
   };
 
   return (
-    <article className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/4 transition-shadow hover:shadow-md">
+    <article
+      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md cursor-pointer"
+      onClick={() => onQuickView?.(product)}
+    >
       {/* ── Image ── */}
-      <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-[#f3f4f6]">
+      <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
         <Image
           src={product.image}
           alt={product.name}
@@ -96,12 +99,12 @@ export function MarketplaceProductCard({
         {/* Badges */}
         <div className="absolute left-3 top-3 flex gap-1.5">
           {discount > 0 && (
-            <span className="rounded-lg bg-[#1c1c1e] px-2 py-0.5 text-[11px] font-semibold text-white">
+            <span className="rounded-lg bg-kwik-badge-dark px-2 py-0.5 text-[11px] font-semibold text-white">
               -{discount}%
             </span>
           )}
           {product.isNew && (
-            <span className="rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-[#111827]">
+            <span className="rounded-lg bg-background/90 px-2 py-0.5 text-[11px] font-semibold text-kwik-dark">
               New
             </span>
           )}
@@ -110,43 +113,43 @@ export function MarketplaceProductCard({
         {/* Wishlist button */}
         <button
           type="button"
-          onClick={handleWishlistToggle}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+          onClick={(e) => { e.stopPropagation(); handleWishlistToggle(); }}
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
           aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
             className={`h-4 w-4 transition-colors ${
-              isWished ? "fill-[#ea580c] text-[#ea580c]" : "text-[#9ca3af]"
+              isWished ? "fill-kwik-orange text-kwik-orange" : "text-kwik-muted"
             }`}
           />
         </button>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug text-[#111827]">
+        <p className="line-clamp-2 text-sm font-semibold leading-snug text-kwik-dark">
           {product.name}
         </p>
 
         {/* ── Footer ── */}
         <div className="flex items-end justify-between pb-3 pt-0.5">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9ca3af]">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-kwik-muted">
               {product.store}
             </p>
             <div className="flex items-center gap-1 rounded-xl text-[11px]">
-              <Star className="h-3 w-3 fill-[#f59e0b] text-[#f59e0b]" />
-              <span className="font-semibold text-[#374151]">
+              <Star className="h-3 w-3 fill-kwik-star text-kwik-star" />
+              <span className="font-semibold text-kwik-dark-medium">
                 {product.rating.toFixed(1)}
               </span>
             </div>
           </div>
           <div className="text-right">
             {product.comparePrice && (
-              <p className="text-[10px] text-[#9ca3af] line-through">
+              <p className="text-[10px] text-kwik-muted line-through">
                 {formatPrice(product.comparePrice)}
               </p>
             )}
-            <p className="text-xs font-bold text-[#111827]">
+            <p className="text-xs font-bold text-kwik-dark">
               {formatPrice(product.price)}
             </p>
           </div>
@@ -155,8 +158,8 @@ export function MarketplaceProductCard({
         {/* Add to Cart + Eye */}
         <div className="flex items-center gap-2 mt-auto">
           <button
-            onClick={handleAddToCart}
-            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-soft-hover hover text-[10px] font-medium text-[#374151] transition-colors"
+            onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
+            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-soft-hover hover text-[10px] font-medium text-kwik-dark-medium transition-colors"
           >
             <ShoppingBag className="h-3 w-3" />
             Add to Cart
@@ -164,11 +167,11 @@ export function MarketplaceProductCard({
 
           <button
             type="button"
-            onClick={() => onQuickView?.(product)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-[#f3f4f6] transition-colors hover:bg-[#fff7ed] hover:text-[#ea580c]"
+            onClick={(e) => { e.stopPropagation(); onQuickView?.(product); }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-kwik-bg-light transition-colors hover:bg-kwik-orange-tint hover:text-kwik-orange"
             aria-label="Quick view"
           >
-            <Eye className="h-3.5 w-3.5 text-[#6b7280]" />
+            <Eye className="h-3.5 w-3.5 text-kwik-gray-light" />
           </button>
         </div>
       </div>

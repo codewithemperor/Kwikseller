@@ -489,7 +489,7 @@ export default function PricingPage() {
           >
             <path
               d="M0 60V30C240 0 480 0 720 30C960 60 1200 60 1440 30V60H0Z"
-              className="fill-background dark:fill-[#1a1a2e]"
+              className="fill-background"
             />
           </svg>
         </div>

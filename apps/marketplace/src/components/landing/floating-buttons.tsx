@@ -26,7 +26,7 @@ export function FloatingButtons() {
         href="https://wa.me/2348000000000?text=Hello%20KWIKSELLER!%20I'd%20like%20to%20know%20more."
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center w-14 h-14 rounded-full bg-[#25D366] text-white shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300"
+        className="flex items-center justify-center w-14 h-14 rounded-full bg-kwik-whatsapp text-white shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         aria-label="Chat on WhatsApp"

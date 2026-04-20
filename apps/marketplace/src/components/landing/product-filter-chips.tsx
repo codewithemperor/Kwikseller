@@ -25,8 +25,8 @@ export function ProductFilterChips({
             className={cn(
               "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "border-[#ea580c] bg-[#ea580c] text-white"
-                : "border-[#d1d5db] bg-white text-[#374151] hover:border-[#ea580c] hover:text-[#ea580c]",
+                ? "border-kwik-orange bg-kwik-orange text-white"
+                : "border-kwik-border bg-background text-kwik-dark-medium hover:border-kwik-orange hover:text-kwik-orange",
             )}
           >
             {filter.label}

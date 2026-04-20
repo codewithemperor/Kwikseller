@@ -13,6 +13,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -103,6 +104,9 @@ import { UsersModule } from './modules/users/users.module';
 
     // Users module
     UsersModule,
+
+    // Products module
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -133,6 +137,7 @@ export class AppModule implements OnModuleInit {
     console.log('📦 SharedModule loaded with all services');
     console.log('🔐 AuthModule loaded');
     console.log('👥 UsersModule loaded');
+    console.log('🛍️ ProductsModule loaded');
     console.log('🔗 EventEmitter2 ready for events');
   }
 }

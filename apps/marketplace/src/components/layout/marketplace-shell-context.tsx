@@ -4,6 +4,8 @@ import React from "react";
 
 interface MarketplaceShellContextValue {
   openSearch: () => void;
+  showFilters?: boolean;
+  setShowFilters?: (v: boolean) => void;
 }
 
 const MarketplaceShellContext =

@@ -29,34 +29,34 @@ export function NewsletterSection() {
   };
 
   return (
-    <section className="bg-[#f5f5f5] py-8 sm:py-10">
+    <section className="bg-kwik-bg-page py-8 sm:py-10">
       <div className="container mx-auto px-0 md:px-4 ">
-        <div className="mx-auto max-w-4xl rounded-[32px] border border-[#e5e7eb] bg-white p-6 shadow-sm sm:p-8">
+        <div className="mx-auto max-w-4xl rounded-[32px] border border-kwik-border bg-background p-6 shadow-sm sm:p-8">
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7ed] text-[#ea580c]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-kwik-orange-tint text-kwik-orange">
                 <Mail className="h-5 w-5" />
               </div>
-              <h2 className="mt-4 text-2xl font-bold text-[#111827]">
+              <h2 className="mt-4 text-2xl font-bold text-kwik-dark">
                 Get updates on deals and product drops
               </h2>
-              <p className="mt-2 text-sm leading-6 text-[#6b7280]">
+              <p className="mt-2 text-sm leading-6 text-kwik-gray-light">
                 Subscribe for marketplace offers, seller tips and curated
                 product recommendations.
               </p>
             </div>
 
             {isSuccess ? (
-              <div className="rounded-2xl bg-[#f9fafb] p-5">
+              <div className="rounded-2xl bg-kwik-bg-surface p-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#166534] text-white">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-kwik-green text-white">
                     <CheckCircle className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#111827]">
+                    <p className="font-semibold text-kwik-dark">
                       Subscription confirmed
                     </p>
-                    <p className="text-sm text-[#6b7280]">
+                    <p className="text-sm text-kwik-gray-light">
                       Check your inbox for the welcome message.
                     </p>
                   </div>
@@ -75,13 +75,13 @@ export function NewsletterSection() {
                 <Button
                   type="submit"
                   variant="primary"
-                  className="h-12 w-full rounded-xl bg-[#ea580c] font-semibold text-white hover:bg-[#c2410c]"
+                  className="h-12 w-full rounded-xl bg-kwik-orange font-semibold text-white hover:bg-kwik-orange-hover"
                   isDisabled={isSubmitting}
                 >
                   {isSubmitting ? "Subscribing..." : "Subscribe"}
                   {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
-                <p className="text-xs text-[#9ca3af]">
+                <p className="text-xs text-kwik-muted">
                   No spam. Only useful marketplace updates.
                 </p>
               </form>

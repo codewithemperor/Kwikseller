@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   X,
@@ -164,6 +165,7 @@ function highlightMatch(text: string, query: string) {
 // ─── Component ────────────────────────────────────────────────────
 
 export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
 
@@ -218,8 +220,9 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
       if (!trimmed) return
       saveToHistory(trimmed)
       onClose()
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
     },
-    [onClose],
+    [onClose, router],
   )
 
   const handleRemoveHistory = useCallback((term: string, e: React.MouseEvent) => {
@@ -242,9 +245,13 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
 
   const handleCategoryClick = useCallback(
     (categoryName: string) => {
-      handleSearch(categoryName)
+      const trimmed = categoryName.trim()
+      if (!trimmed) return
+      saveToHistory(trimmed)
+      onClose()
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
     },
-    [handleSearch],
+    [onClose, router],
   )
 
   const hasQuery = query.trim().length > 0

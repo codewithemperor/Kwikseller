@@ -46,10 +46,10 @@ export function MarketplaceHero() {
   }, []);
 
   return (
-    <section className="border-b border-[#e5e7eb] bg-[#f5f5f5] py-4">
+    <section className="border-b border-kwik-border bg-kwik-bg-page py-4">
       <div className="container mx-auto grid gap-4 px-4 lg:grid-cols-[250px_1fr_280px]">
         {/* Category sidebar */}
-        <aside className="hidden rounded-[20px] bg-white p-4 shadow-sm lg:block">
+        <aside className="hidden rounded-[20px] bg-background p-4 shadow-sm lg:block">
           <div className="space-y-1">
             {marketplaceCategories.map((category) => {
               const Icon = category.icon;
@@ -57,7 +57,7 @@ export function MarketplaceHero() {
                 <button
                   key={category.id}
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-[#374151] transition-colors hover:bg-[#fff7ed] hover:text-[#ea580c]"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-kwik-dark-medium transition-colors hover:bg-kwik-orange-tint hover:text-kwik-orange"
                 >
                   <Icon className="h-4 w-4" />
                   <span>{category.name}</span>
@@ -69,7 +69,7 @@ export function MarketplaceHero() {
 
         {/* Banner carousel */}
         <div className="space-y-3">
-          <div className="hidden overflow-hidden rounded-[24px] bg-[#ea580c] shadow-sm md:block">
+          <div className="hidden overflow-hidden rounded-[24px] bg-kwik-orange shadow-sm md:block">
             <div className="relative aspect-[2.25/1]">
               {marketplaceHeroBanners.map((banner, index) => (
                 <Link
@@ -91,7 +91,7 @@ export function MarketplaceHero() {
                   />
                   <div className="absolute inset-0 bg-black/25" />
                   <div className="absolute inset-x-0 bottom-0 p-6 text-white">
-                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
+                    <span className="rounded-full bg-background/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
                       {banner.badge}
                     </span>
                     <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight">
@@ -110,7 +110,7 @@ export function MarketplaceHero() {
                     c === 0 ? marketplaceHeroBanners.length - 1 : c - 1,
                   )
                 }
-                className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#111827]"
+                className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-kwik-dark"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -121,7 +121,7 @@ export function MarketplaceHero() {
                     (c) => (c + 1) % marketplaceHeroBanners.length,
                   )
                 }
-                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#111827]"
+                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-kwik-dark"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -131,7 +131,7 @@ export function MarketplaceHero() {
                     key={banner.id}
                     type="button"
                     onClick={() => setActiveBanner(index)}
-                    className={`h-2.5 rounded-full transition-all ${index === activeBanner ? "w-8 bg-white" : "w-2.5 bg-white/45"}`}
+                    className={`h-2.5 rounded-full transition-all ${index === activeBanner ? "w-8 bg-background" : "w-2.5 bg-background/45"}`}
                   />
                 ))}
               </div>
@@ -145,7 +145,7 @@ export function MarketplaceHero() {
                 <Link
                   key={banner.id}
                   href={banner.href}
-                  className="relative overflow-hidden rounded-[22px] bg-[#ea580c] shadow-sm"
+                  className="relative overflow-hidden rounded-[22px] bg-kwik-orange shadow-sm"
                 >
                   <div className="relative aspect-[1.3/1]">
                     <Image
@@ -157,7 +157,7 @@ export function MarketplaceHero() {
                     />
                     <div className="absolute inset-0 bg-black/20" />
                     <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                      <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
+                      <span className="rounded-full bg-background/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
                         {banner.badge}
                       </span>
                       <h2 className="mt-2 line-clamp-2 text-lg font-bold leading-tight">
@@ -173,21 +173,21 @@ export function MarketplaceHero() {
 
         {/* Seller CTA panel */}
         <div className="hidden space-y-3 lg:block">
-          <div className="rounded-[20px] bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ea580c]">
+          <div className="rounded-[20px] bg-background p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
               Become a seller
             </p>
-            <h2 className="mt-2 text-lg font-bold text-[#111827]">
+            <h2 className="mt-2 text-lg font-bold text-kwik-dark">
               Create a store and start selling
             </h2>
-            <p className="mt-2 text-xs leading-6 text-[#6b7280]">
+            <p className="mt-2 text-xs leading-6 text-kwik-gray-light">
               Reach more buyers with a storefront that follows a familiar
               marketplace experience.
             </p>
             <Link href="/register?role=VENDOR" className="mt-4 inline-flex">
               <Button
                 variant="primary"
-                className="h-11 rounded-xl bg-[#ea580c] px-5 font-semibold text-white hover:bg-[#c2410c]"
+                className="h-11 rounded-xl bg-kwik-orange px-5 font-semibold text-white hover:bg-kwik-orange-hover"
               >
                 Start selling
               </Button>
@@ -204,23 +204,23 @@ export function MarketplaceHero() {
 ───────────────────────────────────────────── */
 export function MarketplaceTrustBar() {
   return (
-    <section className="bg-[#f5f5f5]">
+    <section className="bg-kwik-bg-page">
       <div className="container mx-auto grid gap-3 px-4 py-5 md:grid-cols-2 xl:grid-cols-4">
         {marketplaceTrustItems.map((item) => {
           const Icon = item.icon;
           return (
             <div
               key={item.id}
-              className="flex items-start gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm"
+              className="flex items-start gap-3 rounded-2xl border border-kwik-border bg-background p-4 shadow-sm"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7ed] text-[#ea580c]">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-kwik-orange-tint text-kwik-orange">
                 <Icon className="h-5 w-5" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-[#111827]">
+                <p className="text-sm font-semibold text-kwik-dark">
                   {item.title}
                 </p>
-                <p className="text-xs leading-5 text-[#6b7280]">
+                <p className="text-xs leading-5 text-kwik-gray-light">
                   {item.description}
                 </p>
               </div>
@@ -284,17 +284,17 @@ export function MarketplaceTopSellersSection() {
   }, [emblaApi, onSelect]);
 
   return (
-    <section className="bg-[#f5f5f5] py-1">
+    <section className="bg-kwik-bg-page py-1">
       <div className="container mx-auto px-0 md:px-4 ">
         <SectionHeader title="Top Sellers" href="/vendors" />
 
-        <div className="relative bg-white p-5 py-8">
+        <div className="relative bg-background p-5 py-8">
           <button
             onClick={() => emblaApi?.scrollPrev()}
             disabled={!canPrev}
             className="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e5e7eb] bg-white shadow-sm transition-all hover:border-[#ea580c] disabled:opacity-30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange disabled:opacity-30">
               <ChevronLeft className="h-4 w-4" />
             </div>
           </button>
@@ -303,7 +303,7 @@ export function MarketplaceTopSellersSection() {
             disabled={!canNext}
             className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e5e7eb] bg-white shadow-sm transition-all hover:border-[#ea580c] disabled:opacity-30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange disabled:opacity-30">
               <ChevronRight className="h-4 w-4" />
             </div>
           </button>
@@ -317,7 +317,7 @@ export function MarketplaceTopSellersSection() {
                 >
                   <Link
                     href={`/vendors?seller=${seller.id}`}
-                    className="group block overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/[0.04] transition-shadow hover:shadow-md"
+                    className="group block overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md"
                   >
                     <div className="relative aspect-[2.6/1] overflow-hidden">
                       <Image
@@ -328,14 +328,14 @@ export function MarketplaceTopSellersSection() {
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                      <div className="absolute right-3 top-3 max-w-[55%] rounded-xl bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur-sm">
-                        <p className="line-clamp-2 text-xs font-semibold leading-tight text-[#111827]">
+                      <div className="absolute right-3 top-3 max-w-[55%] rounded-xl bg-background/95 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+                        <p className="line-clamp-2 text-xs font-semibold leading-tight text-kwik-dark">
                           Looking For The Newest {seller.tagline}?
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#f3f4f6] bg-white shadow-sm">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-kwik-border bg-background shadow-sm">
                         <Image
                           src={seller.logo}
                           alt={seller.name}
@@ -344,29 +344,29 @@ export function MarketplaceTopSellersSection() {
                           className="h-full w-full object-cover"
                         />
                       </div>
-                      <p className="text-base font-semibold text-[#111827]">
+                      <p className="text-base font-semibold text-kwik-dark">
                         {seller.name}
                       </p>
                     </div>
-                    <div className="grid grid-cols-2 divide-x divide-[#f3f4f6] border-t border-[#f3f4f6]">
+                    <div className="grid grid-cols-2 divide-x divide-kwik-border border-t border-kwik-border">
                       <div className="flex flex-col items-center py-3">
-                        <p className="text-lg font-bold text-[#111827]">
+                        <p className="text-lg font-bold text-kwik-dark">
                           {seller.rating ? (
                             <span className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-[#f59e0b] text-[#f59e0b]" />
+                              <Star className="h-4 w-4 fill-kwik-star text-kwik-star" />
                               {seller.rating.toFixed(1)}
                             </span>
                           ) : (
                             "0"
                           )}
                         </p>
-                        <p className="text-xs text-[#9ca3af]">Reviews</p>
+                        <p className="text-xs text-kwik-muted">Reviews</p>
                       </div>
                       <div className="flex flex-col items-center py-3">
-                        <p className="text-lg font-bold text-[#111827]">
+                        <p className="text-lg font-bold text-kwik-dark">
                           {seller.productCount?.replace(/\D/g, "") ?? "0"}
                         </p>
-                        <p className="text-xs text-[#9ca3af]">Products</p>
+                        <p className="text-xs text-kwik-muted">Products</p>
                       </div>
                     </div>
                   </Link>
@@ -401,7 +401,7 @@ export function MarketplaceReviewsSection() {
   const [emblaRef] = useEmblaCarousel({ loop: false, align: "start" });
 
   return (
-    <section className="bg-[#f5f5f5] py-5">
+    <section className="bg-kwik-bg-page py-5">
       <div className="container mx-auto px-0 md:px-4 ">
         <SectionHeader title="Customer Reviews" href="#" />
         <div className="overflow-hidden" ref={emblaRef}>
@@ -411,23 +411,23 @@ export function MarketplaceReviewsSection() {
                 key={review.id}
                 className="min-w-0 shrink-0 basis-[calc(100%-16px)] sm:basis-[calc(50%-8px)] lg:basis-[calc(33.333%-11px)]"
               >
-                <article className="rounded-[22px] bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
+                <article className="rounded-[22px] bg-background p-5 shadow-sm ring-1 ring-border">
                   <div className="mb-3 flex items-center gap-1">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
-                        className={`h-4 w-4 ${i < review.rating ? "fill-[#f59e0b] text-[#f59e0b]" : "text-[#d1d5db]"}`}
+                        className={`h-4 w-4 ${i < review.rating ? "fill-kwik-star text-kwik-star" : "text-kwik-border-light"}`}
                       />
                     ))}
                   </div>
-                  <p className="text-sm leading-6 text-[#4b5563]">
+                  <p className="text-sm leading-6 text-kwik-gray">
                     {review.text}
                   </p>
-                  <div className="mt-4 border-t border-[#f3f4f6] pt-4">
-                    <p className="font-semibold text-[#111827]">
+                  <div className="mt-4 border-t border-kwik-border pt-4">
+                    <p className="font-semibold text-kwik-dark">
                       {review.name}
                     </p>
-                    <p className="text-sm text-[#6b7280]">{review.location}</p>
+                    <p className="text-sm text-kwik-gray-light">{review.location}</p>
                   </div>
                 </article>
               </div>
@@ -491,17 +491,17 @@ export function MarketplaceNewArrivalsSection({
 export function MarketplaceSellerCta() {
   const ctaProduct = getMarketplaceProduct("chair-1");
   return (
-    <section className="bg-[#f5f5f5] py-5 pb-12">
+    <section className="bg-kwik-bg-page py-5 pb-12">
       <div className="container mx-auto px-0 md:px-4 ">
-        <div className="overflow-hidden rounded-[28px] bg-white shadow-sm lg:grid lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="overflow-hidden rounded-[28px] bg-background shadow-sm lg:grid lg:grid-cols-[1.15fr_0.85fr]">
           <div className="p-6 sm:p-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ea580c]">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
               Sell on Kwikseller
             </p>
-            <h2 className="mt-3 text-3xl font-semibold leading-tight text-[#111827]">
+            <h2 className="mt-3 text-3xl font-semibold leading-tight text-kwik-dark">
               Build a storefront with a familiar marketplace experience
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#6b7280]">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-kwik-gray-light">
               List products, reach buyers and manage your store with a cleaner
               buying experience inspired by established e-commerce layouts.
             </p>
@@ -509,7 +509,7 @@ export function MarketplaceSellerCta() {
               <Link href="/register?role=VENDOR" className="inline-flex">
                 <Button
                   variant="primary"
-                  className="h-11 rounded-xl bg-[#ea580c] px-5 font-semibold text-white hover:bg-[#c2410c]"
+                  className="h-11 rounded-xl bg-kwik-orange px-5 font-semibold text-white hover:bg-kwik-orange-hover"
                 >
                   Create vendor account
                 </Button>
@@ -517,7 +517,7 @@ export function MarketplaceSellerCta() {
               <Link href="/vendors" className="inline-flex">
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-[#d1d5db] px-5 font-semibold text-[#111827]"
+                  className="h-11 rounded-xl border-kwik-border-light px-5 font-semibold text-kwik-dark"
                 >
                   View top sellers
                 </Button>
@@ -525,7 +525,7 @@ export function MarketplaceSellerCta() {
             </div>
           </div>
           {ctaProduct && (
-            <div className="border-t border-[#f3f4f6] bg-[#faf7f2] p-5 lg:border-l lg:border-t-0">
+            <div className="border-t border-kwik-border bg-kwik-bg-warm p-5 lg:border-l lg:border-t-0">
               <MarketplaceProductCard product={ctaProduct} priority />
             </div>
           )}

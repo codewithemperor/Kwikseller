@@ -26,7 +26,7 @@ export function SectionHeader({
 }) {
   return (
     <div className="flex items-center justify-between  bg-accent px-4 py-3 sm:px-5">
-      <h2 className="text-lg font-semibold text-[#111827] sm:text-xl">
+      <h2 className="text-lg font-semibold text-kwik-dark sm:text-xl">
         {title}
       </h2>
       {href && (
@@ -58,7 +58,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e5e7eb] bg-white shadow-sm transition-all hover:border-[#ea580c] hover:text-[#ea580c] disabled:cursor-not-allowed disabled:opacity-30"
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange hover:text-kwik-orange disabled:cursor-not-allowed disabled:opacity-30"
       aria-label={direction === "prev" ? "Previous" : "Next"}
     >
       {direction === "prev" ? (
@@ -112,11 +112,11 @@ export function ProductCarouselSection({
   }, [emblaApi, onSelect]);
 
   return (
-    <section className="bg-[#f5f5f5] py-1">
+    <section className="bg-kwik-bg-page py-1">
       <div className="container mx-auto px-0 md:px-4 ">
         <SectionHeader title={title} href={href} />
 
-        <div className="relative bg-white">
+        <div className="relative bg-background">
           {/* Navigation buttons */}
           <button
             onClick={() => emblaApi?.scrollPrev()}
@@ -178,11 +178,11 @@ export function CategoryCarouselSection({
   });
 
   return (
-    <section className="bg-[#f5f5f5] py-1">
+    <section className="bg-kwik-bg-page py-1">
       <div className="container mx-auto px-0 md:px-4 ">
         <SectionHeader title="Shop by Category" href="/categories" />
 
-        <div className="overflow-hidden bg-white p-5 " ref={emblaRef}>
+        <div className="overflow-hidden bg-background p-5 " ref={emblaRef}>
           <div className="flex gap-4">
             {categories.map((category) => (
               <Link
@@ -191,7 +191,7 @@ export function CategoryCarouselSection({
                 className="min-w-0 shrink-0 basis-[calc(33.33%-11px)] sm:basis-[calc(20%-12px)] md:basis-[calc(16.66%-14px)] lg:basis-[calc(12.5%-14px)]"
               >
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative h-24 w-24 overflow-hidden rounded-full bg-[#f3f4f6] shadow-sm transition-transform hover:scale-105 md:h-28 md:w-28">
+                  <div className="relative h-24 w-24 overflow-hidden rounded-full bg-kwik-bg-light shadow-sm transition-transform hover:scale-105 md:h-28 md:w-28">
                     <Image
                       src={category.image}
                       alt={category.name}
@@ -199,7 +199,7 @@ export function CategoryCarouselSection({
                       className="object-cover"
                     />
                   </div>
-                  <span className="text-center text-sm font-medium text-[#111827]">
+                  <span className="text-center text-sm font-medium text-kwik-dark">
                     {category.name}
                   </span>
                 </div>
@@ -221,7 +221,7 @@ export function PromoBannerGrid({
   banners: Array<{ id: string; image: string; href: string }>;
 }) {
   return (
-    <section className="bg-[#f5f5f5] py-1">
+    <section className="bg-kwik-bg-page py-1">
       <div className="container mx-auto px-0 md:px-4 ">
         <div className="grid grid-cols-2 gap-4">
           {banners.map((banner) => (
@@ -261,11 +261,11 @@ export function BrandCarouselSection({
   });
 
   return (
-    <section className="bg-[#f5f5f5] py-1">
+    <section className="bg-kwik-bg-page py-1">
       <div className="container mx-auto px-0 md:px-4 ">
         <SectionHeader title="Popular Brands" href="/brands" />
 
-        <div className="overflow-hidden bg-white p-5 py-8 " ref={emblaRef}>
+        <div className="overflow-hidden bg-background p-5 py-8 " ref={emblaRef}>
           <div className="flex gap-4">
             {brands.map((brand) => (
               <Link
@@ -274,7 +274,7 @@ export function BrandCarouselSection({
                 className="min-w-0 shrink-0 basis-[calc(33.33%-11px)] sm:basis-[calc(20%-12px)] md:basis-[calc(16.66%-14px)] lg:basis-[calc(12.5%-14px)]"
               >
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[#f3f4f6] shadow-sm transition-transform hover:scale-105 md:h-24 md:w-24">
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full bg-kwik-bg-light shadow-sm transition-transform hover:scale-105 md:h-24 md:w-24">
                     <Image
                       src={brand.image}
                       alt={brand.name}
@@ -282,7 +282,7 @@ export function BrandCarouselSection({
                       className="object-cover"
                     />
                   </div>
-                  <span className="text-center text-sm font-medium text-[#111827]">
+                  <span className="text-center text-sm font-medium text-kwik-dark">
                     {brand.name}
                   </span>
                 </div>

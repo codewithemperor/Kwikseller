@@ -25,22 +25,22 @@ export function TrendingProducts() {
 
   return (
     <>
-      <section className="bg-[#f5f5f5] py-8 sm:py-10">
+      <section className="bg-kwik-bg-page py-8 sm:py-10">
         <div className="container mx-auto px-0 md:px-4 ">
-          <div className="rounded-[32px] border border-[#e5e7eb] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-6 flex flex-col gap-4 border-b border-[#f3f4f6] pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="rounded-[32px] border border-kwik-border bg-background p-5 shadow-sm sm:p-6">
+            <div className="mb-6 flex flex-col gap-4 border-b border-kwik-border pb-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-[#111827]">
+                <h2 className="text-2xl font-bold text-kwik-dark">
                   Trending products
                 </h2>
-                <p className="mt-1 text-sm text-[#6b7280]">
+                <p className="mt-1 text-sm text-kwik-gray-light">
                   Popular items shoppers are adding to cart right now.
                 </p>
               </div>
 
               <div className="min-w-0 flex-1 lg:max-w-2xl">
-                <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[#374151]">
-                  <SlidersHorizontal className="h-4 w-4 text-[#6b7280]" />
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium text-kwik-dark-medium">
+                  <SlidersHorizontal className="h-4 w-4 text-kwik-gray-light" />
                   Filter products
                 </div>
                 <ProductFilterChips
@@ -64,7 +64,7 @@ export function TrendingProducts() {
             <div className="mt-6 flex justify-center">
               <Button
                 variant="outline"
-                className="rounded-xl border-[#d1d5db] bg-white font-semibold text-[#111827]"
+                className="rounded-xl border-kwik-border bg-background font-semibold text-kwik-dark"
               >
                 View more products
                 <ArrowRight className="ml-2 h-4 w-4" />

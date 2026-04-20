@@ -10,6 +10,11 @@ import {
   MarketplaceHero,
   MarketplaceTopSellersSection,
 } from "@/components/landing/home-sections";
+import {
+  TrendingProductsSection,
+  TopProductsSection,
+  DealOfTheDaySection,
+} from "@/components/landing/api-product-sections";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
 export default function MarketplacePage() {
@@ -20,20 +25,17 @@ export default function MarketplacePage() {
     <>
       <MarketplaceHero />
 
-      {/* Temporarily disabled as requested: escrow-protected to responsive-support card block. */}
-      {/* <MarketplaceTrustBar /> */}
+      {/* API-powered sections: Trending, Top Rated, Deal of the Day */}
+      <TrendingProductsSection />
+      <DealOfTheDaySection />
 
-      <MarketplaceFeaturedProductsSection onQuickView={setQuickViewProduct} />
       <MarketplaceCategorySection />
+
+      <TopProductsSection />
+      <MarketplaceFeaturedProductsSection onQuickView={setQuickViewProduct} />
       <MarketplaceFeaturedDealsSection onQuickView={setQuickViewProduct} />
       <MarketplaceTopSellersSection />
       <MarketplaceBrandsSection />
-
-      {/* Temporarily hidden to keep the marketplace index tighter and more commerce-focused. */}
-      {/* <MarketplaceNewArrivalsSection onQuickView={setQuickViewProduct} /> */}
-      {/* <MarketplaceReviewsSection /> */}
-      {/* <NewsletterSection /> */}
-      {/* <MarketplaceSellerCta /> */}
 
       <QuickViewModal
         product={quickViewProduct}

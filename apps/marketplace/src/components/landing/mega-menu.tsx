@@ -39,20 +39,21 @@ import { cn } from '@kwikseller/ui'
 interface CategoryItem {
   icon: React.ElementType
   name: string
+  slug: string
   count: string
   href: string
 }
 
 const categories: CategoryItem[] = [
-  { icon: Sparkles, name: 'Fashion', count: '12K+', href: '#categories' },
-  { icon: Monitor, name: 'Electronics', count: '8K+', href: '#categories' },
-  { icon: Heart, name: 'Beauty', count: '6K+', href: '#categories' },
-  { icon: UtensilsCrossed, name: 'Food', count: '15K+', href: '#categories' },
-  { icon: Home, name: 'Home', count: '9K+', href: '#categories' },
-  { icon: Smartphone, name: 'Phones', count: '11K+', href: '#categories' },
-  { icon: Car, name: 'Automobiles', count: '4K+', href: '#categories' },
-  { icon: BookOpen, name: 'Books', count: '3K+', href: '#categories' },
-  { icon: Wrench, name: 'Services', count: '7K+', href: '#categories' },
+  { icon: Sparkles, name: 'Fashion', slug: 'fashion', count: '12K+', href: '/categories?fashion' },
+  { icon: Monitor, name: 'Electronics', slug: 'electronics', count: '8K+', href: '/categories?electronics' },
+  { icon: Heart, name: 'Beauty', slug: 'beauty', count: '6K+', href: '/categories?beauty' },
+  { icon: UtensilsCrossed, name: 'Food', slug: 'food', count: '15K+', href: '/categories?food' },
+  { icon: Home, name: 'Home', slug: 'home', count: '9K+', href: '/categories?home' },
+  { icon: Smartphone, name: 'Phones', slug: 'phones', count: '11K+', href: '/categories?phones' },
+  { icon: Car, name: 'Automobiles', slug: 'auto', count: '4K+', href: '/categories?auto' },
+  { icon: BookOpen, name: 'Books', slug: 'books', count: '3K+', href: '/categories?books' },
+  { icon: Wrench, name: 'Services', slug: 'services', count: '7K+', href: '/categories?services' },
 ]
 
 interface DropdownLink {
@@ -71,10 +72,10 @@ const navItems: NavItemConfig[] = [
   {
     label: 'Products',
     links: [
-      { icon: TrendingUp, label: 'Trending', description: 'Hot products right now', href: '#' },
-      { icon: Package, label: 'New Arrivals', description: 'Just listed items', href: '#' },
-      { icon: Star, label: 'Top Rated', description: 'Highest rated products', href: '#' },
-      { icon: Zap, label: 'Deals of the Day', description: 'Limited-time offers', href: '#' },
+      { icon: TrendingUp, label: 'Trending', description: 'Hot products right now', href: '/search?q=trending' },
+      { icon: Package, label: 'New Arrivals', description: 'Just listed items', href: '/search?q=new+arrivals' },
+      { icon: Star, label: 'Top Rated', description: 'Highest rated products', href: '/search?q=top+rated' },
+      { icon: Zap, label: 'Deals of the Day', description: 'Limited-time offers', href: '/search?q=deals' },
     ],
   },
   {
@@ -180,7 +181,7 @@ function CategoriesDropdown() {
         className="col-span-3 mt-1"
       >
         <a
-          href="#categories"
+          href="/categories"
           className={cn(
             'flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl',
             'kwik-gradient text-white text-sm font-medium',

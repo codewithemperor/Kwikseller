@@ -11,7 +11,7 @@ export function MarketplaceSectionHeader({
   actionLabel?: string;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between rounded-[20px] bg-[#ea580c] px-4 py-3 text-white sm:px-5">
+    <div className="mb-4 flex items-center justify-between rounded-[20px] bg-kwik-orange px-4 py-3 text-white sm:px-5">
       <h2 className="text-lg font-semibold sm:text-xl">{title}</h2>
       <Link
         href={href}

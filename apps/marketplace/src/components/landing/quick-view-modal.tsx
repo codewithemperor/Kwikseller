@@ -84,20 +84,20 @@ function QuickViewContent({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 16, scale: 0.98 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-white md:flex-row"
+        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-background md:flex-row"
         onClick={(event) => event.stopPropagation()}
       >
         <Button
           isIconOnly
           variant="ghost"
           onPress={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full bg-white/95"
+          className="absolute right-3 top-3 z-10 rounded-full bg-background/95"
           aria-label="Close quick view"
         >
           <X className="h-4 w-4" />
         </Button>
 
-        <div className="relative min-h-[320px] bg-[#f3f4f6] md:w-[46%]">
+        <div className="relative min-h-[320px] bg-kwik-bg-light md:w-[46%]">
           <Image
             src={product.image}
             alt={product.name}
@@ -109,42 +109,42 @@ function QuickViewContent({
 
           <div className="absolute left-4 top-4 flex gap-2">
             {discount > 0 && (
-              <Chip className="bg-[#dc2626] text-white">-{discount}%</Chip>
+              <Chip className="bg-red-600 text-white">-{discount}%</Chip>
             )}
             {product.isNew && (
-              <Chip className="bg-[#166534] text-white">New</Chip>
+              <Chip className="bg-green-800 text-white">New</Chip>
             )}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#ea580c]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-kwik-orange">
             {product.store}
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-[#111827]">
+          <h2 className="mt-2 text-2xl font-bold text-kwik-dark">
             {product.name}
           </h2>
 
-          <div className="mt-3 flex items-center gap-2 text-sm text-[#6b7280]">
-            <span className="flex items-center gap-1 font-medium text-[#111827]">
-              <Star className="h-4 w-4 fill-[#f59e0b] text-[#f59e0b]" />
+          <div className="mt-3 flex items-center gap-2 text-sm text-kwik-gray-light">
+            <span className="flex items-center gap-1 font-medium text-kwik-dark">
+              <Star className="h-4 w-4 fill-kwik-star text-kwik-star" />
               {product.rating.toFixed(1)}
             </span>
             <span>({product.reviewCount} reviews)</span>
           </div>
 
           <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-bold text-[#111827]">
+            <span className="text-3xl font-bold text-kwik-dark">
               {formatCurrency(product.price)}
             </span>
             {product.comparePrice && (
-              <span className="text-sm text-[#9ca3af] line-through">
+              <span className="text-sm text-kwik-muted line-through">
                 {formatCurrency(product.comparePrice)}
               </span>
             )}
           </div>
 
-          <p className="mt-4 text-sm leading-6 text-[#4b5563]">
+          <p className="mt-4 text-sm leading-6 text-kwik-gray">
             {product.description ??
               "A well-rated marketplace product from a trusted seller, with secure payment and reliable delivery support."}
           </p>
@@ -157,10 +157,10 @@ function QuickViewContent({
             ].map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="rounded-2xl bg-[#f9fafb] p-3 text-center"
+                className="rounded-2xl bg-kwik-bg-surface p-3 text-center"
               >
-                <Icon className="mx-auto h-4 w-4 text-[#ea580c]" />
-                <p className="mt-2 text-xs font-medium text-[#374151]">
+                <Icon className="mx-auto h-4 w-4 text-kwik-orange" />
+                <p className="mt-2 text-xs font-medium text-kwik-dark-medium">
                   {label}
                 </p>
               </div>
@@ -168,10 +168,10 @@ function QuickViewContent({
           </div>
 
           <div className="mt-6 flex items-center gap-3">
-            <span className="text-sm font-semibold text-[#111827]">
+            <span className="text-sm font-semibold text-kwik-dark">
               Quantity
             </span>
-            <div className="flex items-center gap-2 rounded-xl border border-[#e5e7eb] px-2 py-1">
+            <div className="flex items-center gap-2 rounded-xl border border-kwik-border px-2 py-1">
               <Button
                 isIconOnly
                 variant="ghost"
@@ -180,7 +180,7 @@ function QuickViewContent({
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="w-8 text-center font-semibold text-[#111827]">
+              <span className="w-8 text-center font-semibold text-kwik-dark">
                 {quantity}
               </span>
               <Button
@@ -198,7 +198,7 @@ function QuickViewContent({
             <Button
               variant="primary"
               onPress={handleAddToCart}
-              className="h-12 rounded-xl bg-[#ea580c] font-semibold text-white hover:bg-[#c2410c]"
+              className="h-12 rounded-xl bg-kwik-orange font-semibold text-white hover:bg-kwik-orange-hover"
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
               Add to cart
@@ -212,11 +212,11 @@ function QuickViewContent({
                   isLiked ? "Removed from wishlist" : "Added to wishlist",
                 );
               }}
-              className="h-12 min-w-12 rounded-xl border-[#d1d5db]"
+              className="h-12 min-w-12 rounded-xl border-kwik-border"
             >
               <Heart
                 className={`h-5 w-5 ${
-                  isLiked ? "fill-current text-[#ea580c]" : "text-[#374151]"
+                  isLiked ? "fill-current text-kwik-orange" : "text-kwik-dark-medium"
                 }`}
               />
             </Button>
@@ -224,9 +224,9 @@ function QuickViewContent({
               isIconOnly
               variant="outline"
               onPress={() => kwikToast.info("Share link copied")}
-              className="h-12 min-w-12 rounded-xl border-[#d1d5db]"
+              className="h-12 min-w-12 rounded-xl border-kwik-border"
             >
-              <Share2 className="h-5 w-5 text-[#374151]" />
+              <Share2 className="h-5 w-5 text-kwik-dark-medium" />
             </Button>
           </div>
 
@@ -236,7 +236,7 @@ function QuickViewContent({
               onClose();
               router.push(`/products/${product.id}`);
             }}
-            className="mt-3 h-11 rounded-xl border-[#d1d5db] font-semibold text-[#111827]"
+            className="mt-3 h-11 rounded-xl border-kwik-border font-semibold text-kwik-dark"
           >
             View more
           </Button>

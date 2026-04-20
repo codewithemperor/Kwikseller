@@ -61,6 +61,30 @@
   --link: oklch(0.22 0.12 264); /* navy links */
   --scrollbar: oklch(0.88 0.01 264);
   --radius: 0.625rem;
+
+  /* ── Marketplace hex-based semantic tokens ────────────── */
+  --kwik-orange: #ea580c;
+  --kwik-orange-hover: #c2410c;
+  --kwik-orange-tint: #fff7ed;
+  --kwik-dark: #111827;
+  --kwik-dark-medium: #374151;
+  --kwik-gray: #4b5563;
+  --kwik-gray-light: #6b7280;
+  --kwik-muted: #9ca3af;
+  --kwik-muted-medium: #8b8b8b;
+  --kwik-border: #e5e7eb;
+  --kwik-border-light: #d1d5db;
+  --kwik-bg-light: #f3f4f6;
+  --kwik-bg-page: #f5f5f5;
+  --kwik-bg-surface: #f9fafb;
+  --kwik-badge-dark: #1c1c1e;
+  --kwik-star: #f59e0b;
+  --kwik-green: #166534;
+  --kwik-red: #dc2626;
+  --kwik-whatsapp: #25D366;
+  --kwik-bg-warm: #faf7f2;
+  --kwik-bg-warm-gray: #f1f1ee;
+  --kwik-bg-warm-light: #f8f8f6;
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
@@ -106,6 +130,30 @@
   --focus: oklch(0.74 0.17 48);
   --link: oklch(0.74 0.17 48); /* orange links in dark */
   --scrollbar: oklch(1 0 0 / 15%);
+
+  /* ── Marketplace hex-based semantic tokens (dark mode) ── */
+  --kwik-orange: #f97316;
+  --kwik-orange-hover: #ea580c;
+  --kwik-orange-tint: oklch(0.28 0.08 48);
+  --kwik-dark: #f9fafb;
+  --kwik-dark-medium: #d1d5db;
+  --kwik-gray: #9ca3af;
+  --kwik-gray-light: #6b7280;
+  --kwik-muted: #4b5563;
+  --kwik-muted-medium: #6b7280;
+  --kwik-border: oklch(1 0 0 / 10%);
+  --kwik-border-light: oklch(1 0 0 / 15%);
+  --kwik-bg-light: oklch(0.2 0.04 264);
+  --kwik-bg-page: oklch(0.14 0.04 264);
+  --kwik-bg-surface: oklch(0.22 0.04 264);
+  --kwik-badge-dark: #e5e7eb;
+  --kwik-star: #fbbf24;
+  --kwik-green: #22c55e;
+  --kwik-red: #ef4444;
+  --kwik-whatsapp: #25D366;
+  --kwik-bg-warm: oklch(0.22 0.03 48);
+  --kwik-bg-warm-gray: oklch(0.2 0.02 48);
+  --kwik-bg-warm-light: oklch(0.22 0.02 48);
 }
 
 /* ============================================================
@@ -177,6 +225,30 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* ── Marketplace semantic color tokens ────────────────── */
+  --color-kwik-orange: var(--kwik-orange);
+  --color-kwik-orange-hover: var(--kwik-orange-hover);
+  --color-kwik-orange-tint: var(--kwik-orange-tint);
+  --color-kwik-dark: var(--kwik-dark);
+  --color-kwik-dark-medium: var(--kwik-dark-medium);
+  --color-kwik-gray: var(--kwik-gray);
+  --color-kwik-gray-light: var(--kwik-gray-light);
+  --color-kwik-muted: var(--kwik-muted);
+  --color-kwik-muted-medium: var(--kwik-muted-medium);
+  --color-kwik-border: var(--kwik-border);
+  --color-kwik-border-light: var(--kwik-border-light);
+  --color-kwik-bg-light: var(--kwik-bg-light);
+  --color-kwik-bg-page: var(--kwik-bg-page);
+  --color-kwik-bg-surface: var(--kwik-bg-surface);
+  --color-kwik-badge-dark: var(--kwik-badge-dark);
+  --color-kwik-star: var(--kwik-star);
+  --color-kwik-green: var(--kwik-green);
+  --color-kwik-red: var(--kwik-red);
+  --color-kwik-whatsapp: var(--kwik-whatsapp);
+  --color-kwik-bg-warm: var(--kwik-bg-warm);
+  --color-kwik-bg-warm-gray: var(--kwik-bg-warm-gray);
+  --color-kwik-bg-warm-light: var(--kwik-bg-warm-light);
 }
 
 /* ============================================================

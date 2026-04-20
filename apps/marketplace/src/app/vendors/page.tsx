@@ -795,14 +795,14 @@ export default function VendorsPage() {
       </section>
 
       {/* ─── 2. Vendor Categories Filter ─────────────────────── */}
-      <section className="py-8 sm:py-10 bg-default-50 border-b border-divider sticky top-16 z-20">
-        <div className="container mx-auto px-0 md:px-4 ">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+      <section className="bg-white dark:bg-background border-b border-divider sticky top-12 md:top-16 z-20">
+        <div className="container mx-auto px-0 md:px-4">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1.5">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className="relative px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors shrink-0"
+                className="relative px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors shrink-0"
               >
                 {activeCategory === cat && (
                   <motion.div
