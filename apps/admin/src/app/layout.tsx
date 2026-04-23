@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
+import { QueryProvider } from "@/lib/query-provider";
 
 // Heading font - Poppins (modern, geometric sans-serif)
 const fontHeading = Space_Grotesk({
@@ -60,20 +61,22 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="font-text antialiased bg-background text-foreground">
-        <HeroUIProviderWrapper>
-          <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toast.Provider placement="top end" maxVisibleToasts={3} />
-              <Toaster position="top-right" richColors closeButton />
-            </ThemeProvider>
-          </AuthProvider>
-        </HeroUIProviderWrapper>
+        <QueryProvider>
+          <HeroUIProviderWrapper>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+                <Toast.Provider placement="top end" maxVisibleToasts={3} />
+                <Toaster position="top-right" richColors closeButton />
+              </ThemeProvider>
+            </AuthProvider>
+          </HeroUIProviderWrapper>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -1,29 +1,44 @@
 import {
   Controller,
   Get,
-  Query,
+  Post,
+  Patch,
+  Delete,
+  Body,
   Param,
+  Query,
   NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 
 import { ProductsService } from './products.service';
 import { SearchProductsDto, LimitQueryDto } from './dto';
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  UpdateProductStatusDto,
+  CreateProductVariantDto,
+  UpdateProductVariantDto,
+  AddProductImageDto,
+  QueryProductAdminDto,
+} from './dto/product-admin.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../auth/dto/auth.dto';
 
 @ApiTags('Products')
+@ApiBearerAuth()
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  /**
-   * Search products
-   * Public endpoint - no auth required
-   */
+  // ==================== PUBLIC ENDPOINTS ====================
+
   @Public()
   @Get('search')
   @ApiOperation({ summary: 'Search products by query and/or category' })
@@ -32,10 +47,6 @@ export class ProductsController {
     return this.productsService.search(dto);
   }
 
-  /**
-   * Get trending products (featured + high rated)
-   * Public endpoint - no auth required
-   */
   @Public()
   @Get('trending')
   @ApiOperation({ summary: 'Get trending products (featured + high rated)' })
@@ -44,10 +55,6 @@ export class ProductsController {
     return this.productsService.getTrending(dto.limit);
   }
 
-  /**
-   * Get top products (by rating)
-   * Public endpoint - no auth required
-   */
   @Public()
   @Get('top')
   @ApiOperation({ summary: 'Get top products sorted by rating' })
@@ -56,10 +63,6 @@ export class ProductsController {
     return this.productsService.getTop(dto.limit);
   }
 
-  /**
-   * Get deal of the day products (highest discount percentage)
-   * Public endpoint - no auth required
-   */
   @Public()
   @Get('deals')
   @ApiOperation({ summary: 'Get deal of the day products with highest discount' })
@@ -68,11 +71,6 @@ export class ProductsController {
     return this.productsService.getDeals(dto.limit);
   }
 
-  /**
-   * Get all product categories
-   * Public endpoint - no auth required
-   * NOTE: Must be before :id route to avoid route conflicts
-   */
   @Public()
   @Get('categories/list')
   @ApiOperation({ summary: 'Get all product categories' })
@@ -81,11 +79,6 @@ export class ProductsController {
     return this.productsService.search(new SearchProductsDto());
   }
 
-  /**
-   * Get products for a specific category with category details
-   * Public endpoint - no auth required
-   * NOTE: Must be before :id route to avoid route conflicts
-   */
   @Public()
   @Get('categories/:slug')
   @ApiOperation({ summary: 'Get products for a specific category with category details' })
@@ -105,10 +98,6 @@ export class ProductsController {
     }
   }
 
-  /**
-   * Get all products with optional filters
-   * Public endpoint - no auth required
-   */
   @Public()
   @Get()
   @ApiOperation({ summary: 'List products with optional filters' })
@@ -117,11 +106,6 @@ export class ProductsController {
     return this.productsService.search(dto);
   }
 
-  /**
-   * Get a single product by ID
-   * Public endpoint - no auth required
-   * NOTE: Must be LAST among GET routes to avoid capturing static routes like 'trending', 'deals', etc.
-   */
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
@@ -133,5 +117,81 @@ export class ProductsController {
       throw new NotFoundException('Product not found');
     }
     return product;
+  }
+
+  // ==================== ADMIN ENDPOINTS ====================
+
+  @Post()
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create a new product (admin only)' })
+  async create(@Body() dto: CreateProductDto) {
+    return this.productsService.create(dto);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update a product (admin only)' })
+  async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+    return this.productsService.update(id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Change product status (admin only)' })
+  async updateStatus(@Param('id') id: string, @Body() dto: UpdateProductStatusDto) {
+    return this.productsService.updateStatus(id, dto);
+  }
+
+  @Patch(':id/featured')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Toggle product featured status (admin only)' })
+  async toggleFeatured(@Param('id') id: string) {
+    return this.productsService.toggleFeatured(id);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete a product (admin only)' })
+  async remove(@Param('id') id: string) {
+    return this.productsService.remove(id);
+  }
+
+  @Post(':id/images')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Add an image to a product (admin only)' })
+  async addImage(@Param('id') id: string, @Body() dto: AddProductImageDto) {
+    return this.productsService.addImage(id, dto);
+  }
+
+  @Delete(':id/images/:imageId')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Remove an image from a product (admin only)' })
+  async removeImage(@Param('id') id: string, @Param('imageId') imageId: string) {
+    return this.productsService.removeImage(id, imageId);
+  }
+
+  @Post(':id/variants')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Add a variant to a product (admin only)' })
+  async addVariant(@Param('id') id: string, @Body() dto: CreateProductVariantDto) {
+    return this.productsService.addVariant(id, dto);
+  }
+
+  @Patch(':id/variants/:variantId')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update a product variant (admin only)' })
+  async updateVariant(
+    @Param('id') id: string,
+    @Param('variantId') variantId: string,
+    @Body() dto: UpdateProductVariantDto,
+  ) {
+    return this.productsService.updateVariant(id, variantId, dto);
+  }
+
+  @Delete(':id/variants/:variantId')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Remove a product variant (admin only)' })
+  async removeVariant(@Param('id') id: string, @Param('variantId') variantId: string) {
+    return this.productsService.removeVariant(id, variantId);
   }
 }

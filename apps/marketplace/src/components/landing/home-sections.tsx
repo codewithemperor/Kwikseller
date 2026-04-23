@@ -1,28 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, PackageOpen, Star, Zap } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { Button } from "@heroui/react";
-import {
-  getMarketplaceProduct,
-  marketplaceBrands,
-  marketplaceCategories,
-  marketplaceFeaturedDeals,
-  marketplaceFeaturedProducts,
-  marketplaceHeroBanners,
-  marketplaceNewArrivals,
-  marketplacePromoBanners,
-  marketplaceReviews,
-  marketplaceTopSellers,
-  marketplaceTrustItems,
-  MarketplaceProduct,
-  marketplaceProducts,
-} from "@/data/marketplace-home";
-import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
-import { useMarketplaceShell } from "@/components/layout/marketplace-shell-context";
+import { marketplaceApi, productsApi } from "@kwikseller/api-client";
+import { AppImage } from "@/components/ui/app-image";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   SectionHeader,
   ProductCarouselSection,
@@ -30,20 +16,97 @@ import {
   PromoBannerGrid,
   BrandCarouselSection,
 } from "@/components/landing/shared/marketplace-carousel";
+import type {
+  MarketplaceCategory,
+  MarketplaceHeroBanner,
+  MarketplacePromoBanner,
+  MarketplaceSeller,
+  MarketplaceBrand,
+  MarketplaceTrustItem,
+  MarketplaceProduct,
+  MarketplaceReview,
+} from "@/data/marketplace-home";
+import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+import {
+  ShieldCheck,
+  Truck,
+  BadgePercent,
+  Headset,
+} from "lucide-react";
+
+/* ─── Static category icon map (emoji fallbacks) ─── */
+const CATEGORY_ICONS: Record<string, string> = {
+  fashion: "👗",
+  electronics: "📱",
+  phones: "📲",
+  beauty: "💄",
+  home: "🏠",
+  food: "🍽️",
+  automobile: "🚗",
+  sports: "⚽",
+  health: "💊",
+  books: "📚",
+  gaming: "🎮",
+  kids: "🧸",
+  jewelry: "💍",
+  groceries: "🛒",
+  default: "📦",
+};
+
+function getCategoryIcon(name: string, slug: string): string {
+  const key = (slug || "").toLowerCase();
+  if (CATEGORY_ICONS[key]) return CATEGORY_ICONS[key];
+  for (const [k, v] of Object.entries(CATEGORY_ICONS)) {
+    if (k !== "default" && name.toLowerCase().includes(k)) return v;
+  }
+  return CATEGORY_ICONS["default"] ?? "📦";
+}
+/* ─── Static Trust Items (UI-only) ────────────────────────── */
+const TRUST_ITEMS: MarketplaceTrustItem[] = [
+  { id: "escrow", title: "Escrow Protected", description: "Your money stays secure until delivery is confirmed.", icon: ShieldCheck },
+  { id: "delivery", title: "Fast Delivery", description: "Reliable delivery options across major cities.", icon: Truck },
+  { id: "deals", title: "Best Deals", description: "Daily discounts on trusted products and brands.", icon: BadgePercent },
+  { id: "support", title: "Responsive Support", description: "Get help quickly whenever you need assistance.", icon: Headset },
+];
 
 /* ─────────────────────────────────────────────
-   Hero (unchanged)
+   Hero Banner — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplaceHero() {
+  const [banners, setBanners] = useState<MarketplaceHeroBanner[]>([]);
+  const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [activeBanner, setActiveBanner] = React.useState(0);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [bannerRes, catRes] = await Promise.allSettled([
+          marketplaceApi.getBanners({ type: "hero" }),
+          marketplaceApi.getCategories(),
+        ]);
+        if (bannerRes.status === "fulfilled" && bannerRes.value.success && bannerRes.value.data) {
+          const data = bannerRes.value.data as any;
+          setBanners(Array.isArray(data) ? data : data.banners || []);
+        }
+        if (catRes.status === "fulfilled" && catRes.value.success && catRes.value.data) {
+          const data = catRes.value.data as any;
+          setCategories(Array.isArray(data) ? data : data.categories || []);
+        }
+      } catch {
+        // Show empty hero when API unavailable
+      }
+    };
+    fetchData();
+  }, []);
+
   React.useEffect(() => {
+    if (banners.length === 0) return;
     const id = setInterval(
-      () => setActiveBanner((c) => (c + 1) % marketplaceHeroBanners.length),
+      () => setActiveBanner((c) => (c + 1) % banners.length),
       5000,
     );
     return () => clearInterval(id);
-  }, []);
+  }, [banners.length]);
 
   return (
     <section className="border-b border-kwik-border bg-kwik-bg-page py-4">
@@ -51,19 +114,31 @@ export function MarketplaceHero() {
         {/* Category sidebar */}
         <aside className="hidden rounded-[20px] bg-background p-4 shadow-sm lg:block">
           <div className="space-y-1">
-            {marketplaceCategories.map((category) => {
-              const Icon = category.icon;
-              return (
+            {categories.length > 0 ? (
+              categories.map((category) => (
                 <button
                   key={category.id}
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-kwik-dark-medium transition-colors hover:bg-kwik-orange-tint hover:text-kwik-orange"
+                  onClick={() => {
+                    const slug = category.slug || category.id;
+                    window.location.href = `/categories?${slug}`;
+                  }}
+                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-kwik-dark-medium transition-all duration-200 hover:bg-kwik-orange-tint hover:text-kwik-orange hover:translate-x-1 active:scale-[0.98] active:bg-kwik-orange/10"
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{category.name}</span>
+                  {/* Active dot indicator */}
+                  <span className="w-1.5 h-1.5 rounded-full bg-transparent group-hover:bg-kwik-orange/50 transition-colors duration-200" />
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-kwik-bg-surface dark:bg-kwik-bg-light text-base shrink-0">
+                    {getCategoryIcon(category.name, category.slug || category.id)}
+                  </span>
+                  <span className="flex-1 truncate">{category.name}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-kwik-muted opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0" />
                 </button>
-              );
-            })}
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-sm text-kwik-muted">No categories yet</p>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -71,110 +146,144 @@ export function MarketplaceHero() {
         <div className="space-y-3">
           <div className="hidden overflow-hidden rounded-[24px] bg-kwik-orange shadow-sm md:block">
             <div className="relative aspect-[2.25/1]">
-              {marketplaceHeroBanners.map((banner, index) => (
-                <Link
-                  key={banner.id}
-                  href={banner.href}
-                  className={`absolute inset-0 transition-opacity duration-500 ${
-                    index === activeBanner
-                      ? "pointer-events-auto opacity-100"
-                      : "pointer-events-none opacity-0"
-                  }`}
-                >
-                  <Image
-                    src={banner.image}
-                    alt={banner.title}
-                    fill
-                    priority={index === 0}
-                    sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/25" />
-                  <div className="absolute inset-x-0 bottom-0 p-6 text-white">
-                    <span className="rounded-full bg-background/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
-                      {banner.badge}
-                    </span>
-                    <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight">
-                      {banner.title}
-                    </h1>
-                    <p className="mt-2 max-w-lg text-sm text-white/85">
-                      {banner.subtitle}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveBanner((c) =>
-                    c === 0 ? marketplaceHeroBanners.length - 1 : c - 1,
-                  )
-                }
-                className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-kwik-dark"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveBanner(
-                    (c) => (c + 1) % marketplaceHeroBanners.length,
-                  )
-                }
-                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-kwik-dark"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
-                {marketplaceHeroBanners.map((banner, index) => (
-                  <button
+              {banners.length > 0 ? (
+                banners.map((banner, index) => (
+                  <Link
                     key={banner.id}
-                    type="button"
-                    onClick={() => setActiveBanner(index)}
-                    className={`h-2.5 rounded-full transition-all ${index === activeBanner ? "w-8 bg-background" : "w-2.5 bg-background/45"}`}
+                    href={banner.href}
+                    className={`absolute inset-0 transition-opacity duration-500 ${
+                      index === activeBanner
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none opacity-0"
+                    }`}
+                  >
+                    <AppImage
+                      src={banner.image}
+                      alt={banner.title}
+                      className="w-full h-full"
+                    />
+                    <div className="absolute inset-0 bg-black/25" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+                      <motion.span
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.4 }}
+                        className="rounded-full bg-background/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+                      >
+                        {banner.badge}
+                      </motion.span>
+                      <motion.h1
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="mt-3 max-w-xl text-3xl font-bold leading-tight"
+                      >
+                        {banner.title}
+                      </motion.h1>
+                      <motion.p
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4, duration: 0.5 }}
+                        className="mt-2 max-w-lg text-sm text-white/85"
+                      >
+                        {banner.subtitle}
+                      </motion.p>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-kwik-bg-light">
+                  <EmptyState
+                    icon={<PackageOpen className="h-10 w-10" />}
+                    title="No promotions yet"
+                    description="Check back soon for exciting deals and offers."
                   />
-                ))}
-              </div>
+                </div>
+              )}
+              {banners.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveBanner((c) =>
+                        c === 0 ? banners.length - 1 : c - 1,
+                      )
+                    }
+                    className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-kwik-dark"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveBanner(
+                        (c) => (c + 1) % banners.length,
+                      )
+                    }
+                    className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-kwik-dark"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+                    {banners.map((banner, index) => (
+                      <button
+                        key={banner.id}
+                        type="button"
+                        onClick={() => setActiveBanner(index)}
+                        className={`h-2.5 rounded-full transition-all duration-300 ${index === activeBanner ? "w-8 bg-kwik-orange shadow-lg shadow-kwik-orange/30" : "w-2.5 bg-background/45 hover:bg-background/65"}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Mobile horizontal scroll banners */}
           <div className="md:hidden">
-            <div className="grid auto-cols-[82%] grid-flow-col gap-3 overflow-x-auto pb-1 min-[420px]:auto-cols-[56%] min-[540px]:auto-cols-[32%]">
-              {marketplaceHeroBanners.map((banner) => (
-                <Link
-                  key={banner.id}
-                  href={banner.href}
-                  className="relative overflow-hidden rounded-[22px] bg-kwik-orange shadow-sm"
-                >
-                  <div className="relative aspect-[1.3/1]">
-                    <Image
-                      src={banner.image}
-                      alt={banner.title}
-                      fill
-                      sizes="78vw"
-                      className="object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/20" />
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                      <span className="rounded-full bg-background/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                        {banner.badge}
-                      </span>
-                      <h2 className="mt-2 line-clamp-2 text-lg font-bold leading-tight">
-                        {banner.title}
-                      </h2>
+            {banners.length > 0 ? (
+              <div className="grid auto-cols-[82%] grid-flow-col gap-3 overflow-x-auto pb-1 min-[420px]:auto-cols-[56%] min-[540px]:auto-cols-[32%]">
+                {banners.map((banner) => (
+                  <Link
+                    key={banner.id}
+                    href={banner.href}
+                    className="relative overflow-hidden rounded-[22px] bg-kwik-orange shadow-sm"
+                  >
+                    <div className="relative aspect-[1.3/1]">
+                      <AppImage
+                        src={banner.image}
+                        alt={banner.title}
+                        className="w-full h-full"
+                      />
+                      <div className="absolute inset-0 bg-black/20" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                        <span className="rounded-full bg-background/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
+                          {banner.badge}
+                        </span>
+                        <h2 className="mt-2 line-clamp-2 text-lg font-bold leading-tight">
+                          {banner.title}
+                        </h2>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-48 items-center justify-center bg-kwik-bg-light rounded-[22px]">
+                <p className="text-sm text-kwik-muted">No promotions yet</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Seller CTA panel */}
         <div className="hidden space-y-3 lg:block">
-          <div className="rounded-[20px] bg-background p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
+          <div className="relative rounded-[24px] bg-background p-5 shadow-sm overflow-hidden">
+            {/* Animated dashed border overlay */}
+            <div className="absolute inset-0 rounded-[24px] border-2 border-dashed border-kwik-border pointer-events-none" />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange relative z-10">
               Become a seller
             </p>
             <h2 className="mt-2 text-lg font-bold text-kwik-dark">
@@ -187,9 +296,17 @@ export function MarketplaceHero() {
             <Link href="/register?role=VENDOR" className="mt-4 inline-flex">
               <Button
                 variant="primary"
-                className="h-11 rounded-xl bg-kwik-orange px-5 font-semibold text-white hover:bg-kwik-orange-hover"
+                className="relative h-11 rounded-xl bg-kwik-orange px-5 font-semibold text-white hover:bg-kwik-orange-hover overflow-hidden"
               >
-                Start selling
+                <span className="relative z-10 flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Start selling
+                </span>
+                <motion.span
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1 }}
+                />
               </Button>
             </Link>
           </div>
@@ -200,13 +317,13 @@ export function MarketplaceHero() {
 }
 
 /* ─────────────────────────────────────────────
-   Trust Bar
+   Trust Bar (static UI)
 ───────────────────────────────────────────── */
 export function MarketplaceTrustBar() {
   return (
     <section className="bg-kwik-bg-page">
       <div className="container mx-auto grid gap-3 px-4 py-5 md:grid-cols-2 xl:grid-cols-4">
-        {marketplaceTrustItems.map((item) => {
+        {TRUST_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
             <div
@@ -233,42 +350,148 @@ export function MarketplaceTrustBar() {
 }
 
 /* ─────────────────────────────────────────────
-   Category Section (now uses carousel)
+   Category Section — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplaceCategorySection() {
-  const categoriesForCarousel = marketplaceCategories.map((cat) => ({
+  const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await marketplaceApi.getCategories();
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const cats = Array.isArray(data) ? data : data.categories || [];
+          setCategories(cats.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug || c.id,
+            itemCount: c.productCount ? `${c.productCount}+ items` : "",
+            description: c.description || "",
+            image: c.image || c.imageUrl || null,
+          })));
+        }
+      } catch {
+        // Empty state handled below
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetch();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <section className="bg-kwik-bg-page py-8">
+        <div className="container mx-auto px-0 md:px-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (categories.length === 0) {
+    return (
+      <section className="bg-kwik-bg-page py-8">
+        <div className="container mx-auto px-0 md:px-4">
+          <SectionHeader title="Shop by Category" href="/categories" />
+          <EmptyState
+            icon={<PackageOpen className="h-8 w-8" />}
+            title="No categories yet"
+            description="Categories will appear here once sellers list products."
+          />
+        </div>
+      </section>
+    );
+  }
+
+  const categoriesForCarousel = categories.map((cat) => ({
     id: cat.id,
     name: cat.name,
     image: cat.image,
-    icon: cat.icon,
   }));
 
   return <CategoryCarouselSection categories={categoriesForCarousel} />;
 }
 
 /* ─────────────────────────────────────────────
-   Promo Banners Section
+   Promo Banners — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplacePromoBannersSection() {
-  const banners = marketplacePromoBanners.map((banner) => ({
+  const [banners, setBanners] = useState<MarketplacePromoBanner[]>([]);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await marketplaceApi.getBanners({ type: "promo" });
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.banners || [];
+          setBanners(list.map((b: any) => ({
+            id: b.id,
+            title: b.title || "",
+            subtitle: b.subtitle || "",
+            href: b.href || b.link || "#",
+            image: b.image || b.imageUrl || null,
+          })));
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    fetch();
+  }, []);
+
+  if (banners.length === 0) return null;
+
+  const bannersForCarousel = banners.map((banner) => ({
     id: banner.id,
     image: banner.image,
     href: banner.href,
   }));
 
-  return <PromoBannerGrid banners={banners} />;
+  return <PromoBannerGrid banners={bannersForCarousel} />;
 }
 
 /* ─────────────────────────────────────────────
-   Top Sellers
+   Top Sellers — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplaceTopSellersSection() {
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    loop: false,
-    align: "start",
-  });
+  const [sellers, setSellers] = useState<MarketplaceSeller[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: "start" });
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await marketplaceApi.getSellers({ limit: 10 });
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.sellers || [];
+          setSellers(list.map((s: any) => ({
+            id: s.id,
+            name: s.name || s.storeName || "",
+            tagline: s.tagline || s.description || "",
+            image: s.image || s.bannerUrl || s.coverUrl || null,
+            logo: s.logo || s.logoUrl || null,
+            location: s.location || "",
+            rating: s.rating || 0,
+            productCount: s.productCount ? `${s.productCount} products` : "0 products",
+          })));
+        }
+      } catch {
+        // Empty state
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetch();
+  }, []);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -283,34 +506,54 @@ export function MarketplaceTopSellersSection() {
     emblaApi.on("reInit", onSelect);
   }, [emblaApi, onSelect]);
 
+  if (isLoading) {
+    return (
+      <section className="bg-kwik-bg-page py-1">
+        <div className="container mx-auto px-0 md:px-4">
+          <SectionHeader title="Top Sellers" href="/vendors" />
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (sellers.length === 0) return null;
+
   return (
     <section className="bg-kwik-bg-page py-1">
-      <div className="container mx-auto px-0 md:px-4 ">
+      <div className="container mx-auto px-0 md:px-4">
         <SectionHeader title="Top Sellers" href="/vendors" />
-
         <div className="relative bg-background p-5 py-8">
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => emblaApi?.scrollPrev()}
-            disabled={!canPrev}
-            className="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emblaApi?.scrollPrev(); } }}
+            className={`absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex cursor-pointer ${!canPrev ? 'opacity-30 pointer-events-none' : ''}`}
+            aria-label="Previous"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange disabled:opacity-30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange">
               <ChevronLeft className="h-4 w-4" />
             </div>
-          </button>
-          <button
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => emblaApi?.scrollNext()}
-            disabled={!canNext}
-            className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emblaApi?.scrollNext(); } }}
+            className={`absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex cursor-pointer ${!canNext ? 'opacity-30 pointer-events-none' : ''}`}
+            aria-label="Next"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange disabled:opacity-30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-kwik-border bg-background shadow-sm transition-all hover:border-kwik-orange">
               <ChevronRight className="h-4 w-4" />
             </div>
-          </button>
+          </div>
 
           <div className="overflow-hidden" ref={emblaRef}>
             <div className="flex gap-4">
-              {marketplaceTopSellers.map((seller) => (
+              {sellers.map((seller) => (
                 <div
                   key={seller.id}
                   className="min-w-0 shrink-0 basis-[calc(100%-16px)] sm:basis-[calc(50%-8px)] lg:basis-[calc(33.333%-11px)]"
@@ -320,12 +563,10 @@ export function MarketplaceTopSellersSection() {
                     className="group block overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md"
                   >
                     <div className="relative aspect-[2.6/1] overflow-hidden">
-                      <Image
+                      <AppImage
                         src={seller.image}
                         alt={seller.name}
-                        fill
-                        sizes="(max-width: 640px) 90vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                       <div className="absolute right-3 top-3 max-w-[55%] rounded-xl bg-background/95 px-3 py-1.5 shadow-sm backdrop-blur-sm">
@@ -336,11 +577,9 @@ export function MarketplaceTopSellersSection() {
                     </div>
                     <div className="flex items-center gap-3 px-4 py-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-kwik-border bg-background shadow-sm">
-                        <Image
+                        <AppImage
                           src={seller.logo}
                           alt={seller.name}
-                          width={48}
-                          height={48}
                           className="h-full w-full object-cover"
                         />
                       </div>
@@ -381,10 +620,50 @@ export function MarketplaceTopSellersSection() {
 }
 
 /* ─────────────────────────────────────────────
-   Brands Section (now uses carousel with circles only)
+   Brands Section — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplaceBrandsSection() {
-  const brandsForCarousel = marketplaceBrands.map((brand) => ({
+  const [brands, setBrands] = useState<MarketplaceBrand[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await marketplaceApi.getBrands();
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.brands || [];
+          setBrands(list.map((b: any) => ({
+            id: b.id,
+            name: b.name || "",
+            image: b.image || b.logo || b.logoUrl || null,
+            href: b.href || `/brands/${b.slug || b.id}`,
+          })));
+        }
+      } catch {
+        // Empty state
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetch();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <section className="bg-kwik-bg-page py-8">
+        <div className="container mx-auto px-0 md:px-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (brands.length === 0) return null;
+
+  const brandsForCarousel = brands.map((brand) => ({
     id: brand.id,
     name: brand.name,
     image: brand.image,
@@ -395,18 +674,39 @@ export function MarketplaceBrandsSection() {
 }
 
 /* ─────────────────────────────────────────────
-   Reviews section
+   Reviews Section — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplaceReviewsSection() {
+  const [reviews, setReviews] = useState<MarketplaceReview[]>([]);
   const [emblaRef] = useEmblaCarousel({ loop: false, align: "start" });
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await productsApi.list({ limit: 1, sortBy: "rating", sortOrder: "desc" });
+        if (response.success && response.data) {
+          // If the API returns reviews data, use it; otherwise skip section
+          const data = response.data as any;
+          if (data.reviews && Array.isArray(data.reviews)) {
+            setReviews(data.reviews);
+          }
+        }
+      } catch {
+        // No reviews available
+      }
+    };
+    fetch();
+  }, []);
+
+  if (reviews.length === 0) return null;
 
   return (
     <section className="bg-kwik-bg-page py-5">
-      <div className="container mx-auto px-0 md:px-4 ">
+      <div className="container mx-auto px-0 md:px-4">
         <SectionHeader title="Customer Reviews" href="#" />
         <div className="overflow-hidden" ref={emblaRef}>
           <div className="flex gap-4">
-            {marketplaceReviews.map((review) => (
+            {reviews.map((review) => (
               <div
                 key={review.id}
                 className="min-w-0 shrink-0 basis-[calc(100%-16px)] sm:basis-[calc(50%-8px)] lg:basis-[calc(33.333%-11px)]"
@@ -440,59 +740,141 @@ export function MarketplaceReviewsSection() {
 }
 
 /* ─────────────────────────────────────────────
-   Named section exports used by page.tsx
+   Featured Products — fetches from API
 ───────────────────────────────────────────── */
 export function MarketplaceFeaturedProductsSection({
   onQuickView,
 }: {
   onQuickView: (p: MarketplaceProduct) => void;
 }) {
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await productsApi.list({ limit: 8, status: "ACTIVE" });
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.products || [];
+          setProducts(list.map((p: any) => ({
+            id: String(p.id),
+            name: p.name,
+            price: p.price,
+            comparePrice: p.comparePrice,
+            image: p.image || (typeof p.images?.[0] === "object" ? p.images[0].url : p.images?.[0]) || (typeof p.featuredImage === "object" ? p.featuredImage.url : p.featuredImage) || null,
+            rating: p.averageRating || p.rating || 0,
+            reviewCount: p.reviewCount || 0,
+            store: p.store?.name || p.storeName || "",
+            category: p.category?.name || p.categoryName || "",
+            isNew: p.isNew || false,
+          })));
+        }
+      } catch {
+        // Empty state
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetch();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <section className="bg-kwik-bg-page py-8">
+        <div className="container mx-auto px-0 md:px-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (products.length === 0) return null;
+
   return (
     <ProductCarouselSection
       title="Featured Products"
-      href="/products"
-      products={marketplaceProducts}
+      href="/search"
+      products={products}
       onQuickView={onQuickView}
     />
   );
 }
 
+/* ─────────────────────────────────────────────
+   Featured Deals — fetches from API
+───────────────────────────────────────────── */
 export function MarketplaceFeaturedDealsSection({
   onQuickView,
 }: {
   onQuickView: (p: MarketplaceProduct) => void;
 }) {
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await productsApi.getDeals({ limit: 8 });
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.deals || [];
+          setProducts(list.map((p: any) => ({
+            id: String(p.id),
+            name: p.name,
+            price: p.price,
+            comparePrice: p.comparePrice,
+            image: p.image || (typeof p.images?.[0] === "object" ? p.images[0].url : p.images?.[0]) || (typeof p.featuredImage === "object" ? p.featuredImage.url : p.featuredImage) || null,
+            rating: p.averageRating || p.rating || 0,
+            reviewCount: p.reviewCount || 0,
+            store: p.store?.name || p.storeName || "",
+            category: p.category?.name || p.categoryName || "",
+            isNew: p.isNew || false,
+          })));
+        }
+      } catch {
+        // Empty state
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetch();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <section className="bg-kwik-bg-page py-8">
+        <div className="container mx-auto px-0 md:px-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (products.length === 0) return null;
+
   return (
     <ProductCarouselSection
       title="Featured Deals"
-      href="/deals"
-      products={marketplaceFeaturedDeals}
+      href="/search?q=deals"
+      products={products}
       onQuickView={onQuickView}
       autoplay
     />
   );
 }
 
-export function MarketplaceNewArrivalsSection({
-  onQuickView,
-}: {
-  onQuickView: (p: MarketplaceProduct) => void;
-}) {
-  return (
-    <ProductCarouselSection
-      title="New Arrivals"
-      href="/products?filter=new"
-      products={marketplaceNewArrivals}
-      onQuickView={onQuickView}
-    />
-  );
-}
-
+/* ─────────────────────────────────────────────
+   Seller CTA (static UI)
+───────────────────────────────────────────── */
 export function MarketplaceSellerCta() {
-  const ctaProduct = getMarketplaceProduct("chair-1");
   return (
     <section className="bg-kwik-bg-page py-5 pb-12">
-      <div className="container mx-auto px-0 md:px-4 ">
+      <div className="container mx-auto px-0 md:px-4">
         <div className="overflow-hidden rounded-[28px] bg-background shadow-sm lg:grid lg:grid-cols-[1.15fr_0.85fr]">
           <div className="p-6 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
@@ -524,11 +906,6 @@ export function MarketplaceSellerCta() {
               </Link>
             </div>
           </div>
-          {ctaProduct && (
-            <div className="border-t border-kwik-border bg-kwik-bg-warm p-5 lg:border-l lg:border-t-0">
-              <MarketplaceProductCard product={ctaProduct} priority />
-            </div>
-          )}
         </div>
       </div>
     </section>

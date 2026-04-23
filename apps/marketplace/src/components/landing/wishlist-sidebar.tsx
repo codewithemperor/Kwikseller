@@ -54,17 +54,17 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 bottom-0 w-[420px] max-w-[92vw] bg-background/95 backdrop-blur-xl border-l border-divider z-[60] shadow-2xl flex flex-col"
+            className="fixed top-0 right-0 bottom-0 w-[420px] max-w-[92vw] bg-kwik-bg-surface/95 backdrop-blur-xl border-l border-kwik-border z-[60] shadow-2xl flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-kwik-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-danger" fill="currentColor" />
+                <div className="w-10 h-10 rounded-xl bg-kwik-red/10 flex items-center justify-center">
+                  <Heart className="w-5 h-5 text-kwik-red" fill="currentColor" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-lg">Wishlist</h2>
-                  <p className="text-xs text-default-400">
+                  <h2 className="font-semibold text-lg text-kwik-dark">Wishlist</h2>
+                  <p className="text-xs text-kwik-muted">
                     {itemCount} {itemCount === 1 ? 'item' : 'items'}
                   </p>
                 </div>
@@ -89,11 +89,11 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                   transition={{ delay: 0.1 }}
                   className="flex flex-col items-center justify-center h-full px-6 text-center"
                 >
-                  <div className="w-24 h-24 rounded-full bg-default-50 flex items-center justify-center mb-5">
-                    <Heart className="w-10 h-10 text-default-300" />
+                  <div className="w-24 h-24 rounded-full bg-kwik-bg-light flex items-center justify-center mb-5">
+                    <Heart className="w-10 h-10 text-kwik-muted" />
                   </div>
-                  <h3 className="font-semibold text-lg mb-2">Your wishlist is empty</h3>
-                  <p className="text-sm text-default-400 mb-6 max-w-[260px]">
+                  <h3 className="font-semibold text-lg mb-2 text-kwik-dark">Your wishlist is empty</h3>
+                  <p className="text-sm text-kwik-gray-light mb-6 max-w-[260px]">
                     Items you love will appear here. Start exploring and save your favorites!
                   </p>
                   <Button
@@ -115,10 +115,10 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20, height: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="group relative flex gap-3 bg-default-50 hover:bg-default-100 rounded-xl p-3 transition-colors"
+                      className="group relative flex gap-3 bg-kwik-bg-light hover:bg-kwik-bg-surface rounded-xl p-3 transition-colors"
                     >
                       {/* Product Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-default-100 flex-shrink-0">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-kwik-bg-surface flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.image}
@@ -129,7 +129,7 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
 
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm line-clamp-1 leading-tight">
+                        <h4 className="font-medium text-sm line-clamp-1 leading-tight text-kwik-dark">
                           {item.name}
                         </h4>
 
@@ -148,20 +148,20 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
 
                         {/* Price & Rating */}
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className="font-bold text-sm text-accent">
+                          <span className="font-bold text-sm text-kwik-orange">
                             {formatCurrency(item.price)}
                           </span>
                           {item.rating > 0 && (
                             <div className="flex items-center gap-0.5">
-                              <Star className="w-3 h-3 text-warning fill-warning" />
-                              <span className="text-xs text-default-400">{item.rating}</span>
+                              <Star className="w-3 h-3 text-kwik-star fill-kwik-star" />
+                              <span className="text-xs text-kwik-muted">{item.rating}</span>
                             </div>
                           )}
                         </div>
 
                         {/* Original Price */}
                         {item.originalPrice && item.originalPrice > item.price && (
-                          <span className="text-xs text-default-400 line-through">
+                          <span className="text-xs text-kwik-muted line-through">
                             {formatCurrency(item.originalPrice)}
                           </span>
                         )}
@@ -172,7 +172,7 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                         isIconOnly
                         size="sm"
                         variant="ghost"
-                        className="absolute top-2 right-2 text-default-300 hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        className="absolute top-2 right-2 text-kwik-muted hover:text-kwik-red opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                         onPress={() => handleRemoveItem(item.id, item.name)}
                         aria-label={`Remove ${item.name} from wishlist`}
                       >
@@ -199,7 +199,7 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
 
             {/* Footer */}
             {items.length > 0 && (
-              <div className="border-t border-divider px-6 py-4 space-y-3 bg-background">
+              <div className="border-t border-kwik-border px-6 py-4 space-y-3 bg-kwik-bg-surface">
                 {/* Add All to Cart Button */}
                 <Button
                   variant="primary"
@@ -212,7 +212,7 @@ export function WishlistSidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                 </Button>
 
                 {/* Local storage note */}
-                <p className="text-xs text-default-400 text-center">
+                <p className="text-xs text-kwik-muted text-center">
                   Your wishlist is saved locally
                 </p>
               </div>

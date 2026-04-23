@@ -3,7 +3,6 @@
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import {
   Search,
   Loader2,
@@ -11,12 +10,16 @@ import {
   Heart,
   Eye,
   Star,
+  Sparkles,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { kwikToast } from "@kwikseller/utils";
 import { productsApi } from "@kwikseller/api-client";
 import { useCartStore, useWishlistStore } from "@/stores";
 import { useMarketplaceShell } from "@/components/layout/marketplace-shell-context";
-import type { SearchableProduct } from "@/data/products";
+import { AppImage } from "@/components/ui/app-image";
+import { EmptyState } from "@/components/ui/empty-state";
+import { toSearchableProduct, type SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
 // Dynamic import for QuickViewModal to reduce initial bundle
@@ -82,18 +85,21 @@ function SearchProductCard({
   };
 
   return (
-    <article
-      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md cursor-pointer"
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3 }}
+      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-all duration-300 hover:shadow-md hover-lift press-scale card-hover-border cursor-pointer"
       onClick={() => onQuickView?.(product)}
     >
       {/* Image */}
       <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
-        <Image
+        <AppImage
           src={product.image}
           alt={product.name}
-          fill
-          sizes="(max-width: 640px) 50vw, 25vw"
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
         />
 
         {/* Badges */}
@@ -104,25 +110,25 @@ function SearchProductCard({
             </span>
           )}
           {product.isNew && (
-            <span className="rounded-lg bg-background/90 px-2 py-0.5 text-[11px] font-semibold text-kwik-dark">
+            <span className="rounded-lg bg-background/90 dark:bg-background/80 px-2 py-0.5 text-[11px] font-semibold text-kwik-dark dark:text-white">
               New
             </span>
           )}
         </div>
 
         {/* Wishlist button */}
-        <button
-          type="button"
+        <motion.button
+          whileTap={{ scale: 0.85 }}
           onClick={handleWishlistToggle}
           className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
           aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
-            className={`h-4 w-4 transition-colors ${
-              isWished ? "fill-kwik-orange text-kwik-orange" : "text-kwik-muted"
+            className={`h-4 w-4 transition-all duration-200 ${
+              isWished ? "fill-kwik-orange text-kwik-orange scale-110" : "text-kwik-muted"
             }`}
           />
-        </button>
+        </motion.button>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
@@ -159,26 +165,28 @@ function SearchProductCard({
         <div className="flex items-center gap-2 mt-auto">
           <button
             onClick={handleAddToCart}
-            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-soft-hover hover text-[10px] font-medium text-kwik-dark-medium transition-colors"
+            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-kwik-bg-surface hover:bg-kwik-orange text-[10px] font-medium text-kwik-dark-medium hover:text-white transition-all duration-200"
           >
             <ShoppingBag className="h-3 w-3" />
             Add to Cart
           </button>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onQuickView?.(product);
             }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-kwik-bg-light transition-colors hover:bg-kwik-orange-tint hover:text-kwik-orange"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-kwik-bg-light transition-all duration-200 hover:bg-kwik-orange-tint hover:text-kwik-orange"
             aria-label="Quick view"
           >
             <Eye className="h-3.5 w-3.5 text-kwik-gray-light" />
-          </button>
+          </motion.button>
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
@@ -249,7 +257,7 @@ function SearchPageContent() {
   // Read showFilters from layout shell context
   const showFilters = shell?.showFilters ?? filtersParam;
 
-  // Fetch search results from NestJS API via api-client
+  // Fetch search results from API
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -262,20 +270,28 @@ function SearchPageContent() {
         const response = await productsApi.search({
           q: query,
           category: activeCategory || undefined,
-          limit: 50,
+          limit: 20,
         });
 
         if (response.success && response.data) {
-          setResults(response.data as unknown as SearchableProduct[]);
+          const data = response.data as any;
+          let items: any[] = [];
+          if (Array.isArray(data)) {
+            items = data;
+          } else if (data.products && Array.isArray(data.products)) {
+            items = data.products;
+          }
+          // Properly convert API Product objects to SearchableProduct format
+          setResults(items.map(toSearchableProduct));
         }
-      } catch (err) {
-        console.error("Search failed:", err);
+      } catch {
+        setResults([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    const timer = setTimeout(fetchResults, 200);
+    const timer = setTimeout(fetchResults, 300);
     return () => clearTimeout(timer);
   }, [query, activeCategory]);
 
@@ -286,7 +302,7 @@ function SearchPageContent() {
 
   // Sort results
   const sortedResults = React.useMemo(() => {
-    let sorted = [...results];
+    const sorted = [...results];
 
     switch (sortBy) {
       case "price-low":
@@ -329,27 +345,31 @@ function SearchPageContent() {
   return (
     <div className="min-h-screen bg-kwik-bg-page">
       {/* Category tabs - sticky below the header */}
-      <div className="sticky top-[53px] md:top-[64px] z-20 bg-background border-b border-kwik-border">
+      <div className="sticky top-[53px] md:top-[64px] z-20 bg-background border-b border-kwik-border shadow-sm dark:shadow-none">
         <div className="container mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto py-2 scrollbar-hide -mx-4 px-4">
-            {ALL_CATEGORIES.map((cat) => (
-              <button
-                key={cat.slug || "all"}
-                type="button"
-                onClick={() => handleCategoryChange(cat.slug)}
-                className={`flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                  activeCategory === cat.slug
-                    ? "bg-kwik-orange text-white"
-                    : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+          <div className="flex gap-1.5 overflow-x-auto py-2.5 scrollbar-hide -mx-4 px-4">
+            {ALL_CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat.slug;
+              return (
+                <motion.button
+                  key={cat.slug || "all"}
+                  type="button"
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleCategoryChange(cat.slug)}
+                  className={`flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-gradient-to-r from-kwik-orange to-[#d97706] text-white shadow-md shadow-kwik-orange/20"
+                      : "bg-kwik-bg-surface text-kwik-gray hover:bg-kwik-border hover:text-kwik-dark ring-1 ring-kwik-border/50"
+                  }`}
+                >
+                  {cat.name}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Filters panel - controlled by layout header */}
+        {/* Filters panel with improved sort buttons */}
         {showFilters && (
           <div className="border-t border-kwik-border">
             <div className="container mx-auto px-4 py-3">
@@ -357,20 +377,26 @@ function SearchPageContent() {
                 <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider">
                   Sort by:
                 </span>
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setSortBy(opt.value)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      sortBy === opt.value
-                        ? "bg-kwik-dark text-white"
-                        : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                <div className="flex items-center gap-1.5 rounded-xl bg-kwik-bg-surface p-1 ring-1 ring-kwik-border/50">
+                  {SORT_OPTIONS.map((opt) => {
+                    const isActive = sortBy === opt.value;
+                    return (
+                      <motion.button
+                        key={opt.value}
+                        type="button"
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSortBy(opt.value)}
+                        className={`rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 ${
+                          isActive
+                            ? "bg-gradient-to-r from-kwik-orange to-[#d97706] text-white shadow-sm"
+                            : "text-kwik-gray hover:text-kwik-dark hover:bg-kwik-bg-light"
+                        }`}
+                      >
+                        {opt.label}
+                      </motion.button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -379,7 +405,7 @@ function SearchPageContent() {
 
       {/* Results area */}
       <div className="container mx-auto px-4 py-4">
-        {/* Results count */}
+        {/* Results count with animated counter */}
         {query && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-kwik-gray-light">
@@ -396,45 +422,103 @@ function SearchPageContent() {
           </div>
         )}
 
-        {/* Loading state */}
+        {/* Loading skeleton */}
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
-            <p className="mt-3 text-sm text-kwik-gray-light">Searching...</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border"
+              >
+                {/* Image skeleton with shimmer sweep */}
+                <div className="relative aspect-square m-2 overflow-hidden rounded-[18px] bg-kwik-bg-light">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" />
+                </div>
+                {/* Text skeleton with shimmer sweep */}
+                <div className="flex flex-col gap-2 px-3 pb-3 pt-2">
+                  <div className="relative h-4 w-3/4 rounded-lg bg-kwik-bg-light overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" />
+                  </div>
+                  <div className="relative h-3 w-1/2 rounded-lg bg-kwik-bg-light overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 100}ms` }} />
+                  </div>
+                  <div className="flex items-end justify-between pt-1">
+                    <div className="flex flex-col gap-1">
+                      <div className="relative h-2.5 w-12 rounded bg-kwik-bg-light overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 150}ms` }} />
+                      </div>
+                      <div className="relative h-3 w-8 rounded bg-kwik-bg-light overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 200}ms` }} />
+                      </div>
+                    </div>
+                    <div className="relative h-4 w-16 rounded-lg bg-kwik-bg-light overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 250}ms` }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-auto pt-1">
+                    <div className="relative h-7 flex-1 rounded-xl bg-kwik-bg-light overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 300}ms` }} />
+                    </div>
+                    <div className="relative h-7 w-7 rounded-xl bg-kwik-bg-light overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer-sweep_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 350}ms` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* No query state */}
+        {/* No query state - enhanced with illustration area */}
         {!query && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-20 h-20 rounded-full bg-kwik-bg-light flex items-center justify-center mb-4">
-              <Search className="h-8 w-8 text-kwik-muted" />
+          <div className="flex flex-col items-center justify-center py-20 px-4">
+            <div className="relative mb-6">
+              {/* Decorative background */}
+              <div className="absolute -inset-8 rounded-full bg-kwik-orange/5 blur-2xl" />
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-kwik-orange/10 to-kwik-orange/5 ring-1 ring-kwik-orange/20">
+                <Search className="h-12 w-12 text-kwik-orange" />
+              </div>
             </div>
-            <h2 className="text-lg font-semibold text-kwik-dark mb-2">
-              Search Kwikseller
-            </h2>
-            <p className="text-sm text-kwik-gray-light text-center max-w-sm">
+            <h3 className="text-xl font-semibold text-kwik-dark">Search Kwikseller</h3>
+            <p className="mt-2 max-w-sm text-center text-sm text-kwik-gray-light">
               Find products, stores, and categories. Start typing to see results.
             </p>
+            <div className="mt-4 flex gap-2">
+              {["Electronics", "Fashion", "Phones"].map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams({ q: term });
+                    router.push(`/search?${params.toString()}`);
+                  }}
+                  className="rounded-full border border-kwik-border bg-kwik-bg-surface px-4 py-2 text-xs font-medium text-kwik-gray transition-all duration-200 hover:border-kwik-orange/50 hover:bg-kwik-orange-tint hover:text-kwik-orange"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* No results state */}
+        {/* No results state - enhanced with illustration */}
         {query && !isLoading && results.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-20 h-20 rounded-full bg-kwik-bg-light flex items-center justify-center mb-4">
-              <ShoppingBag className="h-8 w-8 text-kwik-muted" />
+          <div className="flex flex-col items-center justify-center py-20 px-4">
+            <div className="relative mb-6">
+              {/* Decorative background */}
+              <div className="absolute -inset-8 rounded-full bg-kwik-orange/5 blur-2xl" />
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-kwik-bg-surface to-kwik-bg-light ring-1 ring-kwik-border">
+                <ShoppingBag className="h-12 w-12 text-kwik-gray-light" />
+              </div>
             </div>
-            <h2 className="text-lg font-semibold text-kwik-dark mb-2">
-              No results found
-            </h2>
-            <p className="text-sm text-kwik-gray-light text-center max-w-sm">
+            <h3 className="text-xl font-semibold text-kwik-dark">No results found</h3>
+            <p className="mt-2 max-w-sm text-center text-sm text-kwik-gray-light">
               We couldn&apos;t find anything for &ldquo;{query}&rdquo;. Try a different search term or browse categories.
             </p>
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="mt-4 rounded-xl bg-kwik-orange px-6 py-2.5 text-sm font-semibold text-white hover:bg-kwik-orange-hover transition-colors"
+              className="mt-5 rounded-xl bg-gradient-to-r from-kwik-orange to-[#d97706] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-kwik-orange/20 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
             >
               Browse Marketplace
             </button>

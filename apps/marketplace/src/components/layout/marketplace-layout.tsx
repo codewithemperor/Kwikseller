@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
   CreditCard,
   Droplets,
+  Heart,
   Info,
   LogOut,
   Menu,
@@ -23,18 +26,25 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button, Separator } from "@heroui/react";
 import { OfflineBanner } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
-import { marketplaceCategories } from "@/data/marketplace-home";
+import { marketplaceApi } from "@kwikseller/api-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CartDrawer } from "@/components/landing/cart-drawer";
-import { CookieConsentBanner } from "@/components/landing/cookie-consent-banner";
+import { ComparePanel } from "@/components/landing/compare-panel";
 import { EnhancedFooter } from "@/components/landing/enhanced-footer";
 import { EnhancedSearchOverlay } from "@/components/landing/enhanced-search-overlay";
 import { MegaNav } from "@/components/landing/mega-menu";
 import { MobileBottomNav } from "@/components/landing/mobile-bottom-nav";
+import { SearchAutoSuggest } from "@/components/landing/search-auto-suggest";
 import { PageLoader } from "@/components/landing/page-loader";
+import { PriceDropAlert } from "@/components/landing/price-drop-alert";
+import { NotificationToastStack } from "@/components/landing/notification-toast";
+import { ScrollProgress } from "@/components/landing/scroll-progress";
+import { OrderTrackingWidget } from "@/components/landing/order-tracking-widget";
 import { WishlistSidebar } from "@/components/landing/wishlist-sidebar";
 import { MarketplaceShellProvider } from "@/components/layout/marketplace-shell-context";
-import { useCartStore } from "@/stores";
+import { useCartStore, useWishlistStore } from "@/stores";
+import { AppImage } from "@/components/ui/app-image";
+import type { MarketplaceCategory } from "@/data/marketplace-home";
 
 function MobileDrawerContent({
   onClose,
@@ -43,6 +53,7 @@ function MobileDrawerContent({
   isAuthLoading,
   handleLogout,
   router,
+  categories,
 }: {
   onClose: () => void;
   isAuthenticated: boolean;
@@ -50,6 +61,7 @@ function MobileDrawerContent({
   isAuthLoading: boolean;
   handleLogout: () => void;
   router: ReturnType<typeof useRouter>;
+  categories: MarketplaceCategory[];
 }) {
   const pathname = usePathname();
 
@@ -112,27 +124,25 @@ function MobileDrawerContent({
         })}
       </nav>
 
-      <div className="mb-4 rounded-2xl bg-kwik-bg-surface p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
-          Shop categories
-        </p>
-        <div className="grid grid-cols-1 gap-1">
-          {marketplaceCategories.map((category) => {
-            const Icon = category.icon;
-            return (
+      {categories.length > 0 && (
+        <div className="mb-4 rounded-2xl bg-kwik-bg-surface p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
+            Shop categories
+          </p>
+          <div className="grid grid-cols-1 gap-1">
+            {categories.map((category) => (
               <button
                 key={category.id}
                 type="button"
-                onClick={() => handleNavClick(`/categories?${category.id}`)}
+                onClick={() => handleNavClick(`/categories?${category.slug || category.id}`)}
                 className="flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-kwik-gray transition-colors hover:bg-background hover:text-kwik-dark"
               >
-                <Icon className="h-4 w-4" />
                 <span>{category.name}</span>
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <Separator className="mb-4" />
 
@@ -267,6 +277,46 @@ function InlineSearchBar({
   );
 }
 
+/* ─── Wishlist Nav Button (client component) ──────────────────── */
+
+function WishlistNavButton() {
+  const router = useRouter();
+  const wishlistCount = useWishlistStore((s) => s.itemCount);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return (
+    <Button
+      isIconOnly
+      variant="ghost"
+      size="sm"
+      onPress={() => router.push("/wishlist")}
+      aria-label="Wishlist"
+      className="relative text-kwik-gray-light"
+    >
+      <Heart className="h-4 w-4" />
+      {mounted && wishlistCount > 0 ? (
+        <motion.span
+          key={wishlistCount}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{
+            type: "spring",
+            stiffness: 500,
+            damping: 15,
+          }}
+          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-kwik-red text-[10px] font-bold text-white shadow-sm"
+        >
+          {wishlistCount > 9 ? "9+" : wishlistCount}
+        </motion.span>
+      ) : null}
+    </Button>
+  );
+}
+
 /* ─── Main Layout Component ─────────────────────────────────── */
 
 export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
@@ -276,14 +326,43 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, logout, isLoading: isAuthLoading } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAutoSuggestOpen, setIsAutoSuggestOpen] = useState(false);
+  const desktopSearchBtnRef = useRef<HTMLButtonElement>(null);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const isPageLoadingRef = useRef(true);
 
   const isSearchPage = pathname === "/search";
   const searchQuery = searchParams.get("q") || "";
+
+  // Fetch categories for navigation
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await marketplaceApi.getCategories();
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.categories || [];
+          setCategories(
+            list.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              slug: c.slug || c.id,
+              itemCount: c.productCount ? `${c.productCount}+ items` : "",
+              description: c.description || "",
+              image: c.image || c.imageUrl || null,
+            })),
+          );
+        }
+      } catch {
+        // Categories will be empty
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -312,6 +391,16 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const cartItemCount = useCartStore((s) =>
     s.items.reduce((sum, item) => sum + item.quantity, 0),
   );
+  const [prevCartCount, setPrevCartCount] = useState(cartItemCount);
+  const [badgeKey, setBadgeKey] = useState(0);
+
+  // Animate badge when cart count changes
+  useEffect(() => {
+    if (cartItemCount !== prevCartCount) {
+      setBadgeKey((k) => k + 1);
+      setPrevCartCount(cartItemCount);
+    }
+  }, [cartItemCount, prevCartCount]);
   const setCartOpen = useCartStore((s) => s.setCartOpen);
 
   const handleLogout = async () => {
@@ -343,7 +432,6 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
 
   const handleToggleFilters = useCallback(() => {
     setShowFilters((prev) => !prev);
-    // Also update URL so search page can read it
     if (isSearchPage) {
       const params = new URLSearchParams(searchParams.toString());
       if (!showFilters) {
@@ -374,8 +462,10 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         )}
 
         <header
-          className={`sticky top-0 z-40 border-b border-kwik-border bg-background/95 backdrop-blur-md ${
-            isScrolled ? "shadow-sm" : ""
+          className={`sticky top-0 z-40 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
+            isScrolled
+              ? "shadow-md border-b border-kwik-orange/10"
+              : "border-b border-kwik-border"
           }`}
         >
           <div className="container mx-auto px-0 md:px-4">
@@ -391,7 +481,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 <Menu className="h-5 w-5" />
               </Button>
 
-              {/* Logo - always shown */}
+              {/* Logo */}
               <button
                 type="button"
                 onClick={() => router.push("/")}
@@ -414,16 +504,24 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
               <MegaNav />
 
               <div className="flex items-center gap-0 md:gap-2">
-                {/* Desktop search - hidden on mobile, hidden on search page */}
+                {/* Desktop search - auto suggest on desktop */}
                 {!isSearchPage && (
-                  <button
-                    type="button"
-                    onClick={() => setIsSearchOpen(true)}
-                    className="hidden h-11 min-w-[190px] items-center gap-2 rounded-2xl border border-kwik-border bg-kwik-bg-surface px-4 text-sm text-kwik-gray-light transition-colors hover:border-kwik-orange md:inline-flex lg:min-w-[260px]"
-                  >
-                    <Search className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Search for...</span>
-                  </button>
+                  <div className="relative hidden md:block">
+                    <button
+                      ref={desktopSearchBtnRef}
+                      type="button"
+                      onClick={() => setIsAutoSuggestOpen(true)}
+                      className="flex h-11 min-w-[190px] items-center gap-2 rounded-2xl border border-kwik-border bg-kwik-bg-surface px-4 text-sm text-kwik-gray-light transition-colors hover:border-kwik-orange hover:shadow-md hover:shadow-kwik-orange/5 lg:min-w-[260px] cursor-pointer"
+                    >
+                      <Search className="h-4 w-4 shrink-0 text-kwik-muted" />
+                      <span className="truncate">Search products, brands...</span>
+                    </button>
+                    <SearchAutoSuggest
+                      isOpen={isAutoSuggestOpen}
+                      onClose={() => setIsAutoSuggestOpen(false)}
+                      anchorRef={desktopSearchBtnRef as React.RefObject<HTMLElement>}
+                    />
+                  </div>
                 )}
 
                 <Button
@@ -436,11 +534,31 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 >
                   <ShoppingCart className="h-4 w-4" />
                   {cartItemCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-kwik-orange text-[10px] font-bold text-white">
-                      {cartItemCount > 9 ? "9+" : cartItemCount}
-                    </span>
+                    <motion.span
+                      key={badgeKey}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 15,
+                      }}
+                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-kwik-orange text-[10px] font-bold text-white shadow-sm shadow-kwik-orange/30"
+                    >
+                      {/* Pulse ring animation */}
+                      <motion.span
+                        className="absolute inset-0 rounded-full bg-kwik-orange"
+                        initial={{ scale: 1, opacity: 0.6 }}
+                        animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 3 }}
+                      />
+                      <span className="relative z-10">{cartItemCount > 9 ? "9+" : cartItemCount}</span>
+                    </motion.span>
                   )}
                 </Button>
+
+                {/* Wishlist button */}
+                <WishlistNavButton />
 
                 <ThemeToggle />
 
@@ -484,7 +602,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* Bottom search row - shown on search page for both mobile and desktop */}
+            {/* Bottom search row - shown on search page */}
             {isSearchPage && (
               <div className="pb-2 px-3 md:pb-3 md:px-4">
                 <InlineSearchBar
@@ -497,20 +615,21 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Mobile search button - only when NOT on search page */}
+            {/* Mobile search button */}
             {!isSearchPage && (
               <div className="md:hidden pb-2 px-3">
-                <button
+                <motion.button
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
-                  className="flex w-full h-12 items-center gap-2 rounded-2xl border border-kwik-border bg-kwik-bg-surface px-4 text-sm text-kwik-gray-light transition-colors hover:border-kwik-orange"
+                  whileTap={{ scale: 0.98 }}
+                  className="flex w-full h-12 items-center gap-2 rounded-2xl border border-kwik-border bg-kwik-bg-surface px-4 text-sm text-kwik-gray-light transition-all duration-200 hover:border-kwik-orange hover:shadow-md hover:shadow-kwik-orange/5"
                   aria-label="Open search"
                 >
-                  <Search className="h-4 w-4 shrink-0" />
+                  <Search className="h-4 w-4 shrink-0 text-kwik-muted" />
                   <span className="truncate">
                     Search products, brands and categories
                   </span>
-                </button>
+                </motion.button>
               </div>
             )}
           </div>
@@ -523,8 +642,8 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-50 bg-black/50 md:hidden"
+                transition={{ duration: 0.25 }}
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] md:hidden"
                 onClick={closeDrawer}
               />
               <motion.div
@@ -541,29 +660,28 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                   isAuthLoading={isAuthLoading}
                   handleLogout={handleLogout}
                   router={router}
+                  categories={categories}
                 />
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
-        <main className="flex-1 pb-20 md:pb-0">{children}</main>
+        <main className="flex-1 pb-20 md:pb-0">
+          <PriceDropAlert />
+          <NotificationToastStack />
+          {children}
+        </main>
 
-        {/* Temporarily disabled to keep the marketplace shell focused. */}
-        {/* <RecentlyViewed /> */}
-        {/* <AppPromoBanner /> */}
+        <ScrollProgress />
+        <OrderTrackingWidget />
         <CartDrawer />
+        <ComparePanel />
         <WishlistSidebar
           isOpen={isWishlistOpen}
           onClose={() => setIsWishlistOpen(false)}
         />
-        {/* <UserPreferences /> */}
-        {/* <OrderTrackingWidget /> */}
-        {/* <ComparePanel /> */}
-        {/* <FloatingButtons /> */}
-        {/* <LiveActivityFeed /> */}
         <MobileBottomNav onSearchOpen={() => setIsSearchOpen(true)} />
-        {/* <CookieConsentBanner /> */}
         <EnhancedFooter />
       </div>
     </MarketplaceShellProvider>

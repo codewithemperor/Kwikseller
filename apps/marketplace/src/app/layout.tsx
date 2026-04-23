@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
 import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
+import { NotificationToastStack } from "@/components/landing/notification-toast";
 
 // Heading font - Space Grotesk (modern, geometric sans-serif)
 const fontHeading = Space_Grotesk({
@@ -135,7 +136,27 @@ export default function RootLayout({
                   {children}
                 </MarketplaceLayout>
                 <Toast.Provider placement="top end" maxVisibleToasts={3} />
-                <Toaster position="top-right" richColors closeButton />
+                <Toaster
+                  position="top-right"
+                  richColors
+                  closeButton
+                  toastOptions={{
+                    unstyled: false,
+                    classNames: {
+                      toast: "!rounded-2xl !border !border-kwik-border/60 !shadow-xl !backdrop-blur-xl !bg-background/95",
+                      title: "!text-sm !font-semibold !text-kwik-dark",
+                      description: "!text-xs !text-kwik-gray-light",
+                      actionButton: "!rounded-lg !bg-kwik-orange !px-3 !py-1.5 !text-xs !font-semibold !text-white",
+                      cancelButton: "!rounded-lg !bg-kwik-bg-surface !px-3 !py-1.5 !text-xs !font-medium !text-kwik-gray",
+                      success: "!border-kwik-green/30",
+                      error: "!border-kwik-red/30",
+                      info: "!border-kwik-blue/30",
+                      warning: "!border-kwik-amber/30",
+                      closeButton: "!top-3 !right-3 !left-auto !bg-kwik-bg-surface !border-kwik-border !text-kwik-muted hover:!text-kwik-dark hover:!bg-kwik-border/50",
+                    },
+                  }}
+                />
+                <NotificationToastStack />
               </ThemeProvider>
             </AuthProvider>
           </QueryProvider>

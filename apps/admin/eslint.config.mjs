@@ -40,6 +40,8 @@ export default [
       'react-hooks/exhaustive-deps': 'off',
       'no-unused-vars': 'off',
       'no-console': 'off',
+      'react-hooks/incompatible-library': 'off',
+      '@next/next/no-img-element': 'off',
     },
     settings: {
       react: {

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import React from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,7 +17,8 @@ import {
 } from "lucide-react";
 import { Button, Chip } from "@heroui/react";
 import { kwikToast } from "@kwikseller/utils";
-import { useCartStore } from "@/stores";
+import { useCartStore, useWishlistStore, useRecentlyViewedStore } from "@/stores";
+import { AppImage } from "@/components/ui/app-image";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
 function formatCurrency(amount: number): string {
@@ -38,20 +38,33 @@ function QuickViewContent({
   onClose: () => void;
 }) {
   const [quantity, setQuantity] = React.useState(1);
-  const [isLiked, setIsLiked] = React.useState(false);
-  const addItem = useCartStore((s) => s.addItem);
+  const { toggleItem, isInWishlist } = useWishlistStore();
+  const isLiked = isInWishlist(product.id);
+  const addItemToCart = useCartStore((s) => s.addItem);
+  const addRecentlyViewed = useRecentlyViewedStore((s) => s.addItem);
   const router = useRouter();
 
   React.useEffect(() => {
     document.body.style.overflow = "hidden";
+
+    // Track as recently viewed when modal opens
+    addRecentlyViewed({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      comparePrice: product.comparePrice,
+      image: product.image,
+      store: product.store,
+    });
+
     return () => {
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [product, addRecentlyViewed]);
 
   const handleAddToCart = () => {
     for (let index = 0; index < quantity; index += 1) {
-      addItem({
+      addItemToCart({
         productId: product.id,
         name: product.name,
         price: product.price,
@@ -76,7 +89,7 @@ function QuickViewContent({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
@@ -84,27 +97,24 @@ function QuickViewContent({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 16, scale: 0.98 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-background md:flex-row"
+        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-kwik-bg-surface md:flex-row"
         onClick={(event) => event.stopPropagation()}
       >
         <Button
           isIconOnly
           variant="ghost"
           onPress={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full bg-background/95"
+          className="absolute right-3 top-3 z-10 rounded-full bg-kwik-bg-surface/95"
           aria-label="Close quick view"
         >
           <X className="h-4 w-4" />
         </Button>
 
         <div className="relative min-h-[320px] bg-kwik-bg-light md:w-[46%]">
-          <Image
+          <AppImage
             src={product.image}
             alt={product.name}
-            fill
-            sizes="(max-width: 768px) 100vw, 40vw"
-            className="object-cover"
-            priority
+            className="w-full h-full"
           />
 
           <div className="absolute left-4 top-4 flex gap-2">
@@ -121,6 +131,8 @@ function QuickViewContent({
           <p className="text-xs font-semibold uppercase tracking-wide text-kwik-orange">
             {product.store}
           </p>
+          {/* Gradient accent line at top of price section */}
+          <div className="mt-3 mb-4 h-[2px] w-16 rounded-full bg-gradient-to-r from-kwik-orange to-kwik-orange/40" />
           <h2 className="mt-2 text-2xl font-bold text-kwik-dark">
             {product.name}
           </h2>
@@ -207,9 +219,17 @@ function QuickViewContent({
               isIconOnly
               variant="outline"
               onPress={() => {
-                setIsLiked((value) => !value);
+                toggleItem({
+                  id: product.id,
+                  name: product.name,
+                  price: product.price,
+                  originalPrice: product.comparePrice,
+                  image: product.image,
+                  rating: product.rating,
+                  category: product.category,
+                });
                 kwikToast.success(
-                  isLiked ? "Removed from wishlist" : "Added to wishlist",
+                  !isLiked ? "Added to wishlist" : "Removed from wishlist",
                 );
               }}
               className="h-12 min-w-12 rounded-xl border-kwik-border"
@@ -234,7 +254,7 @@ function QuickViewContent({
             variant="outline"
             onPress={() => {
               onClose();
-              router.push(`/products/${product.id}`);
+              router.push(`/products/${String(product.id)}`);
             }}
             className="mt-3 h-11 rounded-xl border-kwik-border font-semibold text-kwik-dark"
           >

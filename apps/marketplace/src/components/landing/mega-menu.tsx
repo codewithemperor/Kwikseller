@@ -146,29 +146,29 @@ function CategoriesDropdown() {
             variants={itemVariants}
             className={cn(
               'group flex items-center gap-3 px-3 py-2.5 rounded-xl',
-              'bg-default-50/60 hover:bg-accent/10',
-              'border border-transparent hover:border-accent/20',
+              'bg-kwik-bg-surface/60 hover:bg-kwik-orange/10',
+              'border border-transparent hover:border-kwik-orange/20',
               'transition-all duration-200 cursor-pointer'
             )}
           >
             <div
               className={cn(
                 'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-                'bg-default-100 group-hover:bg-accent/20 transition-colors duration-200'
+                'bg-kwik-bg-light group-hover:bg-kwik-orange/20 transition-colors duration-200'
               )}
             >
               <Icon
                 className={cn(
                   'w-5 h-5 transition-colors duration-200',
-                  'text-default-400 group-hover:text-accent'
+                  'text-kwik-gray-light group-hover:text-kwik-orange'
                 )}
               />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-default-700 group-hover:text-foreground transition-colors truncate">
+              <div className="text-sm font-medium text-kwik-dark group-hover:text-kwik-dark transition-colors truncate">
                 {cat.name}
               </div>
-              <div className="text-[11px] text-default-400 group-hover:text-accent transition-colors">
+              <div className="text-[11px] text-kwik-gray-light group-hover:text-kwik-orange transition-colors">
                 {cat.count} products
               </div>
             </div>
@@ -210,29 +210,29 @@ function StandardDropdown({ links }: { links: DropdownLink[] }) {
             variants={itemVariants}
             className={cn(
               'group flex items-start gap-3 px-3 py-3 rounded-xl',
-              'bg-default-50/60 hover:bg-accent/10',
-              'border border-transparent hover:border-accent/20',
+              'bg-kwik-bg-surface/60 hover:bg-kwik-orange/10',
+              'border border-transparent hover:border-kwik-orange/20',
               'transition-all duration-200 cursor-pointer'
             )}
           >
             <div
               className={cn(
                 'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5',
-                'bg-default-100 group-hover:bg-accent/20 transition-colors duration-200'
+                'bg-kwik-bg-light group-hover:bg-kwik-orange/20 transition-colors duration-200'
               )}
             >
               <Icon
                 className={cn(
                   'w-4 h-4 transition-colors duration-200',
-                  'text-default-400 group-hover:text-accent'
+                  'text-kwik-gray-light group-hover:text-kwik-orange'
                 )}
               />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-default-700 group-hover:text-foreground transition-colors">
+              <div className="text-sm font-medium text-kwik-dark group-hover:text-kwik-dark transition-colors">
                 {link.label}
               </div>
-              <div className="text-[11px] text-default-400 group-hover:text-default-500 transition-colors mt-0.5">
+              <div className="text-[11px] text-kwik-gray-light group-hover:text-kwik-muted transition-colors mt-0.5">
                 {link.description}
               </div>
             </div>
@@ -269,7 +269,7 @@ function NavItemButton({
         type="button"
         className={cn(
           'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200',
-          isHovered ? 'text-foreground' : 'text-default-500 hover:text-foreground'
+          isHovered ? 'text-kwik-dark' : 'text-kwik-gray hover:text-kwik-dark'
         )}
         aria-expanded={isHovered}
         aria-haspopup="true"
@@ -286,7 +286,7 @@ function NavItemButton({
         {isHovered && (
           <motion.span
             layoutId="mega-nav-indicator"
-            className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-accent"
+            className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-kwik-orange"
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
           />
         )}
@@ -312,8 +312,8 @@ function NavItemButton({
             >
               <div
                 className={cn(
-                  'rounded-2xl border border-default-200/60 shadow-xl shadow-default-200/20',
-                  'bg-background/90 backdrop-blur-xl backdrop-saturate-150'
+                  'rounded-2xl border border-kwik-border shadow-xl',
+                  'bg-kwik-bg-surface/95 backdrop-blur-xl backdrop-saturate-150'
                 )}
               >
                 <StandardDropdown links={item.links} />
@@ -348,7 +348,7 @@ function CategoriesNavItem({
         type="button"
         className={cn(
           'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200',
-          isHovered ? 'text-foreground' : 'text-default-500 hover:text-foreground'
+          isHovered ? 'text-kwik-dark' : 'text-kwik-gray hover:text-kwik-dark'
         )}
         aria-expanded={isHovered}
         aria-haspopup="true"
@@ -366,7 +366,7 @@ function CategoriesNavItem({
         {isHovered && (
           <motion.span
             layoutId="mega-nav-indicator"
-            className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-accent"
+            className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-kwik-orange"
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
           />
         )}
@@ -392,8 +392,8 @@ function CategoriesNavItem({
             >
               <div
                 className={cn(
-                  'rounded-2xl border border-default-200/60 shadow-xl shadow-default-200/20',
-                  'bg-background/90 backdrop-blur-xl backdrop-saturate-150'
+                  'rounded-2xl border border-kwik-border shadow-xl',
+                  'bg-kwik-bg-surface/95 backdrop-blur-xl backdrop-saturate-150'
                 )}
               >
                 <CategoriesDropdown />

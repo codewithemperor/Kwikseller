@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -9,15 +8,20 @@ import {
   Flame,
   Heart,
   Loader2,
+  PackageOpen,
   ShoppingBag,
   Star,
   TrendingUp,
   Zap,
 } from "lucide-react";
+import { motion, useInView } from "framer-motion";
 import { kwikToast } from "@kwikseller/utils";
 import { productsApi } from "@kwikseller/api-client";
-import { useCartStore, useWishlistStore } from "@/stores";
-import type { SearchableProduct } from "@/data/products";
+import { useCartStore, useWishlistStore, useCompareStore } from "@/stores";
+import { AppImage } from "@/components/ui/app-image";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CompareToggle } from "@/components/landing/compare-panel";
+import { toSearchableProduct, type SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 import dynamic from "next/dynamic";
 
@@ -28,6 +32,29 @@ const QuickViewModal = dynamic(
     ),
   { ssr: false },
 );
+
+/* ─── Stagger animation helpers ──────────────────────────── */
+const staggerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+const staggerChildVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
+
+function StaggerWrap({ children }: { children: React.ReactNode }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: "-30px" });
+  return (
+    <motion.div ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={staggerVariants}>
+      {children}
+    </motion.div>
+  );
+}
+function StaggerChild({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <motion.div variants={staggerChildVariants} className={className}>{children}</motion.div>;
+}
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 
@@ -87,16 +114,14 @@ function ApiProductCard({
 
   return (
     <article
-      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm border  transition-shadow hover:shadow-md cursor-pointer"
+      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm border transition-all duration-300 hover:shadow-md hover-lift press-scale card-hover-border cursor-pointer"
       onClick={() => onQuickView?.(product)}
     >
       <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
-        <Image
+        <AppImage
           src={product.image}
           alt={product.name}
-          fill
-          sizes="(max-width: 640px) 60vw, 20vw"
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
         />
         <div className="absolute left-3 top-3 flex gap-1.5">
           {discount > 0 && (
@@ -113,15 +138,25 @@ function ApiProductCard({
         <button
           type="button"
           onClick={handleWishlistToggle}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-background"
           aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
-            className={`h-4 w-4 transition-colors ${
+            className={`h-4 w-4 transition-all duration-200 ${
               isWished ? "fill-kwik-orange text-kwik-orange" : "text-kwik-muted"
             }`}
           />
         </button>
+        {/* Add to Cart overlay - slides up on hover */}
+        <div className="absolute inset-x-2 bottom-2 translate-y-full opacity-0 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+          <button
+            onClick={handleAddToCart}
+            className="flex w-full items-center justify-center gap-1.5 rounded-[14px] bg-kwik-orange/95 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-kwik-orange active:scale-[0.98]"
+          >
+            <ShoppingBag className="h-3.5 w-3.5" />
+            Add to Cart
+          </button>
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
         <p className="line-clamp-1 text-base font-semibold leading-snug text-kwik-dark">
@@ -150,10 +185,11 @@ function ApiProductCard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-auto">
+        {/* Bottom action row - visible on mobile, hidden on desktop hover (overlay takes over) */}
+        <div className="flex items-center gap-2 mt-auto md:group-hover:hidden">
           <button
             onClick={handleAddToCart}
-            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent hover text-[10px] md:text-xs font-medium text-white transition-colors"
+            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent hover:bg-kwik-orange-hover text-[10px] md:text-xs font-medium text-white transition-colors"
           >
             <ShoppingBag className="h-3 w-3" />
             Add to Cart
@@ -169,6 +205,18 @@ function ApiProductCard({
           >
             <Eye className="h-3.5 w-3.5 text-kwik-gray-light" />
           </button>
+          <CompareToggle product={{
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            comparePrice: product.comparePrice,
+            image: product.image,
+            category: product.category,
+            rating: product.rating,
+            reviews: product.reviewCount,
+            store: product.store,
+            specs: {},
+          }} />
         </div>
       </div>
     </article>
@@ -270,13 +318,11 @@ export function TrendingProductsSection() {
         const response = await productsApi.getTrending({ limit: 10 });
         if (response.success && response.data) {
           if (Array.isArray(response.data)) {
-            setProducts(response.data as unknown as SearchableProduct[]);
+            setProducts(response.data.map(toSearchableProduct));
           }
         }
       } catch {
-        // Fallback: use local data
-        const { getFeaturedProducts } = await import("@/data/products");
-        setProducts(getFeaturedProducts(10));
+        // No fallback — show empty state
       } finally {
         setIsLoading(false);
       }
@@ -301,22 +347,27 @@ export function TrendingProductsSection() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-kwik-orange" />
           </div>
+        ) : products.length === 0 ? (
+          <EmptyState
+            icon={<PackageOpen className="h-8 w-8" />}
+            title="No trending products yet"
+            description="Products will appear here as they gain popularity."
+          />
         ) : (
-          <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5"
-                >
-                  <ApiProductCard
-                    product={product}
-                    onQuickView={handleQuickView}
-                  />
-                </div>
-              ))}
+          <StaggerWrap>
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2">
+                {products.map((product) => (
+                  <StaggerChild key={product.id} className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5">
+                    <ApiProductCard
+                      product={product}
+                      onQuickView={handleQuickView}
+                    />
+                  </StaggerChild>
+                ))}
+              </div>
             </div>
-          </div>
+          </StaggerWrap>
         )}
       </SectionShell>
 
@@ -343,14 +394,11 @@ export function TopProductsSection() {
         const response = await productsApi.getTopProducts({ limit: 10 });
         if (response.success && response.data) {
           if (Array.isArray(response.data)) {
-            setProducts(response.data as unknown as SearchableProduct[]);
+            setProducts(response.data.map(toSearchableProduct));
           }
         }
       } catch {
-        const { allProducts } = await import("@/data/products");
-        setProducts(
-          [...allProducts].sort((a, b) => b.rating - a.rating).slice(0, 10),
-        );
+        // No fallback — show empty state
       } finally {
         setIsLoading(false);
       }
@@ -375,22 +423,27 @@ export function TopProductsSection() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-kwik-orange" />
           </div>
+        ) : products.length === 0 ? (
+          <EmptyState
+            icon={<PackageOpen className="h-8 w-8" />}
+            title="No top rated products yet"
+            description="Rated products will appear here once customers start reviewing."
+          />
         ) : (
-          <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5"
-                >
-                  <ApiProductCard
-                    product={product}
-                    onQuickView={handleQuickView}
-                  />
-                </div>
-              ))}
+          <StaggerWrap>
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2">
+                {products.map((product) => (
+                  <StaggerChild key={product.id} className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5">
+                    <ApiProductCard
+                      product={product}
+                      onQuickView={handleQuickView}
+                    />
+                  </StaggerChild>
+                ))}
+              </div>
             </div>
-          </div>
+          </StaggerWrap>
         )}
       </SectionShell>
 
@@ -417,25 +470,11 @@ export function DealOfTheDaySection() {
         const response = await productsApi.getDeals({ limit: 10 });
         if (response.success && response.data) {
           if (Array.isArray(response.data)) {
-            setProducts(response.data as unknown as SearchableProduct[]);
+            setProducts(response.data.map(toSearchableProduct));
           }
         }
       } catch {
-        const { allProducts } = await import("@/data/products");
-        setProducts(
-          allProducts
-            .filter((p) => p.comparePrice && p.comparePrice > p.price)
-            .sort((a, b) => {
-              const dA = a.comparePrice
-                ? ((a.comparePrice - a.price) / a.comparePrice) * 100
-                : 0;
-              const dB = b.comparePrice
-                ? ((b.comparePrice - b.price) / b.comparePrice) * 100
-                : 0;
-              return dB - dA;
-            })
-            .slice(0, 10),
-        );
+        // No fallback — show empty state
       } finally {
         setIsLoading(false);
       }
@@ -460,22 +499,27 @@ export function DealOfTheDaySection() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-kwik-orange" />
           </div>
+        ) : products.length === 0 ? (
+          <EmptyState
+            icon={<PackageOpen className="h-8 w-8" />}
+            title="No deals available yet"
+            description="Check back soon for exclusive discounts and offers."
+          />
         ) : (
-          <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5"
-                >
-                  <ApiProductCard
-                    product={product}
-                    onQuickView={handleQuickView}
-                  />
-                </div>
-              ))}
+          <StaggerWrap>
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2">
+                {products.map((product) => (
+                  <StaggerChild key={product.id} className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5">
+                    <ApiProductCard
+                      product={product}
+                      onQuickView={handleQuickView}
+                    />
+                  </StaggerChild>
+                ))}
+              </div>
             </div>
-          </div>
+          </StaggerWrap>
         )}
       </SectionShell>
 

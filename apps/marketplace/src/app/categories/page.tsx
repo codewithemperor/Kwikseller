@@ -1,8 +1,7 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   ArrowLeft,
   ChevronRight,
@@ -12,12 +11,18 @@ import {
   ShoppingBag,
   Loader2,
   SlidersHorizontal,
-  X,
+  Search,
+  PackageOpen,
+  Grid3X3,
+  List,
+  TrendingUp,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { kwikToast } from "@kwikseller/utils";
-import { productsApi } from "@kwikseller/api-client";
+import { productsApi, marketplaceApi } from "@kwikseller/api-client";
 import { useCartStore, useWishlistStore } from "@/stores";
-import { marketplaceCategories } from "@/data/marketplace-home";
+import { AppImage } from "@/components/ui/app-image";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 import dynamic from "next/dynamic";
@@ -92,12 +97,10 @@ function CategoryProductCard({
       onClick={() => onQuickView?.(product)}
     >
       <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
-        <Image
+        <AppImage
           src={product.image}
           alt={product.name}
-          fill
-          sizes="(max-width: 640px) 50vw, 25vw"
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute left-3 top-3 flex gap-1.5">
           {discount > 0 && (
@@ -176,52 +179,6 @@ function CategoryProductCard({
   );
 }
 
-/* ─── Category Card (for all-categories view) ──────────────── */
-
-function CategoryGridCard({
-  category,
-}: {
-  category: (typeof marketplaceCategories)[number];
-}) {
-  const router = useRouter();
-  const Icon = category.icon;
-
-  return (
-    <button
-      type="button"
-      onClick={() => router.push(`/categories?${category.id}`)}
-      className="group relative flex flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md text-left"
-    >
-      <div className="relative h-40 sm:h-48 overflow-hidden">
-        <Image
-          src={category.image}
-          alt={category.name}
-          fill
-          sizes="(max-width: 640px) 50vw, 33vw"
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        <div className="absolute bottom-3 left-3 right-3">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-background/20 backdrop-blur-sm">
-              <Icon className="h-4 w-4 text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-white">{category.name}</h3>
-          </div>
-          <p className="text-xs text-white/80">{category.itemCount}</p>
-        </div>
-      </div>
-      <div className="px-4 py-3">
-        <p className="text-xs text-kwik-gray-light line-clamp-2">{category.description}</p>
-        <div className="mt-2 flex items-center gap-1 text-xs font-medium text-kwik-orange">
-          Shop now
-          <ChevronRight className="h-3 w-3" />
-        </div>
-      </div>
-    </button>
-  );
-}
-
 /* ─── Sort Options ─────────────────────────────────────────── */
 
 const SORT_OPTIONS = [
@@ -261,8 +218,7 @@ function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
 
 function CategoryDetailView({ slug }: { slug: string }) {
   const router = useRouter();
-  const categoryInfo = marketplaceCategories.find((c) => c.id === slug);
-  const CategoryIcon = categoryInfo?.icon;
+  const [categoryInfo, setCategoryInfo] = useState<{ name: string; description: string; itemCount: string } | null>(null);
 
   const [products, setProducts] = useState<SearchableProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,25 +226,40 @@ function CategoryDetailView({ slug }: { slug: string }) {
   const [showFilters, setShowFilters] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
 
-  // Fetch products from the NestJS API
+  // Fetch category info and products from API
   useEffect(() => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
+        // Fetch category info
+        const catRes = await marketplaceApi.getCategories();
+        if (catRes.success && catRes.data) {
+          const data = catRes.data as any;
+          const cats = Array.isArray(data) ? data : data.categories || [];
+          const found = cats.find((c: any) => c.id === slug || c.slug === slug);
+          if (found) {
+            setCategoryInfo({
+              name: found.name,
+              description: found.description || "",
+              itemCount: found.productCount ? `${found.productCount}+ items` : "",
+            });
+          }
+        }
+
+        // Fetch products
         const response = await productsApi.getCategoryBySlug(slug, { limit: 50 });
         if (response.success && response.data) {
           const respData = response.data as any;
-          // API returns { category, products, total } shape
           if (Array.isArray(respData)) {
-            setProducts(respData);
+            setProducts(respData as unknown as SearchableProduct[]);
           } else if (respData.products && Array.isArray(respData.products)) {
-            setProducts(respData.products);
+            setProducts(respData.products as unknown as SearchableProduct[]);
           } else {
             setProducts([]);
           }
         }
-      } catch (err) {
-        console.error("Failed to fetch category products:", err);
+      } catch {
+        setProducts([]);
       } finally {
         setIsLoading(false);
       }
@@ -352,9 +323,6 @@ function CategoryDetailView({ slug }: { slug: string }) {
 
           {/* Category info row */}
           <div className="flex items-center gap-4 pb-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-kwik-orange-tint text-kwik-orange">
-              {CategoryIcon && <CategoryIcon className="h-6 w-6" />}
-            </div>
             <div>
               <h1 className="text-xl font-bold text-kwik-dark">
                 {categoryInfo?.name || slug}
@@ -381,57 +349,42 @@ function CategoryDetailView({ slug }: { slug: string }) {
               Sort
             </button>
           </div>
-
-          {/* Category quick-nav tabs */}
-          <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
-            {marketplaceCategories.map((cat) => {
-              const Icon = cat.icon;
-              const isActive = cat.id === slug;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => router.push(`/categories?${cat.id}`)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                    isActive
-                      ? "bg-kwik-orange text-white"
-                      : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
-                  }`}
-                >
-                  <Icon className="h-3 w-3" />
-                  {cat.name}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Sort filters */}
-        {showFilters && (
-          <div className="border-t border-kwik-border">
-            <div className="container mx-auto px-4 py-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider">
-                  Sort by:
-                </span>
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setSortBy(opt.value)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      sortBy === opt.value
-                        ? "bg-kwik-dark text-white"
-                        : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="border-t border-kwik-border overflow-hidden"
+            >
+              <div className="container mx-auto px-4 py-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider">
+                    Sort by:
+                  </span>
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSortBy(opt.value)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        sortBy === opt.value
+                          ? "bg-kwik-dark text-white"
+                          : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Products area */}
@@ -463,24 +416,20 @@ function CategoryDetailView({ slug }: { slug: string }) {
 
         {/* Empty */}
         {!isLoading && sortedProducts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-20 h-20 rounded-full bg-kwik-bg-light flex items-center justify-center mb-4">
-              <ShoppingBag className="h-8 w-8 text-kwik-muted" />
-            </div>
-            <h2 className="text-lg font-semibold text-kwik-dark mb-2">
-              No products found
-            </h2>
-            <p className="text-sm text-kwik-gray-light text-center max-w-sm">
-              No products available in this category yet. Check back later or browse other categories.
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push("/categories")}
-              className="mt-4 rounded-xl bg-kwik-orange px-6 py-2.5 text-sm font-semibold text-white hover:bg-kwik-orange-hover transition-colors"
-            >
-              Browse Categories
-            </button>
-          </div>
+          <EmptyState
+            icon={<ShoppingBag className="h-10 w-10" />}
+            title="No products found"
+            description="No products available in this category yet. Check back later or browse other categories."
+            action={
+              <button
+                type="button"
+                onClick={() => router.push("/categories")}
+                className="mt-4 rounded-xl bg-kwik-orange px-6 py-2.5 text-sm font-semibold text-white hover:bg-kwik-orange-hover transition-colors"
+              >
+                Browse Categories
+              </button>
+            }
+          />
         )}
 
         {/* Product grid */}
@@ -506,10 +455,128 @@ function CategoryDetailView({ slug }: { slug: string }) {
   );
 }
 
+/* ─── Category Sort Options ───────────────────────────────── */
+
+const CATEGORY_SORT_OPTIONS = [
+  { value: "az", label: "A-Z" },
+  { value: "za", label: "Z-A" },
+  { value: "popular", label: "Most Popular" },
+] as const;
+
+type CategorySortValue = (typeof CATEGORY_SORT_OPTIONS)[number]["value"];
+
+/* ─── Category Card ───────────────────────────────────────── */
+
+function CategoryCard({
+  category,
+  onClick,
+}: {
+  category: { id: string; name: string; description: string; image: string | null; itemCount: string; productCount?: number };
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ y: -4, scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      className="group relative flex flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-kwik-border transition-all duration-300 hover:ring-kwik-orange/30 hover:shadow-xl hover:shadow-kwik-orange/5 text-left"
+    >
+      <div className="relative h-40 sm:h-48 overflow-hidden">
+        <AppImage
+          src={category.image}
+          alt={category.name}
+          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="absolute bottom-3 left-3 right-3">
+          <h3 className="text-lg font-bold text-white">{category.name}</h3>
+          <p className="text-xs text-white/80">{category.itemCount}</p>
+        </div>
+        {/* Product count badge */}
+        {category.productCount != null && category.productCount > 0 && (
+          <div className="absolute top-3 right-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-kwik-orange px-2 text-[10px] font-bold text-white shadow-sm">
+            {category.productCount}+
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-3">
+        <p className="text-xs text-kwik-gray-light line-clamp-2">{category.description}</p>
+        <div className="mt-2 flex items-center gap-1 text-xs font-medium text-kwik-orange transition-colors group-hover:gap-2">
+          Shop now
+          <ChevronRight className="h-3 w-3" />
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
 /* ─── All Categories View ─────────────────────────────────── */
 
 function AllCategoriesView() {
   const router = useRouter();
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; description: string; image: string | null; itemCount: string; productCount?: number; slug?: string }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<CategorySortValue>("popular");
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const response = await marketplaceApi.getCategories();
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.categories || [];
+          setCategories(
+            list.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              description: c.description || "",
+              image: c.image || c.imageUrl || null,
+              itemCount: c.productCount ? `${c.productCount}+ items` : "",
+              productCount: c.productCount || 0,
+              slug: c.slug || c.id,
+            })),
+          );
+        }
+      } catch {
+        // Empty state
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetch();
+  }, []);
+
+  // Filter and sort categories
+  const filteredCategories = useMemo(() => {
+    let result = [...categories];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(query) ||
+          c.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
+    switch (sortBy) {
+      case "az":
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "za":
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case "popular":
+        result.sort((a, b) => (b.productCount || 0) - (a.productCount || 0));
+        break;
+    }
+
+    return result;
+  }, [categories, searchQuery, sortBy]);
 
   return (
     <div className="min-h-screen bg-kwik-bg-page">
@@ -532,19 +599,133 @@ function AllCategoriesView() {
           <div className="pb-4">
             <h1 className="text-2xl font-bold text-kwik-dark">All Categories</h1>
             <p className="mt-1 text-sm text-kwik-gray-light">
-              Browse products by category
+              Browse products by category · {categories.length} categories
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Sort Bar */}
+      <div className="bg-kwik-bg-surface border-b border-kwik-border">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Search input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-kwik-muted" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search categories..."
+                className="w-full h-10 rounded-xl border border-kwik-border bg-kwik-bg-light pl-9 pr-9 text-sm text-kwik-dark placeholder:text-kwik-muted outline-none focus:border-kwik-orange focus:ring-1 focus:ring-kwik-orange/20 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-kwik-muted hover:text-kwik-dark-medium transition-colors"
+                >
+                  <span className="text-xs font-medium">✕</span>
+                </button>
+              )}
+            </div>
+
+            {/* Sort options */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider whitespace-nowrap hidden sm:inline">
+                Sort:
+              </span>
+              <div className="flex items-center gap-1 bg-kwik-bg-light rounded-xl p-1 border border-kwik-border">
+                {CATEGORY_SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSortBy(opt.value)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                      sortBy === opt.value
+                        ? "bg-kwik-orange text-white shadow-sm"
+                        : "text-kwik-gray-light hover:text-kwik-dark hover:bg-kwik-bg-surface"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Category grid */}
       <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {marketplaceCategories.map((category) => (
-            <CategoryGridCard key={category.id} category={category} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
+          </div>
+        ) : filteredCategories.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col items-center justify-center py-20"
+          >
+            <div className="h-28 w-28 rounded-3xl bg-gradient-to-br from-kwik-orange/10 to-kwik-orange/5 flex items-center justify-center mb-5">
+              <PackageOpen className="h-12 w-12 text-kwik-orange/60" />
+            </div>
+            <h3 className="text-lg font-semibold text-kwik-dark mb-2">
+              {searchQuery ? "No matching categories" : "No categories yet"}
+            </h3>
+            <p className="text-sm text-kwik-gray-light text-center max-w-[320px] mb-4">
+              {searchQuery
+                ? `No categories match "${searchQuery}". Try a different search term.`
+                : "Categories will appear here once sellers start listing products."}
+            </p>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="rounded-xl px-5 py-2.5 text-sm font-medium text-kwik-orange border border-kwik-orange hover:bg-kwik-orange-tint transition-colors"
+              >
+                Clear search
+              </button>
+            )}
+          </motion.div>
+        ) : (
+          <>
+            {/* Results info */}
+            {searchQuery && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-kwik-gray-light mb-4"
+              >
+                <span className="font-semibold text-kwik-dark">{filteredCategories.length}</span>{" "}
+                {filteredCategories.length === 1 ? "category" : "categories"} found
+                for "<span className="text-kwik-orange">{searchQuery}</span>"
+              </motion.p>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
+              <AnimatePresence mode="popLayout">
+                {filteredCategories.map((category, index) => (
+                  <motion.div
+                    key={category.id}
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.3, delay: index * 0.03 }}
+                  >
+                    <CategoryCard
+                      category={category}
+                      onClick={() => router.push(`/categories?${category.slug || category.id}`)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

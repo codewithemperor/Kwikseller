@@ -5,14 +5,40 @@
  * Reusable carousel components for marketplace sections
  */
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
+import { motion, useInView } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MarketplaceProductCard } from "./marketplace-product-card";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+
+/* ─── Stagger animation helpers ──────────────────────────── */
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
+
+function StaggerWrap({ children }: { children: React.ReactNode }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-40px" });
+  return (
+    <motion.div ref={ref} initial="hidden" animate={isInView ? "visible" : "hidden"} variants={staggerContainer}>
+      {children}
+    </motion.div>
+  );
+}
+
+function StaggerChild({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <motion.div variants={staggerItem} className={className}>{children}</motion.div>;
+}
 
 /* ─────────────────────────────────────────────
    Section Header with Light Orange Background
@@ -25,14 +51,17 @@ export function SectionHeader({
   href?: string;
 }) {
   return (
-    <div className="flex items-center justify-between  bg-accent px-4 py-3 sm:px-5">
-      <h2 className="text-lg font-semibold text-kwik-dark sm:text-xl">
-        {title}
-      </h2>
+    <div className="flex items-center justify-between bg-accent px-4 py-3 sm:px-5">
+      <div className="flex items-center gap-3">
+        <div className="h-7 w-[3px] rounded-full bg-kwik-orange" />
+        <h2 className="text-lg font-bold text-kwik-dark sm:text-xl md:text-2xl">
+          {title}
+        </h2>
+      </div>
       {href && (
         <Link
           href={href}
-          className="text-sm font-medium text-accent-soft hover:underline"
+          className="text-sm font-semibold text-accent-foreground hover:text-kwik-orange transition-colors duration-200 hover:underline underline-offset-4"
         >
           View More →
         </Link>
@@ -118,44 +147,35 @@ export function ProductCarouselSection({
 
         <div className="relative bg-background">
           {/* Navigation buttons */}
-          <button
-            onClick={() => emblaApi?.scrollPrev()}
-            disabled={!canPrev}
-            className="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
-          >
+          <div className="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex">
             <NavButton
-              onClick={() => {}}
+              onClick={() => emblaApi?.scrollPrev()}
               direction="prev"
               disabled={!canPrev}
             />
-          </button>
-          <button
-            onClick={() => emblaApi?.scrollNext()}
-            disabled={!canNext}
-            className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
-          >
+          </div>
+          <div className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 lg:flex">
             <NavButton
-              onClick={() => {}}
+              onClick={() => emblaApi?.scrollNext()}
               direction="next"
               disabled={!canNext}
             />
-          </button>
+          </div>
 
           <div className="overflow-hidden p-5" ref={emblaRef}>
-            <div className="flex gap-2">
-              {products.map((product, index) => (
-                <div
-                  key={product.id}
-                  className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5"
-                >
-                  <MarketplaceProductCard
-                    product={product}
-                    priority={index < 2}
-                    onQuickView={onQuickView}
-                  />
+              <StaggerWrap>
+                <div className="flex gap-2">
+                  {products.map((product, index) => (
+                    <StaggerChild key={product.id} className="min-w-0 shrink-0 basis-[calc(60%-8px)] sm:basis-[calc(33.33%-11px)] lg:basis-[calc(25%-12px)] xl:basis-[calc(20%-13px)] p-0.5">
+                      <MarketplaceProductCard
+                        product={product}
+                        priority={index < 2}
+                        onQuickView={onQuickView}
+                      />
+                    </StaggerChild>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </StaggerWrap>
           </div>
         </div>
       </div>
@@ -183,29 +203,30 @@ export function CategoryCarouselSection({
         <SectionHeader title="Shop by Category" href="/categories" />
 
         <div className="overflow-hidden bg-background p-5 " ref={emblaRef}>
-          <div className="flex gap-4">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/categories/${category.id}`}
-                className="min-w-0 shrink-0 basis-[calc(33.33%-11px)] sm:basis-[calc(20%-12px)] md:basis-[calc(16.66%-14px)] lg:basis-[calc(12.5%-14px)]"
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <div className="relative h-24 w-24 overflow-hidden rounded-full bg-kwik-bg-light shadow-sm transition-transform hover:scale-105 md:h-28 md:w-28">
-                    <Image
-                      src={category.image}
-                      alt={category.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <span className="text-center text-sm font-medium text-kwik-dark">
-                    {category.name}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <StaggerWrap>
+            <div className="flex gap-4">
+              {categories.map((category) => (
+                <StaggerChild key={category.id} className="min-w-0 shrink-0 basis-[calc(33.33%-11px)] sm:basis-[calc(20%-12px)] md:basis-[calc(16.66%-14px)] lg:basis-[calc(12.5%-14px)]">
+                  <Link href={`/categories/${category.id}`}>
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="relative h-24 w-24 overflow-hidden rounded-full bg-kwik-bg-light shadow-sm transition-transform hover:scale-105 md:h-28 md:w-28">
+                        <Image
+                          src={category.image}
+                          alt={category.name}
+                          fill
+                          sizes="(max-width: 768px) 96px, 112px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-center text-sm font-medium text-kwik-dark">
+                        {category.name}
+                      </span>
+                    </div>
+                  </Link>
+                </StaggerChild>
+              ))}
+            </div>
+          </StaggerWrap>
         </div>
       </div>
     </section>
@@ -235,6 +256,7 @@ export function PromoBannerGrid({
                   src={banner.image}
                   alt="Promotional banner"
                   fill
+                  sizes="(max-width: 768px) 50vw, 400px"
                   className="object-cover"
                 />
               </div>
@@ -279,6 +301,7 @@ export function BrandCarouselSection({
                       src={brand.image}
                       alt={brand.name}
                       fill
+                      sizes="(max-width: 768px) 80px, 96px"
                       className="object-cover"
                     />
                   </div>

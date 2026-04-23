@@ -370,10 +370,54 @@ export const productsApi = {
   deleteImage: (productId: string, imageId: string) =>
     api.delete(`/products/${productId}/images/${imageId}`),
 
+  // Marketplace search
+  search: (params: {
+    q: string
+    category?: string
+    limit?: number
+    page?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+  }) => api.get('/products/search', { params }),
+
+  // Trending products
+  getTrending: (params?: { limit?: number }) =>
+    api.get('/products/trending', { params }),
+
+  // Top rated products
+  getTopProducts: (params?: { limit?: number }) =>
+    api.get('/products/top', { params }),
+
+  // Deals / discounted products
+  getDeals: (params?: { limit?: number }) =>
+    api.get('/deals', { params }),
+
+  // Category products by slug
+  getCategoryBySlug: (slug: string, params?: { limit?: number; page?: number }) =>
+    api.get(`/products/category/${slug}`, { params }),
+
   // Categories
   getCategories: () => api.get('/products/categories'),
 
   getCategory: (id: string) => api.get(`/products/categories/${id}`),
+}
+
+// ==================== Marketplace API ====================
+
+export const marketplaceApi = {
+  // Banners
+  getBanners: (params?: { type?: string }) =>
+    api.get('/banners', { params }),
+
+  // Categories (public)
+  getCategories: () => api.get('/categories'),
+
+  // Brands
+  getBrands: () => api.get('/brands'),
+
+  // Top sellers
+  getSellers: (params?: { limit?: number }) =>
+    api.get('/sellers', { params }),
 }
 
 // ==================== Store API ====================

@@ -7,8 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url       = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL")
+  url      = env("DATABASE_URL")
 }
 
 // ==================== USER & AUTH ====================
@@ -39,15 +38,15 @@ enum OnboardingStep {
 }
 
 enum KycDocumentType {
-  CAC           // Vendor - Corporate Affairs Commission
-  BVN           // Vendor - Bank Verification Number
-  TIN           // Vendor - Tax Identification Number
-  NIN           // Rider - National Identity Number
-  DRIVERS_LICENSE // Rider
-  VEHICLE_REGISTRATION // Rider
-  VEHICLE_INSURANCE    // Rider
-  PASSPORT      // Common
-  UTILITY_BILL  // Common - Proof of address
+  CAC
+  BVN
+  TIN
+  NIN
+  DRIVERS_LICENSE
+  VEHICLE_REGISTRATION
+  VEHICLE_INSURANCE
+  PASSPORT
+  UTILITY_BILL
 }
 
 enum UserStatus {
@@ -68,7 +67,6 @@ model User {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  // Relations
   profile       UserProfile?
   addresses     Address[]
   kycDocuments  KycDocument[]
@@ -198,7 +196,6 @@ model Store {
   verificationReviewedAt  DateTime?
   verificationReviewedBy  String?
   rejectionReason         String?
-  // Bank details for payouts
   bankCode                String?
   bankName                String?
   accountNumber           String?
@@ -318,6 +315,162 @@ model Referral {
   referee  User @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
 }
 
+// ==================== BRANDS (from SQL) ====================
+
+model Brand {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  image       String?
+  status      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([status])
+}
+
+// ==================== BANNERS (from SQL) ====================
+
+enum BannerType {
+  MAIN_BANNER
+  PROMO_BANNER
+  FOOTER_BANNER
+  SIDEBAR_BANNER
+}
+
+model Banner {
+  id              String      @id @default(cuid())
+  title           String?
+  subTitle        String?
+  image           String
+  url             String?
+  bannerType      BannerType  @default(MAIN_BANNER)
+  resourceType    String?     // "product", "category", "brand"
+  resourceId      String?
+  backgroundColor String?
+  buttonText      String?
+  position        Int         @default(0)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([isActive])
+  @@index([bannerType])
+}
+
+// ==================== DEALS / PROMOTIONS (from SQL) ====================
+
+enum DealType {
+  FLASH_DEAL
+  DEAL_OF_THE_DAY
+  FEATURED_DEAL
+  COUPON
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Deal {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  dealType      DealType     @default(FLASH_DEAL)
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float        @default(0)
+  startDate     DateTime
+  endDate       DateTime?
+  minOrderValue Float        @default(0)
+  maxUses       Int?
+  usedCount     Int          @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  products DealProduct[]
+
+  @@index([dealType])
+  @@index([isActive])
+  @@index([startDate])
+}
+
+model DealProduct {
+  id         String   @id @default(cuid())
+  dealId     String
+  productId  String
+  dealPrice  Float
+  createdAt  DateTime @default(now())
+
+  deal    Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, productId])
+  @@index([dealId])
+}
+
+// ==================== COUPONS (from SQL) ====================
+
+model Coupon {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  title           String
+  description     String?
+  discountType    DiscountType @default(PERCENTAGE)
+  discountValue   Float        @default(0)
+  minOrderValue   Float        @default(0)
+  maxDiscount     Float?
+  maxUses         Int?
+  usedCount       Int          @default(0)
+  applicableTo    String?      // "all", "specific_categories", "specific_products"
+  applicableIds   String?      // JSON array of category or product IDs
+  startDate       DateTime
+  endDate         DateTime?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// ==================== ATTRIBUTES (from SQL) ====================
+
+model Attribute {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values AttributeValue[]
+}
+
+model AttributeValue {
+  id          String   @id @default(cuid())
+  attributeId String
+  value       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@index([attributeId])
+}
+
+// ==================== TAGS ====================
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products ProductTag[]
+}
+
 // ==================== PRODUCTS ====================
 
 enum ProductStatus {
@@ -337,9 +490,15 @@ model Product {
   comparePrice    Float?
   sku             String?
   stock           Int           @default(0)
+  lowStock        Int           @default(5)
   status          ProductStatus @default(DRAFT)
   categoryId      String?
+  brandId         String?
+  isFeatured      Boolean       @default(false)
   isPoolProduct   Boolean       @default(false)
+  rating          Float         @default(0)
+  reviewCount     Int           @default(0)
+  totalSales      Int           @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -347,14 +506,19 @@ model Product {
   variants    ProductVariant[]
   images      ProductImage[]
   category    Category?       @relation(fields: [categoryId], references: [id])
+  brand       Brand?          @relation(fields: [brandId], references: [id])
   cartItems   CartItem[]
   orderItems  OrderItem[]
   adCampaigns AdCampaign[]
+  tags        ProductTag[]
+  dealProducts DealProduct[]
 
   @@unique([storeId, slug])
   @@index([storeId])
   @@index([categoryId])
+  @@index([brandId])
   @@index([status])
+  @@index([isFeatured])
 }
 
 model ProductVariant {
@@ -389,13 +553,25 @@ model ProductImage {
   @@index([productId])
 }
 
+model ProductTag {
+  productId   String
+  tagId       String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+}
+
 model Category {
   id          String     @id @default(cuid())
   name        String
   slug        String     @unique
   parentId    String?
   imageUrl    String?
+  icon        String?
   isActive    Boolean    @default(true)
+  position    Int        @default(0)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -404,6 +580,7 @@ model Category {
   products Product[]
 
   @@index([parentId])
+  @@index([isActive])
 }
 
 // ==================== CART ====================
@@ -465,10 +642,12 @@ model Order {
   status        OrderStatus   @default(PENDING)
   subtotal      Float
   shippingFee   Float         @default(0)
+  discount      Float         @default(0)
   totalAmount   Float
   paymentStatus PaymentStatus @default(PENDING)
   addressId     String
   poolOrderId   String?
+  couponId      String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -478,7 +657,7 @@ model Order {
   items       OrderItem[]
   payment     Payment?
   escrow      Escrow?
-  delivery     Delivery?
+  delivery    Delivery?
   commission  Commission?
 
   @@index([buyerId])
@@ -509,6 +688,8 @@ model OrderItem {
 enum PaymentGateway {
   PAYSTACK
   FLUTTERWAVE
+  CASH_ON_DELIVERY
+  WALLET
 }
 
 enum PaymentType {
@@ -580,7 +761,7 @@ model Wallet {
 }
 
 model Withdrawal {
-  id            String          @id @default(cuid())
+  id            String           @id @default(cuid())
   vendorId      String
   amount        Float
   bankCode      String
@@ -589,8 +770,8 @@ model Withdrawal {
   status        WithdrawalStatus @default(PENDING)
   reference     String?
   processedAt   DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -732,7 +913,6 @@ model Rider {
   verificationReviewedAt  DateTime?
   verificationReviewedBy  String?
   rejectionReason         String?
-  // Bank details for payouts
   bankCode                String?
   bankName                String?
   accountNumber           String?
@@ -842,6 +1022,35 @@ model AuditLog {
   @@index([action])
 }
 
+// ==================== REVIEWS ====================
+
+model Review {
+  id          String   @id @default(cuid())
+  productId   String
+  userId      String
+  rating      Int
+  comment     String?
+  images      String?
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+}
+
+// ==================== WISHLIST ====================
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+}
+
 // ==================== SYSTEM CONFIG ====================
 
 model SystemConfig {
@@ -850,4 +1059,21 @@ model SystemConfig {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ==================== CURRENCY (from SQL) ====================
+
+model Currency {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  symbol    String
+  exchangeRate Float  @default(1)
+  isDefault  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([code])
+  @@index([isActive])
 }

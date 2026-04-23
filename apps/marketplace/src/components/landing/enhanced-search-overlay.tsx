@@ -283,9 +283,9 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
           >
             <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
               {/* Search bar - glassmorphism */}
-              <div className="relative rounded-2xl bg-background/90 backdrop-blur-xl border border-divider shadow-2xl overflow-hidden">
+              <div className="relative rounded-2xl bg-background/90 backdrop-blur-xl border border-kwik-border shadow-2xl overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-4">
-                  <Search className="w-5 h-5 text-default-400 flex-shrink-0" />
+                  <Search className="w-5 h-5 text-kwik-muted flex-shrink-0" />
                   <input
                     ref={inputRef}
                     type="text"
@@ -293,7 +293,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Search products, stores, categories..."
-                    className="flex-1 bg-transparent outline-none text-base placeholder:text-default-400 text-foreground"
+                    className="flex-1 bg-transparent outline-none text-base placeholder:text-kwik-muted text-kwik-dark"
                     aria-label="Search"
                     role="searchbox"
                   />
@@ -303,13 +303,13 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.5 }}
                       onClick={() => setQuery('')}
-                      className="p-1 rounded-full hover:bg-default-100 transition-colors text-default-400 hover:text-foreground"
+                      className="p-1 rounded-full hover:bg-kwik-bg-light transition-colors text-kwik-muted hover:text-kwik-dark"
                       aria-label="Clear search"
                     >
                       <X className="w-4 h-4" />
                     </motion.button>
                   )}
-                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-default-100 text-[11px] text-default-400 font-mono border border-default-200">
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-kwik-bg-light text-[11px] text-kwik-muted font-mono border border-kwik-border">
                     ESC
                   </kbd>
                 </div>
@@ -320,7 +320,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.2 }}
-                className="mt-2 rounded-2xl bg-background/95 backdrop-blur-xl border border-divider shadow-2xl overflow-hidden"
+                className="mt-2 rounded-2xl bg-kwik-bg-surface/95 dark:bg-background/95 backdrop-blur-xl border border-kwik-border shadow-2xl overflow-hidden"
               >
                 <div className="overflow-y-auto max-h-[60vh] sm:max-h-[55vh]">
                   <AnimatePresence mode="wait">
@@ -335,10 +335,10 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                         className="p-4"
                       >
                         <div className="flex items-center justify-between mb-3 px-1">
-                          <h3 className="text-xs font-semibold text-default-400 uppercase tracking-wider">
+                          <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
                             Suggestions
                           </h3>
-                          <span className="text-xs text-default-400">{filteredSuggestions.length} results</span>
+                          <span className="text-xs text-kwik-muted">{filteredSuggestions.length} results</span>
                         </div>
                         <div className="space-y-1">
                           {filteredSuggestions.map((product, index) => (
@@ -348,7 +348,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: index * 0.03 }}
                               onClick={() => handleSearch(product.name)}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-default-100 transition-colors text-left group"
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-kwik-bg-light transition-colors text-left group"
                             >
                               {/* Product image placeholder */}
                               <div
@@ -360,12 +360,12 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                 {product.initials}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate text-foreground">
+                                <div className="text-sm font-medium truncate text-kwik-dark">
                                   {highlightMatch(product.name, query)}
                                 </div>
-                                <div className="text-xs text-default-400">{product.category}</div>
+                                <div className="text-xs text-kwik-gray-light">{product.category}</div>
                               </div>
-                              <span className="text-sm font-semibold text-foreground flex-shrink-0">
+                              <span className="text-sm font-semibold text-kwik-dark flex-shrink-0">
                                 {product.price}
                               </span>
                             </motion.button>
@@ -384,11 +384,11 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                         transition={{ duration: 0.2 }}
                         className="p-8 text-center"
                       >
-                        <div className="w-16 h-16 rounded-full bg-default-100 flex items-center justify-center mx-auto mb-4">
-                          <Search className="w-7 h-7 text-default-300" />
+                        <div className="w-16 h-16 rounded-full bg-kwik-bg-light flex items-center justify-center mx-auto mb-4">
+                          <Search className="w-7 h-7 text-kwik-muted" />
                         </div>
-                        <p className="text-sm font-medium text-foreground mb-1">No results found</p>
-                        <p className="text-xs text-default-400">
+                        <p className="text-sm font-medium text-kwik-dark mb-1">No results found</p>
+                        <p className="text-xs text-kwik-gray-light">
                           Try searching for &quot;Ankara dresses&quot;, &quot;iPhone&quot;, or &quot;Samsung&quot;
                         </p>
                       </motion.div>
@@ -407,7 +407,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                         {history.length > 0 && (
                           <div className="p-4 pb-2">
                             <div className="flex items-center justify-between mb-3 px-1">
-                              <h3 className="text-xs font-semibold text-default-400 uppercase tracking-wider">
+                              <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
                                 Recent Searches
                               </h3>
                               <button
@@ -424,7 +424,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                   initial={{ opacity: 0, x: -10 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: index * 0.03 }}
-                                  className="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-default-100 transition-colors cursor-pointer"
+                                  className="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-kwik-bg-light transition-colors cursor-pointer"
                                   onClick={() => handleSearch(term)}
                                   role="button"
                                   tabIndex={0}
@@ -432,11 +432,11 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                     if (e.key === 'Enter') handleSearch(term)
                                   }}
                                 >
-                                  <Clock className="w-4 h-4 text-default-300 flex-shrink-0" />
-                                  <span className="flex-1 text-sm text-foreground truncate">{term}</span>
+                                  <Clock className="w-4 h-4 text-kwik-muted flex-shrink-0" />
+                                  <span className="flex-1 text-sm text-kwik-dark truncate">{term}</span>
                                   <button
                                     onClick={(e) => handleRemoveHistory(term, e)}
-                                    className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-default-200 transition-all text-default-400 hover:text-foreground"
+                                    className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-kwik-bg-light transition-all text-kwik-muted hover:text-kwik-dark"
                                     aria-label={`Remove "${term}" from history`}
                                   >
                                     <X className="w-3.5 h-3.5" />
@@ -456,8 +456,8 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                         {/* Trending Now */}
                         <div className="p-4 pb-2">
                           <div className="flex items-center gap-2 mb-3 px-1">
-                            <Flame className="w-4 h-4 text-orange-400" />
-                            <h3 className="text-xs font-semibold text-default-400 uppercase tracking-wider">
+                            <Flame className="w-4 h-4 text-kwik-orange" />
+                            <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
                               Trending Now
                             </h3>
                           </div>
@@ -469,14 +469,14 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.04 }}
                                 onClick={() => handleSearch(item.term)}
-                                className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-default-100 transition-colors text-left group"
+                                className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-kwik-bg-light transition-colors text-left group"
                               >
-                                <TrendingUp className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                                <TrendingUp className="w-3.5 h-3.5 text-kwik-orange flex-shrink-0" />
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-sm text-foreground truncate group-hover:text-accent transition-colors">
+                                  <div className="text-sm text-kwik-dark truncate group-hover:text-kwik-orange transition-colors">
                                     {item.term}
                                   </div>
-                                  <div className="text-[10px] text-default-400">{item.count}</div>
+                                  <div className="text-[10px] text-kwik-muted">{item.count}</div>
                                 </div>
                               </motion.button>
                             ))}
@@ -490,8 +490,8 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                         {/* Popular Categories */}
                         <div className="p-4">
                           <div className="flex items-center gap-2 mb-3 px-1">
-                            <Sparkles className="w-4 h-4 text-accent" />
-                            <h3 className="text-xs font-semibold text-default-400 uppercase tracking-wider">
+                            <Sparkles className="w-4 h-4 text-kwik-orange" />
+                            <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
                               Popular Categories
                             </h3>
                           </div>
@@ -503,7 +503,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: index * 0.05 }}
                                 onClick={() => handleCategoryClick(cat.name)}
-                                className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-default-100 transition-all cursor-pointer group"
+                                className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-kwik-bg-light transition-all cursor-pointer group"
                               >
                                 <div
                                   className={cn(
@@ -513,8 +513,8 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                 >
                                   <cat.icon className="w-5 h-5" />
                                 </div>
-                                <span className="text-xs font-medium text-foreground">{cat.name}</span>
-                                <span className="text-[10px] text-default-400">{cat.count}</span>
+                                <span className="text-xs font-medium text-kwik-dark">{cat.name}</span>
+                                <span className="text-[10px] text-kwik-muted">{cat.count}</span>
                               </motion.button>
                             ))}
                           </div>
@@ -526,17 +526,17 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
 
                 {/* Footer hint */}
                 {!hasQuery && (
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-divider bg-default-50/50">
-                    <span className="text-[11px] text-default-400">
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-kwik-border bg-kwik-bg-surface/50">
+                    <span className="text-[11px] text-kwik-muted">
                       Press{' '}
-                      <kbd className="px-1 py-0.5 rounded bg-default-100 text-[10px] font-mono mx-0.5 border border-default-200">
+                      <kbd className="px-1 py-0.5 rounded bg-kwik-bg-light text-[10px] font-mono mx-0.5 border border-kwik-border">
                         Enter
                       </kbd>{' '}
                       to search
                     </span>
-                    <span className="text-default-300">&middot;</span>
-                    <span className="text-[11px] text-default-400">
-                      <kbd className="px-1 py-0.5 rounded bg-default-100 text-[10px] font-mono mx-0.5 border border-default-200">
+                    <span className="text-kwik-muted">&middot;</span>
+                    <span className="text-[11px] text-kwik-muted">
+                      <kbd className="px-1 py-0.5 rounded bg-kwik-bg-light text-[10px] font-mono mx-0.5 border border-kwik-border">
                         ESC
                       </kbd>{' '}
                       to close

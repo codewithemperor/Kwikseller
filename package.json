@@ -15,7 +15,7 @@
     "dev:vendor": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/vendor",
     "dev:admin": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/admin",
     "dev:rider": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/rider",
-    "dev:app": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/marketplace"
+    "dev:app": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/marketplace --filter=@kwikseller/admin"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.2.1",

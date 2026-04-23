@@ -2,9 +2,9 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { LayoutGrid, Grid3X3, Search, ShoppingCart, User } from 'lucide-react'
+import { LayoutGrid, Grid3X3, Search, ShoppingCart, User, Heart } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCartStore } from '@/stores'
+import { useCartStore, useWishlistStore } from '@/stores'
 
 interface MobileBottomNavProps {
   onSearchOpen?: () => void
@@ -18,6 +18,7 @@ interface NavItem {
 
 export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
   const itemCount = useCartStore((s) => s.itemCount)
+  const wishlistCount = useWishlistStore((s) => s.itemCount)
   const router = useRouter()
   const pathname = usePathname()
   const [mounted, setMounted] = React.useState(false)
@@ -47,6 +48,11 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
       action: () => onSearchOpen?.(),
     },
     {
+      label: 'Wishlist',
+      icon: Heart,
+      action: () => router.push('/wishlist'),
+    },
+    {
       label: 'Cart',
       icon: ShoppingCart,
       action: () => router.push('/cart'),
@@ -67,7 +73,8 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
   })
 
   React.useEffect(() => {
-    if (pathname === '/cart') setActiveTab('Cart')
+    if (pathname === '/wishlist') setActiveTab('Wishlist')
+    else if (pathname === '/cart') setActiveTab('Cart')
     else if (pathname === '/login' || pathname === '/register') setActiveTab('Profile')
     else if (pathname === '/') setActiveTab('Home')
   }, [pathname])
@@ -76,6 +83,9 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
     setActiveTab(item.label)
     item.action()
   }
+
+  const iconClass = (isActive: boolean) =>
+    `w-5 h-5 transition-colors duration-300 ease-out ${isActive ? 'text-kwik-orange' : 'text-kwik-muted'}`
 
   return (
     <nav
@@ -88,60 +98,70 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
 
       {/* Nav bar container */}
       <div className="bg-background/90 backdrop-blur-xl border-t border-divider">
-        <div className="flex items-center justify-around px-1 pt-1.5 pb-[env(safe-area-inset-bottom)]">
-          {navItems.map((item) => {
+        <div className="flex items-center justify-around px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),4px)]">
+          {navItems.map((item, index) => {
             const isActive = activeTab === item.label
             const Icon = item.icon
 
             return (
               <motion.button
                 key={item.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring' as const, stiffness: 500, damping: 25, delay: index * 0.05 }}
                 whileTap={{ scale: 0.85, y: 1 }}
-                transition={{ type: 'spring' as const, stiffness: 500, damping: 25 }}
                 onClick={() => handleTap(item)}
                 className="relative flex flex-col items-center justify-center gap-0.5 py-2 px-3 min-w-[56px] rounded-xl"
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {/* Active indicator bar — smoother transition with longer spring */}
+                {/* Active indicator bar */}
                 {isActive && (
                   <motion.div
                     layoutId="mobile-nav-indicator"
-                    className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-[3px] rounded-full bg-accent"
+                    className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-[3px] rounded-full bg-kwik-orange"
+                    style={{ boxShadow: '0 0 8px rgba(234, 88, 12, 0.4)' }}
                     transition={{ type: 'spring' as const, stiffness: 400, damping: 35, mass: 0.8 }}
                   />
                 )}
 
                 <div className="relative">
-                  <Icon
-                    className={`w-5 h-5 transition-colors duration-300 ease-out ${
-                      isActive ? 'text-accent' : 'text-default-400'
-                    }`}
-                  />
+                  <Icon className={iconClass(isActive)} />
 
-                  {/* Cart badge — only render after mount to avoid hydration mismatch */}
+                  {/* Cart badge */}
                   {item.label === 'Cart' && mounted && count > 0 && (
                     <motion.span
                       key={count}
                       initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
+                      animate={{ scale: 1, rotate: [0, -10, 10, 0] }}
                       transition={{ type: 'spring' as const, stiffness: 500, damping: 25 }}
-                      className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-accent text-white text-[10px] font-bold leading-none px-1 shadow-sm"
+                      className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-kwik-orange text-white text-[10px] font-bold leading-none px-1 shadow-sm"
                     >
                       {count > 99 ? '99+' : count}
                     </motion.span>
                   )}
 
+                  {/* Wishlist badge */}
+                  {item.label === 'Wishlist' && mounted && wishlistCount > 0 && (
+                    <motion.span
+                      key={wishlistCount}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring' as const, stiffness: 500, damping: 25 }}
+                      className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-kwik-red text-white text-[10px] font-bold leading-none px-1 shadow-sm"
+                    >
+                      {wishlistCount > 99 ? '99+' : wishlistCount}
+                    </motion.span>
+                  )}
+
                   {/* Notification dot on Profile icon */}
                   {item.label === 'Profile' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-danger ring-2 ring-background" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-kwik-red ring-2 ring-background" />
                   )}
                 </div>
 
                 <span
-                  className={`text-[10px] font-medium transition-colors duration-300 ease-out ${
-                    isActive ? 'text-accent' : 'text-default-400'
-                  }`}
+                  className={isActive ? 'text-[10px] font-medium text-kwik-orange transition-colors duration-300 ease-out' : 'text-[10px] font-medium text-kwik-muted transition-colors duration-300 ease-out'}
                 >
                   {item.label}
                 </span>

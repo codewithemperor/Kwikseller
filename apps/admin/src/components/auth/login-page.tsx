@@ -207,7 +207,7 @@ export function AdminLoginPage({ config, className }: AdminLoginPageProps) {
 
         <Button
           type="submit"
-          variant="solid"
+          variant="primary"
           fullWidth
           size="lg"
           isPending={isSubmitting || isLoading}

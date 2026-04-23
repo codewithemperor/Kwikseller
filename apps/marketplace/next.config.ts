@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "placehold.co", // ✅ add this
+      },
     ],
     formats: ["image/avif", "image/webp"],
   },

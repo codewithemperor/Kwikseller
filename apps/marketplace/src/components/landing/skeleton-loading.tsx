@@ -34,32 +34,45 @@ export function ProductCardSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'rounded-xl ring-1 ring-default-200 bg-background overflow-hidden',
+        'rounded-[22px] bg-background shadow-sm border overflow-hidden',
         className,
       )}
     >
-      {/* Image area */}
-      <SkeletonPulse className="w-full aspect-square rounded-none" />
+      {/* Image area — matches aspect-square with m-2 rounded-[18px] */}
+      <div className="m-2 animate-shimmer-slide rounded-[18px] aspect-square" />
 
-      {/* Content */}
-      <div className="p-4 flex flex-col gap-2">
+      {/* Content — matches px-3 pb-3 pt-2 */}
+      <div className="flex flex-col gap-2 px-3 pb-3 pt-2">
         {/* Store name */}
-        <SkeletonPulse className="h-3 w-1/3" />
+        <SkeletonPulse className="h-2.5 w-1/3" />
 
-        {/* Title — two lines */}
+        {/* Title — single line */}
         <SkeletonPulse className="h-4 w-3/4" />
-        <SkeletonPulse className="h-4 w-1/2" />
 
-        {/* Rating row */}
-        <div className="flex items-center gap-1.5">
-          {[...Array(4)].map((_, i) => (
-            <SkeletonPulse key={i} className="h-3.5 w-3.5 rounded-full" />
-          ))}
-          <SkeletonPulse className="h-3 w-16" />
+        {/* Rating + Price row */}
+        <div className="flex items-end justify-between pt-0.5 pb-3">
+          <div className="flex flex-col gap-1.5">
+            {/* Store label */}
+            <SkeletonPulse className="h-2 w-12" />
+            {/* Star rating */}
+            <div className="flex items-center gap-1">
+              <SkeletonPulse className="h-3 w-3 rounded-full" />
+              <SkeletonPulse className="h-3 w-6" />
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-0.5">
+            {/* Compare price */}
+            <SkeletonPulse className="h-2 w-14" />
+            {/* Price */}
+            <SkeletonPulse className="h-3.5 w-16" />
+          </div>
         </div>
 
-        {/* Price */}
-        <SkeletonPulse className="h-5 w-1/4 mt-1" />
+        {/* Add to Cart + Eye buttons */}
+        <div className="flex items-center gap-2 mt-auto">
+          <SkeletonPulse className="h-7 flex-1 rounded-xl" />
+          <SkeletonPulse className="h-7 w-7 rounded-xl" />
+        </div>
       </div>
     </div>
   )

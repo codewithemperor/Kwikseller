@@ -141,3 +141,11 @@ export type { CompareProduct } from './compare-store'
 // Re-export user preferences store
 export { useUserPreferencesStore } from './user-preferences-store'
 export type { UserPreferences, CurrencyCode, LanguageCode } from './user-preferences-store'
+
+// Re-export price drop store
+export { usePriceDropStore } from './price-drop-store'
+export type { PriceRecord } from './price-drop-store'
+
+// Re-export notification store
+export { useNotificationStore, notify } from './notification-store'
+export type { Notification, NotificationType } from './notification-store'

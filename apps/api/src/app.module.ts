@@ -14,6 +14,13 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
+import { BrandsModule } from './modules/brands/brands.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { BannersModule } from './modules/banners/banners.module';
+import { DealsModule } from './modules/deals/deals.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { UploadModule } from './modules/upload/upload.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -107,6 +114,27 @@ import { ProductsModule } from './modules/products/products.module';
 
     // Products module
     ProductsModule,
+
+    // Brands module
+    BrandsModule,
+
+    // Categories module
+    CategoriesModule,
+
+    // Banners module
+    BannersModule,
+
+    // Deals/Promotions module
+    DealsModule,
+
+    // Coupons module
+    CouponsModule,
+
+    // Upload module
+    UploadModule,
+
+    // Dashboard module
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
@@ -138,6 +166,13 @@ export class AppModule implements OnModuleInit {
     console.log('🔐 AuthModule loaded');
     console.log('👥 UsersModule loaded');
     console.log('🛍️ ProductsModule loaded');
+    console.log('🏷️ BrandsModule loaded');
+    console.log('📁 CategoriesModule loaded');
+    console.log('🖼️ BannersModule loaded');
+    console.log('🔥 DealsModule loaded');
+    console.log('🎫 CouponsModule loaded');
+    console.log('📤 UploadModule loaded');
+    console.log('📊 DashboardModule loaded');
     console.log('🔗 EventEmitter2 ready for events');
   }
 }

@@ -81,6 +81,8 @@
   --kwik-star: #f59e0b;
   --kwik-green: #166534;
   --kwik-red: #dc2626;
+  --kwik-blue: #2563eb;
+  --kwik-amber: #d97706;
   --kwik-whatsapp: #25D366;
   --kwik-bg-warm: #faf7f2;
   --kwik-bg-warm-gray: #f1f1ee;
@@ -88,41 +90,42 @@
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
+/* Dark theme uses NEARLY BLACK backgrounds (NO blue tint) */
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
 
   /* ── Surfaces ─────────────────────────────────────────── */
-  --background: oklch(0.12 0.04 264);
-  --foreground: oklch(0.96 0.01 264);
-  --surface: oklch(0.17 0.05 264);
-  --surface-foreground: oklch(0.96 0.01 264);
-  --overlay: oklch(0.17 0.05 264);
-  --overlay-foreground: oklch(0.96 0.01 264);
+  --background: oklch(0.1 0.005 0);       /* #0a0a0a nearly black */
+  --foreground: oklch(0.96 0 0);         /* #f5f5f5 off-white */
+  --surface: oklch(0.14 0.005 0);        /* #1a1a1a dark surface */
+  --surface-foreground: oklch(0.96 0 0);
+  --overlay: oklch(0.14 0.005 0);
+  --overlay-foreground: oklch(0.96 0 0);
 
   /* ── HeroUI primary action = Orange (stays vivid in dark) */
   --accent: oklch(0.74 0.17 48);
   --accent-foreground: oklch(0.1 0.02 48);
-  --accent-soft: oklch(0.28 0.08 48);
+  --accent-soft: oklch(0.25 0.06 48);
   --accent-soft-foreground: oklch(0.88 0.08 48);
 
   /* ── Default / neutral ────────────────────────────────── */
-  --default: oklch(0.22 0.04 264);
-  --default-foreground: oklch(0.96 0.01 264);
-  --muted: oklch(0.65 0.03 264);
+  --default: oklch(0.18 0.005 0);        /* #1e1e1e dark card */
+  --default-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.6 0.005 0);           /* #888 neutral muted */
 
   /* ── Status ───────────────────────────────────────────── */
   --success: oklch(0.68 0.15 155);
-  --success-foreground: oklch(0.1 0.02 155);
+  --success-foreground: oklch(0.1 0 0);
   --warning: oklch(0.8 0.14 70);
   --warning-foreground: oklch(0.15 0.04 70);
   --danger: oklch(0.65 0.22 27);
-  --danger-foreground: oklch(0.1 0.02 27);
+  --danger-foreground: oklch(0.1 0 0);
 
   /* ── Form fields ──────────────────────────────────────── */
-  --field-background: oklch(0.2 0.05 264);
-  --field-foreground: oklch(0.96 0.01 264);
-  --field-placeholder: oklch(0.55 0.03 264);
+  --field-background: oklch(0.16 0.005 0);
+  --field-foreground: oklch(0.96 0 0);
+  --field-placeholder: oklch(0.5 0.005 0);
   --field-border: oklch(1 0 0 / 12%);
 
   /* ── Structural ───────────────────────────────────────── */
@@ -134,7 +137,7 @@
   /* ── Marketplace hex-based semantic tokens (dark mode) ── */
   --kwik-orange: #f97316;
   --kwik-orange-hover: #ea580c;
-  --kwik-orange-tint: oklch(0.28 0.08 48);
+  --kwik-orange-tint: #2a1a0a;
   --kwik-dark: #f9fafb;
   --kwik-dark-medium: #d1d5db;
   --kwik-gray: #9ca3af;
@@ -143,17 +146,19 @@
   --kwik-muted-medium: #6b7280;
   --kwik-border: oklch(1 0 0 / 10%);
   --kwik-border-light: oklch(1 0 0 / 15%);
-  --kwik-bg-light: oklch(0.2 0.04 264);
-  --kwik-bg-page: oklch(0.14 0.04 264);
-  --kwik-bg-surface: oklch(0.22 0.04 264);
+  --kwik-bg-light: #181818;
+  --kwik-bg-page: #111111;
+  --kwik-bg-surface: #1a1a1a;
   --kwik-badge-dark: #e5e7eb;
   --kwik-star: #fbbf24;
   --kwik-green: #22c55e;
   --kwik-red: #ef4444;
+  --kwik-blue: #60a5fa;
+  --kwik-amber: #fbbf24;
   --kwik-whatsapp: #25D366;
-  --kwik-bg-warm: oklch(0.22 0.03 48);
-  --kwik-bg-warm-gray: oklch(0.2 0.02 48);
-  --kwik-bg-warm-light: oklch(0.22 0.02 48);
+  --kwik-bg-warm: #1c1815;
+  --kwik-bg-warm-gray: #1a1918;
+  --kwik-bg-warm-light: #1c1b1a;
 }
 
 /* ============================================================
@@ -245,6 +250,8 @@
   --color-kwik-star: var(--kwik-star);
   --color-kwik-green: var(--kwik-green);
   --color-kwik-red: var(--kwik-red);
+  --color-kwik-blue: var(--kwik-blue);
+  --color-kwik-amber: var(--kwik-amber);
   --color-kwik-whatsapp: var(--kwik-whatsapp);
   --color-kwik-bg-warm: var(--kwik-bg-warm);
   --color-kwik-bg-warm-gray: var(--kwik-bg-warm-gray);
@@ -1120,7 +1127,7 @@ html::-webkit-scrollbar-thumb:hover {
    Accent-colored outline on focus-visible for all elements.
    ============================================================ */
 *:focus-visible {
-  outline: 2px solid oklch(0.7 0.17 48 / 50%);
+  outline: 2px solid var(--kwik-orange);
   outline-offset: 2px;
 }
 
@@ -1129,8 +1136,61 @@ html::-webkit-scrollbar-thumb:hover {
    ============================================================ */
 button,
 a,
-[role="button"] {
-  transition: all 0.2s ease;
+[role="button"],
+input,
+select,
+textarea {
+  transition: all 0.25s ease;
+}
+
+/* ============================================================
+   MICRO-INTERACTION UTILITIES
+   Consistent hover scale, focus-visible, and transition patterns
+   ============================================================ */
+
+/* Subtle scale on hover for buttons and interactive cards */
+.hover-scale-sm {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-scale-sm:hover {
+  transform: scale(1.03);
+}
+.hover-scale-sm:active {
+  transform: scale(0.97);
+}
+
+/* Medium scale on hover for prominent elements */
+.hover-scale-md {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.hover-scale-md:hover {
+  transform: scale(1.05);
+}
+.hover-scale-md:active {
+  transform: scale(0.96);
+}
+
+/* Card hover with border + shadow micro-interaction */
+.card-hover-interactive {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-hover-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(0 0 0 / 8%);
+  border-color: oklch(0.7 0.17 48 / 20%);
+}
+
+/* Smooth content fade transition (loading to content) */
+.transition-content {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.transition-content-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.transition-content-active {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ============================================================
@@ -1850,4 +1910,27 @@ a,
   .grid-auto-fill-lg {
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
+}
+
+/* ============================================================
+   TASK 11-STYLING ANIMATIONS
+   Shimmer sweep, animated counter, border pulse for styling tasks
+   ============================================================ */
+
+/* ── Shimmer sweep animation (light sweep across element) ── */
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.animate-shimmer-sweep {
+  /* usage: animate-[shimmer-sweep_2s_ease-in-out_infinite] */
+  animation-name: shimmer-sweep;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* ── Border color pulse animation ─────────────────────────── */
+@keyframes kwik-border-pulse {
+  0%, 100% { border-color: var(--kwik-border); }
+  50% { border-color: var(--kwik-orange); }
 }

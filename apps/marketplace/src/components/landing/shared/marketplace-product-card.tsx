@@ -6,11 +6,12 @@
  * with full cart and wishlist functionality.
  */
 
-import Image from "next/image";
 import React from "react";
 import { Eye, Heart, ShoppingBag, Star } from "lucide-react";
 import { kwikToast } from "@kwikseller/utils";
 import { useCartStore, useWishlistStore } from "@/stores";
+import { AppImage } from "@/components/ui/app-image";
+import { CompareToggle } from "@/components/landing/compare-panel";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
 /* ─────────────────────────────────────────────
@@ -48,13 +49,6 @@ export function MarketplaceProductCard({
   const isWished = isInWishlist(product.id);
   const discount = discountPct(product.price, product.comparePrice);
 
-  // Extract dimensions from product or use defaults
-  const dimensions = product.dimensions?.split("x").map((d) => d.trim()) || [
-    "58",
-    "79",
-    "60",
-  ];
-
   const handleAddToCart = () => {
     addItem({
       productId: product.id,
@@ -82,18 +76,15 @@ export function MarketplaceProductCard({
 
   return (
     <article
-      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md cursor-pointer"
+      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-all duration-300 hover:shadow-md hover-lift press-scale card-hover-border cursor-pointer"
       onClick={() => onQuickView?.(product)}
     >
       {/* ── Image ── */}
       <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
-        <Image
+        <AppImage
           src={product.image}
           alt={product.name}
-          fill
-          priority={priority}
-          sizes="(max-width: 640px) 50vw, 25vw"
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
         />
 
         {/* Badges */}
@@ -114,15 +105,26 @@ export function MarketplaceProductCard({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); handleWishlistToggle(); }}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-background"
           aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
-            className={`h-4 w-4 transition-colors ${
+            className={`h-4 w-4 transition-all duration-200 ${
               isWished ? "fill-kwik-orange text-kwik-orange" : "text-kwik-muted"
             }`}
           />
         </button>
+
+        {/* Add to Cart overlay - slides up on hover */}
+        <div className="absolute inset-x-2 bottom-2 translate-y-full opacity-0 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-[14px] bg-kwik-orange/95 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-kwik-orange active:scale-[0.98]"
+          >
+            <ShoppingBag className="h-3.5 w-3.5" />
+            Add to Cart
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
@@ -155,8 +157,8 @@ export function MarketplaceProductCard({
           </div>
         </div>
 
-        {/* Add to Cart + Eye */}
-        <div className="flex items-center gap-2 mt-auto">
+        {/* Bottom action row - visible on mobile, hidden on desktop hover (overlay takes over) */}
+        <div className="flex items-center gap-2 mt-auto md:group-hover:hidden">
           <button
             onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
             className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-soft-hover hover text-[10px] font-medium text-kwik-dark-medium transition-colors"
@@ -173,6 +175,18 @@ export function MarketplaceProductCard({
           >
             <Eye className="h-3.5 w-3.5 text-kwik-gray-light" />
           </button>
+          <CompareToggle product={{
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            comparePrice: product.comparePrice,
+            image: product.image,
+            category: product.category,
+            rating: product.rating,
+            reviews: product.reviewCount || 0,
+            store: product.store,
+            specs: {},
+          }} />
         </div>
       </div>
     </article>
