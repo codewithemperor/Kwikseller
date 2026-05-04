@@ -21,6 +21,7 @@ import {
 import { Chip } from "@heroui/react";
 import { cn } from "@/lib/utils";
 import { useAuth, useAuthStore } from "@kwikseller/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
 
 const sidebarItems = [
@@ -52,7 +53,7 @@ export function AdminSidebar() {
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center gap-3 border-b px-4">
+      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg kwik-gradient">
           <Shield className="h-5 w-5 text-white" />
         </div>
@@ -62,7 +63,7 @@ export function AdminSidebar() {
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: "auto" }}
               exit={{ opacity: 0, width: 0 }}
-              className="font-heading text-lg font-bold tracking-tight whitespace-nowrap overflow-hidden"
+              className="font-heading text-lg font-bold tracking-tight whitespace-nowrap overflow-hidden text-sidebar-foreground"
             >
               KWIKSELLER
             </motion.span>
@@ -81,8 +82,8 @@ export function AdminSidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                 active
-                  ? "bg-accent/10 text-accent"
-                  : "text-default-600 hover:bg-default-100 hover:text-foreground",
+                  ? "bg-sidebar-accent text-accent"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
               )}
             >
               <Icon
@@ -107,10 +108,10 @@ export function AdminSidebar() {
           );
         })}
       </nav>
-      <div className="border-t p-3">
+      <div className="border-t border-sidebar-border p-3">
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-default-600 transition-colors hover:bg-danger/10 hover:text-danger"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-danger/10 hover:text-danger"
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" />
           <AnimatePresence>
@@ -135,7 +136,7 @@ export function AdminSidebar() {
       {/* Mobile hamburger */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 lg:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-default-200 hover:bg-default-50"
+        className="fixed top-3 left-3 z-50 lg:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-surface"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -166,7 +167,7 @@ export function AdminSidebar() {
             <div className="absolute right-2 top-3 z-10">
               <button
                 onClick={() => setIsMobileOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-default-200 hover:bg-default-50"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent/50"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -185,7 +186,7 @@ export function AdminSidebar() {
         {sidebarContent}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <ChevronRight
             className={cn(
@@ -202,16 +203,17 @@ export function AdminSidebar() {
 export function AdminHeader() {
   const user = useAuthStore((state) => state.user);
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-lg lg:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-lg lg:px-6">
       <div className="flex items-center gap-3 lg:gap-4 pl-12 lg:pl-0">
         <div className="hidden lg:block">
-          <h1 className="text-lg font-heading font-semibold">
+          <h1 className="text-lg font-heading font-semibold text-foreground">
             Admin Dashboard
           </h1>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-default-200 text-default-500 hover:bg-default-50">
+        <ThemeToggle className="h-8 w-8 rounded-lg border border-border text-muted hover:bg-surface" />
+        <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted hover:bg-surface">
           <Bell className="h-[18px] w-[18px]" />
         </button>
         {user && (

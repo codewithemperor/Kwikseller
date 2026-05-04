@@ -4,14 +4,15 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Switch, Spinner } from "@heroui/react";
+import { Spinner } from "@heroui/react";
 import { Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { PageHeader, ImageUpload } from "@/components/ui";
+import { toast } from "@heroui/react";
+import { PageHeader, ImageUpload, type ImageUploadValue } from "@/components/ui";
 import { bannersApi } from "@/lib/api";
 import { bannerSchema, type BannerFormData } from "@/lib/schemas";
+import { rollbackUploadedImages, uploadQueuedImages } from "@/lib/uploads";
 
 const positions = [
   { key: "HOME_HERO", label: "Home Hero" },
@@ -23,7 +24,7 @@ const positions = [
 export default function NewBannerPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [imageUrl, setImageUrl] = useState("");
+  const [images, setImages] = useState<ImageUploadValue[]>([]);
 
   const {
     register,
@@ -33,21 +34,32 @@ export default function NewBannerPage() {
     formState: { errors },
   } = useForm<BannerFormData>({
     resolver: zodResolver(bannerSchema),
-    defaultValues: { position: "HOME_HERO", isActive: true },
+    defaultValues: { position: "HOME_HERO", isActive: true, imageUrl: "" },
   });
 
+  React.useEffect(() => {
+    setValue("imageUrl", images[0]?.url ?? "");
+  }, [images, setValue]);
+
   const createMutation = useMutation({
-    mutationFn: (data: BannerFormData) =>
-      bannersApi.create({
-        ...data,
-        imageUrl: imageUrl || data.imageUrl,
-      }),
+    mutationFn: async (data: BannerFormData) => {
+      const { urls, uploadedAssets } = await uploadQueuedImages(images, "banner");
+      try {
+        return await bannersApi.create({
+          ...data,
+          imageUrl: urls[0] || data.imageUrl,
+        });
+      } catch (error) {
+        await rollbackUploadedImages(uploadedAssets);
+        throw error;
+      }
+    },
     onSuccess: () => {
       toast.success("Banner created!");
       queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
       router.push("/admin/banners");
     },
-    onError: () => toast.error("Failed to create banner"),
+    onError: (error) => toast.danger("Failed to create banner: " + error.message),
   });
 
   const i =
@@ -115,10 +127,13 @@ export default function NewBannerPage() {
           <div>
             <label className={l}>Banner Image *</label>
             <ImageUpload
-              images={imageUrl ? [imageUrl] : []}
-              onChange={(urls) => setImageUrl(urls[0] ?? "")}
+              images={images}
+              onChange={setImages}
               maxImages={1}
             />
+            {errors.imageUrl && (
+              <p className="text-xs text-danger mt-1">{errors.imageUrl.message}</p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -131,12 +146,13 @@ export default function NewBannerPage() {
             </div>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
-            <Switch
-              isSelected={watch("isActive")}
-              onChange={(val) => setValue("isActive", val)}
-              size="sm"
+            <input
+              type="checkbox"
+              checked={watch("isActive")}
+              onChange={(e) => setValue("isActive", e.target.checked)}
+              className="h-4 w-4 rounded border border-default-300 accent-[var(--accent)]"
             />
-            <span className="text-sm">Active</span>
+            <span className="text-sm font-medium">Active</span>
           </label>
         </div>
         <div className="flex items-center gap-3 justify-end">

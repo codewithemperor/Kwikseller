@@ -8,7 +8,7 @@ import { Button, Spinner } from "@heroui/react";
 import { Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@heroui/react";
 import { PageHeader } from "@/components/ui";
 import { couponsApi } from "@/lib/api";
 import { couponSchema, type CouponFormData } from "@/lib/schemas";
@@ -33,7 +33,7 @@ export default function NewCouponPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-coupons"] });
       router.push("/admin/coupons");
     },
-    onError: () => toast.error("Failed to create coupon"),
+    onError: (error) => toast.danger("Failed to create coupon: " + error.message),
   });
 
   const i =

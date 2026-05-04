@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import React, { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, PackageOpen, Star, Zap } from "lucide-react";
@@ -12,7 +13,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   SectionHeader,
   ProductCarouselSection,
-  CategoryCarouselSection,
   PromoBannerGrid,
   BrandCarouselSection,
 } from "@/components/landing/shared/marketplace-carousel";
@@ -112,8 +112,8 @@ export function MarketplaceHero() {
     <section className="border-b border-kwik-border bg-kwik-bg-page py-4">
       <div className="container mx-auto grid gap-4 px-4 lg:grid-cols-[250px_1fr_280px]">
         {/* Category sidebar */}
-        <aside className="hidden rounded-[20px] bg-background p-4 shadow-sm lg:block">
-          <div className="space-y-1">
+        <aside className="hidden rounded-[20px] bg-background p-4 shadow-sm lg:block max-h-[340px] overflow-y-auto scrollbar-thin">
+          <div className="space-y-0.5">
             {categories.length > 0 ? (
               categories.map((category) => (
                 <button
@@ -121,9 +121,9 @@ export function MarketplaceHero() {
                   type="button"
                   onClick={() => {
                     const slug = category.slug || category.id;
-                    window.location.href = `/categories?${slug}`;
+                    window.location.href = `/categories?name=${slug}`;
                   }}
-                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-kwik-dark-medium transition-all duration-200 hover:bg-kwik-orange-tint hover:text-kwik-orange hover:translate-x-1 active:scale-[0.98] active:bg-kwik-orange/10"
+                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-kwik-dark-medium transition-all duration-200 hover:bg-kwik-orange-tint hover:text-kwik-orange hover:translate-x-1 active:scale-[0.98] active:bg-kwik-orange/10"
                 >
                   {/* Active dot indicator */}
                   <span className="w-1.5 h-1.5 rounded-full bg-transparent group-hover:bg-kwik-orange/50 transition-colors duration-200" />
@@ -408,13 +408,47 @@ export function MarketplaceCategorySection() {
     );
   }
 
-  const categoriesForCarousel = categories.map((cat) => ({
-    id: cat.id,
-    name: cat.name,
-    image: cat.image,
-  }));
-
-  return <CategoryCarouselSection categories={categoriesForCarousel} />;
+  return (
+    <section className="bg-kwik-bg-page py-1">
+      <div className="container mx-auto px-0 md:px-4">
+        <SectionHeader title="Shop by Category" href="/categories" />
+        <div className="relative bg-background overflow-hidden" style={{ maxHeight: '340px' }}>
+          <div className="overflow-y-auto overscroll-contain p-3 md:p-4" style={{ maxHeight: '340px' }}>
+            <div className="flex gap-3 md:gap-4">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/categories?name=${category.slug || category.id}`}
+                  className="group min-w-0 shrink-0"
+                >
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-full bg-kwik-bg-light shadow-sm transition-transform group-hover:scale-105 md:h-20 md:w-20">
+                      {category.image ? (
+                        <Image
+                          src={category.image}
+                          alt={category.name}
+                          fill
+                          sizes="(max-width: 768px) 64px, 80px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl">
+                          {getCategoryIcon(category.name, category.slug || category.id)}
+                        </div>
+                      )}
+                    </div>
+                    <span className="max-w-[72px] text-center text-xs font-medium leading-tight text-kwik-dark truncate">
+                      {category.name}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 /* ─────────────────────────────────────────────

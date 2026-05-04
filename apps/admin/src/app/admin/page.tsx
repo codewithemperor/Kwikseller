@@ -18,6 +18,7 @@ import {
   Tag,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "@heroui/react";
 import {
   BarChart,
   Bar,
@@ -48,22 +49,37 @@ const statusColorMap: Record<string, "success" | "warning" | "default" | "danger
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-dashboard-stats"],
-    queryFn: () => dashboardApi.getStats().then((res) => res.data),
+    queryFn: () => {
+      const loadingId = toast("Loading stats...", { isLoading: true, timeout: 0 });
+      return dashboardApi.getStats()
+        .then((res) => { toast.close(loadingId); toast.success("Stats loaded"); return (res as any).data ?? res; })
+        .catch((err) => { toast.close(loadingId); toast.danger("Failed to load stats: " + (err?.message || "Unknown error")); throw err; });
+    },
   });
 
   const { data: recentOrders, isLoading: ordersLoading } = useQuery({
     queryKey: ["admin-recent-orders"],
-    queryFn: () => dashboardApi.getRecentOrders(8).then((res) => res.data),
+    queryFn: () => {
+      const loadingId = toast("Loading orders...", { isLoading: true, timeout: 0 });
+      return dashboardApi.getRecentOrders(8)
+        .then((res) => { toast.close(loadingId); toast.success("Orders loaded"); return (res as any).data ?? res; })
+        .catch((err) => { toast.close(loadingId); toast.danger("Failed to load orders: " + (err?.message || "Unknown error")); throw err; });
+    },
   });
 
   const { data: topProducts, isLoading: productsLoading } = useQuery({
     queryKey: ["admin-top-products"],
-    queryFn: () => dashboardApi.getTopProducts(5).then((res) => res.data),
+    queryFn: () => {
+      const loadingId = toast("Loading products...", { isLoading: true, timeout: 0 });
+      return dashboardApi.getTopProducts(5)
+        .then((res) => { toast.close(loadingId); toast.success("Top products loaded"); return (res as any).data ?? res; })
+        .catch((err) => { toast.close(loadingId); toast.danger("Failed to load top products: " + (err?.message || "Unknown error")); throw err; });
+    },
   });
 
   const chartData = React.useMemo(() => {
     if (!topProducts) return [];
-    return topProducts.map((p) => ({
+    return topProducts.map((p: any) => ({
       name: p.name.length > 15 ? p.name.slice(0, 15) + "..." : p.name,
       revenue: p.price * (p.stock || 1),
       stock: p.stock || 0,
@@ -204,7 +220,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-default-100">
-                  {recentOrders.map((order) => (
+                  {recentOrders.map((order: any) => (
                     <tr key={order.id} className="hover:bg-default-50 transition-colors">
                       <td className="py-2.5 font-medium">#{(order.orderNumber ?? order.id).slice(-8)}</td>
                       <td className="py-2.5 text-muted-foreground">{order.buyer?.firstName ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}` : order.buyer?.email ?? "Unknown"}</td>

@@ -134,7 +134,7 @@ function MobileDrawerContent({
               <button
                 key={category.id}
                 type="button"
-                onClick={() => handleNavClick(`/categories?${category.slug || category.id}`)}
+                onClick={() => handleNavClick(`/categories?name=${category.slug || category.id}`)}
                 className="flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-kwik-gray transition-colors hover:bg-background hover:text-kwik-dark"
               >
                 <span>{category.name}</span>

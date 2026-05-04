@@ -405,6 +405,8 @@ export const productsApi = {
 // ==================== Marketplace API ====================
 
 export const marketplaceApi = {
+  getHomeFeed: () => api.get('/products/home-feed'),
+
   // Banners
   getBanners: (params?: { type?: string }) =>
     api.get('/banners', { params }),

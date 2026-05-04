@@ -2,11 +2,18 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Chip, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
-import { MoreVertical, Edit, Trash2, Package } from "lucide-react";
-import { toast } from "sonner";
-import { PageHeader, DataTable, type Column, ConfirmDialog } from "@/components/ui";
+import { Chip } from "@heroui/react";
+import { Pencil, Trash2, Package } from "lucide-react";
+import { toast } from "@heroui/react";
+import {
+  PageHeader,
+  DataTable,
+  type Column,
+  type RowAction,
+  ConfirmDialog,
+} from "@/components/ui";
 import { adminProductsApi } from "@/lib/api";
 import type { Product } from "@kwikseller/types";
 import { formatCurrency, formatRelativeTime } from "@kwikseller/utils";
@@ -19,6 +26,7 @@ const statusColorMap: Record<string, "success" | "warning" | "default" | "danger
 };
 
 export default function ProductsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -26,10 +34,13 @@ export default function ProductsPage() {
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["admin-products", page, search],
-    queryFn: () =>
-      adminProductsApi
+    queryFn: () => {
+      const loadingId = toast("Loading products...", { isLoading: true, timeout: 0 });
+      return adminProductsApi
         .list({ page, limit: 10, search: search || undefined })
-        .then((res) => res.data),
+        .then((res) => { toast.close(loadingId); toast.success("Products loaded"); return res; })
+        .catch((err) => { toast.close(loadingId); toast.danger("Failed to load products: " + (err?.message || "Unknown error")); throw err; });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -39,8 +50,8 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       setDeleteTarget(null);
     },
-    onError: () => {
-      toast.error("Failed to delete product");
+    onError: (error) => {
+      toast.danger("Failed to delete product: " + error.message);
     },
   });
 
@@ -49,6 +60,7 @@ export default function ProductsPage() {
       key: "name",
       label: "Product",
       sortable: true,
+      isRowHeader: true,
       render: (item) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-default-100 shrink-0 overflow-hidden">
@@ -129,7 +141,23 @@ export default function ProductsPage() {
     },
   ];
 
-  const products = (data as unknown as { data?: Product[]; meta?: { total: number } })?.data ?? Array.isArray(data) ? (data as Product[]) : [];
+  const rowActions: RowAction<Product>[] = [
+    {
+      key: "edit",
+      label: "Edit",
+      icon: <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+      onPress: (item) => router.push(`/admin/products/${item.id}`),
+    },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 className="h-3.5 w-3.5 shrink-0 text-danger" />,
+      variant: "danger",
+      onPress: (item) => setDeleteTarget(item),
+    },
+  ];
+
+  const products = (data as { data?: Product[] } | undefined)?.data ?? [];
   const totalItems = (data as unknown as { meta?: { total: number } })?.meta?.total ?? products.length;
 
   return (
@@ -162,28 +190,7 @@ export default function ProductsPage() {
         isRefetching={isRefetching}
         emptyMessage="No products found"
         getRowId={(item) => item.id}
-        actions={(item) => (
-          <Dropdown>
-            <DropdownTrigger>
-              <button className="flex h-7 w-7 items-center justify-center rounded-md text-default-400 hover:bg-default-100">
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </DropdownTrigger>
-            <DropdownMenu>
-              <DropdownItem
-                href={`/admin/products/${item.id}`}
-              >
-                View / Edit
-              </DropdownItem>
-              <DropdownItem
-                className="text-danger"
-                onClick={() => setDeleteTarget(item)}
-              >
-                Delete
-              </DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
-        )}
+        rowActions={rowActions}
       />
 
       <ConfirmDialog

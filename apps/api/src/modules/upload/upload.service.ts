@@ -117,10 +117,7 @@ export class UploadService {
           public_id: publicId,
           overwrite: publicId ? true : false,
           resource_type: 'image',
-          transformation: [
-            { quality: `auto:${quality}` },
-            { fetch_format: outputFormat },
-          ],
+          format: outputFormat,
         },
         (error, result) => {
           if (error || !result) {

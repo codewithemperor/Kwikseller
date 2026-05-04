@@ -18,23 +18,10 @@ async function bootstrap() {
   const defaultOrigins = [
     /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.com$/,
     /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.local$/,
-    /^http:\/\/192\.168\.0\.105(?::\d+)?$/,
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3002",
     "http://localhost:3003",
-    "http://192.168.0.101:3000",
-    "http://192.168.0.101:3001",
-    "http://192.168.0.101:3002",
-    "http://192.168.0.101:3003",
-    "http://192.168.0.102:3000",
-    "http://192.168.0.102:3001",
-    "http://192.168.0.102:3002",
-    "http://192.168.0.102:3003",
-    "http://192.168.0.103:3000",
-    "http://192.168.0.103:3001",
-    "http://192.168.0.103:3002",
-    "http://192.168.0.103:3003",
   ];
 
   app.enableCors({
@@ -48,7 +35,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Allow extra query params from frontend
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,

@@ -145,7 +145,7 @@ export function RecentlyViewed() {
                   <div className="relative w-full aspect-square overflow-hidden bg-default-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.image}
+                      src={item.image || undefined}
                       alt={item.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"

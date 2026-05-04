@@ -8,7 +8,7 @@ import { Button, Spinner } from "@heroui/react";
 import { Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@heroui/react";
 import { PageHeader } from "@/components/ui";
 import { dealsApi } from "@/lib/api";
 import { dealSchema, type DealFormData } from "@/lib/schemas";
@@ -63,7 +63,7 @@ export default function EditDealPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-deals"] });
       router.push("/admin/deals");
     },
-    onError: () => toast.error("Failed to update deal"),
+    onError: (error) => toast.danger("Failed to update deal: " + error.message),
   });
 
   const i =

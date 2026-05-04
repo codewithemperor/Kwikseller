@@ -99,11 +99,38 @@ export class ProductsController {
   }
 
   @Public()
+  @Get('category/:slug')
+  @ApiOperation({ summary: 'Get products by category slug' })
+  @ApiResponse({ status: 200, description: 'Category products returned' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  async getProductsByCategory(
+    @Param('slug') slug: string,
+    @Query() dto: LimitQueryDto,
+  ) {
+    try {
+      return this.productsService.getCategoryDetail(slug, dto.limit);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new NotFoundException(`Category "${slug}" not found`);
+    }
+  }
+
+  @Public()
   @Get()
   @ApiOperation({ summary: 'List products with optional filters' })
   @ApiResponse({ status: 200, description: 'Products list returned' })
   async list(@Query() dto: SearchProductsDto) {
     return this.productsService.search(dto);
+  }
+
+  @Public()
+  @Get('home-feed')
+  @ApiOperation({ summary: 'Get marketplace homepage feed in a single API call' })
+  @ApiResponse({ status: 200, description: 'Homepage feed returned' })
+  async getHomeFeed() {
+    return this.productsService.getHomeFeed();
   }
 
   @Public()

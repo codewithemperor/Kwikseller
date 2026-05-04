@@ -153,7 +153,7 @@ async function buildProducts(
 
   // Category: Electronics (10 products)
   const electronicsBrandIds = [
-    brandMap.samsung, brandMap.hp, brandMap.lenovo, brandMap.apple, brandMap.techno,
+    brandMap.samsung, brandMap.hp, brandMap.lenovo, brandMap.apple, brandMap.tecno,
   ];
   const electronicsProducts = [
     { name: "Samsung 43-inch Crystal UHD Smart TV", price: 185000, brand: brandMap.samsung, desc: "Brilliant 4K display with Crystal Processor for vibrant colours and sharp details." },
@@ -189,13 +189,13 @@ async function buildProducts(
   const phonesProducts = [
     { name: "Samsung Galaxy A54 5G 128GB", price: 225000, brand: brandMap.samsung, desc: "Stunning 6.4-inch AMOLED display with 50MP triple camera and 5000mAh battery." },
     { name: "Apple iPhone 15 128GB Blue", price: 780000, brand: brandMap.apple, desc: "Dynamic Island, A16 Bionic chip and 48MP main camera." },
-    { name: "Tecno Camon 20 Premier 256GB", price: 235000, brand: brandMap.techno, desc: "RGBW lens system with 50MP main camera and 32MP selfie." },
+    { name: "Tecno Camon 20 Premier 256GB", price: 235000, brand: brandMap.tecno, desc: "RGBW lens system with 50MP main camera and 32MP selfie." },
     { name: "Infinix Note 40 Pro 5G 256GB", price: 265000, brand: brandMap.infinix, desc: "120Hz AMOLED display with 108MP camera and 5000mAh battery." },
     { name: "Samsung Galaxy S24 Ultra 256GB", price: 850000, brand: brandMap.samsung, desc: "Galaxy AI powered S Pen with 200MP camera and titanium frame." },
-    { name: "Tecno Spark 20 128GB", price: 85000, brand: brandMap.techno, desc: "Budget-friendly smartphone with 6.6-inch display and 50MP camera." },
+    { name: "Tecno Spark 20 128GB", price: 85000, brand: brandMap.tecno, desc: "Budget-friendly smartphone with 6.6-inch display and 50MP camera." },
     { name: "Apple iPhone 14 Plus 128GB", price: 650000, brand: brandMap.apple, desc: "Big 6.7-inch Super Retina display with A15 Bionic chip." },
     { name: "Infinix Hot 40 Pro 256GB", price: 120000, brand: brandMap.infinix, desc: "108MP main camera and 33W fast charging at an affordable price." },
-    { name: "Tecno Phantom V Fold 256GB", price: 550000, brand: brandMap.techno, desc: "Foldable 7.85-inch LTPO AMOLED display with flagship performance." },
+    { name: "Tecno Phantom V Fold 256GB", price: 550000, brand: brandMap.tecno, desc: "Foldable 7.85-inch LTPO AMOLED display with flagship performance." },
     { name: "Samsung Galaxy Z Flip5 256GB", price: 620000, brand: brandMap.samsung, desc: "Compact foldable design with Flex Mode and 12MP dual camera." },
   ];
   phonesProducts.forEach((p) => {
@@ -817,6 +817,175 @@ async function main() {
 
   // ── Summary ────────────────────────────────────────────────
   console.log("══════════════════════════════════════════════════");
+  // ── 11. Create Admin User ─────────────────────────────────
+  console.log("\n👤 Creating admin user...");
+
+  const adminExisting = await prisma.user.findUnique({
+    where: {
+      email_role: {
+        email: "admin@kwikseller.com",
+        role: UserRole.ADMIN,
+      },
+    },
+  });
+
+  if (!adminExisting) {
+    const adminHash = await bcrypt.hash("Admin123!", 12);
+    await prisma.user.create({
+      data: {
+        email: "admin@kwikseller.com",
+        passwordHash: adminHash,
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+        emailVerified: true,
+        profile: {
+          create: {
+            firstName: "Admin",
+            lastName: "User",
+          },
+        },
+        adminPermission: {
+          create: {
+            role: AdminRole.SUPER_ADMIN,
+            permissions: "*",
+            grantedBy: "system",
+            isActive: true,
+          },
+        },
+      },
+    });
+    console.log("   ✅ Admin user created (admin@kwikseller.com / Admin123!)\n");
+  } else {
+    console.log("   ⚠️  Admin user already exists\n");
+  }
+
+  // ── 12. Create Banners ───────────────────────────────────
+  console.log("🖼️  Creating banners...");
+  await prisma.banner.deleteMany();
+
+  const BANNERS = [
+    {
+      title: "Summer Electronics Sale",
+      subTitle: "Up to 30% off on top electronics brands",
+      image: "https://placehold.co/1200x400/f97316/white?text=Summer+Electronics+Sale",
+      url: "/categories/electronics",
+      bannerType: "MAIN_BANNER" as const,
+      backgroundColor: "#f97316",
+      buttonText: "Shop Now",
+      position: 1,
+      isActive: true,
+    },
+    {
+      title: "New Fashion Collection",
+      subTitle: "Discover the latest trends in Nigerian fashion",
+      image: "https://placehold.co/1200x400/ec4899/white?text=Fashion+Collection",
+      url: "/categories/fashion",
+      bannerType: "MAIN_BANNER" as const,
+      backgroundColor: "#ec4899",
+      buttonText: "Explore",
+      position: 2,
+      isActive: true,
+    },
+    {
+      title: "Flash Deals This Week",
+      subTitle: "Limited time offers on phones and gadgets",
+      image: "https://placehold.co/1200x400/10b981/white?text=Flash+Deals",
+      url: "/deals",
+      bannerType: "PROMO_BANNER" as const,
+      resourceType: "category",
+      backgroundColor: "#10b981",
+      buttonText: "View Deals",
+      position: 3,
+      isActive: true,
+    },
+  ];
+
+  for (const banner of BANNERS) {
+    await prisma.banner.create({ data: banner });
+  }
+  console.log(`   ✅ ${BANNERS.length} banners created\n`);
+
+  // ── 13. Create Deals ─────────────────────────────────────
+  console.log("🏷️  Creating deals...");
+  await prisma.dealProduct.deleteMany();
+  await prisma.deal.deleteMany();
+
+  const now = new Date();
+  const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const monthLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const DEALS = [
+    {
+      title: "Flash Sale - 25% Off Electronics",
+      description: "Get 25% off on all electronics this week only",
+      dealType: "FLASH_DEAL" as const,
+      discountType: "PERCENTAGE" as const,
+      discountValue: 25,
+      startDate: now,
+      endDate: weekLater,
+      minOrderValue: 5000,
+      maxUses: 500,
+      isActive: true,
+    },
+    {
+      title: "Free Shipping on Orders Over ₦10,000",
+      description: "Enjoy free delivery on all orders above ₦10,000",
+      dealType: "FEATURED_DEAL" as const,
+      discountType: "FIXED_AMOUNT" as const,
+      discountValue: 500,
+      startDate: now,
+      endDate: monthLater,
+      minOrderValue: 10000,
+      isActive: true,
+    },
+  ];
+
+  for (const deal of DEALS) {
+    await prisma.deal.create({ data: deal });
+  }
+  console.log(`   ✅ ${DEALS.length} deals created\n`);
+
+  // ── 14. Create Coupons ───────────────────────────────────
+  console.log("🎫 Creating coupons...");
+  await prisma.coupon.deleteMany();
+
+  const COUPONS = [
+    {
+      code: "WELCOME10",
+      title: "10% Welcome Discount",
+      description: "Get 10% off your first order",
+      discountType: "PERCENTAGE" as const,
+      discountValue: 10,
+      minOrderValue: 2000,
+      maxDiscount: 5000,
+      maxUses: 1000,
+      applicableTo: "all",
+      startDate: now,
+      endDate: monthLater,
+      isActive: true,
+    },
+    {
+      code: "FLASH20",
+      title: "20% Flash Sale Coupon",
+      description: "Extra 20% off during flash sales",
+      discountType: "PERCENTAGE" as const,
+      discountValue: 20,
+      minOrderValue: 5000,
+      maxDiscount: 10000,
+      maxUses: 200,
+      applicableTo: "specific_categories",
+      applicableIds: JSON.stringify(["electronics", "phones"]),
+      startDate: now,
+      endDate: weekLater,
+      isActive: true,
+    },
+  ];
+
+  for (const coupon of COUPONS) {
+    await prisma.coupon.create({ data: coupon });
+  }
+  console.log(`   ✅ ${COUPONS.length} coupons created\n`);
+
   console.log("✅ Kwikseller database seed completed successfully!");
   console.log("══════════════════════════════════════════════════\n");
 

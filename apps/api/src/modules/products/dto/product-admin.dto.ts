@@ -138,6 +138,12 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   brandId?: string;
+
+  @ApiPropertyOptional({ description: 'Product images' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }
 
 export class UpdateProductStatusDto {

@@ -4,21 +4,22 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Switch, Spinner } from "@heroui/react";
+import { Spinner } from "@heroui/react";
 import { Save, ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { PageHeader, ImageUpload } from "@/components/ui";
+import { toast } from "@heroui/react";
+import { PageHeader, ImageUpload, type ImageUploadValue } from "@/components/ui";
 import { adminProductsApi, categoriesApi, brandsApi } from "@/lib/api";
 import { productSchema, type ProductFormData } from "@/lib/schemas";
+import { rollbackUploadedImages, uploadQueuedImages } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
 
 export default function NewProductPage() {
   const router = useRouter();
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageUploadValue[]>([]);
 
   const {
     register,
@@ -52,13 +53,20 @@ export default function NewProductPage() {
   const brands = (Array.isArray(brandsRes) ? brandsRes : (brandsRes as unknown as { data?: unknown[] })?.data ?? []) as { id: string; name: string }[];
 
   const createMutation = useMutation({
-    mutationFn: (data: ProductFormData) =>
-      adminProductsApi.create({ ...data, tags, images }),
+    mutationFn: async (data: ProductFormData) => {
+      const { urls, uploadedAssets } = await uploadQueuedImages(images, "product");
+      try {
+        return await adminProductsApi.create({ ...data, tags, images: urls });
+      } catch (error) {
+        await rollbackUploadedImages(uploadedAssets);
+        throw error;
+      }
+    },
     onSuccess: () => {
       toast.success("Product created successfully!");
       router.push("/admin/products");
     },
-    onError: () => toast.error("Failed to create product"),
+    onError: (error) => toast.danger("Failed to create product: " + error.message),
   });
 
   const addTag = () => {
@@ -108,7 +116,7 @@ export default function NewProductPage() {
         <div className="rounded-xl border border-default-200 bg-background p-4 lg:p-6 space-y-4">
           <h3 className="font-heading font-semibold text-lg">Status & Visibility</h3>
           <div><label className={labelCls}>Status</label><select {...register("status")} className={inputCls}><option value="DRAFT">Draft</option><option value="ACTIVE">Active</option><option value="ARCHIVED">Archived</option></select></div>
-          <label className="flex items-center gap-3 cursor-pointer"><Switch isSelected={watch("isFeatured")} onChange={(val) => setValue("isFeatured", val)} size="sm" /><span className="text-sm">Featured Product</span></label>
+          <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={watch("isFeatured")} onChange={(e) => setValue("isFeatured", e.target.checked)} className="h-4 w-4 rounded border border-default-300 accent-[var(--accent)]" /><span className="text-sm font-medium">Featured Product</span></label>
         </div>
 
         {/* Images */}

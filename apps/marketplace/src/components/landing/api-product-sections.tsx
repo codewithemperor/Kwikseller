@@ -73,7 +73,7 @@ function discountPct(price: number, compare?: number) {
 
 /* ─── Product Card ─────────────────────────────────────────── */
 
-function ApiProductCard({
+export function ApiProductCard({
   product,
   onQuickView,
 }: {
@@ -147,16 +147,7 @@ function ApiProductCard({
             }`}
           />
         </button>
-        {/* Add to Cart overlay - slides up on hover */}
-        <div className="absolute inset-x-2 bottom-2 translate-y-full opacity-0 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
-          <button
-            onClick={handleAddToCart}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[14px] bg-kwik-orange/95 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-kwik-orange active:scale-[0.98]"
-          >
-            <ShoppingBag className="h-3.5 w-3.5" />
-            Add to Cart
-          </button>
-        </div>
+
       </div>
       <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
         <p className="line-clamp-1 text-base font-semibold leading-snug text-kwik-dark">
@@ -185,8 +176,8 @@ function ApiProductCard({
             </p>
           </div>
         </div>
-        {/* Bottom action row - visible on mobile, hidden on desktop hover (overlay takes over) */}
-        <div className="flex items-center gap-2 mt-auto md:group-hover:hidden">
+        {/* Bottom action row - always visible */}
+        <div className="flex items-center gap-2 mt-auto">
           <button
             onClick={handleAddToCart}
             className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent hover:bg-kwik-orange-hover text-[10px] md:text-xs font-medium text-white transition-colors"

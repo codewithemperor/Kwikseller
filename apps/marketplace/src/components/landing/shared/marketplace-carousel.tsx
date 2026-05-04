@@ -189,7 +189,7 @@ export function ProductCarouselSection({
 export function CategoryCarouselSection({
   categories,
 }: {
-  categories: Array<{ id: string; name: string; image: string; icon?: any }>;
+  categories: Array<{ id: string; name: string; image: string; slug?: string; icon?: any }>;
 }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
@@ -207,7 +207,7 @@ export function CategoryCarouselSection({
             <div className="flex gap-4">
               {categories.map((category) => (
                 <StaggerChild key={category.id} className="min-w-0 shrink-0 basis-[calc(33.33%-11px)] sm:basis-[calc(20%-12px)] md:basis-[calc(16.66%-14px)] lg:basis-[calc(12.5%-14px)]">
-                  <Link href={`/categories/${category.id}`}>
+                  <Link href={`/categories?name=${category.slug || category.id}`}>
                     <div className="flex flex-col items-center gap-2">
                       <div className="relative h-24 w-24 overflow-hidden rounded-full bg-kwik-bg-light shadow-sm transition-transform hover:scale-105 md:h-28 md:w-28">
                         <Image

@@ -21,6 +21,16 @@ class DashboardQueryDto {
   days?: number = 30;
 }
 
+class LimitQueryDto {
+  @ApiPropertyOptional({ description: 'Number of items to return', default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+}
+
 @ApiTags('Dashboard')
 @ApiBearerAuth()
 @Controller('dashboard')
@@ -37,15 +47,15 @@ export class DashboardController {
   @Get('recent-orders')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get recent orders (admin only)' })
-  async getRecentOrders() {
-    return this.dashboardService.getRecentOrders();
+  async getRecentOrders(@Query() query: LimitQueryDto) {
+    return this.dashboardService.getRecentOrders(query.limit);
   }
 
   @Get('top-products')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get top selling products (admin only)' })
-  async getTopProducts() {
-    return this.dashboardService.getTopProducts();
+  async getTopProducts(@Query() query: LimitQueryDto) {
+    return this.dashboardService.getTopProducts(query.limit);
   }
 
   @Get('revenue-chart')

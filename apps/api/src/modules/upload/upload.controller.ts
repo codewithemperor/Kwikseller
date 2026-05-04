@@ -1,12 +1,14 @@
 import {
   Controller,
   Post,
+  Delete,
   UploadedFile,
   UploadedFiles,
   UseInterceptors,
   UseGuards,
   BadRequestException,
   Logger,
+  Body,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -17,7 +19,6 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import { UploadService } from './upload.service';
-import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/dto/auth.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -267,6 +268,24 @@ export class UploadController {
     return {
       success: true,
       data: result,
+    };
+  }
+
+  @Delete()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.VENDOR)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Delete an uploaded Cloudinary asset by public ID' })
+  async deleteUpload(@Body('publicId') publicId?: string) {
+    if (!publicId) {
+      throw new BadRequestException('publicId is required');
+    }
+
+    await this.uploadService.deleteFile(publicId);
+
+    return {
+      success: true,
+      data: { publicId },
     };
   }
 }

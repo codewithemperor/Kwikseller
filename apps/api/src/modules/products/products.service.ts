@@ -23,6 +23,114 @@ export class ProductsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private shuffle<T>(items: T[]): T[] {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  async getHomeFeed() {
+    const [banners, categories, brands, products] = await Promise.all([
+      this.prisma.banner.findMany({
+        where: { isActive: true },
+        orderBy: [{ position: 'asc' }, { updatedAt: 'desc' }],
+        take: 6,
+      }),
+      this.prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: [{ position: 'asc' }, { updatedAt: 'desc' }],
+        include: {
+          _count: { select: { products: true } },
+        },
+        take: 12,
+      }),
+      this.prisma.brand.findMany({
+        where: { status: true },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          _count: { select: { products: true } },
+        },
+        take: 12,
+      }),
+      this.prisma.product.findMany({
+        where: { status: 'ACTIVE' },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          images: { orderBy: { position: 'asc' } },
+          category: { select: { id: true, name: true, slug: true } },
+          store: { select: { id: true, name: true } },
+        },
+        take: 60,
+      }),
+    ]);
+
+    const mappedProducts = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      comparePrice: product.comparePrice ?? undefined,
+      image: product.images[0]?.url ?? null,
+      rating: product.rating ?? 0,
+      reviewCount: product.reviewCount ?? 0,
+      store: product.store.name,
+      category: product.category?.name ?? 'Kwikseller',
+      categorySlug: product.category?.slug ?? '',
+      isNew:
+        Date.now() - new Date(product.createdAt).getTime() <
+        1000 * 60 * 60 * 24 * 21,
+      totalSales: product.totalSales ?? 0,
+      isFeatured: product.isFeatured,
+    }));
+
+    const randomProducts = this.shuffle(mappedProducts);
+    const featuredProducts = this.shuffle(
+      mappedProducts.filter((product) => product.isFeatured),
+    );
+    const discountedProducts = this.shuffle(
+      mappedProducts.filter(
+        (product) =>
+          typeof product.comparePrice === 'number' &&
+          product.comparePrice > product.price,
+      ),
+    );
+    const trendingProducts = this.shuffle(
+      [...mappedProducts]
+        .sort((a, b) => b.totalSales - a.totalSales || b.rating - a.rating)
+        .slice(0, 20),
+    );
+
+    return {
+      heroBanners: this.shuffle(banners).slice(0, 3).map((banner) => ({
+        id: banner.id,
+        title: banner.title || 'Shop the latest picks',
+        subtitle:
+          banner.subTitle || 'Fresh finds from trusted Kwikseller vendors.',
+        image: banner.image,
+        href: banner.url || '/products',
+        badge: banner.bannerType.replace(/_/g, ' '),
+      })),
+      categories: this.shuffle(categories).slice(0, 8).map((category) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        image: category.imageUrl,
+        itemCount: category._count.products,
+      })),
+      brands: this.shuffle(brands).slice(0, 8).map((brand) => ({
+        id: brand.id,
+        name: brand.name,
+        image: brand.image,
+        productCount: brand._count.products,
+      })),
+      featuredProducts: (featuredProducts.length ? featuredProducts : randomProducts).slice(0, 8),
+      dealProducts: (discountedProducts.length ? discountedProducts : randomProducts).slice(0, 8),
+      trendingProducts: (trendingProducts.length ? trendingProducts : randomProducts).slice(0, 8),
+    };
+  }
+
   /**
    * Search products by query string (public - uses static data for backward compat)
    */
@@ -350,16 +458,37 @@ export class ProductsService {
     if (dto.categoryId !== undefined) data.categoryId = dto.categoryId;
     if (dto.brandId !== undefined) data.brandId = dto.brandId;
 
-    return this.prisma.product.update({
-      where: { id },
-      data,
-      include: {
-        images: { orderBy: { position: 'asc' } },
-        variants: true,
-        category: { select: { id: true, name: true } },
-        brand: { select: { id: true, name: true } },
-        store: { select: { id: true, name: true } },
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.images !== undefined) {
+        await tx.productImage.deleteMany({
+          where: { productId: id },
+        });
+      }
+
+      return tx.product.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(dto.images !== undefined
+            ? {
+                images: {
+                  create: dto.images.map((url, index) => ({
+                    url,
+                    position: index,
+                    isMain: index === 0,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          images: { orderBy: { position: 'asc' } },
+          variants: true,
+          category: { select: { id: true, name: true } },
+          brand: { select: { id: true, name: true } },
+          store: { select: { id: true, name: true } },
+        },
+      });
     });
   }
 

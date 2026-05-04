@@ -48,6 +48,14 @@ export interface SearchableProduct {
 }
 
 /**
+ * Sanitize an image URL — returns null for undefined, empty, or "undefined" strings.
+ */
+function sanitizeImageUrl(url: unknown): string {
+  if (!url || typeof url !== 'string' || url === 'undefined' || url === 'null') return '';
+  return url;
+}
+
+/**
  * Convert API Product to SearchableProduct format
  */
 export function toSearchableProduct(p: Product): SearchableProduct {
@@ -58,7 +66,7 @@ export function toSearchableProduct(p: Product): SearchableProduct {
     slug: p.slug,
     price: p.price,
     comparePrice: p.comparePrice || undefined,
-    image: mainImage?.url || '',
+    image: sanitizeImageUrl(mainImage?.url),
     rating: p.rating,
     reviewCount: p.reviewCount,
     store: p.store?.name || 'Kwikseller',

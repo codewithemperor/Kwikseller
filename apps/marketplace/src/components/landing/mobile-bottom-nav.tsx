@@ -134,7 +134,7 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
                       key={count}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1, rotate: [0, -10, 10, 0] }}
-                      transition={{ type: 'spring' as const, stiffness: 500, damping: 25 }}
+                      transition={{ type: 'tween', duration: 0.4, ease: 'easeOut' }}
                       className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-kwik-orange text-white text-[10px] font-bold leading-none px-1 shadow-sm"
                     >
                       {count > 99 ? '99+' : count}

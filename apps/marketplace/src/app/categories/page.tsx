@@ -1,28 +1,44 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState, useMemo } from "react";
+import React, { Suspense, useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   ChevronRight,
-  Heart,
-  Eye,
-  Star,
   ShoppingBag,
   Loader2,
   SlidersHorizontal,
   Search,
   PackageOpen,
-  Grid3X3,
-  List,
-  TrendingUp,
+  Package,
+  Smartphone,
+  Laptop,
+  Shirt,
+  Sparkles,
+  Home as HomeIcon,
+  UtensilsCrossed,
+  Car,
+  Trophy,
+  HeartPulse,
+  BookOpen,
+  Gamepad2,
+  Baby,
+  Gem,
+  ShoppingCart,
+  Dumbbell,
+  Music,
+  Camera,
+  Headphones,
+  Watch,
+  Palette,
+  Dog,
+  Clapperboard,
+  type LucideIcon,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { kwikToast } from "@kwikseller/utils";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import { productsApi, marketplaceApi } from "@kwikseller/api-client";
-import { useCartStore, useWishlistStore } from "@/stores";
-import { AppImage } from "@/components/ui/app-image";
+import { cn } from "@kwikseller/ui";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ApiProductCard } from "@/components/landing/api-product-sections";
 import type { SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 import dynamic from "next/dynamic";
@@ -35,147 +51,115 @@ const QuickViewModal = dynamic(
   { ssr: false },
 );
 
-/* ─── Helpers ──────────────────────────────────────────────── */
+/* ─── Category Color & Icon Mapping ────────────────────────── */
 
-function formatPrice(n: number) {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 0,
-  }).format(n);
+interface CategoryStyle {
+  color: string;
+  textColor: string;
+  Icon: LucideIcon;
 }
 
-function discountPct(price: number, compare?: number) {
-  if (!compare) return 0;
-  return Math.round(((compare - price) / compare) * 100);
+const CATEGORY_STYLES: Record<string, CategoryStyle> = {
+  fashion: { color: "bg-pink-500", textColor: "text-pink-600", Icon: Shirt },
+  electronics: { color: "bg-blue-500", textColor: "text-blue-600", Icon: Smartphone },
+  phones: { color: "bg-cyan-500", textColor: "text-cyan-600", Icon: Smartphone },
+  beauty: { color: "bg-rose-500", textColor: "text-rose-600", Icon: Sparkles },
+  home: { color: "bg-amber-500", textColor: "text-amber-600", Icon: HomeIcon },
+  food: { color: "bg-orange-500", textColor: "text-orange-600", Icon: UtensilsCrossed },
+  automobile: { color: "bg-red-500", textColor: "text-red-600", Icon: Car },
+  sports: { color: "bg-green-500", textColor: "text-green-600", Icon: Trophy },
+  health: { color: "bg-emerald-500", textColor: "text-emerald-600", Icon: HeartPulse },
+  books: { color: "bg-indigo-500", textColor: "text-indigo-600", Icon: BookOpen },
+  gaming: { color: "bg-violet-500", textColor: "text-violet-600", Icon: Gamepad2 },
+  kids: { color: "bg-yellow-500", textColor: "text-yellow-600", Icon: Baby },
+  jewelry: { color: "bg-fuchsia-500", textColor: "text-fuchsia-600", Icon: Gem },
+  groceries: { color: "bg-lime-500", textColor: "text-lime-600", Icon: ShoppingCart },
+  computers: { color: "bg-sky-500", textColor: "text-sky-600", Icon: Laptop },
+  fitness: { color: "bg-teal-500", textColor: "text-teal-600", Icon: Dumbbell },
+  music: { color: "bg-purple-500", textColor: "text-purple-600", Icon: Music },
+  cameras: { color: "bg-slate-500", textColor: "text-slate-600", Icon: Camera },
+  accessories: { color: "bg-stone-500", textColor: "text-stone-600", Icon: Watch },
+  art: { color: "bg-pink-600", textColor: "text-pink-700", Icon: Palette },
+  pets: { color: "bg-orange-600", textColor: "text-orange-700", Icon: Dog },
+  movies: { color: "bg-red-600", textColor: "text-red-700", Icon: Clapperboard },
+  audio: { color: "bg-violet-600", textColor: "text-violet-700", Icon: Headphones },
+};
+
+const DEFAULT_STYLE: CategoryStyle = {
+  color: "bg-gray-500",
+  textColor: "text-gray-600",
+  Icon: Package,
+};
+
+/* Stagger children colors for unstyled categories */
+const CARD_ACCENT_COLORS = [
+  "bg-kwik-orange",
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-violet-500",
+  "bg-pink-500",
+  "bg-amber-500",
+  "bg-cyan-500",
+  "bg-rose-500",
+  "bg-indigo-500",
+  "bg-teal-500",
+];
+
+const CARD_TEXT_COLORS = [
+  "text-kwik-orange",
+  "text-blue-600",
+  "text-emerald-600",
+  "text-violet-600",
+  "text-pink-600",
+  "text-amber-600",
+  "text-cyan-600",
+  "text-rose-600",
+  "text-indigo-600",
+  "text-teal-600",
+];
+
+function getCategoryStyle(name: string, slug: string, index: number): CategoryStyle {
+  const key = (slug || "").toLowerCase();
+  if (CATEGORY_STYLES[key]) return CATEGORY_STYLES[key];
+  for (const [k, v] of Object.entries(CATEGORY_STYLES)) {
+    if (name.toLowerCase().includes(k) || key.includes(k)) return v;
+  }
+  const colorIdx = index % CARD_ACCENT_COLORS.length;
+  return {
+    color: CARD_ACCENT_COLORS[colorIdx],
+    textColor: CARD_TEXT_COLORS[colorIdx],
+    Icon: DEFAULT_STYLE.Icon,
+  };
 }
 
-/* ─── Product Card ─────────────────────────────────────────── */
+/* ─── Stagger Animation ────────────────────────────────────── */
 
-function CategoryProductCard({
-  product,
-  onQuickView,
-}: {
-  product: SearchableProduct;
-  onQuickView?: (p: SearchableProduct) => void;
-}) {
-  const addItem = useCartStore((s) => s.addItem);
-  const { toggleItem, isInWishlist } = useWishlistStore();
-  const isWished = isInWishlist(product.id);
-  const discount = discountPct(product.price, product.comparePrice);
+const staggerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+const staggerChildVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    addItem({
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      comparePrice: product.comparePrice,
-      image: product.image,
-      store: product.store,
-    });
-    kwikToast.success(`${product.name} added to cart`);
-  };
-
-  const handleWishlistToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    toggleItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      originalPrice: product.comparePrice,
-      image: product.image,
-      rating: product.rating,
-      category: product.categorySlug,
-    });
-    kwikToast.success(isWished ? "Removed from wishlist" : "Added to wishlist");
-  };
-
+function StaggerWrap({ children }: { children: React.ReactNode }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: "-30px" });
   return (
-    <article
-      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md cursor-pointer"
-      onClick={() => onQuickView?.(product)}
+    <motion.div ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={staggerVariants}>
+      {children}
+    </motion.div>
+  );
+}
+function StaggerChild({ children, index, className = "" }: { children: React.ReactNode; index: number; className?: string }) {
+  return (
+    <motion.div
+      variants={staggerChildVariants}
+      className={className}
     >
-      <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
-        <AppImage
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute left-3 top-3 flex gap-1.5">
-          {discount > 0 && (
-            <span className="rounded-lg bg-kwik-badge-dark px-2 py-0.5 text-[11px] font-semibold text-white">
-              -{discount}%
-            </span>
-          )}
-          {product.isNew && (
-            <span className="rounded-lg bg-background/90 px-2 py-0.5 text-[11px] font-semibold text-kwik-dark">
-              New
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleWishlistToggle}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
-          aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
-        >
-          <Heart
-            className={`h-4 w-4 transition-colors ${
-              isWished ? "fill-kwik-orange text-kwik-orange" : "text-kwik-muted"
-            }`}
-          />
-        </button>
-      </div>
-      <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug text-kwik-dark">
-          {product.name}
-        </p>
-        <div className="flex items-end justify-between pb-3 pt-0.5">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-kwik-muted">
-              {product.store}
-            </p>
-            <div className="flex items-center gap-1 rounded-xl text-[11px]">
-              <Star className="h-3 w-3 fill-kwik-star text-kwik-star" />
-              <span className="font-semibold text-kwik-dark-medium">
-                {product.rating.toFixed(1)}
-              </span>
-            </div>
-          </div>
-          <div className="text-right">
-            {product.comparePrice && (
-              <p className="text-[10px] text-kwik-muted line-through">
-                {formatPrice(product.comparePrice)}
-              </p>
-            )}
-            <p className="text-xs font-bold text-kwik-dark">
-              {formatPrice(product.price)}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 mt-auto">
-          <button
-            onClick={handleAddToCart}
-            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent-soft-hover hover text-[10px] font-medium text-kwik-dark-medium transition-colors"
-          >
-            <ShoppingBag className="h-3 w-3" />
-            Add to Cart
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onQuickView?.(product);
-            }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-kwik-bg-light transition-colors hover:bg-kwik-orange-tint hover:text-kwik-orange"
-            aria-label="Quick view"
-          >
-            <Eye className="h-3.5 w-3.5 text-kwik-gray-light" />
-          </button>
-        </div>
-      </div>
-    </article>
+      {children}
+    </motion.div>
   );
 }
 
@@ -436,7 +420,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
         {!isLoading && sortedProducts.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {sortedProducts.map((product) => (
-              <CategoryProductCard
+              <ApiProductCard
                 key={product.id}
                 product={product}
                 onQuickView={handleQuickView}
@@ -464,52 +448,6 @@ const CATEGORY_SORT_OPTIONS = [
 ] as const;
 
 type CategorySortValue = (typeof CATEGORY_SORT_OPTIONS)[number]["value"];
-
-/* ─── Category Card ───────────────────────────────────────── */
-
-function CategoryCard({
-  category,
-  onClick,
-}: {
-  category: { id: string; name: string; description: string; image: string | null; itemCount: string; productCount?: number };
-  onClick: () => void;
-}) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileHover={{ y: -4, scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
-      className="group relative flex flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-kwik-border transition-all duration-300 hover:ring-kwik-orange/30 hover:shadow-xl hover:shadow-kwik-orange/5 text-left"
-    >
-      <div className="relative h-40 sm:h-48 overflow-hidden">
-        <AppImage
-          src={category.image}
-          alt={category.name}
-          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        <div className="absolute bottom-3 left-3 right-3">
-          <h3 className="text-lg font-bold text-white">{category.name}</h3>
-          <p className="text-xs text-white/80">{category.itemCount}</p>
-        </div>
-        {/* Product count badge */}
-        {category.productCount != null && category.productCount > 0 && (
-          <div className="absolute top-3 right-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-kwik-orange px-2 text-[10px] font-bold text-white shadow-sm">
-            {category.productCount}+
-          </div>
-        )}
-      </div>
-      <div className="px-4 py-3">
-        <p className="text-xs text-kwik-gray-light line-clamp-2">{category.description}</p>
-        <div className="mt-2 flex items-center gap-1 text-xs font-medium text-kwik-orange transition-colors group-hover:gap-2">
-          Shop now
-          <ChevronRight className="h-3 w-3" />
-        </div>
-      </div>
-    </motion.button>
-  );
-}
 
 /* ─── All Categories View ─────────────────────────────────── */
 
@@ -705,25 +643,66 @@ function AllCategoriesView() {
               </motion.p>
             )}
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
-              <AnimatePresence mode="popLayout">
-                {filteredCategories.map((category, index) => (
-                  <motion.div
-                    key={category.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.3, delay: index * 0.03 }}
-                  >
-                    <CategoryCard
-                      category={category}
-                      onClick={() => router.push(`/categories?${category.slug || category.id}`)}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+            <StaggerWrap>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                {filteredCategories.map((category, index) => {
+                  const style = getCategoryStyle(
+                    category.name,
+                    category.slug || category.id,
+                    index,
+                  );
+                  const { Icon } = style;
+
+                  return (
+                    <StaggerChild key={category.id} index={index}>
+                      <motion.button
+                        type="button"
+                        onClick={() => router.push(`/categories?name=${category.slug || category.id}`)}
+                        whileHover={{ y: -4 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="group border-none shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-5 sm:p-6 cursor-pointer h-full rounded-2xl bg-background text-left"
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* Colored icon box */}
+                          <div
+                            className={cn(
+                              "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-white shadow-md group-hover:scale-110 transition-transform",
+                              style.color,
+                            )}
+                          >
+                            <Icon className="w-6 h-6" />
+                          </div>
+
+                          {/* Category info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm sm:text-base mb-1 truncate text-kwik-dark">
+                              {category.name}
+                            </h3>
+                            <div className="flex items-center gap-1">
+                              <Package className="w-3 h-3 text-kwik-muted" />
+                              <span
+                                className={cn(
+                                  "text-sm font-semibold",
+                                  style.textColor,
+                                )}
+                              >
+                                {category.productCount || 0}
+                              </span>
+                              <span className="text-xs text-kwik-muted">
+                                products
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Chevron */}
+                          <ChevronRight className="w-4 h-4 text-kwik-muted group-hover:text-kwik-orange group-hover:translate-x-1 transition-all shrink-0 mt-1" />
+                        </div>
+                      </motion.button>
+                    </StaggerChild>
+                  );
+                })}
+              </div>
+            </StaggerWrap>
           </>
         )}
       </div>
@@ -735,9 +714,8 @@ function AllCategoriesView() {
 
 function CategoriesPageContent() {
   const searchParams = useSearchParams();
-  // URL format: /categories?electronics → the category slug is the first search param key
-  const allKeys = Array.from(searchParams.keys());
-  const slug = allKeys.length > 0 ? allKeys[0] : "";
+  // URL format: /categories?name=electronics
+  const slug = searchParams.get('name') || '';
 
   if (slug) {
     return <CategoryDetailView slug={slug} />;

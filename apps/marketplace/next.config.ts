@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "placehold.co", // ✅ add this
+        hostname: "placehold.co",
       },
     ],
     formats: ["image/avif", "image/webp"],

@@ -15,8 +15,13 @@ export interface Brand {
   name: string;
   slug: string;
   logoUrl?: string;
+  image?: string;
   description?: string;
   isActive: boolean;
+  status?: boolean;
+  _count?: {
+    products: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +37,16 @@ export interface Banner {
   endDate?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UploadAsset {
+  url: string;
+  publicId: string;
+  secureUrl: string;
+  format: string;
+  width: number;
+  height: number;
+  bytes: number;
 }
 
 export interface Deal {
@@ -91,6 +106,55 @@ export interface Order {
 // Re-export shared APIs
 export { api, adminApi, productsApi };
 
+const bannerTypeByPosition: Record<Banner["position"], string> = {
+  HOME_HERO: "MAIN_BANNER",
+  HOME_SIDEBAR: "SIDEBAR_BANNER",
+  CATEGORY_TOP: "PROMO_BANNER",
+  PRODUCT_PAGE: "PROMO_BANNER",
+};
+
+const positionByBannerType: Record<string, Banner["position"]> = {
+  MAIN_BANNER: "HOME_HERO",
+  SIDEBAR_BANNER: "HOME_SIDEBAR",
+  PROMO_BANNER: "CATEGORY_TOP",
+  FOOTER_BANNER: "PRODUCT_PAGE",
+};
+
+const normalizeBrand = (brand: Record<string, unknown>): Brand => ({
+  id: String(brand.id),
+  name: String(brand.name ?? ""),
+  slug: String(brand.slug ?? ""),
+  logoUrl: (brand.logoUrl as string) ?? (brand.image as string) ?? undefined,
+  image: (brand.image as string) ?? (brand.logoUrl as string) ?? undefined,
+  description: (brand.description as string) ?? undefined,
+  isActive:
+    typeof brand.isActive === "boolean"
+      ? brand.isActive
+      : (brand.status as boolean | undefined) ?? true,
+  status:
+    typeof brand.status === "boolean"
+      ? brand.status
+      : (brand.isActive as boolean | undefined) ?? true,
+  _count: brand._count as Brand["_count"],
+  createdAt: String(brand.createdAt ?? ""),
+  updatedAt: String(brand.updatedAt ?? ""),
+});
+
+const normalizeBanner = (banner: Record<string, unknown>): Banner => ({
+  id: String(banner.id),
+  title: String(banner.title ?? ""),
+  imageUrl: String(banner.imageUrl ?? banner.image ?? ""),
+  linkUrl: (banner.linkUrl as string) ?? (banner.url as string) ?? undefined,
+  position:
+    positionByBannerType[String(banner.bannerType ?? "")] ??
+    ((banner.position as Banner["position"]) || "HOME_HERO"),
+  isActive: (banner.isActive as boolean | undefined) ?? true,
+  startDate: (banner.startDate as string) ?? undefined,
+  endDate: (banner.endDate as string) ?? undefined,
+  createdAt: String(banner.createdAt ?? ""),
+  updatedAt: String(banner.updatedAt ?? ""),
+});
+
 // ==================== Categories API ====================
 
 export const categoriesApi = {
@@ -107,7 +171,11 @@ export const categoriesApi = {
     parentId?: string;
     imageUrl?: string;
     isActive?: boolean;
-  }) => api.post<Category>("/admin/categories", data),
+  }) =>
+    api.post<Category>("/admin/categories", {
+      ...data,
+      parentId: data.parentId?.trim() ? data.parentId : undefined,
+    }),
 
   update: (
     id: string,
@@ -118,7 +186,13 @@ export const categoriesApi = {
       imageUrl?: string;
       isActive?: boolean;
     },
-  ) => api.patch<Category>(`/admin/categories/${id}`, data),
+  ) =>
+    api.patch<Category>(`/admin/categories/${id}`, {
+      ...data,
+      ...(data.parentId !== undefined
+        ? { parentId: data.parentId.trim() ? data.parentId : null }
+        : {}),
+    }),
 
   delete: (id: string) => api.delete(`/admin/categories/${id}`),
 };
@@ -126,17 +200,34 @@ export const categoriesApi = {
 // ==================== Brands API ====================
 
 export const brandsApi = {
-  list: (params?: { search?: string; page?: number; limit?: number }) =>
-    api.get<Brand[]>("/admin/brands", { params }),
+  list: async (params?: { search?: string; page?: number; limit?: number }) => {
+    const response = await api.get<Brand[]>("/admin/brands", { params });
+    return {
+      ...response,
+      data: response.data.map((brand) =>
+        normalizeBrand(brand as unknown as Record<string, unknown>),
+      ),
+    };
+  },
 
-  get: (id: string) => api.get<Brand>(`/admin/brands/${id}`),
+  get: async (id: string) => {
+    const response = await api.get<Brand>(`/admin/brands/${id}`);
+    return {
+      ...response,
+      data: normalizeBrand(response.data as unknown as Record<string, unknown>),
+    };
+  },
 
   create: (data: {
     name: string;
     description?: string;
     logoUrl?: string;
     isActive?: boolean;
-  }) => api.post<Brand>("/admin/brands", data),
+  }) =>
+    api.post<Brand>("/admin/brands", {
+      name: data.name,
+      image: data.logoUrl,
+    }),
 
   update: (
     id: string,
@@ -146,7 +237,12 @@ export const brandsApi = {
       logoUrl?: string;
       isActive?: boolean;
     },
-  ) => api.patch<Brand>(`/admin/brands/${id}`, data),
+  ) =>
+    api.patch<Brand>(`/admin/brands/${id}`, {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.logoUrl !== undefined ? { image: data.logoUrl } : {}),
+      ...(data.isActive !== undefined ? { status: data.isActive } : {}),
+    }),
 
   delete: (id: string) => api.delete(`/admin/brands/${id}`),
 };
@@ -154,10 +250,23 @@ export const brandsApi = {
 // ==================== Banners API ====================
 
 export const bannersApi = {
-  list: (params?: { page?: number; limit?: number; position?: string }) =>
-    api.get<Banner[]>("/admin/banners", { params }),
+  list: async (params?: { page?: number; limit?: number; position?: string }) => {
+    const response = await api.get<Banner[]>("/admin/banners", { params });
+    return {
+      ...response,
+      data: response.data.map((banner) =>
+        normalizeBanner(banner as unknown as Record<string, unknown>),
+      ),
+    };
+  },
 
-  get: (id: string) => api.get<Banner>(`/admin/banners/${id}`),
+  get: async (id: string) => {
+    const response = await api.get<Banner>(`/admin/banners/${id}`);
+    return {
+      ...response,
+      data: normalizeBanner(response.data as unknown as Record<string, unknown>),
+    };
+  },
 
   create: (data: {
     title: string;
@@ -167,7 +276,14 @@ export const bannersApi = {
     isActive?: boolean;
     startDate?: string;
     endDate?: string;
-  }) => api.post<Banner>("/admin/banners", data),
+  }) =>
+    api.post<Banner>("/admin/banners", {
+      title: data.title,
+      image: data.imageUrl,
+      url: data.linkUrl,
+      bannerType: bannerTypeByPosition[data.position as Banner["position"]] ?? "MAIN_BANNER",
+      isActive: data.isActive,
+    }),
 
   update: (
     id: string,
@@ -180,7 +296,20 @@ export const bannersApi = {
       startDate?: string;
       endDate?: string;
     },
-  ) => api.patch<Banner>(`/admin/banners/${id}`, data),
+  ) =>
+    api.patch<Banner>(`/admin/banners/${id}`, {
+      ...(data.title !== undefined ? { title: data.title } : {}),
+      ...(data.imageUrl !== undefined ? { image: data.imageUrl } : {}),
+      ...(data.linkUrl !== undefined ? { url: data.linkUrl } : {}),
+      ...(data.position !== undefined
+        ? {
+            bannerType:
+              bannerTypeByPosition[data.position as Banner["position"]] ??
+              "MAIN_BANNER",
+          }
+        : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+    }),
 
   delete: (id: string) => api.delete(`/admin/banners/${id}`),
 };
@@ -262,10 +391,20 @@ export const couponsApi = {
 // ==================== Upload API ====================
 
 export const uploadApi = {
-  upload: (file: File) => {
+  upload: (
+    file: File,
+    kind: "general" | "product" | "banner" = "general",
+  ) => {
     const formData = new FormData();
     formData.append("file", file);
-    return api.post<{ url: string }>("/upload", formData, {
+    const endpoint =
+      kind === "product"
+        ? "/upload/product"
+        : kind === "banner"
+          ? "/upload/banner"
+          : "/upload/image";
+
+    return api.post<UploadAsset>(endpoint, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
@@ -273,10 +412,15 @@ export const uploadApi = {
   uploadMultiple: (files: File[]) => {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
-    return api.post<{ urls: string[] }>("/upload/multiple", formData, {
+    return api.post<UploadAsset[]>("/upload/images", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
+
+  delete: (publicId: string) =>
+    api.delete<{ publicId: string }>("/upload", {
+      data: { publicId },
+    }),
 };
 
 // ==================== Products API (Admin level) ====================

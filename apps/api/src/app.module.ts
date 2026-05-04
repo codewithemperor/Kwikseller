@@ -21,6 +21,8 @@ import { DealsModule } from './modules/deals/deals.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { SellersModule } from './modules/sellers/sellers.module';
 
 @Module({
   imports: [
@@ -135,6 +137,12 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 
     // Dashboard module
     DashboardModule,
+
+    // Admin module (routes with /admin/ prefix)
+    AdminModule,
+
+    // Sellers module (public seller listings)
+    SellersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -173,6 +181,8 @@ export class AppModule implements OnModuleInit {
     console.log('🎫 CouponsModule loaded');
     console.log('📤 UploadModule loaded');
     console.log('📊 DashboardModule loaded');
+    console.log('🔧 AdminModule loaded');
+    console.log('🏪 SellersModule loaded');
     console.log('🔗 EventEmitter2 ready for events');
   }
 }

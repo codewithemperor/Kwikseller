@@ -1,7 +1,6 @@
 import { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk, Figtree } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
@@ -72,7 +71,6 @@ export default function RootLayout({
               >
                 {children}
                 <Toast.Provider placement="top end" maxVisibleToasts={3} />
-                <Toaster position="top-right" richColors closeButton />
               </ThemeProvider>
             </AuthProvider>
           </HeroUIProviderWrapper>
