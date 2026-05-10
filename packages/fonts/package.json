@@ -12,9 +12,13 @@
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "next": "^16.1.1"
+  },
   "devDependencies": {
     "@kwikseller/eslint-config": "workspace:*",
     "@kwikseller/typescript-config": "workspace:*",
+    "next": "^16.1.1",
     "typescript": "^5"
   }
 }

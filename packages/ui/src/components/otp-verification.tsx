@@ -92,7 +92,7 @@ export function OTPVerification({
           <InputOTP
             maxLength={6}
             value={value}
-            onChange={(val) => {
+            onChange={(val: string) => {
               setValue(val);
               setIsComplete(false);
               setError(null);

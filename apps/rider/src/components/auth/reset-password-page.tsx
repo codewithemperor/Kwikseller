@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Lock, Bike, CheckCircle, ArrowLeft, Check } from "lucide-react";
 import { InputOTP } from "@heroui/react";
@@ -150,15 +150,16 @@ export function ResetPasswordPage({
     setValue,
     formState: { isSubmitting, isValid },
   } = useForm<ResetPasswordFormData>({
-    resolver: zodResolver(resetPasswordSchema),
-    defaultValues: { email: "", otp: "", password: "", confirmPassword: "" },
+    resolver: zodResolver(
+      resetPasswordSchema,
+    ) as Resolver<ResetPasswordFormData>,
+    defaultValues: { otp: "", password: "", confirmPassword: "" },
     mode: "onChange",
   });
 
   useEffect(() => {
     if (pendingResetEmail) {
       setUserEmail(pendingResetEmail);
-      setValue("email", pendingResetEmail, { shouldValidate: true });
     } else {
       kwikToast.error(
         "Please start the password reset process from the beginning.",

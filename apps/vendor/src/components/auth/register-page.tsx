@@ -260,7 +260,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           onPress={() => {}}
           className="mt-2 rounded-xl font-semibold"
         >
-          {({ isPending }) =>
+          {({ isPending }: { isPending: boolean }) =>
             isPending ? (
               <span className="flex items-center gap-2">
                 <Spinner size="sm" />

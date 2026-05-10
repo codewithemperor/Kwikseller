@@ -90,7 +90,7 @@ function ActionsCell<T extends TreeItem>({
       </Dropdown.Trigger>
       <Dropdown.Popover>
         <Dropdown.Menu
-          onAction={(key) => {
+          onAction={(key: React.Key) => {
             const action = rowActions.find((a) => a.key === String(key));
             action?.onPress(item);
           }}
@@ -303,7 +303,7 @@ export function DataTable<T extends TreeItem>({
             </Table.Header>
 
             <Table.Body items={flatRows}>
-              {({ item, depth, hasChildren }) => {
+              {({ item, depth, hasChildren }: FlatRow<T>) => {
                 const rowId = getRowId ? getRowId(item) : item.id;
                 const isExpanded = expandedKeys.has(item.id);
 

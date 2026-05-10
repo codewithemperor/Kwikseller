@@ -93,4 +93,13 @@ export interface MarketplaceProduct {
   specifications?: Array<{ label: string; value: string }>;
   reviews?: MarketplaceReview[];
   variants?: ProductVariant[];
+  stock?: number;
 }
+
+export const marketplaceTrendingProducts: MarketplaceProduct[] = [];
+
+export const marketplaceTrendingFilters: Array<{
+  id: string;
+  label: string;
+  value: string;
+}> = [];

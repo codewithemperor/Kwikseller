@@ -50,7 +50,7 @@ export function SubmitButton({
       isDisabled={isDisabled}
       className={`font-semibold rounded-xl ${className ?? ""}`.trim()}
     >
-      {({ isPending: pending }) =>
+      {({ isPending: pending }: { isPending: boolean }) =>
         pending ? (
           <span className="flex items-center gap-2">
             <Spinner color="current" size="sm" />

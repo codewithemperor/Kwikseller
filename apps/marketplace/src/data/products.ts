@@ -170,7 +170,7 @@ export async function getDeals(limit = 10): Promise<Product[]> {
  */
 export async function getAllDeals(): Promise<Deal[]> {
   try {
-    const result = await fetchDeals();
+    const result = await fetchFeaturedDeals();
     return result.data || [];
   } catch {
     return [];
@@ -224,7 +224,7 @@ export async function getAll(params?: {
 export function getProductImage(product: Product): string | null {
   if (product.images && product.images.length > 0) {
     const mainImage = product.images.find(img => img.isMain) || product.images[0];
-    return mainImage.url;
+    return mainImage?.url ?? null;
   }
   return null;
 }

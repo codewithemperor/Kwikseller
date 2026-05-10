@@ -71,7 +71,7 @@ export function ConfirmDialog({
                 isDisabled={isLoading}
                 isPending={isLoading}
               >
-                {({ isPending }) =>
+                {({ isPending }: { isPending: boolean }) =>
                   isPending ? (
                     <span className="flex items-center gap-2">
                       <Spinner size="sm" />

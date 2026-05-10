@@ -750,6 +750,9 @@ importers:
       '@kwikseller/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      next:
+        specifier: ^16.1.1
+        version: 16.2.1(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       typescript:
         specifier: ^5
         version: 5.9.2

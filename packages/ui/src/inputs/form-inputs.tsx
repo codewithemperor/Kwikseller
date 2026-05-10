@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Controller, Control, FieldValues, Path } from "react-hook-form";
+import { Controller, FieldValues, Path } from "react-hook-form";
 import type { DateValue, TimeValue } from "@heroui/react";
 import {
   TextField,
@@ -30,7 +30,7 @@ import {
 
 interface BaseInputProps<T extends FieldValues> {
   name: Path<T>;
-  control: Control<T>;
+  control: any;
   label: string;
   placeholder?: string;
   isRequired?: boolean;
@@ -95,7 +95,7 @@ export function TextInput<T extends FieldValues>({
                 type={type}
                 placeholder={placeholder}
                 value={formattedValue}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
               />
               {endContent && (
                 <InputGroup.Suffix>{endContent}</InputGroup.Suffix>
@@ -258,7 +258,7 @@ export function NumberInput<T extends FieldValues>({
               ? undefined
               : field.value
           }
-          onChange={(val) => {
+          onChange={(val: number) => {
             field.onChange(Number.isNaN(val) ? undefined : val);
           }}
         >
@@ -381,12 +381,12 @@ export function DatePickerInput<T extends FieldValues>({
           maxValue={maxValue}
           granularity={granularity}
           value={(field.value as DateValue | null | undefined) ?? null}
-          onChange={(val) => field.onChange(val)}
+          onChange={(val: DateValue | null) => field.onChange(val)}
         >
           <Label>{label}</Label>
           <DateField.Group fullWidth>
             <DateField.Input>
-              {(segment) => <DateField.Segment segment={segment} />}
+              {(segment: unknown) => <DateField.Segment segment={segment} />}
             </DateField.Input>
             <DateField.Suffix>
               <DatePicker.Trigger>
@@ -406,10 +406,10 @@ export function DatePickerInput<T extends FieldValues>({
               </Calendar.Header>
               <Calendar.Grid>
                 <Calendar.GridHeader>
-                  {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                  {(day: React.ReactNode) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
                 </Calendar.GridHeader>
                 <Calendar.GridBody>
-                  {(date) => <Calendar.Cell date={date} />}
+                  {(date: DateValue) => <Calendar.Cell date={date} />}
                 </Calendar.GridBody>
               </Calendar.Grid>
             </Calendar>
@@ -467,17 +467,17 @@ export function DateRangePickerInput<T extends FieldValues>({
           startName={startName}
           endName={endName}
           value={(field.value as DateRange | null | undefined) ?? null}
-          onChange={(val) => field.onChange(val)}
+          onChange={(val: DateRange | null) => field.onChange(val)}
         >
           <Label>{label}</Label>
           <DateField.Group fullWidth>
             <DateField.InputContainer>
               <DateField.Input slot="start">
-                {(segment) => <DateField.Segment segment={segment} />}
+                {(segment: unknown) => <DateField.Segment segment={segment} />}
               </DateField.Input>
               <DateRangePicker.RangeSeparator />
               <DateField.Input slot="end">
-                {(segment) => <DateField.Segment segment={segment} />}
+                {(segment: unknown) => <DateField.Segment segment={segment} />}
               </DateField.Input>
             </DateField.InputContainer>
             <DateField.Suffix>
@@ -498,12 +498,12 @@ export function DateRangePickerInput<T extends FieldValues>({
               </RangeCalendar.Header>
               <RangeCalendar.Grid>
                 <RangeCalendar.GridHeader>
-                  {(day) => (
+                  {(day: React.ReactNode) => (
                     <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>
                   )}
                 </RangeCalendar.GridHeader>
                 <RangeCalendar.GridBody>
-                  {(date) => <RangeCalendar.Cell date={date} />}
+                  {(date: DateValue) => <RangeCalendar.Cell date={date} />}
                 </RangeCalendar.GridBody>
               </RangeCalendar.Grid>
             </RangeCalendar>
@@ -562,7 +562,7 @@ export function TimeFieldInput<T extends FieldValues>({
           minValue={minValue ?? undefined}
           maxValue={maxValue ?? undefined}
           value={(field.value as TimeValue | null | undefined) ?? null}
-          onChange={(val) => field.onChange(val)}
+          onChange={(val: TimeValue | null) => field.onChange(val)}
         >
           <Label>{label}</Label>
           <TimeField.Group fullWidth>
@@ -570,7 +570,7 @@ export function TimeFieldInput<T extends FieldValues>({
               <TimeField.Prefix>{startContent}</TimeField.Prefix>
             )}
             <TimeField.Input>
-              {(segment) => <TimeField.Segment segment={segment} />}
+              {(segment: unknown) => <TimeField.Segment segment={segment} />}
             </TimeField.Input>
             {endContent && <TimeField.Suffix>{endContent}</TimeField.Suffix>}
           </TimeField.Group>
@@ -646,7 +646,7 @@ export function SelectInput<T extends FieldValues>({
             fullWidth={fullWidth}
             placeholder={placeholder}
             value={value}
-            onChange={(val) => field.onChange(val)}
+            onChange={(val: Key | Key[] | null) => field.onChange(val)}
           >
             <Label>{label}</Label>
             <Select.Trigger>

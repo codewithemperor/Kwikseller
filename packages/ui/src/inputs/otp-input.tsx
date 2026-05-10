@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Controller, Control, FieldValues, Path } from "react-hook-form";
+import { Controller, FieldValues, Path } from "react-hook-form";
 import {
   TextField,
   Label,
@@ -13,7 +13,7 @@ import {
 
 interface OTPInputProps<T extends FieldValues> {
   name: Path<T>;
-  control: Control<T>;
+  control: any;
   label: string;
   length?: number;
   placeholder?: string;

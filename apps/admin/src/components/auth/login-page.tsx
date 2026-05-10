@@ -215,7 +215,7 @@ export function AdminLoginPage({ config, className }: AdminLoginPageProps) {
           onPress={() => {}}
           className="mt-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-700 font-semibold hover:from-violet-700 hover:to-purple-800"
         >
-          {({ isPending }) =>
+          {({ isPending }: { isPending: boolean }) =>
             isPending ? (
               <span className="flex items-center gap-2">
                 <Spinner size="sm" />

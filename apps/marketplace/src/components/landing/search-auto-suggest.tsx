@@ -134,7 +134,7 @@ export function SearchAutoSuggest({
     setIsSearching(true)
     const timer = setTimeout(async () => {
       try {
-        const response = await productsApi.search(query, 6)
+        const response = await productsApi.search({ q: query, limit: 6 })
         if (response.success && response.data) {
           const data = response.data as any
           const list = Array.isArray(data) ? data : data.products || []

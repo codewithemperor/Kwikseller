@@ -33,8 +33,8 @@ import { ProductVariantSelector } from "@/components/product/product-variant-sel
 import type { MarketplaceProduct, ProductVariant } from "@/data/marketplace-home";
 
 /* ─── Re-export Loader2 for dynamic loading ─────────────── */
-const Loader2 = () => (
-  <div className="h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange/30 border-t-kwik-orange" />
+const Loader2 = ({ className = "" }: { className?: string }) => (
+  <div className={`h-6 w-6 animate-spin rounded-full border-2 border-kwik-orange/30 border-t-kwik-orange ${className}`.trim()} />
 );
 
 function formatCurrency(amount: number): string {

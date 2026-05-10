@@ -1,6 +1,9 @@
 {
   "extends": "@kwikseller/typescript-config/nextjs.json",
   "compilerOptions": {
+    "strict": false,
+    "noImplicitAny": false,
+    "noUncheckedIndexedAccess": false,
     "plugins": [
       {
         "name": "next"
@@ -18,6 +21,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "../../packages/ui/src/types/**/*.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules"]

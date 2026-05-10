@@ -1,3 +1,5 @@
+/// <reference path="./types/heroui-react.d.ts" />
+
 // KWIKSELLER - Shared UI Components
 // This package provides custom KWIKSELLER components using HeroUI v3
 // Import HeroUI components directly from '@heroui/react' in your apps
