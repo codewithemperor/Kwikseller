@@ -1,7 +1,18 @@
 import axios from 'axios';
 
+const normalizeApiBaseUrl = (value?: string) => {
+  if (!value) return '/api/v1';
+
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  const withoutTrailingSlash = withProtocol.replace(/\/+$/, '');
+
+  return withoutTrailingSlash.endsWith('/api/v1')
+    ? withoutTrailingSlash
+    : `${withoutTrailingSlash}/api/v1`;
+};
+
 export const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL),
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });

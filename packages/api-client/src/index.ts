@@ -64,12 +64,20 @@ export interface RequestConfig extends AxiosRequestConfig {
 // ==================== Configuration ====================
 
 const getBaseURL = (): string => {
-  // In browser, use relative path (handled by gateway)
-  if (typeof window !== 'undefined') {
-    return '/api/v1'
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL
+
+  if (!configuredUrl) {
+    return typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1'
   }
-  // Server-side, use environment variable or default
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'
+
+  const withProtocol = /^https?:\/\//i.test(configuredUrl)
+    ? configuredUrl
+    : `https://${configuredUrl}`
+  const withoutTrailingSlash = withProtocol.replace(/\/+$/, '')
+
+  return withoutTrailingSlash.endsWith('/api/v1')
+    ? withoutTrailingSlash
+    : `${withoutTrailingSlash}/api/v1`
 }
 
 // Storage keys
