@@ -1,6 +1,47 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "API_VERSION",
+    "DATABASE_URL",
+    "DATABASE_URL_UNPOOLED",
+    "JWT_SECRET",
+    "JWT_EXPIRES_IN",
+    "JWT_REFRESH_SECRET",
+    "JWT_REFRESH_EXPIRES_IN",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASS",
+    "SMTP_FROM",
+    "VAPID_PUBLIC_KEY",
+    "VAPID_PRIVATE_KEY",
+    "VAPID_SUBJECT",
+    "PAYSTACK_SECRET_KEY",
+    "PAYSTACK_PUBLIC_KEY",
+    "FLUTTERWAVE_SECRET_KEY",
+    "FLUTTERWAVE_PUBLIC_KEY",
+    "FLUTTERWAVE_ENCRYPTION_KEY",
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+    "FRONTEND_URL",
+    "MARKETPLACE_URL",
+    "VENDOR_URL",
+    "ADMIN_URL",
+    "RIDER_URL",
+    "REDIS_URL",
+    "ENABLE_SWAGGER",
+    "ENABLE_RATE_LIMIT",
+    "RATE_LIMIT_TTL",
+    "RATE_LIMIT_MAX",
+    "BCRYPT_SALT_ROUNDS",
+    "CORS_ORIGINS",
+    "DEFAULT_PLATFORM_FEE_PERCENT",
+    "COINS_PER_NAIRA",
+    "MIN_WITHDRAWAL_AMOUNT",
+    "NEXT_PUBLIC_API_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -8,6 +49,10 @@
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
       "cache": false,
       "persistent": true
     },
