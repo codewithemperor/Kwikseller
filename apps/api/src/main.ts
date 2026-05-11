@@ -10,14 +10,17 @@ async function bootstrap() {
   const apiVersion = process.env.API_VERSION || "v1";
   app.setGlobalPrefix(`api/${apiVersion}`);
 
+  const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
+
   const configuredOrigins = (process.env.CORS_ORIGINS || "")
     .split(",")
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean);
 
   const defaultOrigins = [
     /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.com$/,
     /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.local$/,
+    /^https:\/\/kwikseller-[a-z0-9-]+([-.][a-z0-9-]+)*\.vercel\.app$/,
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3002",
@@ -25,7 +28,24 @@ async function bootstrap() {
   ];
 
   app.enableCors({
-    origin: [...defaultOrigins, ...configuredOrigins],
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      const allowedOrigins = [...defaultOrigins, ...configuredOrigins];
+      const isAllowed = allowedOrigins.some((allowedOrigin) => {
+        if (typeof allowedOrigin === "string") {
+          return normalizeOrigin(allowedOrigin) === normalizedOrigin;
+        }
+
+        return allowedOrigin.test(normalizedOrigin);
+      });
+
+      callback(null, isAllowed);
+    },
     credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     allowedHeaders: "Content-Type, Accept, Authorization",
