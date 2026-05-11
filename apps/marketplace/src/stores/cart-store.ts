@@ -4,12 +4,19 @@ import { persist } from 'zustand/middleware'
 export interface CartItem {
   id: string
   productId: string
+  poolOfferId?: string
   name: string
   price: number
   comparePrice?: number
   image: string
   quantity: number
   store?: string
+  storeId?: string
+  storeSlug?: string
+  storeName?: string
+  productType?: 'PHYSICAL' | 'DIGITAL'
+  productSource?: 'VENDOR_STOCK' | 'POOL_RESALE' | 'GROUP_BUY'
+  requiresShipping?: boolean
 }
 
 interface CartState {
@@ -37,12 +44,14 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item) => {
         const { items } = get()
-        const existing = items.find((i) => i.productId === item.productId)
+        const existing = items.find(
+          (i) => i.productId === item.productId && i.poolOfferId === item.poolOfferId
+        )
 
         if (existing) {
           set({
             items: items.map((i) =>
-              i.productId === item.productId
+              i.productId === item.productId && i.poolOfferId === item.poolOfferId
                 ? { ...i, quantity: i.quantity + 1 }
                 : i
             ),

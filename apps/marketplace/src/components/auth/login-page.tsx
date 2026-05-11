@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, AlertCircle, Chrome, Apple } from "lucide-react";
+import { Mail, Lock, AlertCircle, ShoppingBag, ShieldCheck } from "lucide-react";
 import { Button, Spinner, Checkbox } from "@heroui/react";
 import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
@@ -142,11 +142,14 @@ export function LoginPage({ portal, className }: LoginPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8 space-y-1 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-kwik-dark">
-          Welcome back
+      <div className="mb-8">
+        <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+          <ShoppingBag className="h-6 w-6" />
+        </div>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-kwik-dark dark:text-white">
+          Welcome back to Kwikseller
         </h1>
-        <p className="text-sm text-kwik-gray-light">{portal.description}</p>
+        <p className="mt-3 max-w-sm text-sm leading-6 text-kwik-gray-light dark:text-white/60">{portal.description}</p>
       </div>
 
       {serverError && (
@@ -227,30 +230,9 @@ export function LoginPage({ portal, className }: LoginPageProps) {
         </Button>
 
         {/* Divider */}
-        <div className="relative my-2 flex items-center gap-3">
-          <div className="h-px flex-1 bg-kwik-border" />
-          <span className="text-xs text-kwik-muted">Or continue with</span>
-          <div className="h-px flex-1 bg-kwik-border" />
-        </div>
-
-        {/* Social login buttons */}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => kwikToast.info("Google sign-in coming soon!")}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-kwik-border bg-background text-sm font-medium text-kwik-dark transition-colors hover:bg-kwik-bg-surface"
-          >
-            <Chrome className="h-4 w-4" />
-            Google
-          </button>
-          <button
-            type="button"
-            onClick={() => kwikToast.info("Apple sign-in coming soon!")}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-kwik-border bg-background text-sm font-medium text-kwik-dark transition-colors hover:bg-kwik-bg-surface"
-          >
-            <Apple className="h-4 w-4" />
-            Apple
-          </button>
+        <div className="flex items-start gap-2 border border-kwik-border bg-white p-3 text-xs leading-5 text-kwik-muted dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-kwik-orange" />
+          Your cart, delivery details, and order history stay tied to this verified account.
         </div>
 
         {portal.showRegisterLink && portal.registerPath && (

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Figtree, JetBrains_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
@@ -8,28 +8,6 @@ import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
 import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { NotificationToastStack } from "@/components/landing/notification-toast";
-
-// Heading font - Space Grotesk (modern, geometric sans-serif)
-const fontHeading = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-heading",
-  display: "swap",
-});
-
-// Text/Body font - Figtree (excellent readability)
-const fontText = Figtree({
-  subsets: ["latin"],
-  variable: "--font-text",
-  display: "swap",
-});
-
-// Monospace font - JetBrains Mono (for code, numbers)
-const fontMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -119,7 +97,6 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fontHeading.variable} ${fontText.variable} ${fontMono.variable}`}
       suppressHydrationWarning
     >
       <body className="font-sans antialiased bg-background text-foreground">
@@ -132,9 +109,11 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <MarketplaceLayout>
-                  {children}
-                </MarketplaceLayout>
+                <Suspense fallback={null}>
+                  <MarketplaceLayout>
+                    {children}
+                  </MarketplaceLayout>
+                </Suspense>
                 <Toast.Provider placement="top end" maxVisibleToasts={3} />
                 <Toaster
                   position="top-right"

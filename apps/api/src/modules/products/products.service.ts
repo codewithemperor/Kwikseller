@@ -62,6 +62,7 @@ export class ProductsService {
           images: { orderBy: { position: 'asc' } },
           category: { select: { id: true, name: true, slug: true } },
           store: { select: { id: true, name: true } },
+          inventoryItems: { select: { available: true, reserved: true, lowStockThreshold: true } },
         },
         take: 60,
       }),
@@ -78,6 +79,18 @@ export class ProductsService {
       store: product.store.name,
       category: product.category?.name ?? 'Kwikseller',
       categorySlug: product.category?.slug ?? '',
+      productType: product.productType,
+      productSource: product.productSource,
+      requiresShipping: product.requiresShipping,
+      trackInventory: product.trackInventory,
+      poolProductId: product.poolProductId,
+      stock:
+        product.inventoryItems.reduce(
+          (sum, item) => sum + item.available,
+          0,
+        ) || product.stock,
+      lowStock:
+        product.inventoryItems[0]?.lowStockThreshold ?? product.lowStock,
       isNew:
         Date.now() - new Date(product.createdAt).getTime() <
         1000 * 60 * 60 * 24 * 21,

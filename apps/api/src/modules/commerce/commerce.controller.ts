@@ -1,0 +1,388 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CommerceService } from './commerce.service';
+import {
+  AddCartItemDto,
+  CheckoutDto,
+  CreatePaymentIntentDto,
+  CreatePoolCampaignDto,
+  CreatePoolOfferDto,
+  CreatePoolProductDto,
+  CreateVendorProductDto,
+  DeliveryRateLookupDto,
+  DigitalAssetDto,
+  InventoryAdjustmentDto,
+  ManualDeliveryDto,
+  RefundPaymentDto,
+  UpdateCartItemDto,
+  UpdateOrderStatusDto,
+  UpdatePoolOfferDto,
+  UpdateStorefrontDesignDto,
+  UpdateVendorProductDto,
+  UpsertDeliveryRateDto,
+  ValidateCouponDto,
+} from './commerce.dto';
+
+@Controller('stores')
+export class PublicStoresController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get(':slug')
+  getStore(@Param('slug') slug: string) {
+    return this.commerce.getPublicStore(slug);
+  }
+
+  @Get(':slug/products')
+  getStoreProducts(@Param('slug') slug: string) {
+    return this.commerce.listPublicStoreProducts(slug);
+  }
+}
+
+@Controller('cart')
+@UseGuards(JwtAuthGuard)
+export class CartController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get()
+  getCart(@CurrentUser() user: any) {
+    return this.commerce.getCart(user);
+  }
+
+  @Get('validate')
+  validateCart(@CurrentUser() user: any) {
+    return this.commerce.validateCart(user);
+  }
+
+  @Post('coupon')
+  validateCoupon(@CurrentUser() user: any, @Body() dto: ValidateCouponDto) {
+    return this.commerce.validateCouponForCart(user, dto);
+  }
+
+  @Post('items')
+  addItem(@CurrentUser() user: any, @Body() dto: AddCartItemDto) {
+    return this.commerce.addCartItem(user, dto);
+  }
+
+  @Post('pool-offers/:poolOfferId')
+  addPoolOffer(
+    @CurrentUser() user: any,
+    @Param('poolOfferId') poolOfferId: string,
+    @Body() dto: Pick<AddCartItemDto, 'quantity'>,
+  ) {
+    return this.commerce.addPoolOfferToCart(user, poolOfferId, dto.quantity);
+  }
+
+  @Patch('items/:itemId')
+  updateItem(
+    @CurrentUser() user: any,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateCartItemDto,
+  ) {
+    return this.commerce.updateCartItem(user, itemId, dto);
+  }
+
+  @Delete('items/:itemId')
+  removeItem(@CurrentUser() user: any, @Param('itemId') itemId: string) {
+    return this.commerce.removeCartItem(user, itemId);
+  }
+
+  @Delete()
+  clearCart(@CurrentUser() user: any) {
+    return this.commerce.clearCart(user);
+  }
+}
+
+@Controller('delivery-rates')
+export class DeliveryRatesController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get()
+  lookup(@Query() query: DeliveryRateLookupDto) {
+    return this.commerce.lookupDeliveryRate(query.state, query.localGovernment);
+  }
+}
+
+@Controller('checkout')
+@UseGuards(JwtAuthGuard)
+export class CheckoutController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Post()
+  checkout(@CurrentUser() user: any, @Body() dto: CheckoutDto) {
+    return this.commerce.checkout(user, dto);
+  }
+
+  @Get('payments/:reference')
+  verifyPayment(@Param('reference') reference: string) {
+    return this.commerce.verifyPayment(reference);
+  }
+}
+
+@Controller('payments')
+export class PaymentsController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Post('intents')
+  @UseGuards(JwtAuthGuard)
+  createIntent(@CurrentUser() user: any, @Body() dto: CreatePaymentIntentDto) {
+    return this.commerce.createPaymentIntent(user, dto);
+  }
+
+  @Post('initialize')
+  @UseGuards(JwtAuthGuard)
+  initialize(@CurrentUser() user: any, @Body() dto: CreatePaymentIntentDto) {
+    return this.commerce.createPaymentIntent(user, dto);
+  }
+
+  @Get('verify/:reference')
+  verify(@Param('reference') reference: string) {
+    return this.commerce.verifyPayment(reference);
+  }
+
+  @Get('paystack/health')
+  paystackHealth() {
+    return { gateway: 'PAYSTACK', configured: true };
+  }
+
+  @Post('webhooks/paystack')
+  paystackWebhook(@Headers('x-paystack-signature') signature: string, @Body() body: unknown) {
+    return this.commerce.handlePaystackWebhook(signature, body);
+  }
+}
+
+@Controller('orders')
+@UseGuards(JwtAuthGuard)
+export class OrdersController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get()
+  listOrders(@CurrentUser() user: any) {
+    return this.commerce.listOrders(user);
+  }
+
+  @Get(':orderId')
+  getOrder(@CurrentUser() user: any, @Param('orderId') orderId: string) {
+    return this.commerce.getOrder(user, orderId);
+  }
+}
+
+@Controller('pool')
+export class PoolController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get('offers')
+  listOffers() {
+    return this.commerce.listPublicPoolOffers();
+  }
+
+  @Get('campaigns')
+  listCampaigns() {
+    return this.commerce.listPoolCampaigns();
+  }
+}
+
+@Controller('vendor')
+@UseGuards(JwtAuthGuard)
+export class VendorCommerceController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get('dashboard')
+  dashboard(@CurrentUser() user: any) {
+    return this.commerce.getVendorDashboard(user);
+  }
+
+  @Get('products')
+  listProducts(@CurrentUser() user: any) {
+    return this.commerce.listVendorProducts(user);
+  }
+
+  @Post('products')
+  createProduct(@CurrentUser() user: any, @Body() dto: CreateVendorProductDto) {
+    return this.commerce.createVendorProduct(user, dto);
+  }
+
+  @Patch('products/:productId')
+  updateProduct(
+    @CurrentUser() user: any,
+    @Param('productId') productId: string,
+    @Body() dto: UpdateVendorProductDto,
+  ) {
+    return this.commerce.updateVendorProduct(user, productId, dto);
+  }
+
+  @Post('inventory/adjustments')
+  adjustInventory(@CurrentUser() user: any, @Body() dto: InventoryAdjustmentDto) {
+    return this.commerce.adjustInventory(user, dto);
+  }
+
+  @Post('digital-assets')
+  addDigitalAsset(@CurrentUser() user: any, @Body() dto: DigitalAssetDto) {
+    return this.commerce.addDigitalAsset(user, dto);
+  }
+
+  @Get('orders')
+  listOrders(@CurrentUser() user: any) {
+    return this.commerce.listVendorOrders(user);
+  }
+
+  @Patch('orders/:orderId/status')
+  updateOrderStatus(
+    @CurrentUser() user: any,
+    @Param('orderId') orderId: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.commerce.updateVendorOrderStatus(user, orderId, dto);
+  }
+
+  @Get('pool/catalog')
+  listPoolCatalog() {
+    return this.commerce.listPoolCatalog();
+  }
+
+  @Post('pool/offers')
+  createPoolOffer(@CurrentUser() user: any, @Body() dto: CreatePoolOfferDto) {
+    return this.commerce.createPoolOffer(user, dto);
+  }
+
+  @Patch('pool/offers/:offerId')
+  updatePoolOffer(
+    @CurrentUser() user: any,
+    @Param('offerId') offerId: string,
+    @Body() dto: UpdatePoolOfferDto,
+  ) {
+    return this.commerce.updatePoolOffer(user, offerId, dto);
+  }
+
+  @Get('storefront-design')
+  getStorefrontDesign(@CurrentUser() user: any) {
+    return this.commerce.getVendorStorefrontDesign(user);
+  }
+
+  @Patch('storefront-design')
+  updateStorefrontDesign(@CurrentUser() user: any, @Body() dto: UpdateStorefrontDesignDto) {
+    return this.commerce.updateVendorStorefrontDesign(user, dto);
+  }
+}
+
+@Controller('admin')
+@UseGuards(JwtAuthGuard)
+export class AdminCommerceController {
+  constructor(private readonly commerce: CommerceService) {}
+
+  @Get('commerce/overview')
+  overview(@CurrentUser() user: any) {
+    return this.commerce.getAdminCommerceOverview(user);
+  }
+
+  @Get('payments')
+  payments(@CurrentUser() user: any) {
+    return this.commerce.listAdminPayments(user);
+  }
+
+  @Post('payments/refunds')
+  refund(@CurrentUser() user: any, @Body() dto: RefundPaymentDto) {
+    return this.commerce.refundPayment(user, dto);
+  }
+
+  @Post('payments/:paymentId/refund')
+  refundByParam(
+    @CurrentUser() user: any,
+    @Param('paymentId') paymentId: string,
+    @Body() dto: Omit<RefundPaymentDto, 'paymentId'>,
+  ) {
+    return this.commerce.refundPayment(user, { ...dto, paymentId });
+  }
+
+  @Patch('orders/manual-status')
+  manualDelivery(@CurrentUser() user: any, @Body() dto: ManualDeliveryDto) {
+    return this.commerce.updateManualDelivery(user, dto);
+  }
+
+  @Patch('orders/:orderId/manual-status')
+  manualDeliveryByParam(
+    @CurrentUser() user: any,
+    @Param('orderId') orderId: string,
+    @Body() dto: Omit<ManualDeliveryDto, 'orderId'>,
+  ) {
+    return this.commerce.updateManualDelivery(user, { ...dto, orderId });
+  }
+
+  @Post('inventory/reservations/release-expired')
+  releaseExpiredReservations(@CurrentUser() user: any) {
+    return this.commerce.releaseExpiredReservations(user);
+  }
+
+  @Get('pool/products')
+  poolProducts(@CurrentUser() user: any) {
+    return this.commerce.listAdminPoolProducts(user);
+  }
+
+  @Post('pool/products')
+  createPoolProduct(@CurrentUser() user: any, @Body() dto: CreatePoolProductDto) {
+    return this.commerce.createPoolProduct(user, dto);
+  }
+
+  @Patch('pool/products/:poolProductId')
+  updatePoolProduct(
+    @CurrentUser() user: any,
+    @Param('poolProductId') poolProductId: string,
+    @Body() dto: Partial<CreatePoolProductDto>,
+  ) {
+    return this.commerce.updatePoolProduct(user, poolProductId, dto);
+  }
+
+  @Get('pool/campaigns')
+  poolCampaigns(@CurrentUser() user: any) {
+    return this.commerce.listAdminPoolCampaigns(user);
+  }
+
+  @Post('pool/campaigns')
+  createPoolCampaign(@CurrentUser() user: any, @Body() dto: CreatePoolCampaignDto) {
+    return this.commerce.createPoolCampaign(user, dto);
+  }
+
+  @Get('orders')
+  adminOrders(@CurrentUser() user: any, @Query('status') status?: string) {
+    return this.commerce.listAdminOrders(user, status);
+  }
+
+  @Get('delivery-rates')
+  deliveryRates(
+    @CurrentUser() user: any,
+    @Query('state') state?: string,
+    @Query('isActive') isActive?: string,
+  ) {
+    return this.commerce.listAdminDeliveryRates(user, { state, isActive });
+  }
+
+  @Post('delivery-rates')
+  createDeliveryRate(@CurrentUser() user: any, @Body() dto: UpsertDeliveryRateDto) {
+    return this.commerce.createDeliveryRate(user, dto);
+  }
+
+  @Patch('delivery-rates/:rateId')
+  updateDeliveryRate(
+    @CurrentUser() user: any,
+    @Param('rateId') rateId: string,
+    @Body() dto: Partial<UpsertDeliveryRateDto>,
+  ) {
+    return this.commerce.updateDeliveryRate(user, rateId, dto);
+  }
+
+  @Delete('delivery-rates/:rateId')
+  deactivateDeliveryRate(@CurrentUser() user: any, @Param('rateId') rateId: string) {
+    return this.commerce.deactivateDeliveryRate(user, rateId);
+  }
+}

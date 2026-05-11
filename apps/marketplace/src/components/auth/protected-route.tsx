@@ -85,7 +85,7 @@ export function ProtectedRoute({
 
     // Check permission requirement (for admin routes)
     if (requiredPermission && !hasPermission(requiredPermission)) {
-      router.push("/admin/unauthorized");
+      router.push("/unauthorized");
       return;
     }
   }, [

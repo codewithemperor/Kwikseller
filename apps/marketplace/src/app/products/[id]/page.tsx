@@ -71,7 +71,7 @@ export default function ProductPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-kwik-bg-page">
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-[#07111f]">
         <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
       </div>
     );
@@ -79,7 +79,7 @@ export default function ProductPage() {
 
   if (notFound || !product) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-kwik-bg-page">
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-[#07111f]">
         <EmptyState
           title="Product not found"
           description="The product you're looking for doesn't exist or has been removed."

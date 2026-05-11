@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Store, AlertCircle } from "lucide-react";
+import { Mail, Lock, Store, AlertCircle, ShieldCheck } from "lucide-react";
 import { Button, Spinner } from "@heroui/react";
 import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
@@ -136,7 +136,7 @@ export function LoginPage({ portal, className }: LoginPageProps) {
   const portalIcon = (
     <div
       className={cn(
-        "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
+        "flex h-12 w-12 items-center justify-center text-white",
         iconColor,
       )}
     >
@@ -164,13 +164,13 @@ export function LoginPage({ portal, className }: LoginPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8 flex flex-col items-center gap-3">
+      <div className="mb-8">
         {portalIcon}
-        <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back
+        <div className="mt-5">
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">
+            Welcome back, seller
           </h1>
-          <p className="text-sm text-muted-foreground">{portal.description}</p>
+          <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{portal.description}</p>
         </div>
       </div>
 
@@ -238,6 +238,11 @@ export function LoginPage({ portal, className }: LoginPageProps) {
             )
           }
         </Button>
+
+        <div className="flex items-start gap-2 border border-border bg-background p-3 text-xs leading-5 text-muted-foreground">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          Access your dashboard, orders, inventory, digital assets, and Pool offers from one verified vendor session.
+        </div>
 
         {portal.showRegisterLink && portal.registerPath && (
           <p className="pt-1 text-center text-sm text-muted-foreground">

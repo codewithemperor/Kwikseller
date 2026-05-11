@@ -21,6 +21,10 @@
 [data-theme="light"] {
   color-scheme: light;
 
+  --font-heading: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Questrial", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
   /* ── Surfaces ─────────────────────────────────────────── */
   --background: oklch(1 0 0);
   --foreground: oklch(0.14 0.04 264);

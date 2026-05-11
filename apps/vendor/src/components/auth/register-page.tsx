@@ -135,7 +135,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
   const portalIcon = (
     <div
       className={cn(
-        "flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg",
+        "flex h-12 w-12 items-center justify-center text-white",
         iconColor,
       )}
     >
@@ -160,11 +160,11 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8 flex flex-col items-center gap-3">
+      <div className="mb-8">
         {portalIcon}
-        <h1 className="text-2xl font-semibold">Create your vendor account</h1>
-        <p className="text-center text-sm text-muted-foreground">
-          Start selling on Africa&apos;s largest marketplace
+        <h1 className="mt-5 font-heading text-3xl font-semibold tracking-tight">Create your vendor account</h1>
+        <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+          Start with a store profile built for products, inventory, orders, fulfillment, and Pool resale.
         </p>
       </div>
 

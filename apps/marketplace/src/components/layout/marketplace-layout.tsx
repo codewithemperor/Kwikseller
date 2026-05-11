@@ -451,7 +451,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         setShowFilters,
       }}
     >
-      <div className="flex min-h-screen flex-col bg-kwik-bg-page">
+      <div className="flex min-h-screen flex-col bg-white dark:bg-[#07111f]">
         <PageLoader isLoading={isPageLoading} />
         <OfflineBanner />
         {!isSearchPage && (
@@ -462,7 +462,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         )}
 
         <header
-          className={`sticky top-0 z-40 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
+          className={`sticky top-0 z-[80] bg-background/95 backdrop-blur-md transition-shadow duration-300 dark:bg-[#07111f]/95 ${
             isScrolled
               ? "shadow-md border-b border-kwik-orange/10"
               : "border-b border-kwik-border"

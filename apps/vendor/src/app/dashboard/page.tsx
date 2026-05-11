@@ -1,165 +1,144 @@
-// KWIKSELLER Vendor Dashboard
-// For vendors to manage their online store
-
 "use client";
 
-import {
-  Store,
-  Package,
-  ShoppingCart,
-  DollarSign,
-  TrendingUp,
-  Bell,
-  Settings,
-  LogOut,
-} from "lucide-react";
-import { Button, Card } from "@heroui/react";
-import { ProtectedRoute } from "@/components/auth";
-import { useAuthStore } from "@kwikseller/utils";
+import React from "react";
+import Link from "next/link";
+import { AlertTriangle, Boxes, PackageCheck, ShoppingCart, Users, Wallet } from "lucide-react";
+import { vendorCommerceApi } from "@kwikseller/api-client";
+import type { Order, VendorPoolOffer, InventoryItem } from "@kwikseller/types";
+import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
+import { VendorEmptyState } from "@/components/vendor-empty-state";
 
-function VendorDashboard() {
-  const { user, logout } = useAuthStore();
+type VendorDashboardResponse = {
+  revenue: number;
+  ordersCount: number;
+  productsCount: number;
+  inventoryAlerts: InventoryItem[];
+  fulfillmentTasks: Order[];
+  poolEarnings: number;
+  recentOrders: Order[];
+  poolOffers: VendorPoolOffer[];
+};
+
+export default function VendorDashboardPage() {
+  const [data, setData] = React.useState<VendorDashboardResponse | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    let active = true;
+    vendorCommerceApi
+      .getDashboard()
+      .then((response) => {
+        if (active) setData(unwrapApiData<VendorDashboardResponse>(response.data));
+      })
+      .catch(() => {
+        if (active) setError("Could not load vendor dashboard.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats = [
-    {
-      title: "Total Revenue",
-      value: "₦1,234,567",
-      change: "+12.5%",
-      icon: DollarSign,
-    },
-    { title: "Orders", value: "145", change: "+8.2%", icon: ShoppingCart },
-    { title: "Products", value: "89", change: "+3", icon: Package },
-    { title: "Conversion", value: "3.2%", change: "+0.5%", icon: TrendingUp },
+    { title: "Revenue", value: formatCurrency(data?.revenue ?? 0), icon: Wallet },
+    { title: "Orders", value: String(data?.ordersCount ?? 0), icon: ShoppingCart },
+    { title: "Products", value: String(data?.productsCount ?? 0), icon: Boxes },
+    { title: "Pool earnings", value: formatCurrency(data?.poolEarnings ?? 0), icon: Users },
   ];
 
-  const recentOrders = [
-    {
-      id: "ORD-001",
-      customer: "John Doe",
-      amount: "₦15,000",
-      status: "Processing",
-    },
-    {
-      id: "ORD-002",
-      customer: "Jane Smith",
-      amount: "₦28,500",
-      status: "Shipped",
-    },
-    {
-      id: "ORD-003",
-      customer: "Mike Johnson",
-      amount: "₦9,800",
-      status: "Delivered",
-    },
-    {
-      id: "ORD-004",
-      customer: "Sarah Wilson",
-      amount: "₦45,000",
-      status: "Pending",
-    },
-  ];
+  if (isLoading) {
+    return <div className="grid gap-4 md:grid-cols-4">{stats.map((item) => <div key={item.title} className="h-28 animate-pulse border border-border bg-surface" />)}</div>;
+  }
 
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = "/";
-  };
+  if (error) {
+    return (
+      <VendorEmptyState
+        title="Dashboard unavailable"
+        text={error}
+        action={<button onClick={() => window.location.reload()} className="h-10 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground">Reload</button>}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-0 md:px-4 ">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center">
-                <Store className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-bold text-lg">KWIKSELLER</span>
-              <span className="text-sm text-default-500 ml-2">
-                Vendor Dashboard
-              </span>
+    <div className="space-y-6">
+      <section>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">Operations overview</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Live store metrics from products, orders, inventory alerts, fulfillment, and Pool offers.
+        </p>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <article key={stat.title} className="border border-border bg-background p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-muted-foreground">{stat.title}</p>
+              <stat.icon className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
-                {user?.profile?.firstName || user?.email}
-              </span>
-              <Button isIconOnly variant="ghost">
-                <Bell className="w-5 h-5" />
-              </Button>
-              <Button isIconOnly variant="ghost">
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button isIconOnly variant="ghost" onPress={handleLogout}>
-                <LogOut className="w-5 h-5" />
-              </Button>
+            <p className="mt-4 font-heading text-2xl font-semibold text-foreground">{stat.value}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <article className="border border-border bg-background">
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <div>
+              <h2 className="font-heading text-base font-semibold text-foreground">Recent orders</h2>
+              <p className="text-sm text-muted-foreground">Latest paid or pending customer work.</p>
             </div>
+            <Link href="/dashboard/orders" className="text-sm font-semibold text-primary">View all</Link>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-0 md:px-4  py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Welcome back! 👋</h1>
-          <p className="text-default-500">
-            Here&apos;s what&apos;s happening with your store today.
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="p-4">
-              <div className="flex flex-row items-center justify-between pb-2">
-                <span className="text-sm font-medium text-default-500">
-                  {stat.title}
-                </span>
-                <stat.icon className="h-4 w-4 text-default-500" />
-              </div>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-success">
-                {stat.change} from last month
-              </p>
-            </Card>
-          ))}
-        </div>
-
-        {/* Recent Orders */}
-        <Card className="p-4">
-          <div className="mb-4">
-            <h3 className="font-semibold">Recent Orders</h3>
-            <p className="text-sm text-default-500">
-              Latest orders from your store
-            </p>
-          </div>
-          <div className="space-y-4">
-            {recentOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
+          <div className="divide-y divide-border">
+            {(data?.recentOrders ?? []).slice(0, 6).map((order) => (
+              <div key={order.id} className="grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div>
-                  <p className="font-medium">{order.id}</p>
-                  <p className="text-sm text-default-500">{order.customer}</p>
+                  <p className="font-mono text-xs font-semibold text-muted-foreground">{order.checkoutReference ?? order.id}</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{order.status}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium">{order.amount}</p>
-                  <p className="text-sm text-default-500">{order.status}</p>
+                <div className="sm:text-right">
+                  <p className="text-sm font-bold text-foreground">{formatCurrency(order.totalAmount)}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
                 </div>
               </div>
             ))}
+            {!data?.recentOrders?.length && (
+              <div className="p-6 text-sm text-muted-foreground">No orders yet.</div>
+            )}
           </div>
-        </Card>
-      </main>
-    </div>
-  );
-}
+        </article>
 
-export default function DashboardPage() {
-  return (
-    <ProtectedRoute requiredRole="VENDOR" loginPath="/">
-      <VendorDashboard />
-    </ProtectedRoute>
+        <div className="grid gap-6">
+          <article className="border border-border bg-background p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
+              <div>
+                <h2 className="font-heading text-base font-semibold text-foreground">Inventory alerts</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {(data?.inventoryAlerts ?? []).length} item{(data?.inventoryAlerts ?? []).length === 1 ? "" : "s"} at or below threshold.
+                </p>
+                <Link href="/dashboard/inventory" className="mt-3 inline-flex text-sm font-semibold text-primary">Adjust stock</Link>
+              </div>
+            </div>
+          </article>
+          <article className="border border-border bg-background p-5">
+            <div className="flex items-start gap-3">
+              <PackageCheck className="mt-0.5 h-5 w-5 text-primary" />
+              <div>
+                <h2 className="font-heading text-base font-semibold text-foreground">Fulfillment tasks</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {(data?.fulfillmentTasks ?? []).length} paid order{(data?.fulfillmentTasks ?? []).length === 1 ? "" : "s"} waiting for handling.
+                </p>
+                <Link href="/dashboard/orders" className="mt-3 inline-flex text-sm font-semibold text-primary">Handle orders</Link>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
   );
 }

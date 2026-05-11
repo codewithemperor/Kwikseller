@@ -200,6 +200,7 @@ const categoryIcons: Record<string, React.ElementType> = {
 
 interface VendorData {
   id: string;
+  slug?: string;
   storeName: string;
   initials: string;
   category: string;
@@ -577,6 +578,13 @@ const onboardingSteps = [
 // ─── Vendor Card Component ────────────────────────────────────────
 
 function VendorCard({ vendor, index }: { vendor: VendorData; index: number }) {
+  const vendorSlug =
+    vendor.slug ??
+    vendor.storeName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
   return (
     <StaggerChild index={index}>
       <Card className="overflow-hidden border border-divider rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group h-full">
@@ -699,7 +707,12 @@ function VendorCard({ vendor, index }: { vendor: VendorData; index: number }) {
           </div>
 
           {/* Visit Store Button */}
-          <Button variant="outline" className="w-full font-medium group/btn">
+          <Button
+            as={Link}
+            href={`/vendor/${vendorSlug}`}
+            variant="outline"
+            className="w-full font-medium group/btn"
+          >
             Visit Store
             <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
           </Button>

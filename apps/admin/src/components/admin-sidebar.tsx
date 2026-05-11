@@ -11,6 +11,9 @@ import {
   ImageIcon,
   Percent,
   Ticket,
+  Truck,
+  ReceiptText,
+  CreditCard,
   ChevronRight,
   LogOut,
   Menu,
@@ -32,6 +35,9 @@ const sidebarItems = [
   { label: "Banners", href: "/admin/banners", icon: ImageIcon },
   { label: "Deals", href: "/admin/deals", icon: Percent },
   { label: "Coupons", href: "/admin/coupons", icon: Ticket },
+  { label: "Orders", href: "/admin/orders", icon: ReceiptText },
+  { label: "Payments", href: "/admin/payments", icon: CreditCard },
+  { label: "Delivery Rates", href: "/admin/delivery-rates", icon: Truck },
 ];
 
 export function AdminSidebar() {

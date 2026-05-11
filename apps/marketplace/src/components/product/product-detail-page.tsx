@@ -121,7 +121,7 @@ function DeliveryEstimateWidget({ stock }: { stock: number }) {
   const isLowStock = stock > 0 && stock <= 10;
 
   return (
-    <div className="rounded-[24px] border border-kwik-border p-5">
+    <div className="border border-kwik-border p-5 dark:border-white/10">
       <div className="flex items-center gap-2 mb-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-kwik-orange/10 to-kwik-orange/5">
           <Truck className="h-4 w-4 text-kwik-orange" />
@@ -411,7 +411,7 @@ export function ProductDetailPage({
   ];
 
   return (
-    <div className="bg-kwik-bg-page py-1">
+    <div className="bg-white py-1 dark:bg-[#07111f]">
       <div className="container mx-auto space-y-5 px-4">
 
         {/* Breadcrumb */}
@@ -434,14 +434,14 @@ export function ProductDetailPage({
         </FadeInUp>
 
         {/* Main product card */}
-        <div className="rounded-[28px] bg-background p-5 shadow-sm sm:p-6">
+        <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
 
             {/* Left column: Gallery with gradient shadow */}
             <FadeInUp delay={0.1}>
               <div className="space-y-4">
                 <div
-                  className="relative aspect-[1.05/1] overflow-hidden rounded-[24px] bg-kwik-bg-light shadow-inner ring-1 ring-kwik-border/50"
+                  className="relative aspect-[1.05/1] overflow-hidden bg-neutral-100 ring-1 ring-kwik-border/50 dark:bg-white/10 dark:ring-white/10"
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
@@ -543,7 +543,7 @@ export function ProductDetailPage({
 
               {/* Price + Actions card with enhanced background */}
               <FadeInUp delay={0.2}>
-                <div className="rounded-[24px] bg-gradient-to-br from-kwik-bg-surface via-kwik-bg-surface to-kwik-orange-tint/50 p-5 ring-1 ring-kwik-border/50">
+                    <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
                   {product.comparePrice && (
                     <p className="text-lg text-kwik-muted line-through">
                       {formatCurrency(product.comparePrice)}
@@ -680,7 +680,7 @@ export function ProductDetailPage({
                 <StaggerIn className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {trustItems.map(({ icon: Icon, title, description }) => (
                     <StaggerItem key={title}>
-                      <div className="group rounded-2xl bg-kwik-bg-surface p-4 text-center ring-1 ring-kwik-border/50 transition-all duration-300 hover:ring-kwik-orange/20 hover:shadow-sm">
+                      <div className="group border border-neutral-200 bg-white p-4 text-center transition-all duration-300 hover:border-kwik-orange/30 dark:border-white/10 dark:bg-white/5">
                         <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-kwik-orange/10 to-kwik-orange/5">
                           <Icon className="h-5 w-5 text-kwik-orange transition-transform duration-300 group-hover:scale-110" />
                         </div>
@@ -699,7 +699,7 @@ export function ProductDetailPage({
               {/* Product description */}
               {product.description && (
                 <FadeInUp delay={0.3}>
-                  <div className="rounded-[24px] border border-kwik-border p-5">
+                  <div className="border border-kwik-border p-5 dark:border-white/10">
                     <h2 className="text-lg font-semibold text-kwik-dark">
                       Product description
                     </h2>
@@ -714,7 +714,7 @@ export function ProductDetailPage({
               {product.specifications &&
                 product.specifications.length > 0 && (
                 <FadeInUp delay={0.35}>
-                  <div className="rounded-[24px] border border-kwik-border p-5">
+                  <div className="border border-kwik-border p-5 dark:border-white/10">
                     <h2 className="text-lg font-semibold text-kwik-dark">
                       Product details
                     </h2>
@@ -743,7 +743,7 @@ export function ProductDetailPage({
         {/* Features section */}
         {product.features && product.features.length > 0 && (
           <FadeInUp delay={0.1}>
-            <div className="rounded-[28px] bg-background p-5 shadow-sm sm:p-6">
+            <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
               <MarketplaceSectionHeader
                 title="Features"
                 href="#"
@@ -766,7 +766,7 @@ export function ProductDetailPage({
         {/* Reviews with rating summary */}
         {reviews.length > 0 && (
           <FadeInUp delay={0.1}>
-            <div className="rounded-[28px] bg-background p-5 shadow-sm sm:p-6">
+            <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
               <MarketplaceSectionHeader
                 title="Reviews"
                 href="#"
@@ -834,7 +834,7 @@ export function ProductDetailPage({
                   {reviews.map((review) => (
                     <article
                       key={review.id}
-                      className="rounded-[24px] border border-kwik-border p-5 transition-all duration-300 hover:shadow-md hover:border-kwik-orange/20 hover:-translate-y-0.5"
+                      className="border border-kwik-border p-5 transition-all duration-300 hover:border-kwik-orange/30 dark:border-white/10"
                     >
                       <div className="mb-3 flex items-center gap-1">
                         {Array.from({ length: 5 }).map((_, index) => (
@@ -869,7 +869,7 @@ export function ProductDetailPage({
 
         {/* Related Products - "You Might Also Like" with decorative header */}
         <FadeInUp delay={0.1}>
-          <div className="rounded-[28px] bg-background p-5 shadow-sm sm:p-6">
+          <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
             {/* Decorative section header */}
             <div className="mb-5 flex items-center gap-3">
               <div className="flex items-center gap-2">

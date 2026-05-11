@@ -19,6 +19,7 @@ import { useCartStore, useWishlistStore } from "@/stores";
 import { useMarketplaceShell } from "@/components/layout/marketplace-shell-context";
 import { AppImage } from "@/components/ui/app-image";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { toSearchableProduct, type SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
@@ -85,108 +86,7 @@ function SearchProductCard({
   };
 
   return (
-    <motion.article
-      layout
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3 }}
-      className="group relative flex w-full flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-all duration-300 hover:shadow-md hover-lift press-scale card-hover-border cursor-pointer"
-      onClick={() => onQuickView?.(product)}
-    >
-      {/* Image */}
-      <div className="relative aspect-square overflow-hidden rounded-[18px] m-2 bg-kwik-bg-light">
-        <AppImage
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
-        />
-
-        {/* Badges */}
-        <div className="absolute left-3 top-3 flex gap-1.5">
-          {discount > 0 && (
-            <span className="rounded-lg bg-kwik-badge-dark px-2 py-0.5 text-[11px] font-semibold text-white">
-              -{discount}%
-            </span>
-          )}
-          {product.isNew && (
-            <span className="rounded-lg bg-background/90 dark:bg-background/80 px-2 py-0.5 text-[11px] font-semibold text-kwik-dark dark:text-white">
-              New
-            </span>
-          )}
-        </div>
-
-        {/* Wishlist button */}
-        <motion.button
-          whileTap={{ scale: 0.85 }}
-          onClick={handleWishlistToggle}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
-          aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
-        >
-          <Heart
-            className={`h-4 w-4 transition-all duration-200 ${
-              isWished ? "fill-kwik-orange text-kwik-orange scale-110" : "text-kwik-muted"
-            }`}
-          />
-        </motion.button>
-      </div>
-
-      <div className="flex flex-1 flex-col gap-2 px-3 pb-3 pt-2">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug text-kwik-dark">
-          {product.name}
-        </p>
-
-        {/* Footer */}
-        <div className="flex items-end justify-between pb-3 pt-0.5">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-kwik-muted">
-              {product.store}
-            </p>
-            <div className="flex items-center gap-1 rounded-xl text-[11px]">
-              <Star className="h-3 w-3 fill-kwik-star text-kwik-star" />
-              <span className="font-semibold text-kwik-dark-medium">
-                {product.rating.toFixed(1)}
-              </span>
-            </div>
-          </div>
-          <div className="text-right">
-            {product.comparePrice && (
-              <p className="text-[10px] text-kwik-muted line-through">
-                {formatPrice(product.comparePrice)}
-              </p>
-            )}
-            <p className="text-xs font-bold text-kwik-dark">
-              {formatPrice(product.price)}
-            </p>
-          </div>
-        </div>
-
-        {/* Add to Cart + Eye */}
-        <div className="flex items-center gap-2 mt-auto">
-          <button
-            onClick={handleAddToCart}
-            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-xl bg-kwik-bg-surface hover:bg-kwik-orange text-[10px] font-medium text-kwik-dark-medium hover:text-white transition-all duration-200"
-          >
-            <ShoppingBag className="h-3 w-3" />
-            Add to Cart
-          </button>
-
-          <motion.button
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onQuickView?.(product);
-            }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-kwik-bg-light transition-all duration-200 hover:bg-kwik-orange-tint hover:text-kwik-orange"
-            aria-label="Quick view"
-          >
-            <Eye className="h-3.5 w-3.5 text-kwik-gray-light" />
-          </motion.button>
-        </div>
-      </div>
-    </motion.article>
+    <MarketplaceProductCard product={toMarketplaceProduct(product)} onQuickView={() => onQuickView?.(product)} />
   );
 }
 
@@ -343,9 +243,9 @@ function SearchPageContent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-kwik-bg-page">
+    <div className="min-h-screen bg-white dark:bg-[#07111f]">
       {/* Category tabs - sticky below the header */}
-      <div className="sticky top-[53px] md:top-[64px] z-20 bg-background border-b border-kwik-border shadow-sm dark:shadow-none">
+      <div className="sticky top-[53px] z-20 border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f] md:top-[64px]">
         <div className="container mx-auto px-4">
           <div className="flex gap-1.5 overflow-x-auto py-2.5 scrollbar-hide -mx-4 px-4">
             {ALL_CATEGORIES.map((cat) => {
@@ -359,7 +259,7 @@ function SearchPageContent() {
                   className={`flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
                     isActive
                       ? "bg-gradient-to-r from-kwik-orange to-[#d97706] text-white shadow-md shadow-kwik-orange/20"
-                      : "bg-kwik-bg-surface text-kwik-gray hover:bg-kwik-border hover:text-kwik-dark ring-1 ring-kwik-border/50"
+                      : "bg-white text-kwik-gray ring-1 ring-kwik-border/70 hover:bg-neutral-50 hover:text-kwik-dark dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white"
                   }`}
                 >
                   {cat.name}
@@ -377,7 +277,7 @@ function SearchPageContent() {
                 <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider">
                   Sort by:
                 </span>
-                <div className="flex items-center gap-1.5 rounded-xl bg-kwik-bg-surface p-1 ring-1 ring-kwik-border/50">
+                <div className="flex items-center gap-1.5 rounded-md bg-white p-1 ring-1 ring-kwik-border/70 dark:bg-white/5 dark:ring-white/10">
                   {SORT_OPTIONS.map((opt) => {
                     const isActive = sortBy === opt.value;
                     return (
@@ -389,7 +289,7 @@ function SearchPageContent() {
                         className={`rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 ${
                           isActive
                             ? "bg-gradient-to-r from-kwik-orange to-[#d97706] text-white shadow-sm"
-                            : "text-kwik-gray hover:text-kwik-dark hover:bg-kwik-bg-light"
+                            : "text-kwik-gray hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
                         }`}
                       >
                         {opt.label}
@@ -428,7 +328,7 @@ function SearchPageContent() {
             {Array.from({ length: 10 }).map((_, i) => (
               <div
                 key={i}
-                className="flex flex-col overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border"
+                className="flex flex-col overflow-hidden border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5"
               >
                 {/* Image skeleton with shimmer sweep */}
                 <div className="relative aspect-square m-2 overflow-hidden rounded-[18px] bg-kwik-bg-light">
@@ -527,7 +427,7 @@ function SearchPageContent() {
 
         {/* Results grid */}
         {query && !isLoading && results.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {sortedResults.map((product) => (
               <SearchProductCard
                 key={product.id}

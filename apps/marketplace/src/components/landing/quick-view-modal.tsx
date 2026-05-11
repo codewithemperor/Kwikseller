@@ -71,6 +71,9 @@ function QuickViewContent({
         comparePrice: product.comparePrice,
         image: product.image,
         store: product.store,
+        productType: product.productType,
+        productSource: product.productSource,
+        requiresShipping: product.requiresShipping,
       });
     }
 
@@ -97,14 +100,14 @@ function QuickViewContent({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 16, scale: 0.98 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-kwik-bg-surface md:flex-row"
+        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white dark:bg-[#07111f] md:flex-row"
         onClick={(event) => event.stopPropagation()}
       >
         <Button
           isIconOnly
           variant="ghost"
           onPress={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full bg-kwik-bg-surface/95"
+          className="absolute right-3 top-3 z-10 rounded-full bg-white/95 dark:bg-[#07111f]/95"
           aria-label="Close quick view"
         >
           <X className="h-4 w-4" />
@@ -133,12 +136,12 @@ function QuickViewContent({
           </p>
           {/* Gradient accent line at top of price section */}
           <div className="mt-3 mb-4 h-[2px] w-16 rounded-full bg-gradient-to-r from-kwik-orange to-kwik-orange/40" />
-          <h2 className="mt-2 text-2xl font-bold text-kwik-dark">
+          <h2 className="mt-2 text-2xl font-bold text-kwik-dark dark:text-white">
             {product.name}
           </h2>
 
-          <div className="mt-3 flex items-center gap-2 text-sm text-kwik-gray-light">
-            <span className="flex items-center gap-1 font-medium text-kwik-dark">
+          <div className="mt-3 flex items-center gap-2 text-sm text-kwik-gray-light dark:text-white/55">
+            <span className="flex items-center gap-1 font-medium text-kwik-dark dark:text-white">
               <Star className="h-4 w-4 fill-kwik-star text-kwik-star" />
               {product.rating.toFixed(1)}
             </span>
@@ -146,7 +149,7 @@ function QuickViewContent({
           </div>
 
           <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-bold text-kwik-dark">
+            <span className="text-3xl font-bold text-kwik-dark dark:text-white">
               {formatCurrency(product.price)}
             </span>
             {product.comparePrice && (
@@ -156,7 +159,7 @@ function QuickViewContent({
             )}
           </div>
 
-          <p className="mt-4 text-sm leading-6 text-kwik-gray">
+          <p className="mt-4 text-sm leading-6 text-kwik-gray dark:text-white/65">
             {product.description ??
               "A well-rated marketplace product from a trusted seller, with secure payment and reliable delivery support."}
           </p>
@@ -169,10 +172,10 @@ function QuickViewContent({
             ].map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="rounded-2xl bg-kwik-bg-surface p-3 text-center"
+                className="rounded-md border border-neutral-200 bg-white p-3 text-center dark:border-white/10 dark:bg-white/5"
               >
                 <Icon className="mx-auto h-4 w-4 text-kwik-orange" />
-                <p className="mt-2 text-xs font-medium text-kwik-dark-medium">
+                <p className="mt-2 text-xs font-medium text-kwik-dark-medium dark:text-white/70">
                   {label}
                 </p>
               </div>
@@ -180,10 +183,10 @@ function QuickViewContent({
           </div>
 
           <div className="mt-6 flex items-center gap-3">
-            <span className="text-sm font-semibold text-kwik-dark">
+            <span className="text-sm font-semibold text-kwik-dark dark:text-white">
               Quantity
             </span>
-            <div className="flex items-center gap-2 rounded-xl border border-kwik-border px-2 py-1">
+            <div className="flex items-center gap-2 rounded-md border border-kwik-border px-2 py-1 dark:border-white/10">
               <Button
                 isIconOnly
                 variant="ghost"
@@ -192,7 +195,7 @@ function QuickViewContent({
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="w-8 text-center font-semibold text-kwik-dark">
+              <span className="w-8 text-center font-semibold text-kwik-dark dark:text-white">
                 {quantity}
               </span>
               <Button

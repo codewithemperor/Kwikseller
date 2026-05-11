@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Package,
 } from "lucide-react";
-import { Button } from "@heroui/react";
+import { kwikToast } from "@kwikseller/utils";
 
 const DISMISS_KEY = "kwikseller-app-banner-dismissed";
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -148,16 +148,13 @@ function PhoneMockup() {
 
 function AppStoreButton({
   store,
-  href,
 }: {
   store: "apple" | "google";
-  href: string;
 }) {
   return (
-    <motion.a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+    <motion.button
+      type="button"
+      onClick={() => kwikToast.info("Kwikseller mobile apps are coming soon.")}
       whileHover={{ scale: 1.03, y: -1 }}
       whileTap={{ scale: 0.97 }}
       className="inline-flex items-center gap-3 bg-white text-foreground rounded-xl px-5 py-3 shadow-md hover:shadow-lg transition-shadow"
@@ -185,7 +182,7 @@ function AppStoreButton({
           {store === "apple" ? "App Store" : "Google Play"}
         </span>
       </div>
-    </motion.a>
+    </motion.button>
   );
 }
 
@@ -310,8 +307,8 @@ export function AppPromoBanner() {
 
                 {/* App store buttons */}
                 <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <AppStoreButton store="apple" href="#" />
-                  <AppStoreButton store="google" href="#" />
+                  <AppStoreButton store="apple" />
+                  <AppStoreButton store="google" />
                 </div>
               </motion.div>
 

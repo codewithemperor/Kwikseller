@@ -83,7 +83,15 @@ export interface MarketplaceProduct {
   rating: number;
   reviewCount: number;
   store: string;
+  storeId?: string;
+  storeSlug?: string;
   category: string;
+  productType?: "PHYSICAL" | "DIGITAL";
+  productSource?: "VENDOR_STOCK" | "POOL_RESALE" | "GROUP_BUY";
+  requiresShipping?: boolean;
+  trackInventory?: boolean;
+  lowStock?: number;
+  poolProductId?: string;
   isNew?: boolean;
   tag?: string;
   dimensions?: string;

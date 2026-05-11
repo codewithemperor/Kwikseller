@@ -5,6 +5,9 @@ import type {
   Product,
   Category,
   ApiResponse,
+  DeliveryRate,
+  Order as CommerceOrder,
+  Payment,
 } from "@kwikseller/types";
 
 // ==================== Admin Extended API ====================
@@ -105,6 +108,7 @@ export interface Order {
 
 // Re-export shared APIs
 export { api, adminApi, productsApi };
+export type { DeliveryRate };
 
 const bannerTypeByPosition: Record<Banner["position"], string> = {
   HOME_HERO: "MAIN_BANNER",
@@ -386,6 +390,72 @@ export const couponsApi = {
   ) => api.patch<Coupon>(`/admin/coupons/${id}`, data),
 
   delete: (id: string) => api.delete(`/admin/coupons/${id}`),
+};
+
+// ==================== Delivery Rates API ====================
+
+export const deliveryRatesApi = {
+  list: (params?: { state?: string; isActive?: boolean }) =>
+    adminApi.getDeliveryRates(params),
+
+  create: (data: {
+    state: string;
+    localGovernment: string;
+    fee: number;
+    minDeliveryDays: number;
+    maxDeliveryDays: number;
+    isActive?: boolean;
+  }) => adminApi.createDeliveryRate(data),
+
+  update: (
+    id: string,
+    data: Partial<{
+      state: string;
+      localGovernment: string;
+      fee: number;
+      minDeliveryDays: number;
+      maxDeliveryDays: number;
+      isActive: boolean;
+    }>,
+  ) => adminApi.updateDeliveryRate(id, data),
+
+  deactivate: (id: string) => adminApi.deactivateDeliveryRate(id),
+};
+
+// ==================== Commerce Operations API ====================
+
+export const commerceOpsApi = {
+  orders: (params?: { status?: string; page?: number; limit?: number }) =>
+    adminApi.getAllOrders(params),
+
+  payments: (params?: { status?: string; gateway?: string; page?: number; limit?: number }) =>
+    adminApi.getPayments(params),
+
+  updateManualStatus: (orderId: string, status: string, note?: string, trackingCode?: string) =>
+    adminApi.updateOrderManualStatus(orderId, status, note, trackingCode),
+
+  refundPayment: (paymentId: string, reason: string, amount?: number, orderId?: string) =>
+    adminApi.refundPayment(paymentId, reason, amount, orderId),
+};
+
+export type AdminCommerceOrder = CommerceOrder & {
+  parentCheckout?: {
+    id: string;
+    checkoutReference: string;
+    payment?: Payment;
+  };
+};
+
+export type AdminCommercePayment = Payment & {
+  order?: CommerceOrder;
+  parentCheckout?: {
+    id: string;
+    checkoutReference: string;
+    status: string;
+    paymentStatus: string;
+    totalAmount: number;
+    orders?: CommerceOrder[];
+  };
 };
 
 // ==================== Upload API ====================

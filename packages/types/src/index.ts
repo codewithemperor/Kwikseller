@@ -43,6 +43,8 @@ export interface Address {
   line2?: string
   city: string
   state: string
+  localGovernment?: string
+  deliveryInstructions?: string
   country: string
   postalCode?: string
   isDefault: boolean
@@ -85,6 +87,20 @@ export interface Store {
   createdAt: string
   updatedAt: string
   products?: Product[]
+  storefrontDesign?: StorefrontDesignConfig
+}
+
+export interface StorefrontDesignConfig {
+  id?: string
+  themePreset: string
+  primaryColor: string
+  accentColor: string
+  fontPairing: string
+  heroLayout: string
+  productCardStyle: string
+  sections: string[]
+  heroTitle?: string | null
+  heroSubtitle?: string | null
 }
 
 // ==================== SUBSCRIPTION ====================
@@ -151,6 +167,10 @@ export interface Milestone {
 // ==================== PRODUCTS ====================
 
 export type ProductStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'PENDING'
+export type ProductType = 'PHYSICAL' | 'DIGITAL'
+export type ProductSource = 'VENDOR_STOCK' | 'POOL_RESALE' | 'GROUP_BUY'
+export type InventoryPolicy = 'TRACKED' | 'UNLIMITED' | 'LICENSE_LIMITED'
+export type DigitalDeliveryType = 'DOWNLOAD' | 'LICENSE_KEY' | 'EXTERNAL_ACCESS'
 
 export interface Product {
   id: string
@@ -161,10 +181,19 @@ export interface Product {
   price: number
   comparePrice?: number
   sku?: string
+  productType?: ProductType
+  productSource?: ProductSource
+  inventoryPolicy?: InventoryPolicy
+  requiresShipping?: boolean
+  trackInventory?: boolean
+  lowStock?: number
   stock: number
   status: ProductStatus
   categoryId?: string
   isPoolProduct: boolean
+  poolProductId?: string
+  digitalAssets?: DigitalAsset[]
+  inventoryItems?: InventoryItem[]
   createdAt: string
   updatedAt: string
   store?: Store
@@ -180,7 +209,54 @@ export interface ProductVariant {
   options: Record<string, string>
   price: number
   stock: number
+  inventoryItem?: InventoryItem
   sku?: string
+}
+
+export interface DigitalAsset {
+  id: string
+  productId: string
+  variantId?: string
+  deliveryType: DigitalDeliveryType
+  name: string
+  fileUrl?: string
+  accessUrl?: string
+  licenseKey?: string
+  maxDownloads?: number
+  expiresAfterDays?: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type InventoryReservationStatus = 'ACTIVE' | 'COMMITTED' | 'RELEASED' | 'EXPIRED'
+
+export interface InventoryItem {
+  id: string
+  productId: string
+  variantId?: string
+  storeId?: string
+  poolProductId?: string
+  sku?: string
+  available: number
+  reserved: number
+  safetyStock: number
+  lowStockThreshold: number
+  policy: InventoryPolicy
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InventoryReservation {
+  id: string
+  inventoryItemId: string
+  cartItemId?: string
+  orderItemId?: string
+  quantity: number
+  status: InventoryReservationStatus
+  expiresAt: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ProductImage {
@@ -220,26 +296,114 @@ export interface CartItem {
   variantId?: string
   quantity: number
   price: number
+  productType?: ProductType
+  productSource?: ProductSource
+  poolOfferId?: string
+  requiresShipping?: boolean
+  reservation?: InventoryReservation
   product?: Product
   variant?: ProductVariant
 }
 
+export interface CartValidationIssue {
+  code: string
+  message: string
+  cartItemId?: string
+  productId?: string
+  field?: string
+  available?: number
+  requested?: number
+}
+
+export interface CartValidationResponse {
+  valid: boolean
+  errors: CartValidationIssue[]
+  warnings: CartValidationIssue[]
+  cart?: Cart | null
+  groups?: CartVendorGroup[]
+  totals: {
+    subtotal: number
+    discount: number
+    total: number
+  }
+  requiresShipping: boolean
+  hasDigitalDelivery: boolean
+}
+
+export interface CartVendorGroup {
+  storeId: string
+  storeSlug?: string
+  storeName: string
+  subtotal: number
+  itemCount: number
+  requiresShipping: boolean
+  hasDigitalDelivery: boolean
+  productSources?: ProductSource[]
+  issues?: CartValidationIssue[]
+}
+
+export interface DeliveryRate {
+  id: string
+  state: string
+  localGovernment: string
+  fee: number
+  minDeliveryDays: number
+  maxDeliveryDays: number
+  isActive: boolean
+  estimatedDeliveryStart?: string
+  estimatedDeliveryEnd?: string
+  dispatchNote?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CouponValidationResponse {
+  valid: boolean
+  couponId: string
+  code: string
+  title?: string
+  discount: number
+  message?: string
+}
+
 // ==================== ORDERS ====================
 
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
-export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
+export type OrderStatus =
+  | 'DRAFT'
+  | 'PENDING_PAYMENT'
+  | 'PENDING'
+  | 'PAID'
+  | 'CONFIRMED'
+  | 'PROCESSING'
+  | 'FULFILLED'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  | 'REFUNDED'
+export type PaymentStatus = 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED'
+export type FulfillmentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FULFILLED' | 'DELIVERED' | 'FAILED' | 'CANCELLED'
+export type FulfillmentType = 'PHYSICAL_MANUAL' | 'DIGITAL_ACCESS'
 
 export interface Order {
   id: string
   buyerId: string
-  storeId: string
+  storeId?: string
+  parentCheckoutId?: string
   status: OrderStatus
   subtotal: number
   shippingFee: number
+  discount?: number
   totalAmount: number
   paymentStatus: PaymentStatus
-  addressId: string
+  addressId?: string
   poolOrderId?: string
+  checkoutReference?: string
+  deliveryRateId?: string
+  deliveryState?: string
+  deliveryLocalGovernment?: string
+  estimatedDeliveryStart?: string
+  estimatedDeliveryEnd?: string
+  deliveryRateSnapshot?: string
   createdAt: string
   updatedAt: string
   buyer?: User
@@ -247,8 +411,10 @@ export interface Order {
   address?: Address
   items?: OrderItem[]
   payment?: Payment
+  parentCheckout?: ParentCheckout
   escrow?: Escrow
   delivery?: Delivery
+  fulfillments?: Fulfillment[]
 }
 
 export interface OrderItem {
@@ -260,26 +426,158 @@ export interface OrderItem {
   unitPrice: number
   totalPrice: number
   isPoolItem: boolean
+  productType?: ProductType
+  productSource?: ProductSource
+  poolOfferId?: string
+  fulfillmentStatus?: FulfillmentStatus
   product?: Product
   variant?: ProductVariant
+  reservation?: InventoryReservation
 }
 
 // ==================== PAYMENTS ====================
 
-export type PaymentGateway = 'PAYSTACK' | 'FLUTTERWAVE'
-export type PaymentType = 'ORDER' | 'SUBSCRIPTION' | 'CREDIT_PURCHASE'
+export type PaymentGateway = 'PAYSTACK' | 'FLUTTERWAVE' | 'CASH_ON_DELIVERY' | 'WALLET'
+export type ParentCheckoutStatus = 'PENDING_PAYMENT' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REFUNDED'
+export type PaymentType = 'CHECKOUT' | 'ORDER' | 'SUBSCRIPTION' | 'CREDIT_PURCHASE'
+
+export interface ParentCheckout {
+  id: string
+  buyerId: string
+  status: ParentCheckoutStatus
+  subtotal: number
+  shippingFee: number
+  discount: number
+  totalAmount: number
+  paymentStatus: PaymentStatus
+  checkoutReference: string
+  idempotencyKey?: string
+  couponId?: string
+  createdAt: string
+  updatedAt: string
+  orders?: Order[]
+  payment?: Payment
+}
 
 export interface Payment {
   id: string
   orderId?: string
+  parentCheckoutId?: string
   entityType: PaymentType
   entityId: string
   amount: number
   gateway: PaymentGateway
   reference: string
   status: PaymentStatus
+  authorizationUrl?: string
+  paidAt?: string
+  verifiedAt?: string
   metadata?: Record<string, unknown>
   createdAt: string
+}
+
+export interface Fulfillment {
+  id: string
+  orderId: string
+  orderItemId?: string
+  type: FulfillmentType
+  status: FulfillmentStatus
+  manualCarrier?: string
+  trackingNumber?: string
+  digitalAssetId?: string
+  accessUrl?: string
+  deliveredAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CheckoutRequest {
+  cartId?: string
+  shippingAddress?: {
+    fullName: string
+    phone: string
+    addressLine1: string
+    addressLine2?: string
+    localGovernment?: string
+    deliveryInstructions?: string
+    city: string
+    state: string
+    country: string
+  }
+  couponCode?: string
+  idempotencyKey?: string
+}
+
+export interface CheckoutResponse {
+  order?: Order
+  orders?: Order[]
+  parentCheckout?: ParentCheckout
+  payment: Payment
+  authorizationUrl?: string
+  requiresShipping: boolean
+  reference?: string
+}
+
+export interface SplitCheckoutResponse extends CheckoutResponse {
+  orders: Order[]
+  parentCheckout: ParentCheckout
+}
+
+// ==================== POOL COMMERCE ====================
+
+export type PoolProductStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
+export type PoolOfferStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED'
+export type PoolCampaignStatus = 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'THRESHOLD_MET' | 'FULFILLING' | 'COMPLETED' | 'CANCELLED'
+
+export interface PoolProduct {
+  id: string
+  name: string
+  description?: string
+  wholesalePrice: number
+  suggestedRetailPrice?: number
+  categoryId?: string
+  supplierId?: string
+  status: PoolProductStatus
+  productType: ProductType
+  images?: string[]
+  inventoryItem?: InventoryItem
+  createdAt: string
+  updatedAt: string
+}
+
+export interface VendorPoolOffer {
+  id: string
+  storeId: string
+  poolProductId: string
+  retailPrice: number
+  markup: number
+  status: PoolOfferStatus
+  productId?: string
+  poolProduct?: PoolProduct
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PoolCampaign {
+  id: string
+  poolProductId: string
+  title: string
+  targetQuantity: number
+  committedQuantity: number
+  unitPrice: number
+  status: PoolCampaignStatus
+  startsAt: string
+  endsAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface VendorDashboardMetrics {
+  revenue: number
+  orders: number
+  pendingFulfillments: number
+  lowStockItems: number
+  poolEarnings: number
 }
 
 // ==================== ESCROW ====================

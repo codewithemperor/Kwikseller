@@ -38,7 +38,7 @@ import { motion, AnimatePresence, useInView } from "framer-motion";
 import { productsApi, marketplaceApi } from "@kwikseller/api-client";
 import { cn } from "@kwikseller/ui";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ApiProductCard } from "@/components/landing/api-product-sections";
+import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import type { SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 import dynamic from "next/dynamic";
@@ -278,9 +278,9 @@ function CategoryDetailView({ slug }: { slug: string }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-kwik-bg-page">
+    <div className="min-h-screen bg-white dark:bg-[#07111f]">
       {/* Category Header */}
-      <div className="bg-background border-b border-kwik-border">
+      <div className="border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
@@ -300,7 +300,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
               Categories
             </button>
             <ChevronRight className="h-3 w-3" />
-            <span className="font-medium text-kwik-dark">
+            <span className="font-medium text-kwik-dark dark:text-white">
               {categoryInfo?.name || slug}
             </span>
           </div>
@@ -308,10 +308,10 @@ function CategoryDetailView({ slug }: { slug: string }) {
           {/* Category info row */}
           <div className="flex items-center gap-4 pb-4">
             <div>
-              <h1 className="text-xl font-bold text-kwik-dark">
+              <h1 className="text-xl font-bold text-kwik-dark dark:text-white">
                 {categoryInfo?.name || slug}
               </h1>
-              <p className="text-sm text-kwik-gray-light">
+              <p className="text-sm text-kwik-gray-light dark:text-white/60">
                 {categoryInfo?.description || `Browse ${slug} products`}
                 {categoryInfo?.itemCount && (
                   <span className="ml-2 text-kwik-orange font-medium">
@@ -326,7 +326,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
               className={`ml-auto flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors ${
                 showFilters
                   ? "bg-kwik-orange-tint text-kwik-orange"
-                  : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
+                  : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10"
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -343,7 +343,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="border-t border-kwik-border overflow-hidden"
+              className="overflow-hidden border-t border-kwik-border dark:border-white/10"
             >
               <div className="container mx-auto px-4 py-3">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -358,7 +358,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
                       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         sortBy === opt.value
                           ? "bg-kwik-dark text-white"
-                          : "bg-kwik-bg-light text-kwik-gray-light hover:bg-kwik-border"
+                          : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10"
                       }`}
                     >
                       {opt.label}
@@ -380,7 +380,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
               "Loading..."
             ) : (
               <>
-                <span className="font-semibold text-kwik-dark">{sortedProducts.length}</span>{" "}
+                <span className="font-semibold text-kwik-dark dark:text-white">{sortedProducts.length}</span>{" "}
                 product{sortedProducts.length !== 1 ? "s" : ""} in{" "}
                 <span className="font-semibold text-kwik-orange">
                   {categoryInfo?.name || slug}
@@ -418,12 +418,12 @@ function CategoryDetailView({ slug }: { slug: string }) {
 
         {/* Product grid */}
         {!isLoading && sortedProducts.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {sortedProducts.map((product) => (
-              <ApiProductCard
+              <MarketplaceProductCard
                 key={product.id}
-                product={product}
-                onQuickView={handleQuickView}
+                product={toMarketplaceProduct(product)}
+                onQuickView={() => handleQuickView(product)}
               />
             ))}
           </div>
@@ -517,9 +517,9 @@ function AllCategoriesView() {
   }, [categories, searchQuery, sortBy]);
 
   return (
-    <div className="min-h-screen bg-kwik-bg-page">
+    <div className="min-h-screen bg-white dark:bg-[#07111f]">
       {/* Header */}
-      <div className="bg-background border-b border-kwik-border">
+      <div className="border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
@@ -531,12 +531,12 @@ function AllCategoriesView() {
               Home
             </button>
             <ChevronRight className="h-3 w-3" />
-            <span className="font-medium text-kwik-dark">Categories</span>
+            <span className="font-medium text-kwik-dark dark:text-white">Categories</span>
           </div>
 
           <div className="pb-4">
-            <h1 className="text-2xl font-bold text-kwik-dark">All Categories</h1>
-            <p className="mt-1 text-sm text-kwik-gray-light">
+            <h1 className="text-2xl font-bold text-kwik-dark dark:text-white">All Categories</h1>
+            <p className="mt-1 text-sm text-kwik-gray-light dark:text-white/60">
               Browse products by category · {categories.length} categories
             </p>
           </div>
@@ -544,7 +544,7 @@ function AllCategoriesView() {
       </div>
 
       {/* Search & Sort Bar */}
-      <div className="bg-kwik-bg-surface border-b border-kwik-border">
+      <div className="border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Search input */}
@@ -555,7 +555,7 @@ function AllCategoriesView() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search categories..."
-                className="w-full h-10 rounded-xl border border-kwik-border bg-kwik-bg-light pl-9 pr-9 text-sm text-kwik-dark placeholder:text-kwik-muted outline-none focus:border-kwik-orange focus:ring-1 focus:ring-kwik-orange/20 transition-colors"
+                className="h-10 w-full rounded-md border border-kwik-border bg-white pl-9 pr-9 text-sm text-kwik-dark outline-none transition-colors placeholder:text-kwik-muted focus:border-kwik-orange focus:ring-1 focus:ring-kwik-orange/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
               {searchQuery && (
                 <button
@@ -573,7 +573,7 @@ function AllCategoriesView() {
               <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider whitespace-nowrap hidden sm:inline">
                 Sort:
               </span>
-              <div className="flex items-center gap-1 bg-kwik-bg-light rounded-xl p-1 border border-kwik-border">
+              <div className="flex items-center gap-1 rounded-md border border-kwik-border bg-white p-1 dark:border-white/10 dark:bg-white/5">
                 {CATEGORY_SORT_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
@@ -582,7 +582,7 @@ function AllCategoriesView() {
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                       sortBy === opt.value
                         ? "bg-kwik-orange text-white shadow-sm"
-                        : "text-kwik-gray-light hover:text-kwik-dark hover:bg-kwik-bg-surface"
+                        : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
                     }`}
                   >
                     {opt.label}
@@ -644,7 +644,7 @@ function AllCategoriesView() {
             )}
 
             <StaggerWrap>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {filteredCategories.map((category, index) => {
                   const style = getCategoryStyle(
                     category.name,
@@ -660,7 +660,7 @@ function AllCategoriesView() {
                         onClick={() => router.push(`/categories?name=${category.slug || category.id}`)}
                         whileHover={{ y: -4 }}
                         whileTap={{ scale: 0.98 }}
-                        className="group border-none shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-5 sm:p-6 cursor-pointer h-full rounded-2xl bg-background text-left"
+                        className="group h-full cursor-pointer border border-neutral-200 bg-white p-5 text-left transition-all duration-300 hover:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:hover:border-white/50 sm:p-6"
                       >
                         <div className="flex items-start gap-4">
                           {/* Colored icon box */}

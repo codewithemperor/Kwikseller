@@ -23,6 +23,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { SellersModule } from './modules/sellers/sellers.module';
+import { CommerceModule } from './modules/commerce/commerce.module';
 
 @Module({
   imports: [
@@ -143,6 +144,9 @@ import { SellersModule } from './modules/sellers/sellers.module';
 
     // Sellers module (public seller listings)
     SellersModule,
+
+    // Commerce module (cart, checkout, orders, payments, pool, vendor/admin ops)
+    CommerceModule,
   ],
   controllers: [AppController],
   providers: [

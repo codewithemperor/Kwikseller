@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "nest start",
+    "check-types": "prisma generate && tsc --noEmit",
+    "start": "node dist/main",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "test": "jest",

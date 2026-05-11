@@ -737,7 +737,7 @@ export function MarketplaceReviewsSection() {
   return (
     <section className="bg-kwik-bg-page py-5">
       <div className="container mx-auto px-0 md:px-4">
-        <SectionHeader title="Customer Reviews" href="#" />
+        <SectionHeader title="Customer Reviews" href="/about" />
         <div className="overflow-hidden" ref={emblaRef}>
           <div className="flex gap-4">
             {reviews.map((review) => (

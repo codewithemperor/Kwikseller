@@ -8,13 +8,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Mail,
   Lock,
-  User,
   Phone,
   Building2,
   ChevronRight,
   AlertCircle,
   Check,
   X,
+  ShoppingBag,
+  Store,
 } from "lucide-react";
 import { Button, Spinner, Chip, Checkbox } from "@heroui/react";
 import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
@@ -144,9 +145,9 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
   // Watch password for strength indicator
   const currentPassword = watch("password") || "";
-  if (currentPassword !== passwordValue) {
+  React.useEffect(() => {
     setPasswordValue(currentPassword);
-  }
+  }, [currentPassword]);
 
   const redirectToApp = React.useCallback(() => {
     setTimeout(() => router.push(portal.redirectPath), 400);
@@ -247,10 +248,10 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   if (step === 1 && portal.showRoleSelector) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-8 text-center">
-          <h1 className="mb-1 text-2xl font-bold text-kwik-dark">Join {portal.name}</h1>
-          <p className="text-sm text-kwik-gray-light">
-            Choose how you want to use the platform
+        <div className="mb-8">
+          <h1 className="font-heading text-3xl font-semibold tracking-tight text-kwik-dark dark:text-white">Join {portal.name}</h1>
+          <p className="mt-3 max-w-sm text-sm leading-6 text-kwik-gray-light dark:text-white/60">
+            Choose the account type that matches the workflow you want to start with.
           </p>
         </div>
 
@@ -258,11 +259,11 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
           <button
             type="button"
             onClick={() => handleRoleSelect("BUYER")}
-            className="w-full rounded-xl border border-kwik-border p-6 text-left transition-colors hover:border-kwik-orange hover:bg-kwik-orange-tint"
+            className="w-full border border-kwik-border bg-white p-5 text-left transition-colors hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-kwik-orange/10">
-                <User className="h-6 w-6 text-kwik-orange" />
+              <div className="flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+                <ShoppingBag className="h-6 w-6" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
@@ -279,11 +280,11 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
           <button
             type="button"
             onClick={() => handleRoleSelect("VENDOR")}
-            className="w-full rounded-xl border border-kwik-border p-6 text-left transition-colors hover:border-kwik-orange hover:bg-kwik-orange-tint"
+            className="w-full border border-kwik-border bg-white p-5 text-left transition-colors hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-kwik-orange/10">
-                <Building2 className="h-6 w-6 text-kwik-orange" />
+              <div className="flex h-12 w-12 items-center justify-center bg-kwik-orange text-white">
+                <Store className="h-6 w-6" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
@@ -315,14 +316,17 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8 space-y-1 text-center">
-        <h1 className="text-2xl font-bold text-kwik-dark">
+      <div className="mb-8">
+        <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+          {selectedRole === "VENDOR" ? <Store className="h-6 w-6" /> : <ShoppingBag className="h-6 w-6" />}
+        </div>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-kwik-dark dark:text-white">
           Create your {selectedRole === "VENDOR" ? "vendor" : "buyer"} account
         </h1>
-        <p className="text-center text-sm text-kwik-gray-light">
+        <p className="mt-3 max-w-sm text-sm leading-6 text-kwik-gray-light dark:text-white/60">
           {selectedRole === "VENDOR"
-            ? "Start selling on Africa's largest marketplace"
-            : "Join millions of shoppers across Africa"}
+            ? "Set up a store account for products, inventory, orders, and Pool offers."
+            : "Create a buyer account for checkout, delivery tracking, and digital access."}
         </p>
       </div>
 

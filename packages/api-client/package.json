@@ -2,6 +2,9 @@
   "name": "@kwikseller/api-client",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

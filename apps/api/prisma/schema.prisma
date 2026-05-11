@@ -78,6 +78,7 @@ model User {
   referralsAsReferrer Referral[]  @relation("Referrer")
   referralsAsReferee  Referral[]  @relation("Referee")
   ordersAsBuyer Order[]           @relation("BuyerOrders")
+  parentCheckouts ParentCheckout[] @relation("BuyerParentCheckouts")
   carts         Cart[]
   notifications Notification[]
   pushSubscriptions PushSubscription[]
@@ -115,6 +116,8 @@ model Address {
   line2       String?
   city        String
   state       String
+  localGovernment String?
+  deliveryInstructions String?
   country     String   @default("Nigeria")
   postalCode  String?
   isDefault   Boolean  @default(false)
@@ -206,11 +209,30 @@ model Store {
   vendor      User          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   products    Product[]
   orders      Order[]       @relation("StoreOrders")
-  poolProducts StorePoolProduct[]
+  poolOffers  VendorPoolOffer[]
+  storefrontDesign StorefrontDesign?
 
   @@index([vendorId])
   @@index([slug])
   @@index([verificationStatus])
+}
+
+model StorefrontDesign {
+  id               String   @id @default(cuid())
+  storeId          String   @unique
+  themePreset      String   @default("CLASSIC")
+  primaryColor     String   @default("#071A2F")
+  accentColor      String   @default("#F97316")
+  fontPairing      String   @default("FIGTREE_QUESTRIAL")
+  heroLayout       String   @default("BANNER_LEFT")
+  productCardStyle String   @default("CLEAN_GRID")
+  sections         String   @default("[\"hero\",\"products\",\"pool\",\"policies\"]")
+  heroTitle        String?
+  heroSubtitle     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
 
 // ==================== SUBSCRIPTION ====================
@@ -436,6 +458,22 @@ model Coupon {
   @@index([isActive])
 }
 
+model DeliveryRate {
+  id                String   @id @default(cuid())
+  state             String
+  localGovernment   String
+  fee               Float    @default(0)
+  minDeliveryDays   Int      @default(3)
+  maxDeliveryDays   Int      @default(5)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([state, localGovernment])
+  @@index([state])
+  @@index([isActive])
+}
+
 // ==================== ATTRIBUTES (from SQL) ====================
 
 model Attribute {
@@ -480,15 +518,51 @@ enum ProductStatus {
   PENDING
 }
 
+enum ProductType {
+  PHYSICAL
+  DIGITAL
+}
+
+enum ProductSource {
+  VENDOR_STOCK
+  POOL_RESALE
+  GROUP_BUY
+}
+
+enum InventoryPolicy {
+  TRACKED
+  UNLIMITED
+  LICENSE_LIMITED
+}
+
+enum DigitalDeliveryType {
+  DOWNLOAD
+  LICENSE_KEY
+  EXTERNAL_ACCESS
+}
+
+enum InventoryReservationStatus {
+  ACTIVE
+  COMMITTED
+  RELEASED
+  EXPIRED
+}
+
 model Product {
   id              String        @id @default(cuid())
   storeId         String
+  poolProductId   String?
   name            String
   slug            String
   description     String?
   price           Float
   comparePrice    Float?
   sku             String?
+  productType     ProductType    @default(PHYSICAL)
+  productSource   ProductSource  @default(VENDOR_STOCK)
+  inventoryPolicy InventoryPolicy @default(TRACKED)
+  requiresShipping Boolean       @default(true)
+  trackInventory  Boolean        @default(true)
   stock           Int           @default(0)
   lowStock        Int           @default(5)
   status          ProductStatus @default(DRAFT)
@@ -503,8 +577,12 @@ model Product {
   updatedAt       DateTime      @updatedAt
 
   store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id])
   variants    ProductVariant[]
   images      ProductImage[]
+  digitalAssets DigitalAsset[]
+  inventoryItems InventoryItem[]
+  vendorPoolOffers VendorPoolOffer[]
   category    Category?       @relation(fields: [categoryId], references: [id])
   brand       Brand?          @relation(fields: [brandId], references: [id])
   cartItems   CartItem[]
@@ -519,6 +597,9 @@ model Product {
   @@index([brandId])
   @@index([status])
   @@index([isFeatured])
+  @@index([productType])
+  @@index([productSource])
+  @@index([poolProductId])
 }
 
 model ProductVariant {
@@ -535,8 +616,83 @@ model ProductVariant {
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems CartItem[]
   orderItems OrderItem[]
+  digitalAssets DigitalAsset[]
+  inventoryItems InventoryItem[]
 
   @@index([productId])
+}
+
+model DigitalAsset {
+  id               String              @id @default(cuid())
+  productId        String
+  variantId        String?
+  deliveryType     DigitalDeliveryType @default(DOWNLOAD)
+  name             String
+  fileUrl          String?
+  accessUrl        String?
+  licenseKey       String?
+  maxDownloads     Int?
+  expiresAfterDays Int?
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  fulfillments Fulfillment[]
+
+  @@index([productId])
+  @@index([variantId])
+  @@index([isActive])
+}
+
+model InventoryItem {
+  id                String          @id @default(cuid())
+  productId         String?
+  variantId         String?
+  storeId           String?
+  poolProductId     String?
+  sku               String?
+  available         Int             @default(0)
+  reserved          Int             @default(0)
+  safetyStock       Int             @default(0)
+  lowStockThreshold Int             @default(5)
+  policy            InventoryPolicy @default(TRACKED)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+  reservations InventoryReservation[]
+
+  @@index([productId])
+  @@index([variantId])
+  @@index([storeId])
+  @@index([poolProductId])
+  @@index([sku])
+}
+
+model InventoryReservation {
+  id              String                     @id @default(cuid())
+  inventoryItemId String
+  cartItemId      String?
+  orderItemId     String?
+  quantity        Int
+  status          InventoryReservationStatus @default(ACTIVE)
+  expiresAt       DateTime
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  cartItem      CartItem?     @relation(fields: [cartItemId], references: [id], onDelete: SetNull)
+  orderItem     OrderItem?    @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@index([inventoryItemId])
+  @@index([cartItemId])
+  @@index([orderItemId])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 model ProductImage {
@@ -605,64 +761,139 @@ model CartItem {
   cartId      String
   productId   String
   variantId   String?
+  poolOfferId String?
   quantity    Int
   price       Float
+  productType ProductType   @default(PHYSICAL)
+  productSource ProductSource @default(VENDOR_STOCK)
+  requiresShipping Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
   variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  poolOffer VendorPoolOffer? @relation(fields: [poolOfferId], references: [id], onDelete: SetNull)
+  reservations InventoryReservation[]
 
   @@index([cartId])
+  @@index([poolOfferId])
 }
 
 // ==================== ORDERS ====================
 
 enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
   PENDING
+  PAID
   CONFIRMED
   PROCESSING
+  FULFILLED
   SHIPPED
   DELIVERED
   CANCELLED
+  REFUNDED
 }
 
 enum PaymentStatus {
   PENDING
+  AUTHORIZED
   PAID
   FAILED
   REFUNDED
+}
+
+enum ParentCheckoutStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FULFILLED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum FulfillmentType {
+  PHYSICAL_MANUAL
+  DIGITAL_ACCESS
 }
 
 model Order {
   id            String        @id @default(cuid())
   buyerId       String
   storeId       String
-  status        OrderStatus   @default(PENDING)
+  parentCheckoutId String?
+  status        OrderStatus   @default(PENDING_PAYMENT)
   subtotal      Float
   shippingFee   Float         @default(0)
   discount      Float         @default(0)
   totalAmount   Float
   paymentStatus PaymentStatus @default(PENDING)
-  addressId     String
+  addressId     String?
+  checkoutReference String?    @unique
+  idempotencyKey String?
   poolOrderId   String?
   couponId      String?
+  deliveryRateId String?
+  deliveryState String?
+  deliveryLocalGovernment String?
+  estimatedDeliveryStart DateTime?
+  estimatedDeliveryEnd DateTime?
+  deliveryRateSnapshot String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   buyer       User        @relation("BuyerOrders", fields: [buyerId], references: [id])
   store       Store       @relation("StoreOrders", fields: [storeId], references: [id])
-  address     Address     @relation(fields: [addressId], references: [id])
+  parentCheckout ParentCheckout? @relation(fields: [parentCheckoutId], references: [id], onDelete: Cascade)
+  address     Address?    @relation(fields: [addressId], references: [id])
   items       OrderItem[]
   payment     Payment?
   escrow      Escrow?
   delivery    Delivery?
   commission  Commission?
+  fulfillments Fulfillment[]
 
   @@index([buyerId])
   @@index([storeId])
+  @@index([parentCheckoutId])
   @@index([status])
+  @@index([paymentStatus])
+  @@index([idempotencyKey])
+}
+
+model ParentCheckout {
+  id                String               @id @default(cuid())
+  buyerId           String
+  status            ParentCheckoutStatus @default(PENDING_PAYMENT)
+  subtotal          Float
+  shippingFee       Float                @default(0)
+  discount          Float                @default(0)
+  totalAmount       Float
+  paymentStatus     PaymentStatus        @default(PENDING)
+  checkoutReference String               @unique
+  idempotencyKey    String?
+  couponId          String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  buyer   User      @relation("BuyerParentCheckouts", fields: [buyerId], references: [id])
+  orders  Order[]
+  payment Payment?
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([idempotencyKey])
 }
 
 model OrderItem {
@@ -670,17 +901,25 @@ model OrderItem {
   orderId     String
   productId   String
   variantId   String?
+  poolOfferId String?
   quantity    Int
   unitPrice   Float
   totalPrice  Float
   isPoolItem  Boolean  @default(false)
+  productType ProductType   @default(PHYSICAL)
+  productSource ProductSource @default(VENDOR_STOCK)
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
   createdAt   DateTime @default(now())
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product        @relation(fields: [productId], references: [id])
   variant ProductVariant? @relation(fields: [variantId], references: [id])
+  poolOffer VendorPoolOffer? @relation(fields: [poolOfferId], references: [id], onDelete: SetNull)
+  reservations InventoryReservation[]
+  fulfillments Fulfillment[]
 
   @@index([orderId])
+  @@index([poolOfferId])
 }
 
 // ==================== PAYMENTS ====================
@@ -693,6 +932,7 @@ enum PaymentGateway {
 }
 
 enum PaymentType {
+  CHECKOUT
   ORDER
   SUBSCRIPTION
   CREDIT_PURCHASE
@@ -701,20 +941,68 @@ enum PaymentType {
 model Payment {
   id            String         @id @default(cuid())
   orderId       String?        @unique
+  parentCheckoutId String?     @unique
   entityType    PaymentType
   entityId      String
   amount        Float
   gateway       PaymentGateway
   reference     String         @unique
   status        PaymentStatus  @default(PENDING)
+  authorizationUrl String?
   metadata      String?
+  gatewayResponse String?
+  paidAt        DateTime?
+  verifiedAt    DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   order Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  parentCheckout ParentCheckout? @relation(fields: [parentCheckoutId], references: [id], onDelete: Cascade)
 
   @@index([reference])
   @@index([entityType, entityId])
+}
+
+model PaymentWebhookEvent {
+  id             String    @id @default(cuid())
+  gateway        PaymentGateway
+  eventType      String
+  idempotencyKey String    @unique
+  reference      String?
+  status         String    @default("RECEIVED")
+  payload        String?
+  error          String?
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([gateway])
+  @@index([reference])
+  @@index([status])
+}
+
+model Fulfillment {
+  id             String            @id @default(cuid())
+  orderId        String
+  orderItemId    String?
+  type           FulfillmentType
+  status         FulfillmentStatus @default(PENDING)
+  manualCarrier  String?
+  trackingNumber String?
+  digitalAssetId String?
+  accessUrl      String?
+  deliveredAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem?    @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  digitalAsset DigitalAsset? @relation(fields: [digitalAssetId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([status])
+  @@index([type])
 }
 
 // ==================== ESCROW ====================
@@ -811,6 +1099,10 @@ model PoolProduct {
   name            String
   description     String?
   wholesalePrice  Float
+  suggestedRetailPrice Float?
+  productType     ProductType @default(PHYSICAL)
+  status          PoolProductStatus @default(DRAFT)
+  categoryId      String?
   category        String?
   stock           Int      @default(0)
   supplierId      String?
@@ -819,27 +1111,81 @@ model PoolProduct {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  storeProducts StorePoolProduct[]
+  products Product[]
+  inventoryItems InventoryItem[]
+  vendorOffers VendorPoolOffer[]
+  campaigns PoolCampaign[]
 
   @@index([category])
+  @@index([categoryId])
   @@index([isActive])
+  @@index([status])
 }
 
-model StorePoolProduct {
+enum PoolProductStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum PoolOfferStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+model VendorPoolOffer {
   id              String   @id @default(cuid())
   storeId         String
   poolProductId   String
+  productId       String?
   retailPrice     Float
   markup          Float    @default(0)
+  status          PoolOfferStatus @default(DRAFT)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
   poolProduct PoolProduct @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
 
   @@unique([storeId, poolProductId])
   @@index([storeId])
+  @@index([status])
+}
+
+enum PoolCampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  THRESHOLD_MET
+  FULFILLING
+  COMPLETED
+  CANCELLED
+}
+
+model PoolCampaign {
+  id                String             @id @default(cuid())
+  poolProductId     String
+  title             String
+  targetQuantity    Int
+  committedQuantity Int                @default(0)
+  unitPrice         Float
+  status            PoolCampaignStatus @default(DRAFT)
+  startsAt          DateTime
+  endsAt            DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  poolProduct PoolProduct @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+
+  @@index([poolProductId])
+  @@index([status])
+  @@index([startsAt])
 }
 
 // ==================== ADS ====================

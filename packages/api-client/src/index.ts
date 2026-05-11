@@ -8,6 +8,24 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from 'axios'
+import type {
+  CheckoutRequest,
+  CheckoutResponse,
+  CartValidationResponse,
+  CouponValidationResponse,
+  DigitalAsset,
+  DeliveryRate,
+  InventoryItem,
+  PoolCampaign,
+  PoolProduct,
+  Product,
+  ProductSource,
+  ProductType,
+  Store,
+  StorefrontDesignConfig,
+  VendorDashboardMetrics,
+  VendorPoolOffer,
+} from '@kwikseller/types'
 
 // ==================== Types ====================
 
@@ -334,9 +352,15 @@ export const productsApi = {
     price: number
     comparePrice?: number
     sku?: string
+    productType?: ProductType
+    productSource?: ProductSource
+    requiresShipping?: boolean
+    trackInventory?: boolean
+    lowStock?: number
     stock: number
     categoryId?: string
     images?: string[]
+    digitalAssets?: Array<Partial<DigitalAsset>>
     variants?: Array<{
       name: string
       options: Record<string, string>
@@ -352,6 +376,11 @@ export const productsApi = {
     price: number
     comparePrice: number
     sku: string
+    productType: ProductType
+    productSource: ProductSource
+    requiresShipping: boolean
+    trackInventory: boolean
+    lowStock: number
     stock: number
     categoryId: string
     status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
@@ -420,6 +449,29 @@ export const marketplaceApi = {
   // Top sellers
   getSellers: (params?: { limit?: number }) =>
     api.get('/sellers', { params }),
+
+  // Pool-backed marketplace inventory
+  getPoolOffers: (params?: { categoryId?: string; page?: number; limit?: number }) =>
+    api.get<VendorPoolOffer[]>('/pool/offers', { params }),
+
+  getPoolCampaigns: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get<PoolCampaign[]>('/pool/campaigns', { params }),
+}
+
+export const marketplaceStoresApi = {
+  getBySlug: (slug: string) => api.get<Store>(`/stores/${slug}`),
+
+  getProducts: (slug: string) => api.get<Product[]>(`/stores/${slug}/products`),
+}
+
+// ==================== Checkout API ====================
+
+export const checkoutApi = {
+  create: (data: CheckoutRequest) =>
+    api.post<CheckoutResponse>('/checkout', data),
+
+  verifyPayment: (reference: string) =>
+    api.get(`/checkout/payments/${reference}`),
 }
 
 // ==================== Store API ====================
@@ -460,6 +512,67 @@ export const storeApi = {
   // Analytics
   getAnalytics: (period?: '7d' | '30d' | '90d' | '1y') =>
     api.get('/store/analytics', { params: { period } }),
+}
+
+// ==================== Vendor Commerce API ====================
+
+export const vendorCommerceApi = {
+  getDashboard: () => api.get<VendorDashboardMetrics>('/vendor/dashboard'),
+
+  listProducts: (params?: { status?: string; type?: ProductType; page?: number; limit?: number }) =>
+    api.get('/vendor/products', { params }),
+
+  createProduct: (data: {
+    name: string
+    description: string
+    price: number
+    categoryId?: string
+    productType: ProductType
+    productSource?: ProductSource
+    requiresShipping?: boolean
+    trackInventory?: boolean
+    initialStock?: number
+  }) => api.post('/vendor/products', data),
+
+  updateProduct: (
+    productId: string,
+    data: Partial<{
+      name: string
+      description: string
+      price: number
+      productType: ProductType
+      requiresShipping: boolean
+      trackInventory: boolean
+    }>,
+  ) => api.patch(`/vendor/products/${productId}`, data),
+
+  adjustInventory: (
+    productId: string,
+    data: { variantId?: string; quantityDelta: number; reason: string },
+  ) => api.post<InventoryItem>('/vendor/inventory/adjustments', { productId, ...data }),
+
+  addDigitalAsset: (productId: string, data: Partial<DigitalAsset>) =>
+    api.post<DigitalAsset>('/vendor/digital-assets', { productId, ...data }),
+
+  listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get('/vendor/orders', { params }),
+
+  updateOrderStatus: (orderId: string, status: string) =>
+    api.patch(`/vendor/orders/${orderId}/status`, { status }),
+
+  listPoolCatalog: (params?: { categoryId?: string; page?: number; limit?: number }) =>
+    api.get<PoolProduct[]>('/vendor/pool/catalog', { params }),
+
+  createPoolOffer: (data: { poolProductId: string; retailPrice: number; markup?: number }) =>
+    api.post<VendorPoolOffer>('/vendor/pool/offers', data),
+
+  updatePoolOffer: (id: string, data: Partial<{ retailPrice: number; markup: number; status: string }>) =>
+    api.patch<VendorPoolOffer>(`/vendor/pool/offers/${id}`, data),
+
+  getStorefrontDesign: () => api.get<StorefrontDesignConfig>('/vendor/storefront-design'),
+
+  updateStorefrontDesign: (data: Partial<StorefrontDesignConfig>) =>
+    api.patch<StorefrontDesignConfig>('/vendor/storefront-design', data),
 }
 
 // ==================== Orders API ====================
@@ -517,8 +630,13 @@ export const ordersApi = {
 export const cartApi = {
   get: () => api.get('/cart'),
 
+  validate: () => api.get<CartValidationResponse>('/cart/validate'),
+
   addItem: (productId: string, quantity: number, variantId?: string) =>
     api.post('/cart/items', { productId, quantity, variantId }),
+
+  addPoolOffer: (poolOfferId: string, quantity: number) =>
+    api.post(`/cart/pool-offers/${poolOfferId}`, { quantity }),
 
   updateItem: (itemId: string, quantity: number) =>
     api.patch(`/cart/items/${itemId}`, { quantity }),
@@ -528,9 +646,14 @@ export const cartApi = {
   clear: () => api.delete('/cart'),
 
   applyCoupon: (code: string) =>
-    api.post('/cart/coupon', { code }),
+    api.post<CouponValidationResponse>('/cart/coupon', { code }),
 
   removeCoupon: () => api.delete('/cart/coupon'),
+}
+
+export const deliveryRatesApi = {
+  lookup: (params: { state: string; localGovernment: string }) =>
+    api.get<DeliveryRate>('/delivery-rates', { params }),
 }
 
 // ==================== Payments API ====================
@@ -543,6 +666,8 @@ export const paymentsApi = {
   // Verify payment
   verify: (reference: string) =>
     api.get(`/payments/verify/${reference}`),
+
+  verifyPaystackWebhookHealth: () => api.get('/payments/paystack/health'),
 
   // Get payment methods
   getMethods: () => api.get('/payments/methods'),
@@ -715,6 +840,60 @@ export const adminApi = {
     page?: number
     limit?: number
   }) => api.get('/admin/orders', { params }),
+
+  updateOrderManualStatus: (orderId: string, status: string, note?: string, trackingCode?: string) =>
+    api.patch(`/admin/orders/${orderId}/manual-status`, { status, note, trackingCode }),
+
+  // Commerce operations
+  getCommerceOverview: () => api.get('/admin/commerce/overview'),
+
+  getPayments: (params?: { status?: string; gateway?: string; page?: number; limit?: number }) =>
+    api.get('/admin/payments', { params }),
+
+  getDeliveryRates: (params?: { state?: string; isActive?: boolean }) =>
+    api.get<DeliveryRate[]>('/admin/delivery-rates', { params }),
+
+  createDeliveryRate: (data: {
+    state: string
+    localGovernment: string
+    fee: number
+    minDeliveryDays: number
+    maxDeliveryDays: number
+    isActive?: boolean
+  }) => api.post<DeliveryRate>('/admin/delivery-rates', data),
+
+  updateDeliveryRate: (
+    id: string,
+    data: Partial<{
+      state: string
+      localGovernment: string
+      fee: number
+      minDeliveryDays: number
+      maxDeliveryDays: number
+      isActive: boolean
+    }>,
+  ) => api.patch<DeliveryRate>(`/admin/delivery-rates/${id}`, data),
+
+  deactivateDeliveryRate: (id: string) => api.delete<DeliveryRate>(`/admin/delivery-rates/${id}`),
+
+  refundPayment: (paymentId: string, reason: string, amount?: number, orderId?: string) =>
+    api.post(`/admin/payments/${paymentId}/refund`, { reason, amount, orderId }),
+
+  // Pool governance
+  getPoolProducts: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get<PoolProduct[]>('/admin/pool/products', { params }),
+
+  createPoolProduct: (data: Partial<PoolProduct>) =>
+    api.post<PoolProduct>('/admin/pool/products', data),
+
+  updatePoolProduct: (id: string, data: Partial<PoolProduct>) =>
+    api.patch<PoolProduct>(`/admin/pool/products/${id}`, data),
+
+  getPoolCampaigns: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get<PoolCampaign[]>('/admin/pool/campaigns', { params }),
+
+  createPoolCampaign: (data: Partial<PoolCampaign>) =>
+    api.post<PoolCampaign>('/admin/pool/campaigns', data),
 
   // Disputes
   getDisputes: (params?: {

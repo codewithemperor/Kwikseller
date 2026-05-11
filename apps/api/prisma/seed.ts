@@ -24,6 +24,7 @@ import {
 import * as bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+const db = prisma as any;
 
 // ============================================================
 // SUPER ADMIN
@@ -600,6 +601,19 @@ async function main() {
   // ── 5. Clean up existing seed data ─────────────────────────
   console.log("🧹 Cleaning up existing seed data...");
   try {
+    await db.inventoryReservation?.deleteMany();
+    await db.fulfillment?.deleteMany();
+    await db.payment?.deleteMany();
+    await db.orderItem?.deleteMany();
+    await db.order?.deleteMany();
+    await db.cartItem?.deleteMany();
+    await db.cart?.deleteMany();
+    await db.digitalAsset?.deleteMany();
+    await db.inventoryItem?.deleteMany();
+    await db.vendorPoolOffer?.deleteMany();
+    await db.poolCampaign?.deleteMany();
+    await db.poolProduct?.deleteMany();
+
     // Delete product images first (depends on products)
     await prisma.productImage.deleteMany();
     console.log("   🗑️  Cleared product images");
@@ -705,6 +719,93 @@ async function main() {
 
   const storeId = vendor.store?.id || (await prisma.store.findUnique({ where: { slug: "kwikseller-demo-store" } }))!.id;
 
+  const secondVendor = await prisma.user.upsert({
+    where: {
+      email_role: {
+        email: "vendor2@kwikseller.com",
+        role: UserRole.VENDOR,
+      },
+    },
+    update: {},
+    create: {
+      email: "vendor2@kwikseller.com",
+      passwordHash: vendorPasswordHash,
+      role: UserRole.VENDOR,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      profile: {
+        create: {
+          firstName: "Amina",
+          lastName: "Stores",
+        },
+      },
+      store: {
+        create: {
+          name: "Amina Urban Market",
+          slug: "amina-urban-market",
+          description: "A second demo vendor for split checkout testing across fashion, digital, and lifestyle products.",
+          category: "Lifestyle",
+          isVerified: true,
+          onboardingComplete: true,
+        },
+      },
+      kwikCoins: {
+        create: {
+          balance: 3000,
+          totalEarned: 3000,
+        },
+      },
+      wallet: {
+        create: {
+          availableBalance: 125000,
+          pendingBalance: 15000,
+          totalEarned: 220000,
+        },
+      },
+    },
+    include: { store: true },
+  });
+
+  if (!secondVendor.store) {
+    await prisma.store.upsert({
+      where: { slug: "amina-urban-market" },
+      update: {},
+      create: {
+        vendorId: secondVendor.id,
+        name: "Amina Urban Market",
+        slug: "amina-urban-market",
+        description: "A second demo vendor for split checkout testing across fashion, digital, and lifestyle products.",
+        category: "Lifestyle",
+        isVerified: true,
+        onboardingComplete: true,
+      },
+    });
+  }
+
+  const secondStore = await prisma.store.findUnique({ where: { slug: "amina-urban-market" } });
+  const secondStoreId = secondStore!.id;
+  await db.storefrontDesign?.upsert({
+    where: { storeId: secondStoreId },
+    update: {
+      themePreset: "FRESH",
+      primaryColor: "#064E3B",
+      accentColor: "#14B8A6",
+      heroTitle: "Amina Urban Market",
+      heroSubtitle: "Curated lifestyle essentials, vendor stock, and digital guides for modern buyers.",
+      sections: JSON.stringify(["hero", "products", "policies"]),
+    },
+    create: {
+      storeId: secondStoreId,
+      themePreset: "FRESH",
+      primaryColor: "#064E3B",
+      accentColor: "#14B8A6",
+      heroTitle: "Amina Urban Market",
+      heroSubtitle: "Curated lifestyle essentials, vendor stock, and digital guides for modern buyers.",
+      sections: JSON.stringify(["hero", "products", "policies"]),
+    },
+  });
+  console.log(`   ✅ Second demo vendor ready for split checkout (Store ID: ${secondStoreId})\n`);
+
   // ── 7. Create 10 Brands ────────────────────────────────────
   console.log("🏷️  Creating 10 brands...");
   for (const brand of BRANDS) {
@@ -756,11 +857,16 @@ async function main() {
         comparePrice: p.comparePrice,
         sku: p.sku,
         stock: p.stock,
+        productType: "PHYSICAL",
+        productSource: "VENDOR_STOCK",
+        inventoryPolicy: "TRACKED",
+        requiresShipping: true,
+        trackInventory: true,
         status: p.status as ProductStatus,
         categoryId: p.categoryId,
         brandId: p.brandId,
         isFeatured: p.isFeatured,
-      })),
+      })) as any,
     });
     insertedCount += batch.length;
     process.stdout.write(`   📊 ${insertedCount}/${products.length} products inserted\r`);
@@ -773,12 +879,199 @@ async function main() {
   // Get all products to assign images
   const allProducts = await prisma.product.findMany({
     where: { storeId },
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, sku: true, stock: true },
   });
+
+  console.log("📦 Creating inventory records...");
+  await db.inventoryItem?.createMany({
+    data: allProducts.map((product) => ({
+      productId: product.id,
+      storeId,
+      sku: product.sku,
+      available: product.stock,
+      reserved: 0,
+      lowStockThreshold: 5,
+      policy: "TRACKED",
+    })),
+  });
+  console.log(`   ✅ ${allProducts.length} inventory records created\n`);
+
+  const secondStoreProducts = await Promise.all([
+    db.product?.create({
+      data: {
+        storeId: secondStoreId,
+        name: "Amina Ankara Tote Bag",
+        slug: `amina-ankara-tote-bag-${Math.random().toString(36).substring(2, 7)}`,
+        description: "A physical product from the second demo vendor for multi-vendor checkout testing.",
+        price: 18500,
+        comparePrice: 24000,
+        sku: "AMINA-TOTE-0001",
+        stock: 42,
+        productType: "PHYSICAL",
+        productSource: "VENDOR_STOCK",
+        inventoryPolicy: "TRACKED",
+        requiresShipping: true,
+        trackInventory: true,
+        status: ProductStatus.ACTIVE,
+        categoryId: categoryMap.fashion,
+        isFeatured: true,
+        inventoryItems: {
+          create: {
+            storeId: secondStoreId,
+            sku: "AMINA-TOTE-0001",
+            available: 42,
+            reserved: 0,
+            lowStockThreshold: 6,
+            policy: "TRACKED",
+          },
+        },
+      } as any,
+    }),
+    db.product?.create({
+      data: {
+        storeId: secondStoreId,
+        name: "Amina Style Capsule Lookbook",
+        slug: `amina-style-capsule-lookbook-${Math.random().toString(36).substring(2, 7)}`,
+        description: "Digital lookbook from a second vendor; useful for testing mixed physical and digital carts.",
+        price: 4500,
+        comparePrice: 7000,
+        sku: "AMINA-DIGI-0001",
+        stock: 0,
+        productType: "DIGITAL",
+        productSource: "VENDOR_STOCK",
+        inventoryPolicy: "UNLIMITED",
+        requiresShipping: false,
+        trackInventory: false,
+        status: ProductStatus.ACTIVE,
+        categoryId: categoryMap.fashion,
+        digitalAssets: {
+          create: {
+            deliveryType: "DOWNLOAD",
+            name: "Amina Style Capsule PDF",
+            fileUrl: "https://example.com/kwikseller/amina-style-capsule.pdf",
+            maxDownloads: 5,
+            expiresAfterDays: 30,
+          },
+        },
+      } as any,
+    }),
+  ]);
+  console.log("   ✅ Second vendor physical and digital products created for split checkout testing\n");
+
+  console.log("💾 Creating digital and Pool commerce samples...");
+  const digitalProduct = await db.product?.create({
+    data: {
+      storeId,
+      name: "Kwikseller Vendor Growth Playbook",
+      slug: `kwikseller-vendor-growth-playbook-${Math.random().toString(36).substring(2, 7)}`,
+      description: "A downloadable guide for vendors learning product listing, pricing, fulfillment, and Pool resale.",
+      price: 7500,
+      comparePrice: 12000,
+      sku: "DIGI-0001",
+      stock: 0,
+      productType: "DIGITAL",
+      productSource: "VENDOR_STOCK",
+      inventoryPolicy: "UNLIMITED",
+      requiresShipping: false,
+      trackInventory: false,
+      status: ProductStatus.ACTIVE,
+      categoryId: categoryMap.books,
+      isFeatured: true,
+      digitalAssets: {
+        create: {
+          deliveryType: "DOWNLOAD",
+          name: "Vendor Growth Playbook PDF",
+          fileUrl: "https://example.com/kwikseller/vendor-growth-playbook.pdf",
+          maxDownloads: 5,
+          expiresAfterDays: 30,
+        },
+      },
+    } as any,
+  });
+
+  const poolProduct = await db.poolProduct?.create({
+    data: {
+      name: "Pool Pack: Oraimo Smart Accessories",
+      description: "Admin Pool Catalog sample for vendor resale with markup.",
+      wholesalePrice: 18000,
+      suggestedRetailPrice: 24500,
+      productType: "PHYSICAL",
+      status: "ACTIVE",
+      categoryId: categoryMap.electronics,
+      category: "Electronics",
+      stock: 300,
+      images: JSON.stringify([imageUrl("Oraimo Pool Pack", "10b981")]),
+      isActive: true,
+    },
+  });
+
+  await db.inventoryItem?.create({
+    data: {
+      poolProductId: poolProduct.id,
+      storeId: null,
+      sku: "POOL-ORAIMO-0001",
+      available: 300,
+      reserved: 0,
+      lowStockThreshold: 25,
+      policy: "TRACKED",
+    },
+  });
+
+  const poolListing = await db.product?.create({
+    data: {
+      storeId,
+      poolProductId: poolProduct.id,
+      name: "Oraimo Smart Accessories Pool Resale Pack",
+      slug: `oraimo-smart-accessories-pool-resale-${Math.random().toString(36).substring(2, 7)}`,
+      description: "Vendor storefront listing backed by the Admin Pool Catalog.",
+      price: 24500,
+      comparePrice: 28000,
+      sku: "POOL-LIST-0001",
+      stock: 0,
+      productType: "PHYSICAL",
+      productSource: "POOL_RESALE",
+      inventoryPolicy: "TRACKED",
+      requiresShipping: true,
+      trackInventory: true,
+      status: ProductStatus.ACTIVE,
+      categoryId: categoryMap.electronics,
+      isPoolProduct: true,
+      isFeatured: true,
+    } as any,
+  });
+
+  await db.vendorPoolOffer?.create({
+    data: {
+      storeId,
+      poolProductId: poolProduct.id,
+      productId: poolListing.id,
+      retailPrice: 24500,
+      markup: 6500,
+      status: "ACTIVE",
+      isActive: true,
+    },
+  });
+
+  await db.poolCampaign?.create({
+    data: {
+      poolProductId: poolProduct.id,
+      title: "Group Buy: Smart Accessories Starter Pack",
+      targetQuantity: 10,
+      committedQuantity: 0,
+      unitPrice: 21500,
+      status: "SCHEDULED",
+      startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  console.log(`   ✅ Digital sample created (${digitalProduct.name})`);
+  console.log("   ✅ Pool catalog, vendor offer, and group-buy campaign samples created\n");
 
   const imageColors = ["f97316", "10b981", "8b5cf6", "ef4444", "06b6d4", "ec4899", "14b8a6", "f59e0b"];
 
-  const imageData = allProducts.flatMap((product) => {
+  const productsForImages = [...allProducts, ...secondStoreProducts.filter(Boolean)];
+  const imageData = productsForImages.flatMap((product) => {
     const shortName = product.name.length > 20 ? product.name.substring(0, 18) + "…" : product.name;
     const color = imageColors[product.id.length % imageColors.length];
 
@@ -997,6 +1290,11 @@ async function main() {
     featuredProducts: await prisma.product.count({ where: { isFeatured: true } }),
     activeProducts: await prisma.product.count({ where: { status: ProductStatus.ACTIVE } }),
     draftProducts: await prisma.product.count({ where: { status: ProductStatus.DRAFT } }),
+    inventoryItems: await db.inventoryItem?.count(),
+    digitalAssets: await db.digitalAsset?.count(),
+    poolProducts: await db.poolProduct?.count(),
+    poolOffers: await db.vendorPoolOffer?.count(),
+    poolCampaigns: await db.poolCampaign?.count(),
     currencies: await prisma.currency.count(),
   };
 
@@ -1008,6 +1306,11 @@ async function main() {
   console.log(`   ⭐ Featured:         ${stats.featuredProducts}`);
   console.log(`   ✅ Active:           ${stats.activeProducts}`);
   console.log(`   📝 Draft:            ${stats.draftProducts}`);
+  console.log(`   📦 Inventory Items:  ${stats.inventoryItems ?? 0}`);
+  console.log(`   💾 Digital Assets:   ${stats.digitalAssets ?? 0}`);
+  console.log(`   🏊 Pool Products:    ${stats.poolProducts ?? 0}`);
+  console.log(`   🏪 Pool Offers:      ${stats.poolOffers ?? 0}`);
+  console.log(`   👥 Pool Campaigns:   ${stats.poolCampaigns ?? 0}`);
   console.log(`   💱 Currencies:       ${stats.currencies}\n`);
 
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
