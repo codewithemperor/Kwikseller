@@ -16,6 +16,7 @@ async function bootstrap() {
     .split(",")
     .map(normalizeOrigin)
     .filter(Boolean);
+  const allowsAnyConfiguredOrigin = configuredOrigins.includes("*");
 
   const defaultOrigins = [
     /^https?:\/\/([a-z0-9-]+\.)?kwikseller\.com$/,
@@ -30,6 +31,11 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowsAnyConfiguredOrigin) {
         callback(null, true);
         return;
       }

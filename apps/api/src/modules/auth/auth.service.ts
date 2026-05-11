@@ -10,8 +10,8 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { UserRole as PrismaUserRole } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import * as bcrypt from "bcryptjs";
-import { v4 as uuidv4 } from "uuid";
 
 import { PrismaService } from "../../database/prisma.service";
 import { EmailService } from "../../common/services/email.service";
@@ -368,7 +368,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
 
     // Create session in Redis
-    const sessionId = uuidv4();
+    const sessionId = randomUUID();
     await this.cacheService.set(
       `session:${sessionId}`,
       {
@@ -671,7 +671,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
 
     // Create session in Redis
-    const sessionId = uuidv4();
+    const sessionId = randomUUID();
     await this.cacheService.set(
       `session:${sessionId}`,
       {
@@ -788,7 +788,7 @@ export class AuthService {
    * Generate access and refresh tokens
    */
   private async generateTokens(user: any): Promise<TokenPair> {
-    const sessionId = uuidv4();
+    const sessionId = randomUUID();
 
     const payload: JwtPayload = {
       sub: user.id,
