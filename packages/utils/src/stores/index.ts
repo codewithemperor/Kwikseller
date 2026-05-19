@@ -25,6 +25,7 @@ export {
   type AuthTokens,
   type AuthState,
   type UserRole,
+  type AdminRole,
   type UserStatus,
   type VerificationStatus,
   type OnboardingStep,

@@ -52,6 +52,7 @@ export interface AuthUser {
   status: string;
   emailVerified: boolean;
   permissions?: string[];
+  adminRole?: string;
   profile?: {
     firstName?: string;
     lastName?: string;
@@ -873,11 +874,13 @@ export class AuthService {
     // Add permissions for admin/super_admin users
     if (user.role === PrismaUserRole.ADMIN && user.adminPermission) {
       response.permissions = JSON.parse(user.adminPermission.permissions);
+      response.adminRole = user.adminPermission.role;
     }
 
     // SUPER_ADMIN has all permissions
     if (user.role === PrismaUserRole.SUPER_ADMIN) {
       response.permissions = ["*"]; // All permissions
+      response.adminRole = "SUPER_ADMIN";
     }
 
     // Add store for vendor users

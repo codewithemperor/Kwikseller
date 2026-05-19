@@ -149,3 +149,6 @@ export type { PriceRecord } from './price-drop-store'
 // Re-export notification store
 export { useNotificationStore, notify } from './notification-store'
 export type { Notification, NotificationType } from './notification-store'
+
+export { useHomeFeedStore, HOME_FEED_TTL_MS } from './home-feed-store'
+export type { HomeFeedResponse, PoolOffer, PoolCampaign } from './home-feed-store'

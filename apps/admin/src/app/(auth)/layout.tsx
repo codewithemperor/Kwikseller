@@ -1,5 +1,6 @@
 import { AdminGuestRoute } from "@/components/auth";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandedAuthLayout } from "@kwikseller/ui";
+import { BarChart3, ShieldCheck, UsersRound } from "lucide-react";
 
 export default function AuthLayout({
   children,
@@ -8,28 +9,37 @@ export default function AuthLayout({
 }) {
   return (
     <AdminGuestRoute redirectPath="/admin">
-      <div className="relative min-h-screen overflow-x-hidden bg-linear-to-br from-background via-background to-violet-100/40 dark:from-background dark:via-background dark:to-violet-950/30">
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
-          <div className="absolute -top-32 right-0 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl" />
-          <div className="absolute -bottom-32 left-0 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
-        </div>
-
-        <div className="fixed right-4 top-4 z-50">
-          <ThemeToggle />
-        </div>
-
-        <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 sm:py-6">
-          <div className="flex flex-1 items-center justify-center">
-            <div className="w-full max-w-md rounded-[32px] border border-border/60 bg-background/80 shadow-2xl backdrop-blur">
-              <div className="min-h-[84vh] p-6 sm:p-8">{children}</div>
-            </div>
-          </div>
-
-          <p className="mt-3 pb-2 text-center text-xs text-muted-foreground">
-            Copyright 2026 Kwikseller. All rights reserved.
-          </p>
-        </div>
-      </div>
+      <BrandedAuthLayout
+        mobileLabel="Admin portal"
+        sidePanel={{
+          eyebrow: "Admin portal",
+          backHref: "/",
+          title:
+            "One admin workspace for platform operations, permissions, and growth.",
+          description:
+            "Super Admins and every admin role sign in through the same Kwikseller admin page. Permissions decide what each team member can manage after login.",
+          footer: "Admin access is protected with email verification and role permissions.",
+          points: [
+            {
+              icon: ShieldCheck,
+              title: "Role-based access",
+              text: "Super Admin, finance, operations, support, marketing, content, logistics, catalog, and audit users share one login.",
+            },
+            {
+              icon: UsersRound,
+              title: "Admin user control",
+              text: "Super Admin can review admins, assign roles, update permissions, and deactivate access.",
+            },
+            {
+              icon: BarChart3,
+              title: "Operational dashboard",
+              text: "Products, vendors, orders, payments, promotions, and delivery tools stay permission-aware.",
+            },
+          ],
+        }}
+      >
+        {children}
+      </BrandedAuthLayout>
     </AdminGuestRoute>
   );
 }

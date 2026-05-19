@@ -6,22 +6,14 @@ import dynamic from "next/dynamic";
 import {
   Search,
   Loader2,
-  ShoppingBag,
-  Heart,
-  Eye,
-  Star,
-  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { kwikToast } from "@kwikseller/utils";
 import { productsApi } from "@kwikseller/api-client";
-import { useCartStore, useWishlistStore } from "@/stores";
 import { useMarketplaceShell } from "@/components/layout/marketplace-shell-context";
-import { AppImage } from "@/components/ui/app-image";
-import { EmptyState } from "@/components/ui/empty-state";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { toSearchableProduct, type SearchableProduct } from "@/data/products";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+import { getSimilarSuggestions } from "@/lib/search-similarity";
 
 // Dynamic import for QuickViewModal to reduce initial bundle
 const QuickViewModal = dynamic(
@@ -30,19 +22,6 @@ const QuickViewModal = dynamic(
 );
 
 /* ─── Helpers ──────────────────────────────────────────────── */
-
-function formatPrice(n: number) {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 0,
-  }).format(n);
-}
-
-function discountPct(price: number, compare?: number) {
-  if (!compare) return 0;
-  return Math.round(((compare - price) / compare) * 100);
-}
 
 /* ─── Lightweight Product Card ─────────────────────────────── */
 
@@ -53,38 +32,6 @@ function SearchProductCard({
   product: SearchableProduct;
   onQuickView?: (p: SearchableProduct) => void;
 }) {
-  const addItem = useCartStore((s) => s.addItem);
-  const { toggleItem, isInWishlist } = useWishlistStore();
-  const isWished = isInWishlist(product.id);
-  const discount = discountPct(product.price, product.comparePrice);
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    addItem({
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      comparePrice: product.comparePrice,
-      image: product.image,
-      store: product.store,
-    });
-    kwikToast.success(`${product.name} added to cart`);
-  };
-
-  const handleWishlistToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    toggleItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      originalPrice: product.comparePrice,
-      image: product.image,
-      rating: product.rating,
-      category: product.categorySlug,
-    });
-    kwikToast.success(isWished ? "Removed from wishlist" : "Added to wishlist");
-  };
-
   return (
     <MarketplaceProductCard product={toMarketplaceProduct(product)} onQuickView={() => onQuickView?.(product)} />
   );
@@ -101,6 +48,75 @@ const ALL_CATEGORIES = [
   { slug: "home", name: "Home & Garden" },
   { slug: "food", name: "Food & Drinks" },
   { slug: "automobile", name: "Automobile" },
+];
+
+const FALLBACK_SEARCH_PRODUCTS: SearchableProduct[] = [
+  {
+    id: "fallback-ankara-dress",
+    name: "Ankara Maxi Dress",
+    slug: "ankara-maxi-dress",
+    price: 8500,
+    comparePrice: 12000,
+    image: "",
+    rating: 4.6,
+    reviewCount: 128,
+    store: "Kwikseller Picks",
+    category: "Fashion",
+    categorySlug: "fashion",
+    tags: ["fashion", "ankara", "dress"],
+    description: "Popular fashion pick from the marketplace catalog.",
+    inStock: true,
+    isNew: false,
+  },
+  {
+    id: "fallback-earbuds",
+    name: "Wireless Bluetooth Earbuds",
+    slug: "wireless-bluetooth-earbuds",
+    price: 18000,
+    comparePrice: 25000,
+    image: "",
+    rating: 4.5,
+    reviewCount: 92,
+    store: "Kwikseller Picks",
+    category: "Electronics",
+    categorySlug: "electronics",
+    tags: ["electronics", "audio", "wireless"],
+    description: "Similar electronics pick while live results are unavailable.",
+    inStock: true,
+    isNew: true,
+  },
+  {
+    id: "fallback-phone",
+    name: "Samsung Galaxy Phone",
+    slug: "samsung-galaxy-phone",
+    price: 650000,
+    image: "",
+    rating: 4.7,
+    reviewCount: 76,
+    store: "Kwikseller Picks",
+    category: "Phones",
+    categorySlug: "phones",
+    tags: ["phone", "samsung", "mobile"],
+    description: "Popular phone search fallback.",
+    inStock: true,
+    isNew: false,
+  },
+  {
+    id: "fallback-beauty",
+    name: "Brazilian Body Wave Hair",
+    slug: "brazilian-body-wave-hair",
+    price: 45000,
+    image: "",
+    rating: 4.4,
+    reviewCount: 61,
+    store: "Kwikseller Picks",
+    category: "Beauty",
+    categorySlug: "beauty",
+    tags: ["beauty", "hair"],
+    description: "Popular beauty pick from related searches.",
+    inStock: true,
+    isNew: false,
+  },
 ];
 
 /* ─── Sort Options ──────────────────────────────────────────── */
@@ -149,6 +165,7 @@ function SearchPageContent() {
   const filtersParam = searchParams.get("filters") === "true";
 
   const [results, setResults] = useState<SearchableProduct[]>([]);
+  const [showingFallback, setShowingFallback] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categoryParam);
   const [sortBy, setSortBy] = useState<SortValue>("relevance");
@@ -161,6 +178,7 @@ function SearchPageContent() {
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      setShowingFallback(false);
       return;
     }
 
@@ -182,10 +200,13 @@ function SearchPageContent() {
             items = data.products;
           }
           // Properly convert API Product objects to SearchableProduct format
-          setResults(items.map(toSearchableProduct));
+          const mapped = items.map(toSearchableProduct);
+          setResults(mapped.length ? mapped : getSimilarSuggestions(query, FALLBACK_SEARCH_PRODUCTS, 12));
+          setShowingFallback(mapped.length === 0);
         }
       } catch {
-        setResults([]);
+        setResults(getSimilarSuggestions(query, FALLBACK_SEARCH_PRODUCTS, 12));
+        setShowingFallback(true);
       } finally {
         setIsLoading(false);
       }
@@ -314,7 +335,7 @@ function SearchPageContent() {
               ) : (
                 <>
                   <span className="font-semibold text-kwik-dark">{results.length}</span>{" "}
-                  result{results.length !== 1 ? "s" : ""} for{" "}
+                  {showingFallback ? "similar pick" : "result"}{results.length !== 1 ? "s" : ""} for{" "}
                   <span className="font-semibold text-kwik-orange">&ldquo;{query}&rdquo;</span>
                 </>
               )}
@@ -398,30 +419,6 @@ function SearchPageContent() {
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* No results state - enhanced with illustration */}
-        {query && !isLoading && results.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 px-4">
-            <div className="relative mb-6">
-              {/* Decorative background */}
-              <div className="absolute -inset-8 rounded-full bg-kwik-orange/5 blur-2xl" />
-              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-kwik-bg-surface to-kwik-bg-light ring-1 ring-kwik-border">
-                <ShoppingBag className="h-12 w-12 text-kwik-gray-light" />
-              </div>
-            </div>
-            <h3 className="text-xl font-semibold text-kwik-dark">No results found</h3>
-            <p className="mt-2 max-w-sm text-center text-sm text-kwik-gray-light">
-              We couldn&apos;t find anything for &ldquo;{query}&rdquo;. Try a different search term or browse categories.
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="mt-5 rounded-xl bg-gradient-to-r from-kwik-orange to-[#d97706] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-kwik-orange/20 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
-            >
-              Browse Marketplace
-            </button>
           </div>
         )}
 

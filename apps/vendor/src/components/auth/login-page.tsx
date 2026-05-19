@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Store, AlertCircle, ShieldCheck } from "lucide-react";
-import { Button, Spinner } from "@heroui/react";
-import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
+import { Mail, Lock, AlertCircle, ShieldCheck } from "lucide-react";
+import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { loginSchema, type LoginFormData } from "@kwikseller/types";
 
@@ -25,14 +24,6 @@ interface LoginPageProps {
   portal: PortalConfig;
   className?: string;
 }
-
-const themeMap: Record<NonNullable<PortalConfig["themeColor"]>, string> = {
-  blue: "bg-blue-600",
-  green: "bg-green-600",
-  purple: "bg-purple-600",
-  orange: "bg-orange-600",
-  default: "bg-primary",
-};
 
 function isEmailNotVerified(result: {
   success: boolean;
@@ -131,23 +122,14 @@ export function LoginPage({ portal, className }: LoginPageProps) {
     kwikToast.success("Verification code sent!");
   };
 
-  const iconColor = themeMap[portal.themeColor ?? "default"];
-
-  const portalIcon = (
-    <div
-      className={cn(
-        "flex h-12 w-12 items-center justify-center text-white",
-        iconColor,
-      )}
-    >
-      {portal.logo ?? <Store className="h-7 w-7" />}
-    </div>
-  );
-
   if (showOTP) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-4 flex flex-col items-center gap-3">{portalIcon}</div>
+        <BrandedAuthHeader
+          title="Verify vendor email"
+          description="Enter the code sent to your email to finish securing your vendor account."
+          badge="Vendor portal"
+        />
         <OTPVerification
           email={userEmail}
           onVerify={handleVerifyOTP}
@@ -164,15 +146,11 @@ export function LoginPage({ portal, className }: LoginPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8">
-        {portalIcon}
-        <div className="mt-5">
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Welcome back, seller
-          </h1>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{portal.description}</p>
-        </div>
-      </div>
+      <BrandedAuthHeader
+        title="Welcome back, seller"
+        description={portal.description}
+        badge="Vendor portal"
+      />
 
       {serverError && (
         <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/15">
@@ -217,27 +195,16 @@ export function LoginPage({ portal, className }: LoginPageProps) {
           </div>
         </div>
 
-        <Button
+        <AppButton
           type="submit"
-          variant="primary"
           fullWidth
           size="lg"
-          isPending={isSubmitting || isLoading}
-          isDisabled={isSubmitting || isLoading}
-          onPress={() => {}}
+          isLoading={isSubmitting || isLoading}
+          loadingLabel="Signing in..."
           className="mt-2 rounded-xl font-semibold"
         >
-          {({ isPending }: { isPending: boolean }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Signing in...
-              </span>
-            ) : (
-              `Sign in to ${portal.name}`
-            )
-          }
-        </Button>
+          Sign in to {portal.name}
+        </AppButton>
 
         <div className="flex items-start gap-2 border border-border bg-background p-3 text-xs leading-5 text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

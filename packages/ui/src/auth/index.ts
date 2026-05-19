@@ -13,3 +13,17 @@ export type {
   PortalSlug,
   PortalConfig,
 } from './portal-configs'
+
+export {
+  KwiksellerLogo,
+  BrandedAuthHeader,
+  BrandedAuthSidePanel,
+  BrandedAuthLayout,
+} from './branded-auth'
+
+export type {
+  KwiksellerLogoProps,
+  BrandedAuthHeaderProps,
+  BrandedAuthSidePanelProps,
+  BrandedAuthLayoutProps,
+} from './branded-auth'

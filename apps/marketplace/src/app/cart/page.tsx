@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@heroui/react";
+import { AppButton, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/ui";
 import { cartApi, checkoutApi, deliveryRatesApi, tokenManager } from "@kwikseller/api-client";
 import { kwikToast } from "@kwikseller/utils";
 import type { CartValidationIssue, CartVendorGroup, CouponValidationResponse, DeliveryRate } from "@kwikseller/types";
@@ -450,7 +451,7 @@ export default function CartPage() {
 
       <main className="container mx-auto grid gap-8 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-8">
-          <section className="grid gap-3 sm:grid-cols-3">
+          <section className="grid grid-cols-3 gap-2">
             {[
               { id: "cart", icon: ShoppingCart, title: "Cart", text: `${totalItems} item${totalItems === 1 ? "" : "s"}` },
               { id: "delivery", icon: Truck, title: "Delivery", text: requiresShipping ? "Address required" : "Not required" },
@@ -466,7 +467,7 @@ export default function CartPage() {
                     if (item.id === "delivery" && requiresShipping) setStep("delivery");
                     if (item.id === "payment" && (!requiresShipping || (validateShipping() && deliveryRate))) setStep("payment");
                   }}
-                  className={`border-b pb-4 text-left transition ${
+                  className={`min-w-0 border-b px-1 pb-4 text-left transition ${
                     isActive
                       ? "border-kwik-orange"
                       : "border-neutral-200 dark:border-white/10"
@@ -509,7 +510,7 @@ export default function CartPage() {
               <p className="mx-auto mt-2 max-w-md text-sm text-kwik-muted dark:text-white/60">
                 Browse vendor stock, Pool resale, or digital delivery products and build a checkout-ready cart.
               </p>
-              <Link href="/" className="mt-6 inline-flex h-11 items-center gap-2 rounded-md bg-kwik-dark px-5 text-sm font-semibold text-white">
+              <Link href="/" className="mt-6 inline-flex h-11 items-center gap-2 rounded-md bg-kwik-blue px-5 text-sm font-semibold text-white">
                 Browse marketplace
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -622,64 +623,50 @@ export default function CartPage() {
                   ["city", "City"],
                   ["country", "Country"],
                 ].map(([field, label]) => (
-                  <label key={field} className="block">
-                    <span className="text-xs font-semibold text-kwik-muted dark:text-white/60">{label}</span>
-                    <input
-                      value={shipping[field as keyof typeof shipping]}
-                      onChange={(event) => updateShipping(field as keyof typeof shipping, event.target.value)}
-                      className="mt-1 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
-                    />
-                  </label>
+                  <FieldInput
+                    key={field}
+                    label={label}
+                    value={shipping[field as keyof typeof shipping]}
+                    onChange={(event) => updateShipping(field as keyof typeof shipping, event.target.value)}
+                  />
                 ))}
-                <label className="block">
-                  <span className="text-xs font-semibold text-kwik-muted dark:text-white/60">State</span>
-                  <select
-                    value={shipping.state}
-                    onChange={(event) => updateShipping("state", event.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
-                  >
+                <FieldSelect
+                  label="State"
+                  value={shipping.state}
+                  onChange={(event) => updateShipping("state", event.target.value)}
+                >
                     <option value="">Select state</option>
                     {NIGERIA_STATES.map((state) => (
                       <option key={state} value={state}>
                         {state}
                       </option>
                     ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-kwik-muted dark:text-white/60">Local government</span>
-                  <input
-                    value={shipping.localGovernment}
-                    onChange={(event) => updateShipping("localGovernment", event.target.value)}
-                    placeholder="e.g. Ikeja"
-                    className="mt-1 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
-                  />
-                </label>
-                <label className="block sm:col-span-2">
-                  <span className="text-xs font-semibold text-kwik-muted dark:text-white/60">Street address</span>
-                  <input
-                    value={shipping.addressLine1}
-                    onChange={(event) => updateShipping("addressLine1", event.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
-                  />
-                </label>
-                <label className="block sm:col-span-2">
-                  <span className="text-xs font-semibold text-kwik-muted dark:text-white/60">Apartment, landmark, or nearest bus stop</span>
-                  <input
-                    value={shipping.addressLine2}
-                    onChange={(event) => updateShipping("addressLine2", event.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
-                  />
-                </label>
-                <label className="block sm:col-span-2">
-                  <span className="text-xs font-semibold text-kwik-muted dark:text-white/60">Delivery instructions</span>
-                  <textarea
-                    value={shipping.deliveryInstructions}
-                    onChange={(event) => updateShipping("deliveryInstructions", event.target.value)}
-                    rows={3}
-                    className="mt-1 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
-                  />
-                </label>
+                </FieldSelect>
+                <FieldInput
+                  label="Local government"
+                  value={shipping.localGovernment}
+                  onChange={(event) => updateShipping("localGovernment", event.target.value)}
+                  placeholder="e.g. Ikeja"
+                />
+                <FieldInput
+                  wrapperClassName="sm:col-span-2"
+                  label="Street address"
+                  value={shipping.addressLine1}
+                  onChange={(event) => updateShipping("addressLine1", event.target.value)}
+                />
+                <FieldInput
+                  wrapperClassName="sm:col-span-2"
+                  label="Apartment, landmark, or nearest bus stop"
+                  value={shipping.addressLine2}
+                  onChange={(event) => updateShipping("addressLine2", event.target.value)}
+                />
+                <FieldTextarea
+                  wrapperClassName="sm:col-span-2"
+                  label="Delivery instructions"
+                  value={shipping.deliveryInstructions}
+                  onChange={(event) => updateShipping("deliveryInstructions", event.target.value)}
+                  rows={3}
+                />
               </div>
 
               <div className="mt-5 border border-neutral-200 p-4 dark:border-white/10">
@@ -801,7 +788,7 @@ export default function CartPage() {
               <div className="border-y border-neutral-200 py-3 dark:border-white/10">
                 <label className="text-xs font-semibold text-kwik-muted dark:text-white/60">Coupon code</label>
                 <div className="mt-2 flex gap-2">
-                  <input
+                  <FieldInput
                     value={couponCode}
                     onChange={(event) => {
                       setCouponCode(event.target.value.toUpperCase());
@@ -809,25 +796,31 @@ export default function CartPage() {
                       setCouponError("");
                     }}
                     placeholder="KWIKSAVE"
-                    className="h-10 min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 text-sm font-semibold uppercase text-kwik-dark outline-none transition focus:border-kwik-dark dark:border-white/10 dark:bg-[#07111f] dark:text-white"
+                    wrapperClassName="min-w-0 flex-1"
+                    className="mt-0 h-10 font-semibold uppercase"
                   />
                   {appliedCoupon ? (
-                    <button
+                    <AppButton
                       type="button"
                       onClick={removeCoupon}
-                      className="h-10 rounded-md border border-neutral-200 px-3 text-xs font-semibold text-kwik-dark dark:border-white/10 dark:text-white"
+                      variant="secondary"
+                      size="md"
+                      className="h-10 px-3 text-xs"
                     >
                       Remove
-                    </button>
+                    </AppButton>
                   ) : (
-                    <button
+                    <AppButton
                       type="button"
                       onClick={applyCoupon}
                       disabled={!couponCode.trim() || isApplyingCoupon}
-                      className="h-10 rounded-md bg-kwik-dark px-3 text-xs font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-[#07111f]"
+                      isLoading={isApplyingCoupon}
+                      loadingLabel="..."
+                      size="md"
+                      className="h-10 px-3 text-xs"
                     >
-                      {isApplyingCoupon ? "..." : "Apply"}
-                    </button>
+                      Apply
+                    </AppButton>
                   )}
                 </div>
                 {appliedCoupon && (
@@ -851,15 +844,19 @@ export default function CartPage() {
               </div>
             </div>
 
-            <button
+            <AppButton
               type="button"
               disabled={isPrimaryDisabled}
               onClick={handlePrimaryAction}
-              className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-kwik-dark text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-[#07111f]"
+              fullWidth
+              size="lg"
+              isLoading={isPrimaryBusy}
+              loadingLabel={isCheckingOut ? "Starting Paystack" : "Validating cart"}
+              className="mt-5"
             >
-              {isPrimaryBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : step === "payment" ? <ShieldCheck className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
-              {isPrimaryBusy ? (isCheckingOut ? "Starting Paystack" : "Validating cart") : primaryLabel}
-            </button>
+              {!isPrimaryBusy && (step === "payment" ? <ShieldCheck className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />)}
+              {primaryLabel}
+            </AppButton>
 
             {step === "payment" && (
               <p className="mt-3 text-center text-xs leading-5 text-kwik-muted dark:text-white/60">

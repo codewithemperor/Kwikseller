@@ -7,6 +7,8 @@ import { DealsModule } from '../deals/deals.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { ProductsModule } from '../products/products.module';
 import { AdminController } from './admin.controller';
+import { AdminUsersController } from './admin-users.controller';
+import { AdminUsersService } from './admin-users.service';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { AdminController } from './admin.controller';
     CouponsModule,
     ProductsModule,
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, AdminUsersController],
+  providers: [AdminUsersService],
 })
 export class AdminModule {}

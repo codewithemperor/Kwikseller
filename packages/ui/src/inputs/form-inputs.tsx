@@ -25,6 +25,9 @@ import {
   parseAbsoluteToLocal,
   CalendarDate,
 } from "@internationalized/date";
+const formInputGroupClass =
+  "min-h-12 rounded-md border-border bg-field-background text-base focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15 dark:border-white/10 dark:bg-[#07111f]";
+const formInputClass = "text-base text-foreground dark:text-white";
 
 // ==================== BASE TYPES ====================
 
@@ -86,7 +89,7 @@ export function TextInput<T extends FieldValues>({
             isInvalid={!!error}
           >
             <Label>{label}</Label>
-            <InputGroup>
+            <InputGroup className={formInputGroupClass}>
               {startContent && (
                 <InputGroup.Prefix>{startContent}</InputGroup.Prefix>
               )}
@@ -96,6 +99,7 @@ export function TextInput<T extends FieldValues>({
                 placeholder={placeholder}
                 value={formattedValue}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+                className={formInputClass}
               />
               {endContent && (
                 <InputGroup.Suffix>{endContent}</InputGroup.Suffix>
@@ -143,7 +147,7 @@ export function PasswordInput<T extends FieldValues>({
           isInvalid={!!error}
         >
           <Label>{label}</Label>
-          <InputGroup>
+          <InputGroup className={formInputGroupClass}>
             {startContent && (
               <InputGroup.Prefix>{startContent}</InputGroup.Prefix>
             )}
@@ -152,12 +156,13 @@ export function PasswordInput<T extends FieldValues>({
               type={showPassword ? "text" : "password"}
               placeholder={placeholder}
               value={field.value ?? ""}
+              className={formInputClass}
             />
             <InputGroup.Suffix>
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="flex items-center bg-primary justify-center text-default-400 hover:text-foreground focus:outline-none"
+                className="flex items-center justify-center text-default-400 hover:text-foreground focus:outline-none"
                 tabIndex={-1}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >

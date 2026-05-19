@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -12,8 +12,9 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { productsApi } from '@kwikseller/api-client'
+import { getSimilarSuggestions } from '@/lib/search-similarity'
 
-// ─── Types ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface SuggestionItem {
   type: 'recent' | 'product' | 'category'
@@ -22,7 +23,7 @@ interface SuggestionItem {
   icon: React.ElementType
 }
 
-// ─── Constants ─────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const TRENDING_CATEGORIES = [
   { name: 'Fashion', count: '12K+' },
@@ -33,10 +34,21 @@ const TRENDING_CATEGORIES = [
   { name: 'Food & Drinks', count: '15K+' },
 ]
 
+const FALLBACK_SUGGESTIONS = [
+  { name: 'Ankara dresses', category: 'Fashion', meta: 'Popular' },
+  { name: 'Wireless earbuds', category: 'Electronics', meta: 'Trending' },
+  { name: 'iPhone 15', category: 'Phones', meta: 'Popular' },
+  { name: 'Brazilian hair', category: 'Beauty', meta: 'Trending' },
+  { name: 'Samsung TV', category: 'Electronics', meta: 'Popular' },
+  { name: 'Jordans', category: 'Fashion', meta: 'Popular' },
+  { name: 'Power bank', category: 'Electronics', meta: 'Trending' },
+  { name: 'Home furniture', category: 'Home & Garden', meta: 'Popular' },
+]
+
 const HISTORY_KEY = 'kwikseller-search-history'
 const MAX_HISTORY = 6
 
-// ─── History helpers ──────────────────────────────────────────────
+// â”€â”€â”€ History helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getHistory(): string[] {
   if (typeof window === 'undefined') return []
@@ -61,7 +73,7 @@ function removeFromHistory(term: string) {
   }
 }
 
-// ─── Component ─────────────────────────────────────────────────────
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface SearchAutoSuggestProps {
   isOpen: boolean
@@ -194,12 +206,20 @@ export function SearchAutoSuggest({
     const items: SuggestionItem[] = []
 
     if (query.trim()) {
+      const relatedResults = apiResults.length
+        ? apiResults.map((item) => ({
+            name: item.name,
+            category: item.category,
+            meta: `NGN ${item.price.toLocaleString()}`,
+          }))
+        : getSimilarSuggestions(query, FALLBACK_SUGGESTIONS, 6)
+
       // API results
-      apiResults.forEach((r) => {
+      relatedResults.forEach((r) => {
         items.push({
           type: 'product',
           text: r.name,
-          subtext: `${r.category} · ₦${r.price.toLocaleString()}`,
+          subtext: `${r.category} · ${r.meta}`,
           icon: Search,
         })
       })
@@ -217,9 +237,9 @@ export function SearchAutoSuggest({
     return items.slice(0, 6)
   }, [query, apiResults, history])
 
-  const showNoResults = query.trim() && !isSearching && apiResults.length === 0
+  const showRelated = query.trim() && !isSearching && apiResults.length === 0
 
-  // ─── Text highlight ──────────────────────────────────────────────
+  // â”€â”€â”€ Text highlight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   function highlightMatch(text: string, q: string) {
     if (!q.trim()) return text
@@ -298,20 +318,14 @@ export function SearchAutoSuggest({
               </div>
             )}
 
-            {/* No results */}
-            {showNoResults && (
+            {/* Related fallback */}
+            {showRelated && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="py-8 px-4 text-center"
+                className="px-4 pt-3 text-xs font-semibold uppercase tracking-wider text-kwik-muted"
               >
-                <Search className="w-6 h-6 text-kwik-muted mx-auto mb-2" />
-                <p className="text-sm text-kwik-dark font-medium">
-                  No results found
-                </p>
-                <p className="text-xs text-kwik-muted mt-1">
-                  Try a different search term
-                </p>
+                Similar picks
               </motion.div>
             )}
 
@@ -414,3 +428,4 @@ export function SearchAutoSuggest({
     </AnimatePresence>
   )
 }
+

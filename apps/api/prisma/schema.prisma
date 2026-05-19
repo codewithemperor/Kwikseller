@@ -165,6 +165,10 @@ enum AdminRole {
   OPERATIONS
   MARKETING
   CONTENT
+  CUSTOMER_SUPPORT
+  LOGISTICS
+  CATALOG_MANAGER
+  AUDITOR
 }
 
 model AdminPermission {

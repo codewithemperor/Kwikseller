@@ -19,6 +19,17 @@ import { persist, createJSONStorage } from "zustand/middleware";
 // ==================== Types ====================
 
 export type UserRole = "BUYER" | "VENDOR" | "ADMIN" | "RIDER" | "SUPER_ADMIN";
+export type AdminRole =
+  | "SUPER_ADMIN"
+  | "FINANCE"
+  | "VENDOR_SUPPORT"
+  | "OPERATIONS"
+  | "MARKETING"
+  | "CONTENT"
+  | "CUSTOMER_SUPPORT"
+  | "LOGISTICS"
+  | "CATALOG_MANAGER"
+  | "AUDITOR";
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "BANNED" | "PENDING";
 export type VerificationStatus =
   | "NOT_SUBMITTED"
@@ -70,6 +81,7 @@ export interface UserStore {
     productLimit: number;
   };
   permissions?: string[];
+  adminRole?: AdminRole;
 }
 
 export interface AuthTokens {

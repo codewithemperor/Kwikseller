@@ -9,7 +9,7 @@
  * - 12 Categories
  * - Nigerian Naira (₦) currency
  * - Demo Vendor + Store
- * - 100 Products with images spread across all categories & brands
+ * - 400+ Products with real images spread across all categories & brands
  *
  * Run with: cd apps/api && npx prisma db seed
  */
@@ -80,16 +80,16 @@ const CURRENCIES = [
 // 10 BRANDS (Nigerian / African electronics & fashion)
 // ============================================================
 const BRANDS = [
-  { name: "Samsung", slug: "samsung", image: "https://placehold.co/200x200/1428a0/white?text=Samsung", status: true },
-  { name: "Apple", slug: "apple", image: "https://placehold.co/200x200/555555/white?text=Apple", status: true },
-  { name: "Tecno", slug: "tecno", image: "https://placehold.co/200x200/00a651/white?text=Tecno", status: true },
-  { name: "Infinix", slug: "infinix", image: "https://placehold.co/200x200/f7941d/white?text=Infinix", status: true },
-  { name: "Oraimo", slug: "oraimo", image: "https://placehold.co/200x200/e74c3c/white?text=Oraimo", status: true },
-  { name: "Nike", slug: "nike", image: "https://placehold.co/200x200/111111/white?text=Nike", status: true },
-  { name: "Adidas", slug: "adidas", image: "https://placehold.co/200x200/000000/white?text=Adidas", status: true },
-  { name: "Gucci", slug: "gucci", image: "https://placehold.co/200x200/004d2c/white?text=Gucci", status: true },
-  { name: "HP", slug: "hp", image: "https://placehold.co/200x200/0096d6/white?text=HP", status: true },
-  { name: "Lenovo", slug: "lenovo", image: "https://placehold.co/200x200/e2231a/white?text=Lenovo", status: true },
+  { name: "Samsung", slug: "samsung", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Apple", slug: "apple", image: "https://images.unsplash.com/photo-1491933382434-500287f9b54b?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Tecno", slug: "tecno", image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Infinix", slug: "infinix", image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Oraimo", slug: "oraimo", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Nike", slug: "nike", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Adidas", slug: "adidas", image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Gucci", slug: "gucci", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "HP", slug: "hp", image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=400&h=400&q=80", status: true },
+  { name: "Lenovo", slug: "lenovo", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=400&h=400&q=80", status: true },
 ];
 
 // ============================================================
@@ -111,7 +111,7 @@ const CATEGORIES = [
 ];
 
 // ============================================================
-// 100 PRODUCTS
+// 400+ PRODUCTS
 // ============================================================
 interface SeedProduct {
   name: string;
@@ -132,10 +132,177 @@ function makeSku(prefix: string, index: number): string {
   return `${prefix}-${String(index).padStart(4, "0")}`;
 }
 
-// Helper: placeholder image URL
-function imageUrl(text: string, color: string = "f97316"): string {
-  const encoded = encodeURIComponent(text);
-  return `https://placehold.co/600x600/${color}/white?text=${encoded}`;
+const REAL_IMAGE_POOLS: Record<string, string[]> = {
+  electronics: [
+    "photo-1505740420928-5e560c06d30e",
+    "photo-1545454675-3531b543be5d",
+    "photo-1542751371-adc38448a05e",
+    "photo-1498049794561-7780e7231661",
+    "photo-1516321318423-f06f85e504b3",
+  ],
+  phones: [
+    "photo-1511707171634-5f897ff02aa9",
+    "photo-1598327105666-5b89351aff97",
+    "photo-1580910051074-3eb694886505",
+    "photo-1592750475338-74b7b21085ab",
+    "photo-1616348436168-de43ad0db179",
+  ],
+  computers: [
+    "photo-1496181133206-80ce9b88a853",
+    "photo-1517336714731-489689fd1ca8",
+    "photo-1498050108023-c5249f4df085",
+    "photo-1484788984921-03950022c9ef",
+    "photo-1525547719571-a2d4ac8945e2",
+  ],
+  fashion: [
+    "photo-1542291026-7eec264c27ff",
+    "photo-1529139574466-a303027c1d8b",
+    "photo-1483985988355-763728e1935b",
+    "photo-1515886657613-9f3515b0c78f",
+    "photo-1525507119028-ed4c629a60a3",
+  ],
+  "home-kitchen": [
+    "photo-1556909114-f6e7ad7d3136",
+    "photo-1556911220-bff31c812dba",
+    "photo-1556912172-45b7abe8b7e1",
+    "photo-1513694203232-719a280e022f",
+    "photo-1484154218962-a197022b5858",
+  ],
+  beauty: [
+    "photo-1596462502278-27bfdc403348",
+    "photo-1522338242992-e1a54906a8da",
+    "photo-1512496015851-a90fb38ba796",
+    "photo-1608248543803-ba4f8c70ae0b",
+    "photo-1571781926291-c477ebfd024b",
+  ],
+  sports: [
+    "photo-1517836357463-d25dfeac3438",
+    "photo-1517649763962-0c623066013b",
+    "photo-1571019613454-1cb2f99b2d8b",
+    "photo-1521412644187-c49fa049e84d",
+    "photo-1599058917212-d750089bc07e",
+  ],
+  books: [
+    "photo-1512820790803-83ca734da794",
+    "photo-1495446815901-a7297e633e8d",
+    "photo-1519682337058-a94d519337bc",
+    "photo-1521587760476-6c12a4b040da",
+    "photo-1456513080510-7bf3a84b82f8",
+  ],
+  toys: [
+    "photo-1558060370-d644479cb6f7",
+    "photo-1566576912321-d58ddd7a6088",
+    "photo-1515488042361-ee00e0ddd4e4",
+    "photo-1535572290543-960a8046f5af",
+    "photo-1596461404969-9ae70f2830c1",
+  ],
+  automotive: [
+    "photo-1503376780353-7e6692767b70",
+    "photo-1492144534655-ae79c964c9d7",
+    "photo-1542362567-b07e54358753",
+    "photo-1511919884226-fd3cad34687c",
+    "photo-1502877338535-766e1452684a",
+  ],
+  health: [
+    "photo-1505751172876-fa1923c5c528",
+    "photo-1584515933487-779824d29309",
+    "photo-1576091160550-2173dba999ef",
+    "photo-1506126613408-eca07ce68773",
+    "photo-1532938911079-1b06ac7ceec7",
+  ],
+  "food-drinks": [
+    "photo-1504674900247-0877df9cc836",
+    "photo-1498837167922-ddd27525d352",
+    "photo-1540189549336-e6e99c3679fe",
+    "photo-1512621776951-a57141f2eefd",
+    "photo-1551024506-0bccd828d307",
+  ],
+  banners: [
+    "photo-1441986300917-64674bd600d8",
+    "photo-1607083206869-4c7672e72a8a",
+    "photo-1607082349566-187342175e2f",
+    "photo-1556742049-0cfed4f6a45d",
+  ],
+  brand: [
+    "photo-1523275335684-37898b6baf30",
+    "photo-1445205170230-053b83016050",
+    "photo-1491933382434-500287f9b54b",
+  ],
+};
+
+const IMAGE_KEYWORDS: Array<[string, string]> = [
+  ["phone", "phones"],
+  ["iphone", "phones"],
+  ["galaxy", "phones"],
+  ["tecno", "phones"],
+  ["infinix", "phones"],
+  ["laptop", "computers"],
+  ["macbook", "computers"],
+  ["desktop", "computers"],
+  ["monitor", "computers"],
+  ["book", "books"],
+  ["novel", "books"],
+  ["sneaker", "fashion"],
+  ["shoe", "fashion"],
+  ["shirt", "fashion"],
+  ["dress", "fashion"],
+  ["bag", "fashion"],
+  ["beauty", "beauty"],
+  ["cream", "beauty"],
+  ["lipstick", "beauty"],
+  ["foundation", "beauty"],
+  ["kettle", "home-kitchen"],
+  ["cooker", "home-kitchen"],
+  ["kitchen", "home-kitchen"],
+  ["blender", "home-kitchen"],
+  ["football", "sports"],
+  ["training", "sports"],
+  ["gym", "sports"],
+  ["toy", "toys"],
+  ["lego", "toys"],
+  ["barbie", "toys"],
+  ["car", "automotive"],
+  ["charger", "automotive"],
+  ["dash", "automotive"],
+  ["health", "health"],
+  ["monitor", "health"],
+  ["thermometer", "health"],
+  ["milo", "food-drinks"],
+  ["drink", "food-drinks"],
+  ["food", "food-drinks"],
+  ["coffee", "food-drinks"],
+  ["tv", "electronics"],
+  ["speaker", "electronics"],
+  ["airpods", "electronics"],
+  ["printer", "electronics"],
+];
+
+function stableHash(value: string): number {
+  return value.split("").reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
+}
+
+function imageGroupFor(text: string): string {
+  const lower = text.toLowerCase();
+  return IMAGE_KEYWORDS.find(([keyword]) => lower.includes(keyword))?.[1] ?? "electronics";
+}
+
+function realImageFromPool(group: string, seed: string, width = 600, height = 600): string {
+  const pool = REAL_IMAGE_POOLS[group] ?? REAL_IMAGE_POOLS.electronics;
+  const photoId = pool[Math.abs(stableHash(seed)) % pool.length];
+  return `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=${width}&h=${height}&q=80`;
+}
+
+// Helper: deterministic real image URL
+function imageUrl(text: string, _color: string = "f97316"): string {
+  return realImageFromPool(imageGroupFor(text), text);
+}
+
+function bannerImageUrl(seed: string): string {
+  return realImageFromPool("banners", seed, 1200, 400);
+}
+
+function brandImageUrl(seed: string): string {
+  return realImageFromPool("brand", seed, 400, 400);
 }
 
 // Seeded random for deterministic featured/status
@@ -509,6 +676,49 @@ async function buildProducts(
   });
 
   console.log(`   📦 Built ${products.length} products`);
+  const expansionCatalog = [
+    { category: "electronics", sku: "ELECX", brandPool: [brandMap.samsung, brandMap.oraimo, brandMap.hp, brandMap.lenovo], names: ["Noise Cancelling Headphones", "Portable Bluetooth Speaker", "Smart LED Projector", "Wireless Gaming Mouse", "USB-C Charging Dock", "Solar Power Station", "4K Action Camera", "Smart Home Security Camera", "LED Ring Light Kit", "Portable Karaoke Speaker"], basePrice: 18000 },
+    { category: "phones", sku: "PHONX", brandPool: [brandMap.apple, brandMap.samsung, brandMap.tecno, brandMap.infinix], names: ["Android Smartphone 128GB", "Flagship Smartphone 256GB", "Budget 4G Smartphone", "Foldable Display Smartphone", "Gaming Smartphone", "Pro Camera Phone", "Dual SIM Smartphone", "Rugged Outdoor Phone", "5G Business Phone", "Compact Smartphone"], basePrice: 85000 },
+    { category: "computers", sku: "COMPX", brandPool: [brandMap.hp, brandMap.lenovo, brandMap.apple, brandMap.samsung], names: ["Business Laptop 14-inch", "Gaming Laptop RTX Edition", "All-in-One Desktop", "Portable SSD 1TB", "Mechanical Keyboard", "USB-C Monitor", "Laptop Stand", "Wireless Office Mouse", "Mini Desktop PC", "Creator Laptop 16-inch"], basePrice: 45000 },
+    { category: "fashion", sku: "FASHX", brandPool: [brandMap.nike, brandMap.adidas, brandMap.gucci], names: ["Ankara Midi Dress", "Leather Crossbody Bag", "Running Sneakers", "Cotton Polo Shirt", "Denim Jacket", "Athleisure Joggers", "Formal Loafers", "Streetwear Hoodie", "Canvas Tote Bag", "Performance Training Shorts"], basePrice: 6500 },
+    { category: "home-kitchen", sku: "HOMEX", brandPool: [brandMap.samsung, brandMap.oraimo, brandMap.lenovo], names: ["Non-Stick Cookware Set", "Digital Air Fryer", "Stainless Blender", "Electric Pressure Cooker", "Compact Microwave", "Tabletop Gas Cooker", "Smart Robot Vacuum", "Ceramic Dinner Set", "Kitchen Storage Rack", "Electric Coffee Maker"], basePrice: 9000 },
+    { category: "beauty", sku: "BTYX", brandPool: [brandMap.oraimo, brandMap.gucci, brandMap.samsung], names: ["Matte Lipstick Set", "Hydrating Face Serum", "Professional Hair Clipper", "Body Wave Hair Bundle", "Makeup Brush Kit", "Vitamin C Face Cream", "Sonic Facial Brush", "Perfume Gift Set", "Nail Care Kit", "Setting Spray"], basePrice: 3500 },
+    { category: "sports", sku: "SPRTX", brandPool: [brandMap.nike, brandMap.adidas], names: ["Training Dumbbell Pair", "Yoga Mat Pro", "Running Shoe", "Football Training Ball", "Gym Duffel Bag", "Compression Tights", "Fitness Resistance Bands", "Basketball Jersey", "Tennis Racket", "Cycling Helmet"], basePrice: 5500 },
+    { category: "books", sku: "BOOKX", brandPool: [brandMap.samsung, brandMap.hp], names: ["Business Strategy Book", "Personal Finance Guide", "Children Story Collection", "African Fiction Novel", "Startup Playbook", "Leadership Workbook", "Exam Prep Textbook", "Cookbook Collection", "Self Improvement Journal", "Tech Career Handbook"], basePrice: 2500 },
+    { category: "toys", sku: "TOYX", brandPool: [brandMap.samsung, brandMap.lenovo], names: ["Building Blocks Set", "Remote Control Car", "Learning Tablet Toy", "Plush Animal Gift", "Kids Puzzle Board", "STEM Robot Kit", "Doll House Set", "Toy Kitchen Set", "Board Game Set", "Outdoor Bubble Machine"], basePrice: 3000 },
+    { category: "automotive", sku: "AUTOX", brandPool: [brandMap.oraimo, brandMap.samsung], names: ["Car Phone Mount", "Dual USB Car Charger", "Dash Camera", "Portable Tire Inflator", "Car Vacuum Cleaner", "Jump Starter Pack", "Seat Organizer", "Wireless Car Charger", "Car Air Purifier", "Bluetooth FM Transmitter"], basePrice: 4500 },
+    { category: "health", sku: "HLTHX", brandPool: [brandMap.oraimo, brandMap.infinix, brandMap.samsung], names: ["Digital Blood Pressure Monitor", "Smart Body Scale", "Pulse Oximeter", "Infrared Thermometer", "Massage Gun", "Fitness Smart Band", "First Aid Kit", "Nebulizer Machine", "Posture Corrector", "Sleep Eye Mask"], basePrice: 3500 },
+    { category: "food-drinks", sku: "FOODX", brandPool: [brandMap.samsung, brandMap.tecno], names: ["Organic Coffee Beans", "Premium Fruit Juice", "Breakfast Cereal Pack", "Instant Noodles Carton", "Energy Drink Pack", "Baking Flour Bag", "Milk Powder Tin", "Snack Variety Box", "Herbal Tea Set", "Rice Value Pack"], basePrice: 1500 },
+  ];
+
+  const variants = ["Classic", "Premium", "Urban", "Family", "Pro", "Value", "Compact", "Deluxe", "Everyday", "Limited"];
+  const targetExtraProducts = 300;
+  for (let extra = 0; extra < targetExtraProducts; extra += 1) {
+    const group = expansionCatalog[extra % expansionCatalog.length];
+    const nameBase = group.names[Math.floor(extra / expansionCatalog.length) % group.names.length];
+    const variant = variants[extra % variants.length];
+    const edition = Math.floor(extra / group.names.length) + 1;
+    const r = seededRandom(idx);
+    const price = Math.round((group.basePrice + (extra % 25) * group.basePrice * 0.12 + r * group.basePrice * 0.8) / 100) * 100;
+    const name = `${variant} ${nameBase} ${edition}`;
+
+    products.push({
+      name,
+      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+      description: `${name} with reliable quality, practical details, and marketplace-ready inventory for Kwikseller shoppers.`,
+      price,
+      comparePrice: Math.round(price * (1.12 + r * 0.22)),
+      sku: makeSku(group.sku, idx),
+      stock: Math.floor(seededRandom(idx + 100) * 240) + 10,
+      status: seededRandom(idx + 200) > 0.08 ? "ACTIVE" : "DRAFT",
+      isFeatured: extra % 11 === 0,
+      categoryId: categoryMap[group.category],
+      brandId: group.brandPool[extra % group.brandPool.length],
+    });
+    idx++;
+  }
+
+  console.log(`   Built ${products.length} products`);
   return products;
 }
 
@@ -664,6 +874,8 @@ async function main() {
           name: "Kwikseller Demo Store",
           slug: "kwikseller-demo-store",
           description: "Official demo store showcasing top Nigerian and African products across electronics, fashion, and lifestyle categories.",
+          logoUrl: brandImageUrl("Kwikseller Demo Store logo"),
+          bannerUrl: bannerImageUrl("Kwikseller Demo Store banner"),
           category: "Multi-category",
           isVerified: true,
           onboardingComplete: true,
@@ -707,6 +919,8 @@ async function main() {
         name: "Kwikseller Demo Store",
         slug: "kwikseller-demo-store",
         description: "Official demo store showcasing top Nigerian and African products.",
+        logoUrl: brandImageUrl("Kwikseller Demo Store logo"),
+        bannerUrl: bannerImageUrl("Kwikseller Demo Store banner"),
         category: "Multi-category",
         isVerified: true,
         onboardingComplete: true,
@@ -744,6 +958,8 @@ async function main() {
           name: "Amina Urban Market",
           slug: "amina-urban-market",
           description: "A second demo vendor for split checkout testing across fashion, digital, and lifestyle products.",
+          logoUrl: brandImageUrl("Amina Urban Market logo"),
+          bannerUrl: bannerImageUrl("Amina Urban Market banner"),
           category: "Lifestyle",
           isVerified: true,
           onboardingComplete: true,
@@ -775,6 +991,8 @@ async function main() {
         name: "Amina Urban Market",
         slug: "amina-urban-market",
         description: "A second demo vendor for split checkout testing across fashion, digital, and lifestyle products.",
+        logoUrl: brandImageUrl("Amina Urban Market logo"),
+        bannerUrl: bannerImageUrl("Amina Urban Market banner"),
         category: "Lifestyle",
         isVerified: true,
         onboardingComplete: true,
@@ -809,7 +1027,12 @@ async function main() {
   // ── 7. Create 10 Brands ────────────────────────────────────
   console.log("🏷️  Creating 10 brands...");
   for (const brand of BRANDS) {
-    await prisma.brand.create({ data: brand });
+    await prisma.brand.create({
+      data: {
+        ...brand,
+        image: brandImageUrl(brand.name),
+      },
+    });
   }
   console.log(`   ✅ ${BRANDS.length} brands created\n`);
 
@@ -824,7 +1047,7 @@ async function main() {
   console.log("📂 Creating 12 categories...");
   for (const category of CATEGORIES) {
     await prisma.category.create({
-      data: { ...category, isActive: true },
+      data: { ...category, imageUrl: imageUrl(category.name), isActive: true },
     });
   }
   console.log(`   ✅ ${CATEGORIES.length} categories created\n`);
@@ -1160,7 +1383,7 @@ async function main() {
     {
       title: "Summer Electronics Sale",
       subTitle: "Up to 30% off on top electronics brands",
-      image: "https://placehold.co/1200x400/f97316/white?text=Summer+Electronics+Sale",
+      image: bannerImageUrl("Summer Electronics Sale"),
       url: "/categories/electronics",
       bannerType: "MAIN_BANNER" as const,
       backgroundColor: "#f97316",
@@ -1171,7 +1394,7 @@ async function main() {
     {
       title: "New Fashion Collection",
       subTitle: "Discover the latest trends in Nigerian fashion",
-      image: "https://placehold.co/1200x400/ec4899/white?text=Fashion+Collection",
+      image: bannerImageUrl("New Fashion Collection"),
       url: "/categories/fashion",
       bannerType: "MAIN_BANNER" as const,
       backgroundColor: "#ec4899",
@@ -1182,7 +1405,7 @@ async function main() {
     {
       title: "Flash Deals This Week",
       subTitle: "Limited time offers on phones and gadgets",
-      image: "https://placehold.co/1200x400/10b981/white?text=Flash+Deals",
+      image: bannerImageUrl("Flash Deals This Week"),
       url: "/deals",
       bannerType: "PROMO_BANNER" as const,
       resourceType: "category",

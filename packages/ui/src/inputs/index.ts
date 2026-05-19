@@ -17,6 +17,8 @@ export {
   Time,
   Select,
 } from "./form-inputs";
+export { FieldInput, FieldTextarea, FieldSelect } from "./plain-inputs";
+export type { FieldInputProps, FieldTextareaProps, FieldSelectProps } from "./plain-inputs";
 
 export type {
   BaseInputProps,
@@ -37,3 +39,5 @@ export type { OTPInputProps, OTPModalProps } from "./otp-input";
 // Submit Button
 export { SubmitButton } from "./submit-button";
 export type { SubmitButtonProps } from "./submit-button";
+export { AppButton } from "./app-button";
+export type { AppButtonProps } from "./app-button";

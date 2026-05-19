@@ -17,8 +17,8 @@ import {
   ShoppingBag,
   Store,
 } from "lucide-react";
-import { Button, Spinner, Chip, Checkbox } from "@heroui/react";
-import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
+import { Chip, Checkbox } from "@heroui/react";
+import { AppButton, cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
 
@@ -154,8 +154,9 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   }, [router, portal.redirectPath]);
 
   const handleRoleSelect = (role: "BUYER" | "VENDOR") => {
-    if (role === "VENDOR" && portal.vendorRegisterUrl) {
-      window.location.href = portal.vendorRegisterUrl;
+    if (role === "VENDOR") {
+      window.location.href =
+        portal.vendorRegisterUrl ?? "http://localhost:3001/register";
       return;
     }
 
@@ -439,27 +440,16 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
           </span>
         </div>
 
-        <Button
+        <AppButton
           type="submit"
-          variant="primary"
           fullWidth
           size="lg"
-          isPending={busy}
-          isDisabled={busy}
-          onPress={() => {}}
-          className="mt-2 rounded-xl bg-kwik-orange font-semibold text-white hover:bg-kwik-orange-hover"
+          isLoading={busy}
+          loadingLabel="Creating account..."
+          className="mt-2 rounded-xl"
         >
-          {({ isPending }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Creating account...
-              </span>
-            ) : (
-              "Create Account"
-            )
-          }
-        </Button>
+          Create Account
+        </AppButton>
 
         <p className="text-center text-sm text-kwik-gray-light">
           Already have an account?{" "}

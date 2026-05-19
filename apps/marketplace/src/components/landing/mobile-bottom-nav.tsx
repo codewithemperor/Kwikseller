@@ -38,8 +38,13 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
       label: 'Categories',
       icon: Grid3X3,
       action: () => {
+        if (pathname !== '/') {
+          router.push('/categories')
+          return
+        }
         const el = document.getElementById('categories')
-        if (el) el.scrollIntoView({ behavior: 'smooth' })
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        else router.push('/categories')
       },
     },
     {
@@ -73,7 +78,8 @@ export function MobileBottomNav({ onSearchOpen }: MobileBottomNavProps) {
   })
 
   React.useEffect(() => {
-    if (pathname === '/wishlist') setActiveTab('Wishlist')
+    if (pathname === '/categories') setActiveTab('Categories')
+    else if (pathname === '/wishlist') setActiveTab('Wishlist')
     else if (pathname === '/cart') setActiveTab('Cart')
     else if (pathname === '/login' || pathname === '/register') setActiveTab('Profile')
     else if (pathname === '/') setActiveTab('Home')

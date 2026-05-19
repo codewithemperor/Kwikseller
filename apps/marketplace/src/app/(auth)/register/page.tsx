@@ -5,7 +5,8 @@ import {
 } from "@/components/auth";
 
 // Get vendor registration URL from environment variable
-const vendorRegisterUrl = process.env.NEXT_PUBLIC_VENDOR_REGISTER_URL;
+const vendorRegisterUrl =
+  process.env.NEXT_PUBLIC_VENDOR_REGISTER_URL ?? "http://localhost:3001/register";
 
 const marketplacePortal: RegisterPortalConfig = {
   name: "KWIKSELLER",

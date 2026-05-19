@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Space_Grotesk, Figtree } from "next/font/google";
+import { JetBrains_Mono, Figtree, Questrial } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
@@ -7,15 +7,14 @@ import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
 
 // Heading font - Poppins (modern, geometric sans-serif)
-const fontHeading = Space_Grotesk({
+const fontHeading = Figtree({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
   display: "swap",
 });
 
-// Text/Body font - Inter (excellent readability)
-const fontText = Figtree({
+const fontText = Questrial({
   subsets: ["latin"],
   variable: "--font-text",
   display: "swap",
@@ -40,8 +39,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1A56DB" },
-    { media: "(prefers-color-scheme: dark)", color: "#1E40AF" },
+    { media: "(prefers-color-scheme: light)", color: "#F07A22" },
+    { media: "(prefers-color-scheme: dark)", color: "#F07A22" },
   ],
   width: "device-width",
   initialScale: 1,

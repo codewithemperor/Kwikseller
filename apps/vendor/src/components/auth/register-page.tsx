@@ -5,16 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Mail,
-  Lock,
-  Store,
-  Phone,
-  Building2,
-  AlertCircle,
-} from "lucide-react";
-import { Button, Spinner } from "@heroui/react";
-import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
+import { Mail, Lock, Phone, Building2, AlertCircle } from "lucide-react";
+import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
 
@@ -31,14 +23,6 @@ interface RegisterPageProps {
   config: VendorRegisterConfig;
   className?: string;
 }
-
-const themeMap: Record<string, string> = {
-  blue: "bg-blue-600",
-  green: "bg-green-600",
-  purple: "bg-purple-600",
-  orange: "bg-orange-600",
-  default: "bg-primary",
-};
 
 export function RegisterPage({ config, className }: RegisterPageProps) {
   const router = useRouter();
@@ -129,24 +113,16 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
     kwikToast.success("Verification code sent!");
   };
 
-  const iconColor = themeMap[config.themeColor || "orange"];
   const busy = isSubmitting || isLoading;
-
-  const portalIcon = (
-    <div
-      className={cn(
-        "flex h-12 w-12 items-center justify-center text-white",
-        iconColor,
-      )}
-    >
-      {config.logo ?? <Store className="h-7 w-7" />}
-    </div>
-  );
 
   if (showOTP) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-4 flex flex-col items-center gap-3">{portalIcon}</div>
+        <BrandedAuthHeader
+          title="Verify vendor email"
+          description="Enter the verification code sent to your email to activate your vendor account."
+          badge="Vendor registration"
+        />
         <OTPVerification
           email={userEmail}
           onVerify={handleVerifyOTP}
@@ -160,13 +136,11 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-8">
-        {portalIcon}
-        <h1 className="mt-5 font-heading text-3xl font-semibold tracking-tight">Create your vendor account</h1>
-        <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
-          Start with a store profile built for products, inventory, orders, fulfillment, and Pool resale.
-        </p>
-      </div>
+      <BrandedAuthHeader
+        title="Create your vendor account"
+        description="Start with a store profile built for products, inventory, orders, fulfillment, and Pool resale."
+        badge="Vendor registration"
+      />
 
       {error && (
         <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
@@ -250,27 +224,16 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           isDisabled={busy}
         />
 
-        <Button
+        <AppButton
           type="submit"
-          variant="primary"
           fullWidth
           size="lg"
-          isPending={busy}
-          isDisabled={busy}
-          onPress={() => {}}
+          isLoading={busy}
+          loadingLabel="Creating account..."
           className="mt-2 rounded-xl font-semibold"
         >
-          {({ isPending }: { isPending: boolean }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Creating account...
-              </span>
-            ) : (
-              "Create Vendor Account"
-            )
-          }
-        </Button>
+          Create Vendor Account
+        </AppButton>
 
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}

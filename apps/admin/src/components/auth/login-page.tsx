@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, Shield, AlertCircle, Crown, UserCog } from "lucide-react";
-import { Button, Spinner } from "@heroui/react";
-import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
+import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { loginSchema, type LoginFormData } from "@kwikseller/types";
 
@@ -119,18 +118,14 @@ export function AdminLoginPage({ config, className }: AdminLoginPageProps) {
     kwikToast.success("Verification code sent!");
   };
 
-  const portalIcon = (
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-lg">
-      <Shield className="h-8 w-8" />
-    </div>
-  );
-
   if (showOTP) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="mb-4 flex flex-col items-center gap-3">
-          {portalIcon}
-        </div>
+        <BrandedAuthHeader
+          title="Verify admin email"
+          description="Enter the verification code sent to this admin email."
+          badge="Admin access"
+        />
         <OTPVerification
           email={userEmail}
           onVerify={handleVerifyOTP}
@@ -148,25 +143,21 @@ export function AdminLoginPage({ config, className }: AdminLoginPageProps) {
   return (
     <div className={cn("w-full", className)}>
       <div className="mb-8 flex flex-col items-center gap-3">
-        {portalIcon}
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {config?.name ?? "Admin Panel"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {config?.description ?? "Sign in to access the admin dashboard"}
-          </p>
-        </div>
+        <BrandedAuthHeader
+          title={config?.name ?? "Kwikseller Admin"}
+          description={config?.description ?? "Sign in with your admin email. Super Admin and every admin role use this same page."}
+          badge="Admin portal"
+          className="mb-0 w-full"
+        />
       </div>
 
-      <div className="mb-6 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3">
+      <div className="mb-6 rounded-xl border border-accent/20 bg-accent-soft p-3">
         <div className="flex items-start gap-2.5">
-          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
-          <div className="text-sm text-violet-700 dark:text-violet-300">
-            <p className="font-medium">Admin Access Only</p>
+          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-accent-soft-foreground" />
+          <div className="text-sm text-accent-soft-foreground">
+            <p className="font-medium">Admin access only</p>
             <p className="mt-0.5 text-xs opacity-80">
-              Password reset is disabled for admin accounts. Contact Super
-              Admin for assistance.
+              Role permissions are applied after login. Contact Super Admin for access changes.
             </p>
           </div>
         </div>
@@ -205,37 +196,26 @@ export function AdminLoginPage({ config, className }: AdminLoginPageProps) {
           isDisabled={isSubmitting || isLoading}
         />
 
-        <Button
+        <AppButton
           type="submit"
-          variant="primary"
           fullWidth
           size="lg"
-          isPending={isSubmitting || isLoading}
-          isDisabled={isSubmitting || isLoading}
-          onPress={() => {}}
-          className="mt-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-700 font-semibold hover:from-violet-700 hover:to-purple-800"
+          isLoading={isSubmitting || isLoading}
+          loadingLabel="Signing in..."
+          className="mt-2 rounded-xl"
         >
-          {({ isPending }: { isPending: boolean }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Signing in...
-              </span>
-            ) : (
-              "Sign in to Admin Panel"
-            )
-          }
-        </Button>
+          Sign in to Admin
+        </AppButton>
       </form>
 
       <div className="mt-6 flex items-center justify-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <Crown className="h-3.5 w-3.5 text-violet-500" />
+          <Crown className="h-3.5 w-3.5 text-accent" />
           Super Admin
         </span>
         <span className="flex items-center gap-1.5">
-          <UserCog className="h-3.5 w-3.5 text-violet-500" />
-          Sub Admin
+          <UserCog className="h-3.5 w-3.5 text-accent" />
+          Admin Roles
         </span>
       </div>
     </div>

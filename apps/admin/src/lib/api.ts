@@ -92,6 +92,30 @@ export interface DashboardStats {
   topProducts?: Product[];
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: "ADMIN" | "SUPER_ADMIN";
+  status: string;
+  emailVerified: boolean;
+  adminRole?:
+    | "SUPER_ADMIN"
+    | "FINANCE"
+    | "VENDOR_SUPPORT"
+    | "OPERATIONS"
+    | "MARKETING"
+    | "CONTENT"
+    | "CUSTOMER_SUPPORT"
+    | "LOGISTICS"
+    | "CATALOG_MANAGER"
+    | "AUDITOR";
+  permissions: string[];
+  isActive: boolean;
+  profile?: { firstName?: string; lastName?: string; avatarUrl?: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: string;
   orderNumber?: string;
@@ -551,4 +575,19 @@ export const dashboardApi = {
     api.get<Product[]>("/admin/dashboard/top-products", {
       params: { limit: limit ?? 5 },
     }),
+};
+
+// ==================== Admin Users API ====================
+
+export const adminUsersApi = {
+  list: () => api.get<AdminUser[]>("/admin/users"),
+
+  update: (
+    id: string,
+    data: {
+      role: NonNullable<AdminUser["adminRole"]>;
+      permissions?: string[];
+      isActive?: boolean;
+    },
+  ) => api.patch(`/admin/users/${id}`, data),
 };

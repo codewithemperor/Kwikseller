@@ -6,8 +6,8 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, AlertCircle, ShoppingBag, ShieldCheck } from "lucide-react";
-import { Button, Spinner, Checkbox } from "@heroui/react";
-import { cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
+import { Checkbox } from "@heroui/react";
+import { AppButton, cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { loginSchema, type LoginFormData } from "@kwikseller/types";
 
@@ -207,27 +207,16 @@ export function LoginPage({ portal, className }: LoginPageProps) {
           </div>
         </div>
 
-        <Button
+        <AppButton
           type="submit"
-          variant="primary"
           fullWidth
           size="lg"
-          isPending={isSubmitting || isLoading}
-          isDisabled={isSubmitting || isLoading}
-          onPress={() => {}}
-          className="mt-2 rounded-xl bg-kwik-orange font-semibold text-white hover:bg-kwik-orange-hover"
+          isLoading={isSubmitting || isLoading}
+          loadingLabel="Signing in..."
+          className="mt-2 rounded-xl"
         >
-          {({ isPending }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Signing in...
-              </span>
-            ) : (
-              `Sign in to ${portal.name}`
-            )
-          }
-        </Button>
+          Sign in to {portal.name}
+        </AppButton>
 
         {/* Divider */}
         <div className="flex items-start gap-2 border border-kwik-border bg-white p-3 text-xs leading-5 text-kwik-muted dark:border-white/10 dark:bg-white/5 dark:text-white/60">

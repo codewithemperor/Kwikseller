@@ -20,24 +20,27 @@ import {
   Bell,
   Shield,
   X,
+  UsersRound,
 } from "lucide-react";
 import { Chip } from "@heroui/react";
 import { cn } from "@/lib/utils";
 import { useAuth, useAuthStore } from "@kwikseller/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
+import { ADMIN_ROLE_LABELS, canAccessPermission, SECTION_PERMISSION, type AdminSection } from "@/lib/admin-permissions";
 
 const sidebarItems = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Products", href: "/admin/products", icon: Package },
-  { label: "Categories", href: "/admin/categories", icon: FolderTree },
-  { label: "Brands", href: "/admin/brands", icon: Award },
-  { label: "Banners", href: "/admin/banners", icon: ImageIcon },
-  { label: "Deals", href: "/admin/deals", icon: Percent },
-  { label: "Coupons", href: "/admin/coupons", icon: Ticket },
-  { label: "Orders", href: "/admin/orders", icon: ReceiptText },
-  { label: "Payments", href: "/admin/payments", icon: CreditCard },
-  { label: "Delivery Rates", href: "/admin/delivery-rates", icon: Truck },
+  { label: "Dashboard", href: "/admin", icon: LayoutDashboard, section: "dashboard" },
+  { label: "Products", href: "/admin/products", icon: Package, section: "products" },
+  { label: "Categories", href: "/admin/categories", icon: FolderTree, section: "categories" },
+  { label: "Brands", href: "/admin/brands", icon: Award, section: "brands" },
+  { label: "Banners", href: "/admin/banners", icon: ImageIcon, section: "banners" },
+  { label: "Deals", href: "/admin/deals", icon: Percent, section: "deals" },
+  { label: "Coupons", href: "/admin/coupons", icon: Ticket, section: "coupons" },
+  { label: "Orders", href: "/admin/orders", icon: ReceiptText, section: "orders" },
+  { label: "Payments", href: "/admin/payments", icon: CreditCard, section: "payments" },
+  { label: "Delivery Rates", href: "/admin/delivery-rates", icon: Truck, section: "delivery-rates" },
+  { label: "Admin Users", href: "/admin/admin-users", icon: UsersRound, section: "admin-users" },
 ];
 
 export function AdminSidebar() {
@@ -46,6 +49,14 @@ export function AdminSidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { logout } = useAuth();
   const user = useAuthStore((state) => state.user);
+  const visibleItems = sidebarItems.filter((item) => {
+    if (!user) return false;
+    if (user.role === "SUPER_ADMIN") return true;
+    return canAccessPermission(
+      user.permissions,
+      SECTION_PERMISSION[item.section as AdminSection],
+    );
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -77,7 +88,7 @@ export function AdminSidebar() {
         </AnimatePresence>
       </div>
       <nav className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin">
-        {sidebarItems.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
           return (
@@ -229,7 +240,11 @@ export function AdminHeader() {
             color="warning"
             className="font-medium hidden sm:flex"
           >
-            {user.role === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
+            {user.role === "SUPER_ADMIN"
+              ? "Super Admin"
+              : user.adminRole
+                ? ADMIN_ROLE_LABELS[user.adminRole]
+                : "Admin"}
           </Chip>
         )}
       </div>

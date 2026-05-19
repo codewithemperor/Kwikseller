@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@kwikseller/ui'
+import { getSimilarSuggestions } from '@/lib/search-similarity'
 
 // ─── Data ─────────────────────────────────────────────────────────
 
@@ -209,9 +210,10 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
   const filteredSuggestions = useMemo(() => {
     if (!query.trim()) return []
     const q = query.toLowerCase()
-    return PRODUCT_SUGGESTIONS.filter(
+    const exact = PRODUCT_SUGGESTIONS.filter(
       (p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
-    ).slice(0, 6)
+    )
+    return (exact.length ? exact : getSimilarSuggestions(query, PRODUCT_SUGGESTIONS, 6)).slice(0, 6)
   }, [query])
 
   const handleSearch = useCallback(
@@ -256,7 +258,10 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
 
   const hasQuery = query.trim().length > 0
   const showSuggestions = hasQuery && filteredSuggestions.length > 0
-  const showNoResults = hasQuery && filteredSuggestions.length === 0
+  const showRelated = hasQuery && !PRODUCT_SUGGESTIONS.some((p) => {
+    const q = query.toLowerCase()
+    return p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+  })
 
   return (
     <AnimatePresence>
@@ -336,7 +341,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                       >
                         <div className="flex items-center justify-between mb-3 px-1">
                           <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
-                            Suggestions
+                            {showRelated ? 'Similar picks' : 'Suggestions'}
                           </h3>
                           <span className="text-xs text-kwik-muted">{filteredSuggestions.length} results</span>
                         </div>
@@ -371,26 +376,6 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                             </motion.button>
                           ))}
                         </div>
-                      </motion.div>
-                    )}
-
-                    {/* ── No Results ── */}
-                    {showNoResults && (
-                      <motion.div
-                        key="no-results"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="p-8 text-center"
-                      >
-                        <div className="w-16 h-16 rounded-full bg-kwik-bg-light flex items-center justify-center mx-auto mb-4">
-                          <Search className="w-7 h-7 text-kwik-muted" />
-                        </div>
-                        <p className="text-sm font-medium text-kwik-dark mb-1">No results found</p>
-                        <p className="text-xs text-kwik-gray-light">
-                          Try searching for &quot;Ankara dresses&quot;, &quot;iPhone&quot;, or &quot;Samsung&quot;
-                        </p>
                       </motion.div>
                     )}
 

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore, UserRole } from "@kwikseller/utils";
 import { Shield, AlertTriangle } from "lucide-react";
+import { canAccessPermission, SECTION_PERMISSION, type AdminSection } from "@/lib/admin-permissions";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -57,9 +58,15 @@ export function AdminProtectedRoute({
   const tokens = useAuthStore((state) => state.tokens);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const hasRole = useAuthStore((state) => state.hasRole);
-  const hasPermission = useAuthStore((state) => state.hasPermission);
 
   const isAuthenticated = !!user && !!tokens?.accessToken;
+  const pathSection = (() => {
+    const segment = pathname.split("/")[2] || "dashboard";
+    if (segment === "admin-users") return "admin-users";
+    if (!segment || segment === "admin") return "dashboard";
+    return segment as AdminSection;
+  })();
+  const routePermission = requiredPermission ?? SECTION_PERMISSION[pathSection];
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -88,7 +95,7 @@ export function AdminProtectedRoute({
     }
 
     // Check permission requirement (for admin routes)
-    if (requiredPermission && !hasPermission(requiredPermission)) {
+    if (routePermission && user?.role !== "SUPER_ADMIN" && !canAccessPermission(user?.permissions, routePermission)) {
       router.push("/admin/unauthorized");
       return;
     }
@@ -96,12 +103,11 @@ export function AdminProtectedRoute({
     isInitialized,
     isAuthenticated,
     requiredRole,
-    requiredPermission,
+    routePermission,
     router,
     pathname,
     loginPath,
     hasRole,
-    hasPermission,
     user,
   ]);
 
@@ -111,7 +117,7 @@ export function AdminProtectedRoute({
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center animate-pulse">
+          <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center animate-pulse">
             <Shield className="w-6 h-6 text-white" />
           </div>
           <div className="space-y-2 text-center">
@@ -153,7 +159,7 @@ export function AdminProtectedRoute({
   }
 
   // Check permission - show access denied if missing permission
-  if (requiredPermission && !hasPermission(requiredPermission)) {
+  if (routePermission && user?.role !== "SUPER_ADMIN" && !canAccessPermission(user?.permissions, routePermission)) {
     return unauthorizedComponent ? (
       <>{unauthorizedComponent}</>
     ) : (

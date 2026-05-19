@@ -21,7 +21,8 @@ import { AppImage } from "@/components/ui/app-image";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QuickViewModal } from "@/components/landing/quick-view-modal";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
-import { useCartStore } from "@/stores";
+import { useCartStore, useHomeFeedStore, useRecentlyViewedStore, useWishlistStore } from "@/stores";
+import { rankProductsForMember } from "@/lib/marketplace-ranking";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
 interface HomeBanner {
@@ -100,6 +101,16 @@ function unwrapApiData<T>(value: unknown): T {
     return (value as { data: T }).data;
   }
   return value as T;
+}
+
+function getSearchHistory() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("kwikseller-search-history");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 function campaignHref(campaign: PoolCampaign) {
@@ -310,11 +321,27 @@ export function MarketplaceHomeFeedPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [activeBanner, setActiveBanner] = React.useState(0);
   const [quickViewProduct, setQuickViewProduct] = React.useState<MarketplaceProduct | null>(null);
+  const setCachedHomeFeed = useHomeFeedStore((state) => state.setHomeFeed);
+  const cartItems = useCartStore((state) => state.items);
+  const wishlistItems = useWishlistStore((state) => state.items);
+  const recentlyViewedItems = useRecentlyViewedStore((state) => state.items);
 
   React.useEffect(() => {
     let isMounted = true;
 
     const loadFeed = async () => {
+      const navEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      const isPageReload = navEntry?.type === "reload";
+
+      const cachedHome = useHomeFeedStore.getState();
+      if (!isPageReload && cachedHome.isFresh() && cachedHome.feed) {
+        setFeed(cachedHome.feed);
+        setPoolOffers(cachedHome.poolOffers);
+        setCampaigns(cachedHome.campaigns);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       try {
@@ -326,15 +353,24 @@ export function MarketplaceHomeFeedPage() {
 
         if (!isMounted) return;
         if (homeResponse.status === "fulfilled") {
-          setFeed(unwrapApiData<HomeFeedResponse>(homeResponse.value.data));
+          const nextFeed = unwrapApiData<HomeFeedResponse>(homeResponse.value.data);
+          const nextPoolOffers = poolResponse.status === "fulfilled"
+            ? unwrapApiData<PoolOffer[]>(poolResponse.value.data)
+            : [];
+          const nextCampaigns = campaignsResponse.status === "fulfilled"
+            ? unwrapApiData<PoolCampaign[]>(campaignsResponse.value.data)
+            : [];
+
+          setFeed(nextFeed);
+          setPoolOffers(nextPoolOffers);
+          setCampaigns(nextCampaigns);
+          setCachedHomeFeed({
+            feed: nextFeed,
+            poolOffers: nextPoolOffers,
+            campaigns: nextCampaigns,
+          });
         } else {
           throw homeResponse.reason;
-        }
-        if (poolResponse.status === "fulfilled") {
-          setPoolOffers(unwrapApiData<PoolOffer[]>(poolResponse.value.data));
-        }
-        if (campaignsResponse.status === "fulfilled") {
-          setCampaigns(unwrapApiData<PoolCampaign[]>(campaignsResponse.value.data));
         }
       } catch (err) {
         if (isMounted) {
@@ -349,7 +385,7 @@ export function MarketplaceHomeFeedPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [setCachedHomeFeed]);
 
   React.useEffect(() => {
     const count = feed?.heroBanners.length ?? 0;
@@ -400,8 +436,16 @@ export function MarketplaceHomeFeedPage() {
         },
       ];
   const banner = banners[activeBanner % banners.length];
-  const stockProducts = feed.featuredProducts.filter((item) => item.productSource !== "POOL_RESALE");
-  const digitalProducts = [...feed.featuredProducts, ...feed.trendingProducts].filter(
+  const memberSignals = {
+    cartProductIds: cartItems.map((item) => item.productId),
+    wishlistProductIds: wishlistItems.map((item) => item.id),
+    recentlyViewedIds: recentlyViewedItems.map((item) => item.id),
+    searchHistory: getSearchHistory(),
+  };
+  const rankedFeatured = rankProductsForMember(feed.featuredProducts, memberSignals);
+  const rankedTrending = rankProductsForMember(feed.trendingProducts, memberSignals);
+  const stockProducts = rankedFeatured.filter((item) => item.productSource !== "POOL_RESALE");
+  const digitalProducts = [...rankedFeatured, ...rankedTrending].filter(
     (item) => item.productType === "DIGITAL",
   );
 
@@ -527,7 +571,7 @@ export function MarketplaceHomeFeedPage() {
           <ProductBand
             title="Vendor stock"
             description="Products fulfilled manually while Rider stays paused."
-            products={(stockProducts.length ? stockProducts : feed.featuredProducts).slice(0, 8)}
+            products={(stockProducts.length ? stockProducts : rankedFeatured).slice(0, 8)}
             actionHref="/search?source=vendor-stock"
             gridClassName="grid gap-x-4 gap-y-7 sm:grid-cols-2 xl:grid-cols-4"
             onQuickView={setQuickViewProduct}
@@ -570,12 +614,12 @@ export function MarketplaceHomeFeedPage() {
         <ProductBand
           title="Trending catalog"
           description="Live active products from stores."
-          products={feed.trendingProducts}
+          products={rankedTrending}
           actionHref="/search"
           onQuickView={setQuickViewProduct}
         />
 
-        <section>
+        <section id="categories" className="scroll-mt-28">
           <div className="mb-5 flex items-center justify-between border-b border-neutral-200 pb-4">
             <div>
               <Boxes className="h-6 w-6 text-kwik-orange" />

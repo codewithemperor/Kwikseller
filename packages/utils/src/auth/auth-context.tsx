@@ -12,6 +12,7 @@ import {
   UserStore,
   type LoginCredentials,
   type RegisterData,
+  type AdminRole,
 } from "../stores/auth-store";
 import {
   api,
@@ -52,6 +53,7 @@ export interface User {
     productLimit: number;
   };
   permissions?: string[];
+  adminRole?: string;
 }
 
 export interface TokenData {
@@ -159,6 +161,7 @@ function toStoreUser(user: User): UserStore {
     rider: user.rider,
     subscription: user.subscription,
     permissions: user.permissions,
+    adminRole: user.adminRole as AdminRole | undefined,
   };
 }
 
