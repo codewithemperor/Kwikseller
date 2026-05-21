@@ -175,6 +175,20 @@ const SORT_OPTIONS = [
 
 type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 
+const withTimeout = async <T,>(promise: Promise<T>, ms = 8000): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Request timed out")), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 /* ─── Convert for QuickViewModal ──────────────────────────── */
 
 function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
@@ -216,7 +230,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
       setIsLoading(true);
       try {
         // Fetch category info
-        const catRes = await marketplaceApi.getCategories();
+        const catRes = await withTimeout(marketplaceApi.getCategories());
         if (catRes.success && catRes.data) {
           const data = catRes.data as any;
           const cats = Array.isArray(data) ? data : data.categories || [];
@@ -231,7 +245,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
         }
 
         // Fetch products
-        const response = await productsApi.getCategoryBySlug(slug, { limit: 50 });
+        const response = await withTimeout(productsApi.getCategoryBySlug(slug, { limit: 50 }));
         if (response.success && response.data) {
           const respData = response.data as any;
           if (Array.isArray(respData)) {
@@ -419,9 +433,9 @@ function CategoryDetailView({ slug }: { slug: string }) {
         {/* Product grid */}
         {!isLoading && sortedProducts.length > 0 && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {sortedProducts.map((product) => (
+            {sortedProducts.map((product, index) => (
               <MarketplaceProductCard
-                key={product.id}
+                key={`${product.id}-${index}`}
                 product={toMarketplaceProduct(product)}
                 onQuickView={() => handleQuickView(product)}
               />
@@ -461,7 +475,7 @@ function AllCategoriesView() {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const response = await marketplaceApi.getCategories();
+        const response = await withTimeout(marketplaceApi.getCategories());
         if (response.success && response.data) {
           const data = response.data as any;
           const list = Array.isArray(data) ? data : data.categories || [];
@@ -654,7 +668,7 @@ function AllCategoriesView() {
                   const { Icon } = style;
 
                   return (
-                    <StaggerChild key={category.id} index={index}>
+                    <StaggerChild key={`${category.id}-${index}`} index={index}>
                       <motion.button
                         type="button"
                         onClick={() => router.push(`/categories?name=${category.slug || category.id}`)}

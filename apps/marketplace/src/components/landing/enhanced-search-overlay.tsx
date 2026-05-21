@@ -273,7 +273,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-50"
+            className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-md"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -284,7 +284,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -30, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 top-0 z-50 mx-auto w-full max-w-2xl px-4 pt-4 sm:top-8 sm:pt-0"
+            className="fixed inset-x-0 top-0 z-[100] mx-auto w-full max-w-2xl px-4 pt-4 sm:top-8 sm:pt-0"
           >
             <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
               {/* Search bar - glassmorphism */}
@@ -298,7 +298,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Search products, stores, categories..."
-                    className="flex-1 bg-transparent outline-none text-base placeholder:text-kwik-muted text-kwik-dark"
+                    className="flex-1 bg-transparent text-base text-kwik-dark outline-none placeholder:text-kwik-muted dark:text-white"
                     aria-label="Search"
                     role="searchbox"
                   />
@@ -365,12 +365,12 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                 {product.initials}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate text-kwik-dark">
+                              <div className="truncate text-sm font-medium text-kwik-dark dark:text-white">
                                   {highlightMatch(product.name, query)}
                                 </div>
-                                <div className="text-xs text-kwik-gray-light">{product.category}</div>
+                                <div className="text-xs text-kwik-gray-light dark:text-white/55">{product.category}</div>
                               </div>
-                              <span className="text-sm font-semibold text-kwik-dark flex-shrink-0">
+                              <span className="flex-shrink-0 text-sm font-semibold text-kwik-dark dark:text-white">
                                 {product.price}
                               </span>
                             </motion.button>
@@ -418,7 +418,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                   }}
                                 >
                                   <Clock className="w-4 h-4 text-kwik-muted flex-shrink-0" />
-                                  <span className="flex-1 text-sm text-kwik-dark truncate">{term}</span>
+                                  <span className="flex-1 truncate text-sm text-kwik-dark dark:text-white">{term}</span>
                                   <button
                                     onClick={(e) => handleRemoveHistory(term, e)}
                                     className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-kwik-bg-light transition-all text-kwik-muted hover:text-kwik-dark"
@@ -458,7 +458,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                               >
                                 <TrendingUp className="w-3.5 h-3.5 text-kwik-orange flex-shrink-0" />
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-sm text-kwik-dark truncate group-hover:text-kwik-orange transition-colors">
+                                  <div className="truncate text-sm text-kwik-dark transition-colors group-hover:text-kwik-orange dark:text-white">
                                     {item.term}
                                   </div>
                                   <div className="text-[10px] text-kwik-muted">{item.count}</div>
@@ -498,7 +498,7 @@ export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
                                 >
                                   <cat.icon className="w-5 h-5" />
                                 </div>
-                                <span className="text-xs font-medium text-kwik-dark">{cat.name}</span>
+                                <span className="text-xs font-medium text-kwik-dark dark:text-white">{cat.name}</span>
                                 <span className="text-[10px] text-kwik-muted">{cat.count}</span>
                               </motion.button>
                             ))}

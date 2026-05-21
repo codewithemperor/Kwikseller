@@ -199,6 +199,7 @@ export default function CartPage() {
     0,
   );
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const productCount = items.length;
   const cartGroups = React.useMemo(() => groupCartItems(items), [items]);
   const physicalVendorGroups = cartGroups.filter((group) => group.requiresShipping).length;
   const requiresShipping = items.some((item) => item.requiresShipping !== false && item.productType !== "DIGITAL");
@@ -431,52 +432,93 @@ export default function CartPage() {
     (step === "payment" &&
       ((requiresShipping && (!deliveryRate || isLoadingDeliveryRate)) || hasUnvalidatedCoupon));
 
+  const handleStepClick = (nextStep: CheckoutStep) => {
+    if (nextStep === "cart") {
+      setStep("cart");
+      return;
+    }
+
+    if (!ensureAuthenticated()) return;
+
+    if (nextStep === "delivery") {
+      if (requiresShipping) setStep("delivery");
+      return;
+    }
+
+    if (!requiresShipping || (validateShipping() && deliveryRate)) {
+      setStep("payment");
+    } else {
+      kwikToast.error("Complete delivery details before payment.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-[#07111f]">
       <div className="border-b border-neutral-200 bg-white dark:border-white/10 dark:bg-[#07111f]">
-        <div className="container mx-auto flex items-center gap-4 px-4 py-4">
+        <div className="container mx-auto flex items-center gap-3 px-4 py-3">
           <Link href="/">
             <Button isIconOnly variant="ghost" size="sm" aria-label="Go back">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-xl font-semibold text-kwik-dark dark:text-white">Cart and checkout</h1>
-            <p className="text-sm text-kwik-muted dark:text-white/60">
-              Review items, set delivery details, then pay securely with Paystack.
-            </p>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold text-kwik-dark dark:text-white">Checkout</h1>
           </div>
         </div>
       </div>
 
-      <main className="container mx-auto grid gap-8 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_390px]">
-        <div className="space-y-8">
-          <section className="grid grid-cols-3 gap-2">
+      <main className="container mx-auto grid w-full max-w-full grid-cols-1 gap-6 overflow-hidden px-4 pb-28 pt-4 md:pb-8 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="min-w-0 max-w-full space-y-5">
+          <section className="flex min-w-0 max-w-full items-center overflow-hidden border border-neutral-200 bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
             {[
-              { id: "cart", icon: ShoppingCart, title: "Cart", text: `${totalItems} item${totalItems === 1 ? "" : "s"}` },
+              {
+                id: "cart",
+                icon: ShoppingCart,
+                title: "Cart",
+                text: `${productCount} product${productCount === 1 ? "" : "s"}${totalItems !== productCount ? `, ${totalItems} qty` : ""}`,
+              },
               { id: "delivery", icon: Truck, title: "Delivery", text: requiresShipping ? "Address required" : "Not required" },
-              { id: "payment", icon: CreditCard, title: "Payment", text: "Paystack checkout" },
-            ].map((item) => {
+              { id: "payment", icon: CreditCard, title: "Payment", text: "Paystack" },
+            ].map((item, index) => {
               const isActive = item.id === step;
+              const isDone =
+                (item.id === "cart" && step !== "cart") ||
+                (item.id === "delivery" && step === "payment");
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    if (item.id === "cart") setStep("cart");
-                    if (item.id === "delivery" && requiresShipping) setStep("delivery");
-                    if (item.id === "payment" && (!requiresShipping || (validateShipping() && deliveryRate))) setStep("payment");
-                  }}
-                  className={`min-w-0 border-b px-1 pb-4 text-left transition ${
-                    isActive
-                      ? "border-kwik-orange"
-                      : "border-neutral-200 dark:border-white/10"
-                  }`}
-                >
-                  <item.icon className={`h-5 w-5 ${isActive ? "text-kwik-orange" : "text-kwik-muted"}`} />
-                  <p className="mt-3 text-sm font-semibold text-kwik-dark dark:text-white">{item.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-kwik-muted dark:text-white/60">{item.text}</p>
-                </button>
+                <React.Fragment key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleStepClick(item.id as CheckoutStep)}
+                    className={`min-w-0 flex-1 px-1.5 py-2 text-left transition ${
+                      isActive
+                        ? "bg-kwik-orange text-white shadow-sm"
+                        : isDone
+                          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+                          : "text-kwik-dark hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center border text-[11px] font-bold ${
+                          isActive
+                            ? "border-white/35 bg-white/20 text-white"
+                            : isDone
+                              ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-300/20 dark:bg-white/10 dark:text-emerald-100"
+                              : "border-neutral-200 bg-white text-kwik-muted dark:border-white/10 dark:bg-white/5"
+                        }`}
+                      >
+                        <item.icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{item.title}</span>
+                        <span className={`block truncate text-[11px] ${isActive ? "text-white/80" : "text-kwik-muted dark:text-white/55"}`}>
+                          {item.text}
+                        </span>
+                      </span>
+                    </div>
+                  </button>
+                  {index < 2 && <div className="mx-0.5 h-px w-2 shrink-0 bg-neutral-200 dark:bg-white/10" />}
+                </React.Fragment>
               );
             })}
           </section>
@@ -516,69 +558,69 @@ export default function CartPage() {
               </Link>
             </section>
           ) : step === "cart" ? (
-            <section className="space-y-4">
+            <section className="min-w-0 max-w-full space-y-4">
               {cartGroups.map((group) => (
-                <div key={group.storeId} className="border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
-                  <div className="flex flex-col gap-2 border-b border-neutral-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="font-heading text-base font-semibold text-kwik-dark dark:text-white">{group.storeName}</h2>
-                      <p className="mt-1 text-xs text-kwik-muted dark:text-white/55">
+                <div key={group.storeId} className="flex max-h-[340px] min-w-0 max-w-full flex-col overflow-hidden border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+                  <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-neutral-200 p-3 dark:border-white/10">
+                    <div className="min-w-0">
+                      <h2 className="truncate font-heading text-sm font-semibold text-kwik-dark dark:text-white">{group.storeName}</h2>
+                      <p className="mt-0.5 truncate text-[11px] text-kwik-muted dark:text-white/55">
                         {group.items.length} product{group.items.length === 1 ? "" : "s"} • {group.requiresShipping ? "Delivery required" : "Digital-only"}{group.hasPoolResale ? " • Pool resale" : ""}
                       </p>
                     </div>
-                    <div className="text-sm font-bold text-kwik-dark dark:text-white">{formatCurrency(group.subtotal)}</div>
+                    <div className="shrink-0 text-sm font-bold text-kwik-dark dark:text-white">{formatCurrency(group.subtotal)}</div>
                   </div>
 
-                  <div className="divide-y divide-neutral-200 dark:divide-white/10">
+                  <div className="min-h-0 flex-1 divide-y divide-neutral-200 overflow-y-auto dark:divide-white/10">
                     {group.items.map((item) => {
                       const meta = fulfillmentMeta(item);
                       const MetaIcon = meta.icon;
 
                       return (
-                        <article key={`${item.productId}-${item.poolOfferId ?? "stock"}`} className="p-4">
-                          <div className="flex gap-4">
-                            <div className="h-24 w-24 shrink-0 overflow-hidden bg-neutral-100">
+                        <article key={`${item.productId}-${item.poolOfferId ?? "stock"}`} className="min-w-0 p-2.5">
+                          <div className="flex min-w-0 gap-2.5">
+                            <div className="h-16 w-16 shrink-0 overflow-hidden bg-neutral-100 sm:h-20 sm:w-20">
                               <AppImage src={item.image} alt={item.name} className="h-full w-full object-cover" fallbackVariant="product" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <span className={`inline-flex items-center gap-1 bg-[#f3f5f2] px-2 py-1 text-[11px] font-semibold ${meta.color}`}>
+                              <div className="flex min-w-0 items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <span className={`inline-flex items-center gap-1 bg-[#f3f5f2] px-1.5 py-0.5 text-[10px] font-semibold ${meta.color}`}>
                                     <MetaIcon className="h-3 w-3" />
                                     {meta.label}
                                   </span>
-                                  <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-kwik-dark dark:text-white">{item.name}</h3>
+                                  <h3 className="mt-1 line-clamp-1 text-sm font-semibold text-kwik-dark dark:text-white">{item.name}</h3>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => removeItem(item.productId)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-md text-kwik-muted hover:bg-red-50 hover:text-red-600"
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-kwik-muted hover:bg-red-50 hover:text-red-600"
                                   aria-label="Remove item"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
 
-                              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-base font-bold text-kwik-dark dark:text-white">{formatCurrency(item.price * item.quantity)}</p>
+                              <div className="mt-2 flex min-w-0 items-end justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-kwik-dark dark:text-white">{formatCurrency(item.price * item.quantity)}</p>
                                   {item.comparePrice && (
-                                    <p className="text-xs text-kwik-muted line-through">{formatCurrency(item.comparePrice * item.quantity)}</p>
+                                    <p className="text-[11px] text-kwik-muted line-through">{formatCurrency(item.comparePrice * item.quantity)}</p>
                                   )}
                                 </div>
-                                <div className="flex items-center overflow-hidden rounded-md border border-neutral-200 dark:border-white/10">
+                                <div className="flex shrink-0 items-center overflow-hidden rounded-md border border-neutral-200 dark:border-white/10">
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                                    className="h-9 w-9 text-sm font-semibold hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
+                                    className="h-8 w-8 text-sm font-semibold hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
                                   >
                                     -
                                   </button>
-                                  <span className="min-w-10 border-x border-neutral-200 px-3 text-center text-sm font-semibold dark:border-white/10 dark:text-white">{item.quantity}</span>
+                                  <span className="min-w-8 border-x border-neutral-200 px-2 text-center text-sm font-semibold dark:border-white/10 dark:text-white">{item.quantity}</span>
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                                    className="h-9 w-9 text-sm font-semibold hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
+                                    className="h-8 w-8 text-sm font-semibold hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
                                   >
                                     +
                                   </button>
@@ -737,8 +779,25 @@ export default function CartPage() {
           )}
         </div>
 
-        <aside className="space-y-4 self-start lg:sticky lg:top-28">
-          <section className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <aside className="min-w-0 max-w-full space-y-4 self-start lg:sticky lg:top-6">
+          {step === "cart" ? (
+            <section className="min-w-0 max-w-full overflow-hidden border border-neutral-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+              <AppButton
+                type="button"
+                disabled={isPrimaryDisabled}
+                onClick={handlePrimaryAction}
+                fullWidth
+                size="lg"
+                isLoading={isPrimaryBusy}
+                loadingLabel="Validating cart"
+              >
+                {!isPrimaryBusy && <ArrowRight className="h-4 w-4" />}
+                {primaryLabel}
+              </AppButton>
+            </section>
+          ) : (
+            <>
+          <section className="min-w-0 max-w-full overflow-hidden border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
             <h2 className="text-base font-semibold text-kwik-dark dark:text-white">Order summary</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex justify-between">
@@ -865,7 +924,7 @@ export default function CartPage() {
             )}
           </section>
 
-          <section className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <section className="min-w-0 max-w-full overflow-hidden border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
             <h3 className="text-sm font-semibold text-kwik-dark dark:text-white">Checkout checks</h3>
             <div className="mt-4 space-y-3">
               {[
@@ -883,6 +942,8 @@ export default function CartPage() {
               ))}
             </div>
           </section>
+            </>
+          )}
         </aside>
       </main>
     </div>

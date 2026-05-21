@@ -3,7 +3,7 @@
 
 "use client";
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Store,
   ArrowRight,
@@ -44,6 +44,7 @@ import { cn } from "@kwikseller/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { marketplaceApi } from "@kwikseller/api-client";
 
 // ─── Animation Helpers ─────────────────────────────────────────────
 
@@ -728,9 +729,81 @@ export default function VendorsPage() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<VendorCategory>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [apiVendors, setApiVendors] = useState<VendorData[]>([]);
+  const [isLoadingVendors, setIsLoadingVendors] = useState(true);
+
+  useEffect(() => {
+    const coverColors = [
+      "bg-pink-500",
+      "bg-cyan-500",
+      "bg-violet-500",
+      "bg-green-500",
+      "bg-orange-500",
+      "bg-red-500",
+      "bg-amber-500",
+      "bg-emerald-500",
+    ];
+
+    const normalizeCategory = (value?: string): VendorData["category"] => {
+      const match = categories.find((cat) => cat !== "All" && cat.toLowerCase() === value?.toLowerCase());
+      return match ?? "Fashion";
+    };
+
+    const initialsFor = (name: string) =>
+      name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("") || "KS";
+
+    const loadVendors = async () => {
+      setIsLoadingVendors(true);
+      try {
+        const response = await marketplaceApi.getSellers({ limit: 48 });
+        if (response.success && response.data) {
+          const data = response.data as any;
+          const list = Array.isArray(data) ? data : data.sellers || [];
+          setApiVendors(
+            list.map((seller: any, index: number) => {
+              const storeName = seller.storeName || seller.name || "Kwikseller vendor";
+              const category = normalizeCategory(
+                seller.category?.name || seller.category || seller.primaryCategory || seller.tags?.[0],
+              );
+              return {
+                id: String(seller.id ?? index),
+                slug: seller.slug,
+                storeName,
+                initials: seller.initials || initialsFor(storeName),
+                category,
+                location: seller.location || seller.address?.state || seller.country || "Nigeria",
+                description: seller.tagline || seller.description || "Verified seller on Kwikseller.",
+                products: seller.productCount ? `${seller.productCount}` : "0",
+                rating: Number(seller.rating ?? seller.averageRating ?? 0),
+                sold: seller.sold ? `${seller.sold}` : "0",
+                badge: seller.isFeatured ? "Featured" : seller.isVerified ? "Verified" : "Rising Star",
+                badgeColor: seller.isFeatured ? "bg-amber-500" : seller.isVerified ? "bg-gray-500" : "bg-sky-500",
+                coverColor: seller.coverColor || coverColors[index % coverColors.length],
+                tags: Array.isArray(seller.tags) ? seller.tags : [category],
+                isVerified: Boolean(seller.isVerified ?? seller.verified ?? true),
+              } satisfies VendorData;
+            }),
+          );
+        } else {
+          setApiVendors([]);
+        }
+      } catch {
+        setApiVendors([]);
+      } finally {
+        setIsLoadingVendors(false);
+      }
+    };
+
+    loadVendors();
+  }, []);
 
   const filteredVendors = useMemo(() => {
-    return vendors.filter((v) => {
+    return apiVendors.filter((v) => {
       const matchesCategory =
         activeCategory === "All" || v.category === activeCategory;
       const matchesSearch =
@@ -741,12 +814,32 @@ export default function VendorsPage() {
         v.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesCategory && matchesSearch;
     });
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, apiVendors, searchQuery]);
 
   return (
     <>
+      <section className="border-b border-divider bg-white dark:bg-background">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold text-kwik-dark dark:text-white">Vendors</h1>
+              <p className="mt-0.5 text-xs text-kwik-muted dark:text-white/60">
+                {isLoadingVendors ? "Loading verified sellers" : `${filteredVendors.length} verified sellers`}
+              </p>
+            </div>
+            <div className="min-w-0 flex-1 max-w-sm">
+              <Input
+                placeholder="Search vendors"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                startContent={<Search className="h-4 w-4 text-kwik-muted" />}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
       {/* ─── 1. Hero Section ─────────────────────────────────── */}
-      <section className="bg-accent relative overflow-hidden">
+      <section className="hidden">
         <div className="absolute inset-0 pattern-grid opacity-10 pointer-events-none" />
         {/* Decorative gradient orbs */}
         <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none" />
@@ -808,9 +901,9 @@ export default function VendorsPage() {
       </section>
 
       {/* ─── 2. Vendor Categories Filter ─────────────────────── */}
-      <section className="bg-white dark:bg-background border-b border-divider sticky top-12 md:top-16 z-20">
+      <section className="sticky top-[112px] z-[70] border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95 md:top-16">
         <div className="container mx-auto px-0 md:px-4">
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-2 py-1.5 md:px-0">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -848,23 +941,18 @@ export default function VendorsPage() {
       </section>
 
       {/* ─── 3. Featured Vendors Grid ────────────────────────── */}
-      <section className="py-12 sm:py-16 md:py-20">
-        <div className="container mx-auto px-0 md:px-4 ">
+      <section className="py-6 sm:py-8">
+        <div className="container mx-auto px-4 md:px-4">
           <AnimatedSection>
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10">
+            <div className="mb-4 flex items-end justify-between gap-4">
               <div>
-                <Chip variant="soft" className="mb-3">
+                <Chip variant="soft" className="mb-2">
                   <Award className="w-4 h-4 mr-1" />
                   Featured Sellers
                 </Chip>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                <h2 className="text-xl font-bold md:text-2xl">
                   Explore Top Vendors
                 </h2>
-                <p className="text-default-500 mt-2 max-w-lg">
-                  {activeCategory === "All"
-                    ? "Browse our handpicked selection of verified sellers delivering exceptional quality across Africa."
-                    : `Showing ${filteredVendors.length} vendors in ${activeCategory}`}
-                </p>
               </div>
               <div className="text-sm text-default-400 shrink-0">
                 {filteredVendors.length} vendor
@@ -874,7 +962,7 @@ export default function VendorsPage() {
           </AnimatedSection>
 
           {filteredVendors.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredVendors.map((vendor, index) => (
                 <VendorCard key={vendor.id} vendor={vendor} index={index} />
               ))}
@@ -906,6 +994,8 @@ export default function VendorsPage() {
         </div>
       </section>
 
+      {false && (
+      <>
       {/* ─── 4. Why Sell on Kwikseller ───────────────────────── */}
       <section className="py-16 sm:py-20 bg-default-50 relative overflow-hidden">
         <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-accent/5 blur-[80px] pointer-events-none" />
@@ -1200,6 +1290,8 @@ export default function VendorsPage() {
           </AnimatedSection>
         </div>
       </section>
+      </>
+      )}
     </>
   );
 }

@@ -136,10 +136,10 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-4 border-b border-neutral-200 pb-4">
+    <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
       <div>
-        <h2 className="text-xl font-semibold text-kwik-dark dark:text-white md:text-2xl">{title}</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-kwik-muted dark:text-white/60">{description}</p>
+        <h2 className="text-base font-semibold text-white md:text-xl">{title}</h2>
+        <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">{description}</p>
       </div>
       {action}
     </div>
@@ -151,7 +151,7 @@ function ProductBand({
   description,
   products,
   actionHref,
-  gridClassName = "grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5",
+  gridClassName = "grid grid-cols-2 gap-x-4 gap-y-7 lg:grid-cols-4 xl:grid-cols-5",
   onQuickView,
 }: {
   title: string;
@@ -168,7 +168,7 @@ function ProductBand({
         description={description}
         action={
           actionHref ? (
-            <Link href={actionHref} className="inline-flex items-center gap-1 text-sm font-semibold text-kwik-dark dark:text-white">
+            <Link href={actionHref} className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
               View more <ChevronRight className="h-4 w-4" />
             </Link>
           ) : undefined
@@ -176,8 +176,8 @@ function ProductBand({
       />
       {products.length ? (
         <div className={gridClassName}>
-          {products.map((product) => (
-            <MarketplaceProductCard key={product.id} product={product} onQuickView={onQuickView} />
+          {products.map((product, index) => (
+            <MarketplaceProductCard key={`${product.id}-${index}`} product={product} onQuickView={onQuickView} />
           ))}
         </div>
       ) : (
@@ -463,7 +463,7 @@ export function MarketplaceHomeFeedPage() {
               <div className="mt-3 flex justify-center gap-2" aria-label="Marketplace banners">
                 {banners.map((item, index) => (
                   <button
-                    key={item.id}
+                    key={`${item.id}-${index}`}
                     type="button"
                     onClick={() => setActiveBanner(index)}
                     className={`h-1.5 rounded-full transition-all ${index === activeBanner ? "w-6 bg-kwik-dark" : "w-1.5 bg-neutral-300"}`}
@@ -542,22 +542,22 @@ export function MarketplaceHomeFeedPage() {
 
       <div className="container mx-auto space-y-12 px-4 py-10">
         <section>
-          <div className="mb-5 flex items-end justify-between gap-4 border-b border-neutral-200 pb-4 dark:border-white/10">
+          <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
             <div>
-              <h2 className="text-2xl font-semibold text-kwik-dark dark:text-white">Pool resale shelf</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-kwik-muted dark:text-white/60">
+              <h2 className="text-base font-semibold text-white md:text-xl">Pool resale shelf</h2>
+              <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">
               Vendor offers backed by the Admin Pool Catalog, priced with markup, and ready to validate in checkout.
               </p>
             </div>
-            <Link href="/pool" className="inline-flex items-center gap-1 text-sm font-semibold text-kwik-dark dark:text-white">
+            <Link href="/pool" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
               View more <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
           {poolOffers.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {poolOffers.slice(0, 6).map((offer) => (
-                <PoolOfferCard key={offer.id} offer={offer} />
+            <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
+              {poolOffers.slice(0, 6).map((offer, index) => (
+                <PoolOfferCard key={`${offer.id}-${index}`} offer={offer} />
               ))}
             </div>
           ) : (
@@ -573,23 +573,23 @@ export function MarketplaceHomeFeedPage() {
             description="Products fulfilled manually while Rider stays paused."
             products={(stockProducts.length ? stockProducts : rankedFeatured).slice(0, 8)}
             actionHref="/search?source=vendor-stock"
-            gridClassName="grid gap-x-4 gap-y-7 sm:grid-cols-2 xl:grid-cols-4"
+            gridClassName="grid grid-cols-2 gap-x-4 gap-y-7 xl:grid-cols-4"
             onQuickView={setQuickViewProduct}
           />
 
           <aside className="bg-[#0b4aa2] p-5 text-white">
-            <div className="mb-5 flex items-start justify-between gap-4 border-b border-white/15 pb-4">
+            <div className="-mx-5 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-5 py-3">
               <div>
-                <h2 className="text-xl font-semibold">Group-buy desk</h2>
-                <p className="mt-1 text-sm leading-6 text-white/70">Campaigns waiting for buyer commitments.</p>
+                <h2 className="text-base font-semibold md:text-xl">Group-buy desk</h2>
+                <p className="mt-0.5 text-xs leading-5 text-white/70 md:text-sm">Campaigns waiting for buyer commitments.</p>
               </div>
-              <Link href="/group-buy" className="inline-flex items-center gap-1 text-sm font-semibold text-white">
+              <Link href="/group-buy" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
                 View more <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
             <div>
               {campaigns.length ? (
-                campaigns.slice(0, 4).map((campaign) => <CampaignRow key={campaign.id} campaign={campaign} />)
+                campaigns.slice(0, 4).map((campaign, index) => <CampaignRow key={`${campaign.id}-${index}`} campaign={campaign} />)
               ) : (
                 <div className="border border-dashed border-white/30 p-6">
                   <Clock3 className="h-6 w-6 text-white" />
@@ -620,20 +620,20 @@ export function MarketplaceHomeFeedPage() {
         />
 
         <section id="categories" className="scroll-mt-28">
-          <div className="mb-5 flex items-center justify-between border-b border-neutral-200 pb-4">
+          <div className="-mx-4 mb-4 flex items-center justify-between bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
             <div>
-              <Boxes className="h-6 w-6 text-kwik-orange" />
-              <h2 className="mt-3 text-xl font-semibold text-kwik-dark dark:text-white md:text-2xl">Browse by category</h2>
-              <p className="mt-1 text-sm text-kwik-muted dark:text-white/60">Category shelves stay API-driven and ready for fulfillment filters.</p>
+              <Boxes className="h-6 w-6 text-white" />
+              <h2 className="mt-2 text-base font-semibold text-white md:text-xl">Browse by category</h2>
+              <p className="mt-0.5 text-xs text-white/70 md:text-sm">Category shelves stay API-driven and ready for fulfillment filters.</p>
             </div>
-            <Link href="/categories" className="inline-flex items-center gap-1 text-sm font-semibold text-kwik-dark dark:text-white">
+            <Link href="/categories" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
               View more <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
-            {feed.categories.slice(0, 8).map((category) => (
+            {feed.categories.slice(0, 8).map((category, index) => (
               <Link
-                key={category.id}
+                key={`${category.id}-${index}`}
                 href={`/categories?name=${category.slug}`}
                 className="group border-b border-neutral-200 pb-4"
               >
@@ -658,8 +658,8 @@ export function MarketplaceHomeFeedPage() {
             }
           />
           <div className="grid gap-4 md:grid-cols-4">
-            {feed.brands.slice(0, 4).map((brand) => (
-              <div key={brand.id} className="border-b border-neutral-200 pb-4">
+            {feed.brands.slice(0, 4).map((brand, index) => (
+              <div key={`${brand.id}-${index}`} className="border-b border-neutral-200 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 overflow-hidden bg-neutral-100">
                     <AppImage src={brand.image} alt={brand.name} className="h-full w-full object-cover" fallbackVariant="default" />

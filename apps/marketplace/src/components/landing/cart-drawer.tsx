@@ -31,6 +31,7 @@ export function CartDrawer() {
 
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const productCount = items.length;
 
   const goToCart = () => {
     setCartOpen(false);
@@ -65,7 +66,8 @@ export function CartDrawer() {
                 <div>
                   <h2 className="text-lg font-semibold text-kwik-dark dark:text-white">Quick cart</h2>
                   <p className="text-xs text-kwik-muted dark:text-white/60">
-                    {totalItems} {totalItems === 1 ? "item" : "items"}
+                    {productCount} {productCount === 1 ? "product" : "products"}
+                    {totalItems !== productCount ? `, ${totalItems} qty` : ""}
                   </p>
                 </div>
               </div>
@@ -200,7 +202,7 @@ export function CartDrawer() {
                 </div>
 
                 <Button variant="primary" size="lg" className="w-full" onPress={goToCart}>
-                  Open full cart
+                  Checkout
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
 

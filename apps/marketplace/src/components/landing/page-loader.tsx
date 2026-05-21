@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Store } from 'lucide-react'
 import { cn } from '@kwikseller/ui'
 
 /* ============================================================
@@ -99,8 +99,15 @@ export function PageLoader({ isLoading }: PageLoaderProps) {
               />
 
               {/* Logo square */}
-              <div className="relative w-20 h-20 rounded-2xl kwik-gradient flex items-center justify-center">
-                <Store className="w-10 h-10 text-white" />
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-background shadow-lg ring-1 ring-border">
+                <Image
+                  src="/icon.png"
+                  alt="Kwikseller"
+                  width={52}
+                  height={52}
+                  style={{ width: 52, height: 52 }}
+                  priority
+                />
               </div>
             </motion.div>
 

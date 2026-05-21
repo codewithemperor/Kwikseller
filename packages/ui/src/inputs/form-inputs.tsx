@@ -26,8 +26,8 @@ import {
   CalendarDate,
 } from "@internationalized/date";
 const formInputGroupClass =
-  "min-h-12 rounded-md border-border bg-field-background text-base focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15 dark:border-white/10 dark:bg-[#07111f]";
-const formInputClass = "text-base text-foreground dark:text-white";
+  "min-h-14 rounded-2xl border border-border bg-field-background text-base shadow-sm outline-none ring-0 transition focus-within:border-border focus-within:outline-none focus-within:ring-0 focus-within:ring-transparent data-[focus-visible=true]:outline-none dark:border-white/10 dark:bg-[#07111f]";
+const formInputClass = "h-14 text-base text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:outline-none focus:ring-0 dark:text-white";
 
 // ==================== BASE TYPES ====================
 

@@ -69,10 +69,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-8">
               <div className="w-full max-w-[480px]">{children}</div>
             </div>
-
-            <p className="border-t border-neutral-200 px-5 py-4 text-center text-xs text-kwik-muted dark:border-white/10 dark:text-white/50">
-              Copyright 2026 Kwikseller. All rights reserved.
-            </p>
           </section>
         </div>
       </main>
