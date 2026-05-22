@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +45,7 @@ function isEmailNotVerified(result: {
 
 export function LoginPage({ portal, className }: LoginPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, verifyOTP, resendOTP, isLoading } = useAuth();
 
   const [serverError, setServerError] = React.useState<string | null>(null);
@@ -62,8 +63,13 @@ export function LoginPage({ portal, className }: LoginPageProps) {
   });
 
   const redirectToApp = React.useCallback(() => {
-    setTimeout(() => router.push(portal.redirectPath), 400);
-  }, [router, portal.redirectPath]);
+    const rawRedirect = searchParams.get("redirect");
+    const safeRedirect =
+      rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//")
+        ? rawRedirect
+        : portal.redirectPath;
+    setTimeout(() => router.push(safeRedirect), 400);
+  }, [router, searchParams, portal.redirectPath]);
 
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);

@@ -27,7 +27,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button, Separator } from "@heroui/react";
 import { OfflineBanner } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
-import { marketplaceApi } from "@kwikseller/api-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CartDrawer } from "@/components/landing/cart-drawer";
 import { ComparePanel } from "@/components/landing/compare-panel";
@@ -45,7 +44,6 @@ import { WishlistSidebar } from "@/components/landing/wishlist-sidebar";
 import { MarketplaceShellProvider } from "@/components/layout/marketplace-shell-context";
 import { useCartStore, useWishlistStore } from "@/stores";
 import { AppImage } from "@/components/ui/app-image";
-import type { MarketplaceCategory } from "@/data/marketplace-home";
 
 function MobileDrawerContent({
   onClose,
@@ -54,7 +52,6 @@ function MobileDrawerContent({
   isAuthLoading,
   handleLogout,
   router,
-  categories,
   onNavigateStart,
 }: {
   onClose: () => void;
@@ -63,7 +60,6 @@ function MobileDrawerContent({
   isAuthLoading: boolean;
   handleLogout: () => void;
   router: ReturnType<typeof useRouter>;
-  categories: MarketplaceCategory[];
   onNavigateStart?: () => void;
 }) {
   const pathname = usePathname();
@@ -84,7 +80,7 @@ function MobileDrawerContent({
   };
 
   return (
-    <div className="flex h-full flex-col px-6 py-6">
+    <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Image
@@ -128,26 +124,6 @@ function MobileDrawerContent({
           );
         })}
       </nav>
-
-      {categories.length > 0 && (
-        <div className="mb-4 rounded-2xl bg-kwik-bg-surface p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-kwik-orange">
-            Shop categories
-          </p>
-          <div className="grid grid-cols-1 gap-1">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => handleNavClick(`/categories?name=${category.slug || category.id}`)}
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-kwik-gray transition-colors hover:bg-background hover:text-kwik-dark"
-              >
-                <span>{category.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <Separator className="mb-4" />
 
@@ -342,7 +318,6 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const isPageLoadingRef = useRef(true);
   const [isClientMounted, setIsClientMounted] = useState(false);
 
@@ -360,31 +335,14 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
     setIsClientMounted(true);
   }, []);
 
-  // Fetch categories for navigation
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await marketplaceApi.getCategories();
-        if (response.success && response.data) {
-          const data = response.data as any;
-          const list = Array.isArray(data) ? data : data.categories || [];
-          setCategories(
-            list.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              slug: c.slug || c.id,
-              itemCount: c.productCount ? `${c.productCount}+ items` : "",
-              description: c.description || "",
-              image: c.image || c.imageUrl || null,
-            })),
-          );
-        }
-      } catch {
-        // Categories will be empty
-      }
+    if (!isDrawerOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
     };
-    fetchCategories();
-  }, []);
+  }, [isDrawerOpen]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -430,7 +388,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   }, [isSearchPage]);
 
   const cartItemCount = useCartStore((s) =>
-    s.items.reduce((sum, item) => sum + item.quantity, 0),
+    s.items.length,
   );
   const [prevCartCount, setPrevCartCount] = useState(cartItemCount);
   const [badgeKey, setBadgeKey] = useState(0);
@@ -517,38 +475,40 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
               <div className="container mx-auto px-0 md:px-4">
                 {/* Top row: logo + actions */}
                 <div className="flex py-2 md:h-16 items-center justify-between">
-                  <Button
-                    isIconOnly
-                    variant="ghost"
-                    className="md:hidden"
-                    onPress={() => setIsDrawerOpen(true)}
-                    aria-label="Open menu"
-                  >
-                    <Menu className="h-5 w-5" />
-                  </Button>
+                  <div className="flex min-w-0 items-center gap-1 md:gap-2">
+                    <Button
+                      isIconOnly
+                      variant="ghost"
+                      className="md:hidden"
+                      onPress={() => setIsDrawerOpen(true)}
+                      aria-label="Open menu"
+                    >
+                      <Menu className="h-5 w-5" />
+                    </Button>
 
-                  {/* Logo */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      startNavigationLoading();
-                      router.push("/");
-                    }}
-                    className="flex items-center gap-1.5 md:gap-2 transition-opacity hover:opacity-80"
-                  >
-                    <div className="y-2">
-                      <Image
-                        src="/icon.png"
-                        alt="KWIKSELLER"
-                        width={20}
-                        height={20}
-                        className="rounded-md md:rounded-lg md:h-8! md:w-8!"
-                      />
-                    </div>
-                    <span className="text-xl md:text-xl font-bold text-kwik-dark">
-                      KWIKSELLER
-                    </span>
-                  </button>
+                    {/* Logo */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        startNavigationLoading();
+                        router.push("/");
+                      }}
+                      className="flex min-w-0 items-center gap-1.5 transition-opacity hover:opacity-80 md:gap-2"
+                    >
+                      <div className="y-2">
+                        <Image
+                          src="/icon.png"
+                          alt="KWIKSELLER"
+                          width={20}
+                          height={20}
+                          className="rounded-md md:rounded-lg md:h-8! md:w-8!"
+                        />
+                      </div>
+                      <span className="truncate text-lg font-bold text-kwik-dark md:text-xl">
+                        KWIKSELLER
+                      </span>
+                    </button>
+                  </div>
 
                   <MegaNav />
 
@@ -701,7 +661,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] md:hidden"
+                className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-[2px] md:hidden"
                 onClick={closeDrawer}
               />
               <motion.div
@@ -709,7 +669,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 320 }}
-                className="fixed bottom-0 right-0 top-0 z-50 w-[300px] max-w-[85vw] border-l border-kwik-border bg-background shadow-2xl md:hidden"
+                className="fixed bottom-0 right-0 top-0 z-[120] w-[300px] max-w-[85vw] overflow-hidden border-l border-kwik-border bg-background shadow-2xl md:hidden"
               >
                 <MobileDrawerContent
                   onClose={closeDrawer}
@@ -718,7 +678,6 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                   isAuthLoading={isAuthLoading}
                   handleLogout={handleLogout}
                   router={router}
-                  categories={categories}
                   onNavigateStart={startNavigationLoading}
                 />
               </motion.div>

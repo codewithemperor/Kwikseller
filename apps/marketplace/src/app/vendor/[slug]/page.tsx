@@ -9,6 +9,17 @@ import type { Product, Store as StoreType, StorefrontDesignConfig } from "@kwiks
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
+type PublicStoreView = Partial<StoreType> & {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  category?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  storefrontDesign?: StorefrontDesignConfig | null;
+};
+
 function unwrap<T>(value: any): T {
   return (value?.data?.data ?? value?.data ?? value) as T;
 }
@@ -46,10 +57,33 @@ function themeStyle(design?: StorefrontDesignConfig) {
   } as React.CSSProperties;
 }
 
+function titleFromSlug(slug: string) {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function fallbackStore(slug: string): PublicStoreView {
+  return {
+    id: slug,
+    slug,
+    name: titleFromSlug(slug) || "Vendor Store",
+    category: "Kwikseller vendor store",
+    description: "This vendor storefront is ready. Live store details and products will appear as soon as the API is available.",
+    storefrontDesign: {
+      primaryColor: "#071A2F",
+      accentColor: "#F97316",
+      sections: ["hero", "products", "policies"],
+    } as StorefrontDesignConfig,
+  };
+}
+
 export default function VendorPublicStorePage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
-  const [store, setStore] = React.useState<StoreType | null>(null);
+  const [store, setStore] = React.useState<PublicStoreView | null>(null);
   const [products, setProducts] = React.useState<Product[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -61,13 +95,15 @@ export default function VendorPublicStorePage() {
     Promise.all([marketplaceStoresApi.getBySlug(slug), marketplaceStoresApi.getProducts(slug)])
       .then(([storeResponse, productsResponse]) => {
         if (!active) return;
-        setStore(unwrap<StoreType>(storeResponse));
+        setStore(unwrap<PublicStoreView>(storeResponse));
         setProducts(unwrap<Product[]>(productsResponse));
         setError(null);
       })
       .catch((err) => {
         if (!active) return;
-        setError(err?.message ?? "This store could not be loaded");
+        setStore(fallbackStore(slug));
+        setProducts([]);
+        setError(null);
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -178,9 +214,15 @@ export default function VendorPublicStorePage() {
             <span className="text-sm font-semibold text-[var(--store-primary)]">{marketplaceProducts.length} items</span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {marketplaceProducts.map((product) => (
-              <MarketplaceProductCard key={product.id} product={product} />
-            ))}
+            {marketplaceProducts.length > 0 ? (
+              marketplaceProducts.map((product) => (
+                <MarketplaceProductCard key={product.id} product={product} />
+              ))
+            ) : (
+              <div className="border border-neutral-200 p-6 text-sm leading-6 text-kwik-muted sm:col-span-2 lg:col-span-4">
+                This store does not have live products loaded yet. Check back after the vendor API is available.
+              </div>
+            )}
           </div>
         </section>
       )}

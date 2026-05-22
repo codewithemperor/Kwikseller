@@ -83,7 +83,7 @@ export const useCartStore = create<CartState>()(
       toggleCart: () => set({ isOpen: !get().isOpen }),
       setCartOpen: (open) => set({ isOpen: open }),
 
-      itemCount: () => get().items.reduce((sum, item) => sum + item.quantity, 0),
+      itemCount: () => get().items.length,
 
       totalPrice: () =>
         get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),

@@ -4,6 +4,7 @@ import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Star, Store, MapPin, Award, ArrowRight } from "lucide-react";
 import { Button, Card, Chip, Avatar } from "@heroui/react";
+import Link from "next/link";
 
 const topVendors = [
   {
@@ -81,6 +82,7 @@ function VendorCard({
       animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
       transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
     >
+      <Link href={`/vendor/${vendor.slug}`} className="block h-full">
       <Card className="group p-6 h-full cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border border-transparent hover:border-accent/20">
         <div className="flex items-start gap-4 mb-4">
           <div className="relative">
@@ -125,6 +127,7 @@ function VendorCard({
           </div>
         </div>
       </Card>
+      </Link>
     </motion.div>
   );
 }

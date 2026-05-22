@@ -13,8 +13,9 @@ import {
   Award,
   ShoppingBag,
 } from "lucide-react";
-import { Button, Chip, Card } from "@heroui/react";
+import { Chip, Card } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
+import Link from "next/link";
 
 // ─── Data ───────────────────────────────────────────────────────
 
@@ -64,6 +65,10 @@ const featuredSeller: FeaturedSeller = {
     },
   ],
 };
+
+function vendorHref(name: string) {
+  return `/vendor/${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+}
 
 const previousSellers: PreviousSeller[] = [
   {
@@ -135,37 +140,39 @@ function PreviousSellerCard({
       transition={{ duration: 0.45, delay: index * 0.1, ease: "easeOut" }}
       className="flex-1 min-w-[200px]"
     >
-      <Card className="p-4 h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer border border-transparent hover:border-accent/20">
-        <div className="flex items-center gap-3">
-          {/* Avatar */}
-          <div className="relative shrink-0">
-            <div className="w-11 h-11 rounded-full bg-accent/15 flex items-center justify-center text-accent font-bold text-sm">
-              {seller.initials}
+      <Link href={vendorHref(seller.store)} className="block h-full">
+        <Card className="p-4 h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer border border-transparent hover:border-accent/20">
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            <div className="relative shrink-0">
+              <div className="w-11 h-11 rounded-full bg-accent/15 flex items-center justify-center text-accent font-bold text-sm">
+                {seller.initials}
+              </div>
             </div>
-          </div>
 
-          {/* Info */}
-          <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-sm truncate group-hover:text-accent transition-colors">
-              {seller.name}
-            </h4>
-            <p className="text-xs text-default-400 truncate">{seller.store}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[11px] text-default-400 flex items-center gap-0.5">
-                <MapPin className="w-3 h-3" />
-                {seller.location}
-              </span>
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-warning">
-                <Star className="w-3 h-3 fill-warning" />
-                {seller.rating}
-              </span>
-              <span className="text-[11px] text-default-400">
-                {seller.sales} sales
-              </span>
+            {/* Info */}
+            <div className="min-w-0 flex-1">
+              <h4 className="font-semibold text-sm truncate group-hover:text-accent transition-colors">
+                {seller.name}
+              </h4>
+              <p className="text-xs text-default-400 truncate">{seller.store}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[11px] text-default-400 flex items-center gap-0.5">
+                  <MapPin className="w-3 h-3" />
+                  {seller.location}
+                </span>
+                <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-warning">
+                  <Star className="w-3 h-3 fill-warning" />
+                  {seller.rating}
+                </span>
+                <span className="text-[11px] text-default-400">
+                  {seller.sales} sales
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </Link>
     </motion.div>
   );
 }
@@ -283,14 +290,17 @@ export function SellerSpotlight() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button className="kwik-gradient text-white font-semibold shadow-clean-md">
+              <Link
+                href={vendorHref(featuredSeller.store)}
+                className="inline-flex h-10 items-center justify-center gap-2 bg-kwik-orange px-4 text-sm font-semibold text-white shadow-clean-md"
+              >
                 <ShoppingBag className="w-4 h-4 mr-1.5" />
                 Visit Store
-              </Button>
-              <Button variant="ghost" className="font-medium">
+              </Link>
+              <Link href={`${vendorHref(featuredSeller.store)}#products`} className="inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold">
                 View All Products
                 <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
+              </Link>
             </div>
           </Card>
         </motion.div>

@@ -31,6 +31,7 @@ import {
   Globe,
   Award,
   CheckCircle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button, Card, Chip, Input } from "@heroui/react";
 import {
@@ -188,6 +189,20 @@ const categories: VendorCategory[] = [
   "Automobiles",
   "Phones",
 ];
+
+const VENDOR_SORT_OPTIONS = [
+  { value: "az", label: "A-Z" },
+  { value: "za", label: "Z-A" },
+  { value: "rating", label: "Top Rated" },
+] as const;
+
+type VendorSortValue = (typeof VENDOR_SORT_OPTIONS)[number]["value"];
+
+function unwrapApiData<T>(value: unknown): T {
+  const payload = value as { data?: unknown };
+  const nested = payload?.data as { data?: unknown } | undefined;
+  return (nested?.data ?? payload?.data ?? value) as T;
+}
 
 const categoryIcons: Record<string, React.ElementType> = {
   Fashion: Shirt,
@@ -708,15 +723,13 @@ function VendorCard({ vendor, index }: { vendor: VendorData; index: number }) {
           </div>
 
           {/* Visit Store Button */}
-          <Button
-            as={Link}
+          <Link
             href={`/vendor/${vendorSlug}`}
-            variant="outline"
-            className="w-full font-medium group/btn"
+            className="group/btn inline-flex h-11 w-full items-center justify-center gap-2 border border-kwik-border bg-background px-4 text-sm font-semibold text-kwik-dark transition hover:border-kwik-orange hover:text-kwik-orange dark:border-white/15 dark:bg-white/5 dark:text-white"
           >
             Visit Store
             <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-          </Button>
+          </Link>
         </div>
       </Card>
     </StaggerChild>
@@ -729,6 +742,8 @@ export default function VendorsPage() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<VendorCategory>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<VendorSortValue>("rating");
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [apiVendors, setApiVendors] = useState<VendorData[]>([]);
   const [isLoadingVendors, setIsLoadingVendors] = useState(true);
 
@@ -761,8 +776,8 @@ export default function VendorsPage() {
       setIsLoadingVendors(true);
       try {
         const response = await marketplaceApi.getSellers({ limit: 48 });
-        if (response.success && response.data) {
-          const data = response.data as any;
+        const data = unwrapApiData<any>(response);
+        if (data) {
           const list = Array.isArray(data) ? data : data.sellers || [];
           setApiVendors(
             list.map((seller: any, index: number) => {
@@ -772,7 +787,7 @@ export default function VendorsPage() {
               );
               return {
                 id: String(seller.id ?? index),
-                slug: seller.slug,
+                slug: seller.username || seller.slug || seller.storeUsername,
                 storeName,
                 initials: seller.initials || initialsFor(storeName),
                 category,
@@ -802,8 +817,10 @@ export default function VendorsPage() {
     loadVendors();
   }, []);
 
+  const vendorSource = apiVendors.length > 0 ? apiVendors : vendors;
+
   const filteredVendors = useMemo(() => {
-    return apiVendors.filter((v) => {
+    const result = vendorSource.filter((v) => {
       const matchesCategory =
         activeCategory === "All" || v.category === activeCategory;
       const matchesSearch =
@@ -814,26 +831,64 @@ export default function VendorsPage() {
         v.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesCategory && matchesSearch;
     });
-  }, [activeCategory, apiVendors, searchQuery]);
+
+    switch (sortBy) {
+      case "az":
+        result.sort((a, b) => a.storeName.localeCompare(b.storeName));
+        break;
+      case "za":
+        result.sort((a, b) => b.storeName.localeCompare(a.storeName));
+        break;
+      case "rating":
+        result.sort((a, b) => b.rating - a.rating);
+        break;
+    }
+
+    return result;
+  }, [activeCategory, searchQuery, sortBy, vendorSource]);
 
   return (
     <>
-      <section className="border-b border-divider bg-white dark:bg-background">
+      <section className="relative z-[95] border-b border-divider bg-white dark:bg-background">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
               <h1 className="text-xl font-bold text-kwik-dark dark:text-white">Vendors</h1>
               <p className="mt-0.5 text-xs text-kwik-muted dark:text-white/60">
-                {isLoadingVendors ? "Loading verified sellers" : `${filteredVendors.length} verified sellers`}
+                {isLoadingVendors ? "Loading verified sellers" : "Browse verified sellers"}
               </p>
             </div>
-            <div className="min-w-0 flex-1 max-w-sm">
-              <Input
-                placeholder="Search vendors"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                startContent={<Search className="h-4 w-4 text-kwik-muted" />}
-              />
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSortOpen((value) => !value)}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-kwik-border bg-white px-3 text-xs font-semibold text-kwik-dark transition hover:border-kwik-orange dark:border-white/10 dark:bg-white/5 dark:text-white"
+                aria-expanded={isSortOpen}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-kwik-orange" />
+                Sort
+              </button>
+              {isSortOpen && (
+                <div className="absolute right-0 top-11 z-[110] w-40 overflow-hidden rounded-md border border-kwik-border bg-white shadow-xl dark:border-white/10 dark:bg-[#07111f]">
+                  {VENDOR_SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setSortBy(opt.value);
+                    setIsSortOpen(false);
+                  }}
+                  className={`block w-full px-3 py-2 text-left text-xs font-medium transition ${
+                    sortBy === opt.value
+                      ? "bg-kwik-orange text-white"
+                      : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -901,7 +956,7 @@ export default function VendorsPage() {
       </section>
 
       {/* ─── 2. Vendor Categories Filter ─────────────────────── */}
-      <section className="sticky top-[112px] z-[70] border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95 md:top-16">
+      <section className="sticky top-[112px] z-[90] border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95 md:top-16">
         <div className="container mx-auto px-0 md:px-4">
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-2 py-1.5 md:px-0">
             {categories.map((cat) => (
@@ -953,10 +1008,6 @@ export default function VendorsPage() {
                 <h2 className="text-xl font-bold md:text-2xl">
                   Explore Top Vendors
                 </h2>
-              </div>
-              <div className="text-sm text-default-400 shrink-0">
-                {filteredVendors.length} vendor
-                {filteredVendors.length !== 1 ? "s" : ""} found
               </div>
             </div>
           </AnimatedSection>

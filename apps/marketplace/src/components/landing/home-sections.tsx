@@ -34,6 +34,12 @@ import {
   Headset,
 } from "lucide-react";
 
+function unwrapApiData<T>(value: unknown): T {
+  const payload = value as { data?: unknown };
+  const nested = payload?.data as { data?: unknown } | undefined;
+  return (nested?.data ?? payload?.data ?? value) as T;
+}
+
 /* ─── Static category icon map (emoji fallbacks) ─── */
 const CATEGORY_ICONS: Record<string, string> = {
   fashion: "👗",
@@ -504,11 +510,12 @@ export function MarketplaceTopSellersSection() {
     const fetch = async () => {
       try {
         const response = await marketplaceApi.getSellers({ limit: 10 });
-        if (response.success && response.data) {
-          const data = response.data as any;
+        const data = unwrapApiData<any>(response);
+        if (data) {
           const list = Array.isArray(data) ? data : data.sellers || [];
           setSellers(list.map((s: any) => ({
             id: s.id,
+            slug: s.username || s.slug || s.storeUsername,
             name: s.name || s.storeName || "",
             tagline: s.tagline || s.description || "",
             image: s.image || s.bannerUrl || s.coverUrl || null,
@@ -593,7 +600,7 @@ export function MarketplaceTopSellersSection() {
                   className="min-w-0 shrink-0 basis-[calc(100%-16px)] sm:basis-[calc(50%-8px)] lg:basis-[calc(33.333%-11px)]"
                 >
                   <Link
-                    href={`/vendors?seller=${seller.id}`}
+                    href={`/vendor/${seller.slug || seller.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || seller.id}`}
                     className="group block overflow-hidden rounded-[22px] bg-background shadow-sm ring-1 ring-border transition-shadow hover:shadow-md"
                   >
                     <div className="relative aspect-[2.6/1] overflow-hidden">

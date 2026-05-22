@@ -4,7 +4,7 @@ import Link from "next/link";
 import React from "react";
 import {
   ArrowRight,
-  Boxes,
+  Check,
   ChevronRight,
   Clock3,
   Download,
@@ -47,6 +47,16 @@ interface HomeBrand {
   name: string;
   image: string | null;
   productCount: number;
+}
+
+interface HomeSeller {
+  id: string;
+  name: string;
+  slug: string;
+  image: string | null;
+  logo: string | null;
+  productCount: number;
+  isVerified: boolean;
 }
 
 interface HomeFeedResponse {
@@ -195,6 +205,9 @@ function ProductBand({
 
 function PoolOfferCard({ offer }: { offer: PoolOffer }) {
   const addItem = useCartStore((state) => state.addItem);
+  const isInCart = useCartStore((state) =>
+    state.items.some((item) => item.productId === offer.product?.id || item.poolOfferId === offer.id),
+  );
   const productId = offer.product?.id;
   const image = offer.product?.images?.[0]?.url ?? null;
   const name = offer.product?.name ?? offer.poolProduct?.name ?? "Pool resale offer";
@@ -236,16 +249,17 @@ function PoolOfferCard({ offer }: { offer: PoolOffer }) {
         </div>
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-[11px] text-kwik-muted dark:text-white/55">Vendor price</p>
             <p className="text-base font-bold text-kwik-dark dark:text-white">{formatCurrency(offer.retailPrice)}</p>
           </div>
           <button
             type="button"
             onClick={addToCart}
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-kwik-dark px-3 text-xs font-semibold text-white transition hover:bg-black"
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-white transition ${
+              isInCart ? "bg-emerald-600 hover:bg-emerald-700" : "bg-kwik-orange hover:bg-kwik-orange-hover"
+            }`}
+            aria-label={isInCart ? "Added to cart" : "Add to cart"}
           >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Cart
+            {isInCart ? <Check className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
           </button>
         </div>
       </div>
@@ -317,6 +331,7 @@ export function MarketplaceHomeFeedPage() {
   const [feed, setFeed] = React.useState<HomeFeedResponse | null>(null);
   const [poolOffers, setPoolOffers] = React.useState<PoolOffer[]>([]);
   const [campaigns, setCampaigns] = React.useState<PoolCampaign[]>([]);
+  const [homeSellers, setHomeSellers] = React.useState<HomeSeller[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activeBanner, setActiveBanner] = React.useState(0);
@@ -386,6 +401,35 @@ export function MarketplaceHomeFeedPage() {
       isMounted = false;
     };
   }, [setCachedHomeFeed]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    marketplaceApi.getSellers({ limit: 4 })
+      .then((response) => {
+        if (!isMounted) return;
+        const data = unwrapApiData<any>(response.data);
+        const list = Array.isArray(data) ? data : data?.sellers || [];
+        setHomeSellers(list.map((seller: any, index: number) => {
+          const name = seller.name || seller.storeName || "Kwikseller vendor";
+          const slug = seller.username || seller.slug || seller.storeUsername || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || String(seller.id ?? index);
+          return {
+            id: String(seller.id ?? slug),
+            name,
+            slug,
+            image: seller.banner || seller.bannerUrl || seller.coverUrl || seller.image || null,
+            logo: seller.logo || seller.logoUrl || null,
+            productCount: Number(seller.productCount ?? seller.products ?? 0),
+            isVerified: Boolean(seller.isVerified ?? seller.verified ?? true),
+          };
+        }));
+      })
+      .catch(() => {
+        if (isMounted) setHomeSellers([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     const count = feed?.heroBanners.length ?? 0;
@@ -622,8 +666,7 @@ export function MarketplaceHomeFeedPage() {
         <section id="categories" className="scroll-mt-28">
           <div className="-mx-4 mb-4 flex items-center justify-between bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
             <div>
-              <Boxes className="h-6 w-6 text-white" />
-              <h2 className="mt-2 text-base font-semibold text-white md:text-xl">Browse by category</h2>
+              <h2 className="text-base font-semibold text-white md:text-xl">Browse by category</h2>
               <p className="mt-0.5 text-xs text-white/70 md:text-sm">Category shelves stay API-driven and ready for fulfillment filters.</p>
             </div>
             <Link href="/categories" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
@@ -650,31 +693,31 @@ export function MarketplaceHomeFeedPage() {
         <section>
           <SectionHeader
             title="Vendor storefronts"
-            description="Use this compact vendor treatment wherever sellers are listed."
+            description="Verified stores with their own public marketplace pages."
             action={
-              <Link href="/vendors" className="inline-flex items-center gap-1 text-sm font-semibold text-kwik-dark dark:text-white">
+              <Link href="/vendors" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
                 View more <ChevronRight className="h-4 w-4" />
               </Link>
             }
           />
           <div className="grid gap-4 md:grid-cols-4">
-            {feed.brands.slice(0, 4).map((brand, index) => (
-              <div key={`${brand.id}-${index}`} className="border-b border-neutral-200 pb-4">
+            {homeSellers.map((seller, index) => (
+              <div key={`${seller.id}-${index}`} className="border-b border-neutral-200 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 overflow-hidden bg-neutral-100">
-                    <AppImage src={brand.image} alt={brand.name} className="h-full w-full object-cover" fallbackVariant="default" />
+                    <AppImage src={seller.logo || seller.image} alt={seller.name} className="h-full w-full object-cover" fallbackVariant="default" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-kwik-dark">{brand.name}</p>
-                    <p className="text-xs text-kwik-muted">{brand.productCount} active products</p>
+                    <p className="text-sm font-semibold text-kwik-dark">{seller.name}</p>
+                    <p className="text-xs text-kwik-muted">{seller.productCount} active products</p>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between text-xs">
                   <span className="inline-flex items-center gap-1 text-emerald-700">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    Verified shelf
+                    {seller.isVerified ? "Verified store" : "Store"}
                   </span>
-                  <Link href="/vendors" className="inline-flex items-center gap-1 font-semibold text-kwik-dark">
+                  <Link href={`/vendor/${seller.slug}`} className="inline-flex items-center gap-1 font-semibold text-kwik-dark">
                     View <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { CommerceService } from './commerce.service';
 import {
   AddCartItemDto,
@@ -39,11 +40,13 @@ import {
 export class PublicStoresController {
   constructor(private readonly commerce: CommerceService) {}
 
+  @Public()
   @Get(':slug')
   getStore(@Param('slug') slug: string) {
     return this.commerce.getPublicStore(slug);
   }
 
+  @Public()
   @Get(':slug/products')
   getStoreProducts(@Param('slug') slug: string) {
     return this.commerce.listPublicStoreProducts(slug);

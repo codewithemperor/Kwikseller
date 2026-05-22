@@ -33,6 +33,15 @@ export function CartDrawer() {
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const productCount = items.length;
 
+  React.useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   const goToCart = () => {
     setCartOpen(false);
     router.push("/cart");
@@ -47,7 +56,7 @@ export function CartDrawer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm"
             onClick={() => setCartOpen(false)}
           />
 
@@ -56,7 +65,7 @@ export function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 right-0 top-0 z-[80] flex w-[420px] max-w-[92vw] flex-col border-l border-kwik-border bg-white shadow-2xl dark:border-white/10 dark:bg-[#07111f]"
+            className="fixed bottom-0 right-0 top-0 z-[120] flex w-[420px] max-w-[92vw] flex-col overflow-hidden border-l border-kwik-border bg-white shadow-2xl dark:border-white/10 dark:bg-[#07111f]"
           >
             <div className="flex items-center justify-between border-b border-kwik-border px-6 py-4 dark:border-white/10">
               <div className="flex items-center gap-3">

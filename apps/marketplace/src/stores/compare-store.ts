@@ -31,15 +31,10 @@ export const useCompareStore = create<CompareState>()(
     (set, get) => ({
       products: [],
       isOpen: false,
-      maxProducts: 4,
+      maxProducts: 1,
 
       addProduct: (product) => {
-        const { products, maxProducts } = get()
-        const exists = products.some((p) => p.id === product.id)
-        if (exists) return true // already in compare, allow
-        if (products.length >= maxProducts) return false // max reached
-        const updated = [...products, product]
-        set({ products: updated })
+        set({ products: [product], isOpen: true })
         return true
       },
 

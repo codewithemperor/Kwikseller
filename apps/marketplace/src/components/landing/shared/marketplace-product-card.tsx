@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Download, Heart, PackageCheck, ShoppingCart, Star, Users } from "lucide-react";
+import { Check, Heart, Scale, ShoppingCart, Star } from "lucide-react";
 import { kwikToast } from "@kwikseller/utils";
-import { useCartStore, useWishlistStore } from "@/stores";
+import { useCartStore, useCompareStore, useWishlistStore } from "@/stores";
 import { AppImage } from "@/components/ui/app-image";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 
@@ -20,13 +20,6 @@ function discountPct(price: number, compare?: number) {
   return Math.round(((compare - price) / compare) * 100);
 }
 
-function sourceBadge(product: MarketplaceProduct) {
-  if (product.productSource === "POOL_RESALE") return { label: "Pool Resale", icon: Users };
-  if (product.productSource === "GROUP_BUY") return { label: "Group Buy", icon: Users };
-  if (product.productType === "DIGITAL") return { label: "Digital", icon: Download };
-  return { label: "Vendor Stock", icon: PackageCheck };
-}
-
 export function MarketplaceProductCard({
   product,
   onQuickView,
@@ -36,10 +29,12 @@ export function MarketplaceProductCard({
   onQuickView?: (p: MarketplaceProduct) => void;
 }) {
   const addItem = useCartStore((s) => s.addItem);
+  const isInCart = useCartStore((s) => s.items.some((item) => item.productId === product.id));
   const { toggleItem, isInWishlist } = useWishlistStore();
+  const { addProduct, isInCompare, setOpen } = useCompareStore();
   const isWished = isInWishlist(product.id);
+  const isCompared = isInCompare(product.id);
   const discount = discountPct(product.price, product.comparePrice);
-  const badge = sourceBadge(product);
 
   const handleAddToCart = () => {
     addItem({
@@ -57,6 +52,35 @@ export function MarketplaceProductCard({
       requiresShipping: product.requiresShipping,
     });
     kwikToast.success(`${product.name} added to cart`);
+  };
+
+  const handleCompare = () => {
+    const success = addProduct({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      comparePrice: product.comparePrice,
+      image: product.image,
+      category: product.category,
+      rating: product.rating,
+      reviews: product.reviewCount,
+      store: product.store ?? "Verified vendor",
+      specs: {
+        "Seller price": formatPrice(product.price),
+        "Market price": product.comparePrice ? formatPrice(product.comparePrice) : "Not available",
+        Savings: product.comparePrice ? formatPrice(product.comparePrice - product.price) : "Not available",
+        Store: product.store ?? "Verified vendor",
+        Category: product.category,
+      },
+    });
+
+    if (!success) {
+      kwikToast.warning("You can compare up to 4 products at a time. Remove one first.");
+      return;
+    }
+
+    setOpen(true);
+    kwikToast.success(isCompared ? "Comparison opened" : "Added to comparison");
   };
 
   const handleWishlistToggle = () => {
@@ -121,29 +145,43 @@ export function MarketplaceProductCard({
               {product.rating.toFixed(1)}
             </span>
           </div>
-          <p className="mt-1 line-clamp-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-            {badge.label}
-          </p>
         </div>
 
         <div className="mt-auto flex items-end justify-between gap-3">
           <div>
-            <p className="text-[11px] text-kwik-muted dark:text-white/55">Vendor price</p>
             {product.comparePrice && (
               <p className="text-[10px] text-kwik-muted line-through dark:text-white/45">{formatPrice(product.comparePrice)}</p>
             )}
             <p className="text-base font-bold text-kwik-dark dark:text-white">{formatPrice(product.price)}</p>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddToCart();
-            }}
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-kwik-dark px-3 text-xs font-semibold text-white transition hover:bg-black"
-          >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Cart
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCompare();
+              }}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-md border text-white transition ${
+                isCompared
+                  ? "border-kwik-orange bg-kwik-orange"
+                  : "border-white/10 bg-[#0b4aa2] hover:bg-[#083879] dark:bg-white/10 dark:hover:bg-white/15"
+              }`}
+              aria-label={isCompared ? "Open comparison" : "Compare price"}
+            >
+              <Scale className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToCart();
+              }}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-white transition ${
+                isInCart ? "bg-emerald-600 hover:bg-emerald-700" : "bg-kwik-orange hover:bg-kwik-orange-hover"
+              }`}
+              aria-label={isInCart ? "Added to cart" : "Add to cart"}
+            >
+              {isInCart ? <Check className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+            </button>
+          </div>
         </div>
       </div>
     </article>

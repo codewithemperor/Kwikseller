@@ -471,6 +471,7 @@ function AllCategoriesView() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<CategorySortValue>("popular");
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -548,17 +549,53 @@ function AllCategoriesView() {
             <span className="font-medium text-kwik-dark dark:text-white">Categories</span>
           </div>
 
-          <div className="pb-4">
-            <h1 className="text-2xl font-bold text-kwik-dark dark:text-white">All Categories</h1>
+          <div className="flex items-end justify-between gap-3 pb-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-kwik-dark dark:text-white sm:text-2xl">All Categories</h1>
             <p className="mt-1 text-sm text-kwik-gray-light dark:text-white/60">
-              Browse products by category · {categories.length} categories
+              Browse products by category
             </p>
+            </div>
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSortOpen((value) => !value)}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-kwik-border bg-white px-3 text-xs font-semibold text-kwik-dark transition hover:border-kwik-orange dark:border-white/10 dark:bg-white/5 dark:text-white"
+                aria-expanded={isSortOpen}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-kwik-orange" />
+                Sort
+              </button>
+              {isSortOpen && (
+                <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-md border border-kwik-border bg-white shadow-xl dark:border-white/10 dark:bg-[#07111f]">
+                  {CATEGORY_SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setSortBy(opt.value);
+                    setIsSortOpen(false);
+                  }}
+                  className={`block w-full px-3 py-2 text-left text-xs font-medium transition ${
+                    sortBy === opt.value
+                      ? "bg-kwik-orange text-white"
+                      : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {false && (
+      <>
       {/* Search & Sort Bar */}
-      <div className="border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
+      <div className="hidden border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Search input */}
@@ -607,6 +644,8 @@ function AllCategoriesView() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Category grid */}
       <div className="container mx-auto px-4 py-6">
@@ -658,7 +697,7 @@ function AllCategoriesView() {
             )}
 
             <StaggerWrap>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {filteredCategories.map((category, index) => {
                   const style = getCategoryStyle(
                     category.name,
@@ -668,15 +707,15 @@ function AllCategoriesView() {
                   const { Icon } = style;
 
                   return (
-                    <StaggerChild key={`${category.id}-${index}`} index={index}>
+                    <StaggerChild key={`${category.id}-${index}`} index={index} className="w-full">
                       <motion.button
                         type="button"
                         onClick={() => router.push(`/categories?name=${category.slug || category.id}`)}
                         whileHover={{ y: -4 }}
                         whileTap={{ scale: 0.98 }}
-                        className="group h-full cursor-pointer border border-neutral-200 bg-white p-5 text-left transition-all duration-300 hover:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:hover:border-white/50 sm:p-6"
+                        className="group h-full w-full cursor-pointer border border-neutral-200 bg-white p-4 text-left transition-all duration-300 hover:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:hover:border-white/50"
                       >
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-center gap-4">
                           {/* Colored icon box */}
                           <div
                             className={cn(
@@ -689,23 +728,9 @@ function AllCategoriesView() {
 
                           {/* Category info */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-sm sm:text-base mb-1 truncate text-kwik-dark">
+                            <h3 className="font-semibold text-base text-kwik-dark dark:text-white">
                               {category.name}
                             </h3>
-                            <div className="flex items-center gap-1">
-                              <Package className="w-3 h-3 text-kwik-muted" />
-                              <span
-                                className={cn(
-                                  "text-sm font-semibold",
-                                  style.textColor,
-                                )}
-                              >
-                                {category.productCount || 0}
-                              </span>
-                              <span className="text-xs text-kwik-muted">
-                                products
-                              </span>
-                            </div>
                           </div>
 
                           {/* Chevron */}

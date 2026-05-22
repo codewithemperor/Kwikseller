@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
+import Link from "next/link";
 
 // ─── Data ───────────────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ function StarRating({ rating }: { rating: number }) {
 function StoryCard({ story, index }: { story: SellerStory; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-60px" });
+  const storySlug = story.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
   return (
     <motion.div
@@ -191,14 +193,13 @@ function StoryCard({ story, index }: { story: SellerStory; index: number }) {
         </div>
 
         {/* Visit Store button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full font-medium hover:bg-accent/10 hover:text-accent transition-colors group"
+        <Link
+          href={`/vendor/${storySlug}`}
+          className="group inline-flex h-9 w-full items-center justify-center gap-2 text-sm font-semibold transition-colors hover:bg-accent/10 hover:text-accent"
         >
           Visit Store
           <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-        </Button>
+        </Link>
       </Card>
     </motion.div>
   );

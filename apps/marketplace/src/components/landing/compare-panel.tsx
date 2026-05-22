@@ -192,10 +192,16 @@ function SpecRow({
 // ─── ComparePanel ──────────────────────────────────────────────────
 
 export function ComparePanel() {
-  const { products, isOpen, setOpen, removeProduct, clearAll, toggleOpen } =
+  const { products, isOpen, setOpen, clearAll, toggleOpen } =
     useCompareStore()
 
   const count = products.length
+  const product = products[0]
+  const marketPrice = product?.comparePrice ?? product?.price ?? 0
+  const savings = product?.comparePrice ? product.comparePrice - product.price : 0
+  const savingsPercent = product?.comparePrice
+    ? Math.round((savings / product.comparePrice) * 100)
+    : 0
 
   // Collect all unique spec keys from all products
   const allSpecKeys = useMemo(() => {
@@ -221,8 +227,17 @@ export function ComparePanel() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isOpen])
+
   // No products → return null
-  if (count === 0) return null
+  if (!product) return null
 
   return (
     <>
@@ -234,7 +249,7 @@ export function ComparePanel() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[55] md:hidden"
+            className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm md:hidden"
             onClick={() => setOpen(false)}
           />
         )}
@@ -248,19 +263,16 @@ export function ComparePanel() {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-[64px] md:bottom-0 left-0 right-0 z-[55] bg-background border-t border-divider shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+            className="fixed inset-0 z-[120] overflow-y-auto bg-background shadow-[0_-8px_30px_rgba(0,0,0,0.12)] md:bottom-0 md:left-0 md:right-0 md:top-auto md:max-h-[92vh] md:border-t md:border-divider"
           >
             {/* Panel header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-divider">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-divider bg-background px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
                   <ArrowUpDown className="w-4 h-4 text-accent" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">Compare Products</h3>
-                  <p className="text-[11px] text-default-400">
-                    {count} of 4 products
-                  </p>
+                  <h3 className="font-semibold text-sm">Market Price Check</h3>
                 </div>
               </div>
               <Button
@@ -274,55 +286,33 @@ export function ComparePanel() {
               </Button>
             </div>
 
-            {/* Product cards row */}
-            <div className="p-4 overflow-x-auto scrollbar-thin">
-              <div className="flex gap-4 min-w-max">
-                <AnimatePresence mode="popLayout">
-                  {products.map((product, index) => (
-                    <ProductColumn
-                      key={product.id}
-                      product={product}
-                      index={index}
-                      onRemove={removeProduct}
-                    />
-                  ))}
-                </AnimatePresence>
-
-                {/* Empty slots */}
-                {Array.from({ length: 4 - count }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="flex flex-col items-center min-w-[200px] md:min-w-[180px] flex-1"
-                  >
-                    <div className="w-full aspect-square rounded-xl border-2 border-dashed border-default-200 bg-default-50 mb-3 flex items-center justify-center">
-                      <Scale className="w-8 h-8 text-default-200" />
-                    </div>
-                    <div className="text-center px-1">
-                      <p className="text-xs text-default-400">Add product</p>
-                    </div>
+            <div className="p-4 pb-24 md:pb-4">
+              <div className="grid gap-4 md:grid-cols-[160px_1fr]">
+                <div className="overflow-hidden bg-default-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={product.image} alt={product.name} className="aspect-square w-full object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-default-400">{product.store}</p>
+                  <h4 className="mt-1 line-clamp-2 text-base font-semibold">{product.name}</h4>
+                  <div className="mt-4 divide-y divide-divider border-y border-divider">
+                    {[
+                      ["Seller price", formatCurrency(product.price), "text-accent"],
+                      ["Market price", formatCurrency(marketPrice), ""],
+                      ["Estimated saving", savings > 0 ? `${formatCurrency(savings)} (${savingsPercent}%)` : "Not available", "text-emerald-700 dark:text-emerald-300"],
+                    ].map(([label, value, valueClass]) => (
+                      <div key={label} className="flex items-center justify-between gap-4 py-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-default-400">{label}</span>
+                        <span className={`text-right text-base font-bold ${valueClass}`}>{value}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
 
-            {/* Specs comparison table */}
-            {allSpecKeys.length > 0 && (
-              <div className="border-t border-divider">
-                <div className="px-4 py-2 bg-default-50">
-                  <span className="text-xs font-semibold text-default-500 uppercase tracking-wide">
-                    Specifications
-                  </span>
-                </div>
-                <div className="max-h-64 overflow-y-auto scrollbar-thin">
-                  {allSpecKeys.map((key) => (
-                    <SpecRow key={key} label={key} products={products} />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Actions */}
-            <div className="flex items-center gap-2 px-4 py-3 border-t border-divider bg-background">
+            <div className="sticky bottom-0 flex items-center gap-2 border-t border-divider bg-background px-4 py-3">
               <Button
                 variant="ghost"
                 size="sm"
@@ -346,13 +336,13 @@ export function ComparePanel() {
 
       {/* Minimized bar — always visible when products exist */}
       <AnimatePresence>
-        {!isOpen && (
+        {false && !isOpen && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-[64px] md:bottom-4 left-1/2 -translate-x-1/2 z-[55]"
+            className="fixed bottom-[64px] left-1/2 z-[90] -translate-x-1/2 md:bottom-4"
           >
             <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-background border border-divider shadow-[0_-4px_20px_rgba(0,0,0,0.1)] backdrop-blur-md">
               {/* Mini product thumbnails */}

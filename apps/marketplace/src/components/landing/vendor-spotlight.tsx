@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button, Chip, Card } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
+import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ function AnimatedNumber({
 function VendorCard({ vendor, index }: { vendor: VendorData; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-40px" });
+  const vendorSlug = vendor.storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
   return (
     <motion.div
@@ -291,10 +293,13 @@ function VendorCard({ vendor, index }: { vendor: VendorData; index: number }) {
           </div>
 
           {/* Visit Store Button */}
-          <Button variant="outline" className="w-full font-medium group/btn">
+          <Link
+            href={`/vendor/${vendorSlug}`}
+            className="group/btn inline-flex h-10 w-full items-center justify-center gap-2 border border-divider px-4 text-sm font-semibold transition hover:border-accent hover:text-accent"
+          >
             Visit Store
             <ArrowRight className="w-4 h-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
-          </Button>
+          </Link>
         </div>
       </Card>
     </motion.div>
