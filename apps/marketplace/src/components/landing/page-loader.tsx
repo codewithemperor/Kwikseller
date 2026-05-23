@@ -2,7 +2,9 @@
 
 import React from 'react'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Store } from 'lucide-react'
 import { cn } from '@kwikseller/ui'
 
 /* ============================================================
@@ -12,6 +14,7 @@ import { cn } from '@kwikseller/ui'
 
 interface PageLoaderProps {
   isLoading: boolean
+  vendorSlug?: string
 }
 
 /* ── Animation variants ─────────────────────────────────── */
@@ -67,9 +70,56 @@ const dotBounce = {
 
 const brandName = 'KWIKSELLER'
 
+function titleFromSlug(slug: string) {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 /* ── Component ──────────────────────────────────────────── */
 
-export function PageLoader({ isLoading }: PageLoaderProps) {
+export function PageLoader({ isLoading, vendorSlug }: PageLoaderProps) {
+  const pathname = usePathname()
+  const activeVendorSlug = vendorSlug ?? (pathname.startsWith('/vendor/') ? pathname.split('/')[2] : undefined)
+  const [vendorBrand, setVendorBrand] = React.useState<{
+    name: string
+    logoUrl?: string | null
+    primaryColor?: string
+    accentColor?: string
+  } | null>(null)
+
+  React.useEffect(() => {
+    if (!activeVendorSlug) {
+      setVendorBrand(null)
+      return
+    }
+
+    try {
+      const saved = window.sessionStorage.getItem('kwik.vendorLoader')
+      const parsed = saved ? JSON.parse(saved) as {
+        slug?: string
+        name?: string
+        logoUrl?: string | null
+        primaryColor?: string
+        accentColor?: string
+      } : null
+      setVendorBrand({
+        name: parsed?.slug === activeVendorSlug && parsed.name ? parsed.name : titleFromSlug(activeVendorSlug),
+        logoUrl: parsed?.slug === activeVendorSlug ? parsed.logoUrl : null,
+        primaryColor: parsed?.slug === activeVendorSlug ? parsed.primaryColor : undefined,
+        accentColor: parsed?.slug === activeVendorSlug ? parsed.accentColor : undefined,
+      })
+    } catch {
+      setVendorBrand({ name: titleFromSlug(activeVendorSlug), logoUrl: null })
+    }
+  }, [activeVendorSlug])
+
+  const isVendorLoading = Boolean(activeVendorSlug)
+  const vendorPrimary = vendorBrand?.primaryColor ?? 'var(--loader-primary, #071A2F)'
+  const vendorAccent = vendorBrand?.accentColor ?? 'var(--loader-accent, #F97316)'
+
   return (
     <AnimatePresence mode="wait">
       {isLoading && (
@@ -99,20 +149,31 @@ export function PageLoader({ isLoading }: PageLoaderProps) {
               />
 
               {/* Logo square */}
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-background shadow-lg ring-1 ring-border">
-                <Image
-                  src="/icon.png"
-                  alt="Kwikseller"
-                  width={52}
-                  height={52}
-                  style={{ width: 52, height: 52 }}
-                  priority
-                />
+              <div
+                className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-background shadow-lg ring-1 ring-border"
+                style={isVendorLoading ? { borderColor: vendorAccent } : undefined}
+              >
+                {isVendorLoading ? (
+                  vendorBrand?.logoUrl ? (
+                    <img src={vendorBrand.logoUrl} alt="" className="h-14 w-14 object-cover" />
+                  ) : (
+                    <Store className="h-10 w-10" style={{ color: vendorPrimary }} />
+                  )
+                ) : (
+                  <Image
+                    src="/icon.png"
+                    alt="Kwikseller"
+                    width={52}
+                    height={52}
+                    style={{ width: 52, height: 52 }}
+                    priority
+                  />
+                )}
               </div>
             </motion.div>
 
             {/* Brand name — letter-by-letter stagger */}
-            <motion.div
+            {!isVendorLoading && <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -136,7 +197,18 @@ export function PageLoader({ isLoading }: PageLoaderProps) {
                   </motion.span>
                 )
               })}
-            </motion.div>
+            </motion.div>}
+            {isVendorLoading && (
+              <motion.h1
+                variants={taglineVariants}
+                initial="hidden"
+                animate="visible"
+                className="max-w-xs text-center font-heading text-2xl font-bold"
+                style={{ color: vendorPrimary }}
+              >
+                {vendorBrand?.name ?? titleFromSlug(activeVendorSlug ?? '')}
+              </motion.h1>
+            )}
 
             {/* Loading dots */}
             <div className="flex items-center gap-2 h-4">
@@ -144,6 +216,7 @@ export function PageLoader({ isLoading }: PageLoaderProps) {
                 <motion.div
                   key={i}
                   className="w-2 h-2 rounded-full bg-accent"
+                  style={isVendorLoading ? { backgroundColor: vendorAccent } : undefined}
                   animate={dotBounce}
                   transition={{
                     duration: 0.6,
@@ -161,9 +234,10 @@ export function PageLoader({ isLoading }: PageLoaderProps) {
               variants={taglineVariants}
               initial="hidden"
               animate="visible"
-              className="text-sm text-default-400 tracking-wide"
+              className={cn('tracking-wide', isVendorLoading ? 'text-[10px] uppercase' : 'text-sm text-default-400')}
+              style={isVendorLoading ? { color: vendorPrimary } : undefined}
             >
-              Africa&apos;s Commerce Platform
+              {isVendorLoading ? 'Powered by Kwikseller' : "Africa's Commerce Platform"}
             </motion.p>
           </div>
 
@@ -171,6 +245,7 @@ export function PageLoader({ isLoading }: PageLoaderProps) {
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-default-100">
             <motion.div
               className="h-full kwik-gradient"
+              style={isVendorLoading ? { background: `linear-gradient(90deg, ${vendorPrimary}, ${vendorAccent})` } : undefined}
               initial={{ width: '0%' }}
               animate={{ width: '100%' }}
               transition={{ duration: 2, ease: 'easeInOut' }}

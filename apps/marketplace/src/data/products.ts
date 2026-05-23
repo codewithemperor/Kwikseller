@@ -38,6 +38,8 @@ export interface SearchableProduct {
   rating: number;
   reviewCount: number;
   store: string;
+  storeId?: string;
+  storeSlug?: string;
   category: string;
   categorySlug: string;
   description: string;
@@ -70,6 +72,8 @@ export function toSearchableProduct(p: Product): SearchableProduct {
     rating: p.rating,
     reviewCount: p.reviewCount,
     store: p.store?.name || 'Kwikseller',
+    storeId: p.storeId,
+    storeSlug: p.store?.slug,
     category: p.category?.name || '',
     categorySlug: p.category?.slug || '',
     description: p.description || '',

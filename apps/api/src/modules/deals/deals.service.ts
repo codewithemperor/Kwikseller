@@ -62,7 +62,7 @@ export class DealsService {
               include: {
                 images: { where: { isMain: true }, take: 1 },
                 brand: { select: { id: true, name: true } },
-                store: { select: { id: true, name: true } },
+                store: { select: { id: true, name: true, slug: true } },
               },
             },
           },
@@ -97,7 +97,7 @@ export class DealsService {
             product: {
               include: {
                 images: { where: { isMain: true }, take: 1 },
-                store: { select: { id: true, name: true } },
+                store: { select: { id: true, name: true, slug: true } },
               },
             },
           },
@@ -129,7 +129,7 @@ export class DealsService {
             product: {
               include: {
                 images: { where: { isMain: true }, take: 1 },
-                store: { select: { id: true, name: true } },
+                store: { select: { id: true, name: true, slug: true } },
               },
             },
           },

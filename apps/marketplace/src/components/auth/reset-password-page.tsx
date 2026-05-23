@@ -243,7 +243,7 @@ export function ResetPasswordPage({
 
       <form
         onSubmit={handleSubmit(onSubmit as any)}
-        className="flex flex-col gap-5"
+        className="auth-form flex flex-col gap-5"
         noValidate
       >
         <div className="flex flex-col items-center gap-2">

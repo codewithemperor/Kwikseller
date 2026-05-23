@@ -25,13 +25,17 @@ interface CartState {
 
   // Actions
   addItem: (item: Omit<CartItem, 'id' | 'quantity'>) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  removeItem: (productId: string, storeSlug?: string) => void
+  updateQuantity: (productId: string, quantity: number, storeSlug?: string) => void
   clearCart: () => void
+  clearStoreCart: (storeSlug: string) => void
   toggleCart: () => void
   setCartOpen: (open: boolean) => void
 
   // Computed
+  getItemsByStore: (storeSlug: string) => CartItem[]
+  getStoreItemCount: (storeSlug: string) => number
+  getStoreTotal: (storeSlug: string) => number
   itemCount: () => number
   totalPrice: () => number
 }
@@ -63,25 +67,42 @@ export const useCartStore = create<CartState>()(
         }
       },
 
-      removeItem: (productId) => {
-        set({ items: get().items.filter((i) => i.productId !== productId) })
+      removeItem: (productId, storeSlug) => {
+        set({
+          items: get().items.filter((i) =>
+            storeSlug
+              ? !(i.productId === productId && i.storeSlug === storeSlug)
+              : i.productId !== productId
+          ),
+        })
       },
 
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (productId, quantity, storeSlug) => {
         if (quantity <= 0) {
-          get().removeItem(productId)
+          get().removeItem(productId, storeSlug)
           return
         }
         set({
           items: get().items.map((i) =>
-            i.productId === productId ? { ...i, quantity } : i
+            i.productId === productId && (!storeSlug || i.storeSlug === storeSlug) ? { ...i, quantity } : i
           ),
         })
       },
 
       clearCart: () => set({ items: [] }),
+      clearStoreCart: (storeSlug) =>
+        set({ items: get().items.filter((item) => item.storeSlug !== storeSlug) }),
       toggleCart: () => set({ isOpen: !get().isOpen }),
       setCartOpen: (open) => set({ isOpen: open }),
+
+      getItemsByStore: (storeSlug) =>
+        get().items.filter((item) => item.storeSlug === storeSlug),
+      getStoreItemCount: (storeSlug) =>
+        get().items.filter((item) => item.storeSlug === storeSlug).length,
+      getStoreTotal: (storeSlug) =>
+        get()
+          .items.filter((item) => item.storeSlug === storeSlug)
+          .reduce((sum, item) => sum + item.price * item.quantity, 0),
 
       itemCount: () => get().items.length,
 

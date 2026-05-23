@@ -340,7 +340,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-4"
+        className="auth-form flex flex-col gap-4"
         noValidate
       >
         <div className="grid grid-cols-2 gap-4">

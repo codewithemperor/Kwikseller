@@ -60,7 +60,7 @@ export class DashboardService {
       take: limit,
       orderBy: { totalSales: 'desc' },
       include: {
-        store: { select: { id: true, name: true } },
+        store: { select: { id: true, name: true, slug: true } },
         category: { select: { id: true, name: true } },
         images: { where: { isMain: true }, take: 1 },
       },

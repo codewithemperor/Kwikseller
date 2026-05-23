@@ -47,6 +47,12 @@ export class PublicStoresController {
   }
 
   @Public()
+  @Get(':slug/products/:productSlug')
+  getStoreProduct(@Param('slug') slug: string, @Param('productSlug') productSlug: string) {
+    return this.commerce.getPublicStoreProduct(slug, productSlug);
+  }
+
+  @Public()
   @Get(':slug/products')
   getStoreProducts(@Param('slug') slug: string) {
     return this.commerce.listPublicStoreProducts(slug);
@@ -99,6 +105,11 @@ export class CartController {
   @Delete('items/:itemId')
   removeItem(@CurrentUser() user: any, @Param('itemId') itemId: string) {
     return this.commerce.removeCartItem(user, itemId);
+  }
+
+  @Delete('stores/:storeSlug')
+  clearStoreCart(@CurrentUser() user: any, @Param('storeSlug') storeSlug: string) {
+    return this.commerce.clearStoreCart(user, storeSlug);
   }
 
   @Delete()

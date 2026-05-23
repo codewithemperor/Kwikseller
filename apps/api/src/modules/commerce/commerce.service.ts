@@ -49,6 +49,18 @@ type CartValidationIssue = {
   requested?: number;
 };
 
+const STOREFRONT_TEMPLATE_OPTIONS = {
+  themePreset: ['CLASSIC', 'MODERN_DARK', 'EDITORIAL_LIGHT'],
+  navbarTemplate: ['NAVBAR_CLASSIC', 'NAVBAR_CENTERED', 'NAVBAR_MINIMAL'],
+  bottomNavTemplate: ['BOTTOM_TABS_CLASSIC', 'BOTTOM_TABS_COMPACT', 'BOTTOM_NONE'],
+  layoutTemplate: ['GRID_COMMERCE', 'DENSE_GRID', 'EDITORIAL_STACK'],
+  cartTemplate: ['CART_COMPACT', 'CART_SIDEPANEL', 'CART_MINIMAL'],
+  typographyPreset: ['FIGTREE_QUESTRIAL', 'INTER_TIGHT', 'SERIF_EDITORIAL'],
+  fontPairing: ['FIGTREE_QUESTRIAL', 'INTER_TIGHT', 'SERIF_EDITORIAL'],
+  heroLayout: ['BANNER_LEFT', 'CENTERED_HERO', 'MINIMAL_STRIP'],
+  productCardStyle: ['CLEAN_GRID', 'COMPACT_COMMERCE', 'EDITORIAL_CARD'],
+} as const;
+
 const RESERVATION_MINUTES = 15;
 const ORDER_TRANSITIONS: Record<string, string[]> = {
   DRAFT: ['PENDING_PAYMENT', 'CANCELLED'],
@@ -143,16 +155,35 @@ export class CommerceService {
 
     return {
       id: design?.id,
-      themePreset: design?.themePreset ?? 'CLASSIC',
+      themePreset: this.safeTemplateKey('themePreset', design?.themePreset),
+      navbarTemplate: this.safeTemplateKey('navbarTemplate', design?.navbarTemplate),
+      bottomNavTemplate: this.safeTemplateKey('bottomNavTemplate', design?.bottomNavTemplate),
+      layoutTemplate: this.safeTemplateKey('layoutTemplate', design?.layoutTemplate),
+      cartTemplate: this.safeTemplateKey('cartTemplate', design?.cartTemplate),
+      typographyPreset: this.safeTemplateKey('typographyPreset', design?.typographyPreset),
       primaryColor: design?.primaryColor ?? '#071A2F',
       accentColor: design?.accentColor ?? '#F97316',
-      fontPairing: design?.fontPairing ?? 'FIGTREE_QUESTRIAL',
-      heroLayout: design?.heroLayout ?? 'BANNER_LEFT',
-      productCardStyle: design?.productCardStyle ?? 'CLEAN_GRID',
+      fontPairing: this.safeTemplateKey('fontPairing', design?.fontPairing),
+      heroLayout: this.safeTemplateKey('heroLayout', design?.heroLayout),
+      productCardStyle: this.safeTemplateKey('productCardStyle', design?.productCardStyle),
       sections,
       heroTitle: design?.heroTitle ?? null,
       heroSubtitle: design?.heroSubtitle ?? null,
     };
+  }
+
+  private safeTemplateKey<T extends keyof typeof STOREFRONT_TEMPLATE_OPTIONS>(field: T, value?: string) {
+    const options = STOREFRONT_TEMPLATE_OPTIONS[field] as readonly string[];
+    return value && options.includes(value) ? value : options[0];
+  }
+
+  private assertTemplateKey<T extends keyof typeof STOREFRONT_TEMPLATE_OPTIONS>(field: T, value?: string) {
+    if (!value) return undefined;
+    const options = STOREFRONT_TEMPLATE_OPTIONS[field] as readonly string[];
+    if (!options.includes(value)) {
+      throw new BadRequestException(`${field} must be one of: ${options.join(', ')}`);
+    }
+    return value;
   }
 
   async getCart(user: AuthContext) {
@@ -327,6 +358,28 @@ export class CommerceService {
     return this.getCart(user);
   }
 
+  async clearStoreCart(user: AuthContext, storeSlug: string) {
+    const userId = this.getUserId(user);
+    const cart = await this.db().cart?.findFirst({
+      where: { userId },
+      include: this.cartValidationInclude(),
+    });
+    if (!cart) return this.getCart(user);
+
+    const itemIds = (cart.items ?? [])
+      .filter((item: any) => this.cartItemMatchesStoreSlug(item, storeSlug))
+      .map((item: any) => item.id)
+      .filter(Boolean);
+
+    if (itemIds.length) {
+      await this.db().cartItem?.deleteMany({
+        where: { cartId: cart.id, id: { in: itemIds } },
+      });
+    }
+
+    return this.getCart(user);
+  }
+
   async validateCart(user: AuthContext) {
     const userId = this.getUserId(user);
     const cart = await this.db().cart?.findFirst({
@@ -436,11 +489,26 @@ export class CommerceService {
         orderBy: { updatedAt: 'desc' },
       });
 
-      if (!cart?.items?.length) {
-        throw new BadRequestException('Cart is empty');
+      if (dto.storeSlug) {
+        const store = await tx.store.findUnique({
+          where: { slug: dto.storeSlug },
+          select: { id: true },
+        });
+        if (!store) {
+          throw new BadRequestException('Vendor store not found');
+        }
       }
 
-      const validation = this.buildCartValidation(cart);
+      const checkoutCart = dto.storeSlug ? this.scopeCartToStore(cart, dto.storeSlug) : cart;
+      const checkoutCartItemIds = (checkoutCart?.items ?? [])
+        .map((item: any) => item.id)
+        .filter(Boolean);
+
+      if (!checkoutCart?.items?.length) {
+        throw new BadRequestException(dto.storeSlug ? 'Vendor cart is empty' : 'Cart is empty');
+      }
+
+      const validation = this.buildCartValidation(checkoutCart);
       if (!validation.valid) {
         throw new BadRequestException({
           message: 'Cart validation failed',
@@ -449,7 +517,7 @@ export class CommerceService {
         });
       }
 
-      const groupedItems = this.groupCartItemsByStore(cart.items);
+      const groupedItems = this.groupCartItemsByStore(checkoutCart.items);
       const groups = [...groupedItems.values()];
       const hasPhysicalItems = groups.some((group) => group.requiresShipping);
       if (hasPhysicalItems && !dto.shippingAddress) {
@@ -480,7 +548,7 @@ export class CommerceService {
           })
         : null;
 
-      const totals = this.withCartTotals(cart);
+      const totals = this.withCartTotals(checkoutCart);
       const coupon = dto.couponCode
         ? await this.resolveCouponDiscount(tx, dto.couponCode, totals.subtotal)
         : null;
@@ -572,7 +640,11 @@ export class CommerceService {
         },
       });
 
-      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      await tx.cartItem.deleteMany({
+        where: dto.storeSlug
+          ? { cartId: cart.id, id: { in: checkoutCartItemIds } }
+          : { cartId: cart.id },
+      });
       await this.writeAudit(tx, {
         userId,
         action: 'checkout.created',
@@ -923,6 +995,39 @@ export class CommerceService {
     });
   }
 
+  async getPublicStoreProduct(slug: string, productSlug: string) {
+    const product = await this.db().product?.findFirst({
+      where: {
+        slug: productSlug,
+        status: 'ACTIVE',
+        store: { slug },
+      },
+      include: {
+        store: { include: { storefrontDesign: true } },
+        images: true,
+        variants: true,
+        inventoryItems: true,
+        digitalAssets: true,
+        category: true,
+        vendorPoolOffers: { where: { isActive: true, status: 'ACTIVE' }, include: { poolProduct: true } },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found for this vendor store');
+    }
+
+    return {
+      ...product,
+      store: product.store
+        ? {
+            ...product.store,
+            storefrontDesign: this.normalizeStorefrontDesign(product.store.storefrontDesign),
+          }
+        : product.store,
+    };
+  }
+
   async getVendorStorefrontDesign(user: AuthContext) {
     const storeId = await this.resolveStoreId(user);
     const design = await this.db().storefrontDesign?.findUnique({ where: { storeId } });
@@ -935,12 +1040,17 @@ export class CommerceService {
       ['hero', 'products', 'pool', 'policies', 'trust'].includes(section),
     );
     const data = {
-      themePreset: dto.themePreset,
+      themePreset: this.assertTemplateKey('themePreset', dto.themePreset),
+      navbarTemplate: this.assertTemplateKey('navbarTemplate', dto.navbarTemplate),
+      bottomNavTemplate: this.assertTemplateKey('bottomNavTemplate', dto.bottomNavTemplate),
+      layoutTemplate: this.assertTemplateKey('layoutTemplate', dto.layoutTemplate),
+      cartTemplate: this.assertTemplateKey('cartTemplate', dto.cartTemplate),
+      typographyPreset: this.assertTemplateKey('typographyPreset', dto.typographyPreset),
       primaryColor: dto.primaryColor,
       accentColor: dto.accentColor,
-      fontPairing: dto.fontPairing,
-      heroLayout: dto.heroLayout,
-      productCardStyle: dto.productCardStyle,
+      fontPairing: this.assertTemplateKey('fontPairing', dto.fontPairing),
+      heroLayout: this.assertTemplateKey('heroLayout', dto.heroLayout),
+      productCardStyle: this.assertTemplateKey('productCardStyle', dto.productCardStyle),
       heroTitle: dto.heroTitle,
       heroSubtitle: dto.heroSubtitle,
       sections: safeSections ? JSON.stringify(safeSections) : undefined,
@@ -2169,6 +2279,18 @@ export class CommerceService {
           reservations: true,
         },
       },
+    };
+  }
+
+  private cartItemMatchesStoreSlug(item: any, storeSlug: string) {
+    return item.product?.store?.slug === storeSlug || item.poolOffer?.store?.slug === storeSlug;
+  }
+
+  private scopeCartToStore(cart: any, storeSlug: string) {
+    if (!cart) return cart;
+    return {
+      ...cart,
+      items: (cart.items ?? []).filter((item: any) => this.cartItemMatchesStoreSlug(item, storeSlug)),
     };
   }
 

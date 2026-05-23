@@ -77,6 +77,7 @@ export interface ProductVariant {
 
 export interface MarketplaceProduct {
   id: string;
+  slug?: string;
   name: string;
   price: number;
   comparePrice?: number;

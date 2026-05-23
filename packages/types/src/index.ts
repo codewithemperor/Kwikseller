@@ -93,6 +93,11 @@ export interface Store {
 export interface StorefrontDesignConfig {
   id?: string
   themePreset: string
+  navbarTemplate?: string
+  bottomNavTemplate?: string
+  layoutTemplate?: string
+  cartTemplate?: string
+  typographyPreset?: string
   primaryColor: string
   accentColor: string
   fontPairing: string
@@ -493,6 +498,7 @@ export interface Fulfillment {
 
 export interface CheckoutRequest {
   cartId?: string
+  storeSlug?: string
   shippingAddress?: {
     fullName: string
     phone: string

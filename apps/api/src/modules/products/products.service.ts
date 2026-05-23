@@ -61,7 +61,7 @@ export class ProductsService {
         include: {
           images: { orderBy: { position: 'asc' } },
           category: { select: { id: true, name: true, slug: true } },
-          store: { select: { id: true, name: true } },
+          store: { select: { id: true, name: true, slug: true } },
           inventoryItems: { select: { available: true, reserved: true, lowStockThreshold: true } },
         },
         take: 60,
@@ -70,6 +70,7 @@ export class ProductsService {
 
     const mappedProducts = products.map((product) => ({
       id: product.id,
+      slug: product.slug,
       name: product.name,
       price: product.price,
       comparePrice: product.comparePrice ?? undefined,
@@ -77,6 +78,8 @@ export class ProductsService {
       rating: product.rating ?? 0,
       reviewCount: product.reviewCount ?? 0,
       store: product.store.name,
+      storeId: product.store.id,
+      storeSlug: product.store.slug,
       category: product.category?.name ?? 'Kwikseller',
       categorySlug: product.category?.slug ?? '',
       productType: product.productType,
@@ -354,7 +357,7 @@ export class ProductsService {
           images: { orderBy: { position: 'asc' } },
           category: { select: { id: true, name: true, slug: true } },
           brand: { select: { id: true, name: true } },
-          store: { select: { id: true, name: true } },
+          store: { select: { id: true, name: true, slug: true } },
           _count: { select: { variants: true } },
         },
       }),
@@ -380,7 +383,7 @@ export class ProductsService {
         variants: { orderBy: { createdAt: 'asc' } },
         category: { select: { id: true, name: true, slug: true } },
         brand: { select: { id: true, name: true } },
-        store: { select: { id: true, name: true } },
+        store: { select: { id: true, name: true, slug: true } },
         tags: {
           include: {
             tag: { select: { id: true, name: true, slug: true } },
@@ -444,7 +447,7 @@ export class ProductsService {
         variants: true,
         category: { select: { id: true, name: true } },
         brand: { select: { id: true, name: true } },
-        store: { select: { id: true, name: true } },
+        store: { select: { id: true, name: true, slug: true } },
       },
     });
 
@@ -499,7 +502,7 @@ export class ProductsService {
           variants: true,
           category: { select: { id: true, name: true } },
           brand: { select: { id: true, name: true } },
-          store: { select: { id: true, name: true } },
+          store: { select: { id: true, name: true, slug: true } },
         },
       });
     });

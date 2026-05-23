@@ -310,6 +310,7 @@ export function ProductDetailPage({
               .slice(0, 4)
               .map((p: any) => ({
                 id: String(p.id),
+                slug: p.slug,
                 name: p.name,
                 price: p.price,
                 comparePrice: p.comparePrice,
@@ -318,6 +319,8 @@ export function ProductDetailPage({
                 rating: p.averageRating || p.rating || 0,
                 reviewCount: p.reviewCount || 0,
                 store: p.store?.name || p.storeName || "",
+                storeId: p.storeId || p.store?.id,
+                storeSlug: p.store?.slug || p.storeSlug,
                 category: p.category?.name || p.categoryName || "",
                 isNew: p.isNew || false,
               })),
@@ -348,6 +351,9 @@ export function ProductDetailPage({
         comparePrice: product.comparePrice,
         image: product.image,
         store: product.store,
+        storeId: product.storeId,
+        storeSlug: product.storeSlug,
+        storeName: product.store,
       });
     }
     const variantLabel = selectedVariant
@@ -377,11 +383,27 @@ export function ProductDetailPage({
   };
 
   const handleShare = async () => {
+    const shareUrl = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product.name, url: shareUrl });
+        return;
+      } catch {
+        // Fall through to clipboard copy when native sharing is cancelled or unavailable.
+      }
+    }
+
+    if (!navigator.clipboard?.writeText) {
+      kwikToast.info(shareUrl);
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       kwikToast.success("Link copied to clipboard");
     } catch {
-      kwikToast.error("Failed to copy link");
+      kwikToast.info(shareUrl);
     }
   };
 

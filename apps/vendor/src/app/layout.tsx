@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Figtree, Questrial } from "next/font/google";
+import { JetBrains_Mono, Figtree, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
@@ -14,7 +14,7 @@ const fontHeading = Figtree({
   display: "swap",
 });
 
-const fontText = Questrial({
+const fontText = DM_Sans({
   subsets: ["latin"],
   variable: "--font-text",
   display: "swap",

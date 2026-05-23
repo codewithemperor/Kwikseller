@@ -39,6 +39,7 @@ export default function ProductPage() {
 
           setProduct({
             id: String(p.id),
+            slug: p.slug,
             name: p.name,
             price: p.price,
             comparePrice: p.comparePrice,
@@ -46,7 +47,12 @@ export default function ProductPage() {
             rating: p.averageRating || p.rating || 0,
             reviewCount: p.reviewCount || p.reviewsCount || 0,
             store: p.store?.name || p.storeName || "",
+            storeId: p.storeId || p.store?.id,
+            storeSlug: p.store?.slug || p.storeSlug,
             category: p.category?.name || p.categoryName || "",
+            productType: p.productType,
+            productSource: p.productSource,
+            requiresShipping: p.requiresShipping,
             tag: p.tag || p.material || "",
             dimensions: p.dimensions || "",
             description: p.description || "",

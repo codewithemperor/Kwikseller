@@ -24,6 +24,7 @@ import { AppButton, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/u
 import { cartApi, checkoutApi, deliveryRatesApi, tokenManager } from "@kwikseller/api-client";
 import { kwikToast } from "@kwikseller/utils";
 import type { CartValidationIssue, CartVendorGroup, CouponValidationResponse, DeliveryRate } from "@kwikseller/types";
+import { EscrowSafetyDialog } from "@/components/checkout/escrow-safety-dialog";
 import { AppImage } from "@/components/ui/app-image";
 import { useCartStore } from "@/stores";
 
@@ -192,6 +193,7 @@ export default function CartPage() {
   const [appliedCoupon, setAppliedCoupon] = React.useState<CouponValidationResponse | null>(null);
   const [couponError, setCouponError] = React.useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = React.useState(false);
+  const [isEscrowDialogOpen, setIsEscrowDialogOpen] = React.useState(false);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const savings = items.reduce(
@@ -356,6 +358,39 @@ export default function CartPage() {
     }
   };
 
+  const processCheckout = async () => {
+    setIsCheckingOut(true);
+    setValidationIssues([]);
+    try {
+      await syncLocalCartToApi();
+      const response = await checkoutApi.create({
+        idempotencyKey: `marketplace-${Date.now()}`,
+        shippingAddress: requiresShipping ? shipping : undefined,
+        couponCode: appliedCoupon?.code,
+      });
+      const checkout = unwrapApiData<{ authorizationUrl?: string; reference?: string }>(response.data);
+
+      if (!checkout.authorizationUrl) {
+        throw new Error("Checkout did not return a Paystack authorization URL.");
+      }
+
+      clearCart();
+      window.location.href = checkout.authorizationUrl;
+    } catch (error) {
+      const issues = extractValidationIssues(error);
+      if (issues.length) {
+        setValidationIssues(issues);
+        setStep("cart");
+        kwikToast.error(issues[0]?.message ?? "Cart validation failed");
+      } else {
+        kwikToast.error(error instanceof Error ? error.message : "Checkout failed");
+      }
+    } finally {
+      setIsCheckingOut(false);
+      setIsEscrowDialogOpen(false);
+    }
+  };
+
   const handlePrimaryAction = async () => {
     if (!items.length) return;
     if (!ensureAuthenticated()) return;
@@ -385,35 +420,7 @@ export default function CartPage() {
       return;
     }
 
-    setIsCheckingOut(true);
-    setValidationIssues([]);
-    try {
-      await syncLocalCartToApi();
-      const response = await checkoutApi.create({
-        idempotencyKey: `marketplace-${Date.now()}`,
-        shippingAddress: requiresShipping ? shipping : undefined,
-        couponCode: appliedCoupon?.code,
-      });
-      const checkout = unwrapApiData<{ authorizationUrl?: string; reference?: string }>(response.data);
-
-      if (!checkout.authorizationUrl) {
-        throw new Error("Checkout did not return a Paystack authorization URL.");
-      }
-
-      clearCart();
-      window.location.href = checkout.authorizationUrl;
-    } catch (error) {
-      const issues = extractValidationIssues(error);
-      if (issues.length) {
-        setValidationIssues(issues);
-        setStep("cart");
-        kwikToast.error(issues[0]?.message ?? "Cart validation failed");
-      } else {
-        kwikToast.error(error instanceof Error ? error.message : "Checkout failed");
-      }
-    } finally {
-      setIsCheckingOut(false);
-    }
+    setIsEscrowDialogOpen(true);
   };
 
   const primaryLabel =
@@ -946,6 +953,12 @@ export default function CartPage() {
           )}
         </aside>
       </main>
+      <EscrowSafetyDialog
+        isOpen={isEscrowDialogOpen}
+        isLoading={isCheckingOut}
+        onClose={() => setIsEscrowDialogOpen(false)}
+        onConfirm={processCheckout}
+      />
     </div>
   );
 }

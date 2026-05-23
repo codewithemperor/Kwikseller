@@ -225,6 +225,11 @@ model StorefrontDesign {
   id               String   @id @default(cuid())
   storeId          String   @unique
   themePreset      String   @default("CLASSIC")
+  navbarTemplate   String   @default("NAVBAR_CLASSIC")
+  bottomNavTemplate String  @default("BOTTOM_TABS_CLASSIC")
+  layoutTemplate   String   @default("GRID_COMMERCE")
+  cartTemplate     String   @default("CART_COMPACT")
+  typographyPreset String   @default("FIGTREE_QUESTRIAL")
   primaryColor     String   @default("#071A2F")
   accentColor      String   @default("#F97316")
   fontPairing      String   @default("FIGTREE_QUESTRIAL")

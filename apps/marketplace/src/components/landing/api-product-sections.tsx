@@ -92,6 +92,9 @@ export function ApiProductCard({
       comparePrice: product.comparePrice,
       image: product.image,
       store: product.store,
+      storeId: product.storeId,
+      storeSlug: product.storeSlug,
+      storeName: product.store,
     });
     kwikToast.success(`${product.name} added to cart`);
   };
@@ -189,6 +192,7 @@ export function ApiProductCard({
 function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
   return {
     id: p.id,
+    slug: p.slug,
     name: p.name,
     price: p.price,
     comparePrice: p.comparePrice,
@@ -196,6 +200,8 @@ function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
     rating: p.rating,
     reviewCount: p.reviewCount,
     store: p.store,
+    storeId: p.storeId,
+    storeSlug: p.storeSlug,
     category: p.categorySlug,
     isNew: p.isNew,
     tag: p.category,

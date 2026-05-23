@@ -86,6 +86,10 @@ export class CheckoutDto {
   cartId?: string;
 
   @IsOptional()
+  @IsString()
+  storeSlug?: string;
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => ShippingAddressDto)
   shippingAddress?: ShippingAddressDto;
@@ -377,6 +381,26 @@ export class UpdateStorefrontDesignDto {
   @IsOptional()
   @IsString()
   themePreset?: string;
+
+  @IsOptional()
+  @IsString()
+  navbarTemplate?: string;
+
+  @IsOptional()
+  @IsString()
+  bottomNavTemplate?: string;
+
+  @IsOptional()
+  @IsString()
+  layoutTemplate?: string;
+
+  @IsOptional()
+  @IsString()
+  cartTemplate?: string;
+
+  @IsOptional()
+  @IsString()
+  typographyPreset?: string;
 
   @IsOptional()
   @IsString()

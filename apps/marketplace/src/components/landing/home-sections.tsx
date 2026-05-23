@@ -800,6 +800,7 @@ export function MarketplaceFeaturedProductsSection({
           const list = Array.isArray(data) ? data : data.products || [];
           setProducts(list.map((p: any) => ({
             id: String(p.id),
+            slug: p.slug,
             name: p.name,
             price: p.price,
             comparePrice: p.comparePrice,
@@ -807,6 +808,8 @@ export function MarketplaceFeaturedProductsSection({
             rating: p.averageRating || p.rating || 0,
             reviewCount: p.reviewCount || 0,
             store: p.store?.name || p.storeName || "",
+            storeId: p.storeId || p.store?.id,
+            storeSlug: p.store?.slug || p.storeSlug,
             category: p.category?.name || p.categoryName || "",
             isNew: p.isNew || false,
           })));
@@ -864,6 +867,7 @@ export function MarketplaceFeaturedDealsSection({
           const list = Array.isArray(data) ? data : data.deals || [];
           setProducts(list.map((p: any) => ({
             id: String(p.id),
+            slug: p.slug,
             name: p.name,
             price: p.price,
             comparePrice: p.comparePrice,
@@ -871,6 +875,8 @@ export function MarketplaceFeaturedDealsSection({
             rating: p.averageRating || p.rating || 0,
             reviewCount: p.reviewCount || 0,
             store: p.store?.name || p.storeName || "",
+            storeId: p.storeId || p.store?.id,
+            storeSlug: p.store?.slug || p.storeSlug,
             category: p.category?.name || p.categoryName || "",
             isNew: p.isNew || false,
           })));

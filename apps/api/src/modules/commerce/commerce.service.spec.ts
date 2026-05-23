@@ -91,7 +91,12 @@ describe('CommerceService split checkout helpers', () => {
     });
 
     expect(normalized).toMatchObject({
-      themePreset: 'FRESH',
+      themePreset: 'CLASSIC',
+      navbarTemplate: 'NAVBAR_CLASSIC',
+      bottomNavTemplate: 'BOTTOM_TABS_CLASSIC',
+      layoutTemplate: 'GRID_COMMERCE',
+      cartTemplate: 'CART_COMPACT',
+      typographyPreset: 'FIGTREE_QUESTRIAL',
       primaryColor: '#064E3B',
       accentColor: '#14B8A6',
       sections: ['hero', 'products', 'pool', 'policies'],

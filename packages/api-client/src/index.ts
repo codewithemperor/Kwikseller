@@ -467,9 +467,12 @@ export const marketplaceApi = {
 }
 
 export const marketplaceStoresApi = {
-  getBySlug: (slug: string) => api.get<Store>(`/stores/${slug}`),
+  getBySlug: (slug: string) => api.get<Store>(`/stores/${encodeURIComponent(slug)}`),
 
-  getProducts: (slug: string) => api.get<Product[]>(`/stores/${slug}/products`),
+  getProducts: (slug: string) => api.get<Product[]>(`/stores/${encodeURIComponent(slug)}/products`),
+
+  getProduct: (slug: string, productSlug: string) =>
+    api.get<Product>(`/stores/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),
 }
 
 // ==================== Checkout API ====================
@@ -650,6 +653,8 @@ export const cartApi = {
     api.patch(`/cart/items/${itemId}`, { quantity }),
 
   removeItem: (itemId: string) => api.delete(`/cart/items/${itemId}`),
+
+  clearStore: (storeSlug: string) => api.delete(`/cart/stores/${encodeURIComponent(storeSlug)}`),
 
   clear: () => api.delete('/cart'),
 

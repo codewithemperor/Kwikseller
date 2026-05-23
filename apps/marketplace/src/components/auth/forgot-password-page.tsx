@@ -71,7 +71,7 @@ export function ForgotPasswordPage({
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-4"
+        className="auth-form flex flex-col gap-4"
         noValidate
       >
         <TextInput

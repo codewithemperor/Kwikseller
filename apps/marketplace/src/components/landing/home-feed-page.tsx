@@ -85,7 +85,7 @@ type PoolOffer = {
     suggestedRetailPrice?: number;
     images?: string;
   };
-  store?: { name: string };
+  store?: { id?: string; name: string; slug?: string };
 };
 
 type PoolCampaign = {
@@ -226,6 +226,9 @@ function PoolOfferCard({ offer }: { offer: PoolOffer }) {
       comparePrice: offer.poolProduct?.suggestedRetailPrice,
       image: image ?? "",
       store: offer.store?.name,
+      storeId: offer.store?.id,
+      storeSlug: offer.store?.slug,
+      storeName: offer.store?.name,
       productType: "PHYSICAL",
       productSource: "POOL_RESALE",
       requiresShipping: true,

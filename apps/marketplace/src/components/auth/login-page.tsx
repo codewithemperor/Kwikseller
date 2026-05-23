@@ -167,7 +167,7 @@ export function LoginPage({ portal, className }: LoginPageProps) {
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-4"
+        className="auth-form flex flex-col gap-4"
         noValidate
       >
         <TextInput

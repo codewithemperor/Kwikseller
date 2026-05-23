@@ -136,6 +136,7 @@ type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
   return {
     id: p.id,
+    slug: p.slug,
     name: p.name,
     price: p.price,
     comparePrice: p.comparePrice,
@@ -143,6 +144,8 @@ function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
     rating: p.rating,
     reviewCount: p.reviewCount,
     store: p.store,
+    storeId: p.storeId,
+    storeSlug: p.storeSlug,
     category: p.categorySlug,
     isNew: p.isNew,
     tag: p.category,

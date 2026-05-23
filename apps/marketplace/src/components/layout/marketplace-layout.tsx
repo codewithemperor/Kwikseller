@@ -324,7 +324,8 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const isSearchPage = pathname === "/search";
   const isCartPage = pathname === "/cart";
   const isAuthPage = pathname === "/login" || pathname === "/register" || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
-  const hideTopNav = isCartPage || isAuthPage;
+  const isVendorStorefrontRoute = pathname.startsWith("/vendor/");
+  const hideTopNav = isCartPage || isAuthPage || isVendorStorefrontRoute;
   const searchQuery = searchParams.get("q") || "";
   const startNavigationLoading = useCallback(() => {
     isPageLoadingRef.current = true;
@@ -456,7 +457,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col bg-white dark:bg-[#07111f]">
         <PageLoader isLoading={isPageLoading} />
         <OfflineBanner />
-        {!isSearchPage && (
+        {!isSearchPage && !isVendorStorefrontRoute && (
           <EnhancedSearchOverlay
             isOpen={isSearchOpen}
             onClose={() => setIsSearchOpen(false)}
@@ -685,22 +686,24 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
           )}
         </AnimatePresence>
 
-        <main className="flex-1 pb-20 md:pb-0">
-          <PriceDropAlert />
-          <NotificationToastStack />
+        <main className={isVendorStorefrontRoute ? "flex-1" : "flex-1 pb-20 md:pb-0"}>
+          {!isVendorStorefrontRoute && <PriceDropAlert />}
+          {!isVendorStorefrontRoute && <NotificationToastStack />}
           {children}
         </main>
 
-        <ScrollProgress />
-        <OrderTrackingWidget />
-        <CartDrawer />
-        <ComparePanel />
-        <WishlistSidebar
-          isOpen={isWishlistOpen}
-          onClose={() => setIsWishlistOpen(false)}
-        />
-        <MobileBottomNav onNavigateStart={startNavigationLoading} />
-        <EnhancedFooter />
+        {!isVendorStorefrontRoute && <ScrollProgress />}
+        {!isVendorStorefrontRoute && <OrderTrackingWidget />}
+        {!isVendorStorefrontRoute && <CartDrawer />}
+        {!isVendorStorefrontRoute && <ComparePanel />}
+        {!isVendorStorefrontRoute && (
+          <WishlistSidebar
+            isOpen={isWishlistOpen}
+            onClose={() => setIsWishlistOpen(false)}
+          />
+        )}
+        {!isVendorStorefrontRoute && <MobileBottomNav onNavigateStart={startNavigationLoading} />}
+        {!isVendorStorefrontRoute && <EnhancedFooter />}
       </div>
     </MarketplaceShellProvider>
   );

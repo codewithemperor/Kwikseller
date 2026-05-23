@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Figtree, Sora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
@@ -8,6 +9,18 @@ import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
 import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { NotificationToastStack } from "@/components/landing/notification-toast";
+
+const figtree = Figtree({
+  subsets: ["latin"],
+  variable: "--font-text",
+  display: "swap",
+});
+
+const sora = Sora({
+  subsets: ["latin"],
+  variable: "--font-heading",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -100,7 +113,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body className="font-sans antialiased bg-background text-foreground">
+      <body className={`${figtree.variable} ${sora.variable} font-sans antialiased bg-background text-foreground`}>
         <HeroUIProviderWrapper>
           <QueryProvider>
             <AuthProvider>
