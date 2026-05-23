@@ -54,8 +54,19 @@ export class PublicStoresController {
 
   @Public()
   @Get(':slug/products')
-  getStoreProducts(@Param('slug') slug: string) {
-    return this.commerce.listPublicStoreProducts(slug);
+  getStoreProducts(
+    @Param('slug') slug: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+    @Query('source') source?: string,
+  ) {
+    return this.commerce.listPublicStoreProducts(slug, {
+      limit: limit ? Number(limit) : undefined,
+      search,
+      category,
+      source,
+    });
   }
 }
 

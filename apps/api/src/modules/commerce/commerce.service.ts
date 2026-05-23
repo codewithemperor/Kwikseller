@@ -973,14 +973,43 @@ export class CommerceService {
     };
   }
 
-  async listPublicStoreProducts(slug: string) {
+  async listPublicStoreProducts(
+    slug: string,
+    options: { limit?: number; search?: string; category?: string; source?: string } = {},
+  ) {
     const store = await this.db().store?.findUnique({ where: { slug }, select: { id: true, slug: true, name: true } });
     if (!store) {
       throw new NotFoundException('Vendor store not found');
     }
 
+    const take = Math.min(Math.max(Number(options.limit) || 100, 1), 500);
+    const search = options.search?.trim();
+    const category = options.category?.trim();
+    const source = options.source?.trim();
+    const where: Record<string, unknown> = { storeId: store.id, status: 'ACTIVE' };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { description: { contains: search } },
+        { category: { name: { contains: search } } },
+      ];
+    }
+
+    if (category && category !== 'all') {
+      where.category = { name: category };
+    }
+
+    if (source && source !== 'all') {
+      if (source === 'DIGITAL') {
+        where.productType = 'DIGITAL';
+      } else {
+        where.productSource = source;
+      }
+    }
+
     return this.db().product?.findMany({
-      where: { storeId: store.id, status: 'ACTIVE' },
+      where,
       include: {
         store: true,
         images: true,
@@ -991,7 +1020,7 @@ export class CommerceService {
         vendorPoolOffers: { where: { isActive: true, status: 'ACTIVE' }, include: { poolProduct: true } },
       },
       orderBy: { updatedAt: 'desc' },
-      take: 100,
+      take,
     });
   }
 

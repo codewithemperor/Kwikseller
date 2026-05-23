@@ -14,6 +14,11 @@ import type { NextRequest } from 'next/server';
  * Main marketplace domain
  */
 const MAIN_DOMAIN = 'kwikseller.com';
+const configuredVendorHosts = [
+  process.env.VENDOR_APP_HOST,
+  process.env.NEXT_PUBLIC_VENDOR_APP_HOST,
+  process.env.NEXT_PUBLIC_VENDOR_URL ? new URL(process.env.NEXT_PUBLIC_VENDOR_URL).hostname : undefined,
+].filter(Boolean) as string[];
 
 /**
  * Backend API URL
@@ -70,12 +75,17 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── 3. Subdomain routing ─────────────────────────────────────────────────────
+  const isKwiksellerDomain = hostname === MAIN_DOMAIN || hostname.endsWith(`.${MAIN_DOMAIN}`);
+  const isVercelDeployment = hostname.endsWith('.vercel.app') || hostname.endsWith('.vercel.sh');
+  const isConfiguredVendorHost = configuredVendorHosts.includes(hostname);
   const isVendorSubdomain = hostname === `vendor.${MAIN_DOMAIN}` || 
     hostname === 'localhost' ||
-    hostname.startsWith('vendor.');
+    hostname.startsWith('vendor.') ||
+    isConfiguredVendorHost ||
+    isVercelDeployment;
 
   // If not on vendor subdomain, redirect to correct app
-  if (!isVendorSubdomain) {
+  if (isKwiksellerDomain && !isVendorSubdomain) {
     const subdomain = hostname.split('.')[0];
     
     if (subdomain === 'admin') {

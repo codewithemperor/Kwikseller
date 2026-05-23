@@ -26,6 +26,7 @@ export default function VendorPublicStorePage() {
   const design = normalizeDesign(store.storefrontDesign);
   const sections = design.sections;
   const marketplaceProducts = products.map((product) => toMarketplaceProduct(product, store));
+  const previewProducts = marketplaceProducts.slice(0, 10);
   const poolProducts = marketplaceProducts.filter((product) => product.productSource === "POOL_RESALE");
   const gridClass =
     design.layoutTemplate === "DENSE_GRID"
@@ -79,11 +80,15 @@ export default function VendorPublicStorePage() {
           <StorefrontSectionTitle
             title="Vendor stock"
             text={`Products fulfilled by ${store.name}.`}
-            action={<span className="text-sm font-semibold text-[var(--store-primary)]">{marketplaceProducts.length} items</span>}
+            action={
+              <Link href={`/vendor/${store.slug}/products`} className="inline-flex h-10 items-center justify-center bg-[var(--store-accent)] px-4 text-sm font-semibold text-white">
+                Show more
+              </Link>
+            }
           />
           <div className={gridClass}>
-            {marketplaceProducts.length > 0 ? (
-              marketplaceProducts.map((product) => (
+            {previewProducts.length > 0 ? (
+              previewProducts.map((product) => (
                 <VendorProductCard key={product.id} product={product} store={store} design={design} />
               ))
             ) : (

@@ -118,7 +118,7 @@ export function toMarketplaceProduct(product: Product, store?: PublicStoreView |
   };
 }
 
-export function useVendorStorefront(slug?: string, options: { loadProducts?: boolean } = {}): VendorStorefrontState {
+export function useVendorStorefront(slug?: string, options: { loadProducts?: boolean; productLimit?: number } = {}): VendorStorefrontState {
   const [state, setState] = React.useState<VendorStorefrontState>({
     store: null,
     products: [],
@@ -132,7 +132,7 @@ export function useVendorStorefront(slug?: string, options: { loadProducts?: boo
     setState((current) => ({ ...current, isLoading: true, error: null }));
     const requests: Array<Promise<any>> = [marketplaceStoresApi.getBySlug(slug)];
     if (options.loadProducts !== false) {
-      requests.push(marketplaceStoresApi.getProducts(slug));
+      requests.push(marketplaceStoresApi.getProducts(slug, options.productLimit ? { limit: options.productLimit } : undefined));
     }
 
     Promise.all(requests)
@@ -158,7 +158,7 @@ export function useVendorStorefront(slug?: string, options: { loadProducts?: boo
     return () => {
       active = false;
     };
-  }, [slug, options.loadProducts]);
+  }, [slug, options.loadProducts, options.productLimit]);
 
   return state;
 }
@@ -358,9 +358,9 @@ export function VendorProductCard({
         <div className="mt-3 flex items-end justify-between gap-2">
           <div>
             {product.comparePrice && (
-              <p className="text-[10px] text-kwik-muted line-through">{formatStoreCurrency(product.comparePrice)}</p>
+              <p className="text-[10px] text-kwik-muted line-through dark:text-white/50">{formatStoreCurrency(product.comparePrice)}</p>
             )}
-            <p className="text-base font-bold">{formatStoreCurrency(product.price)}</p>
+            <p className="text-base font-bold text-kwik-dark dark:text-white">{formatStoreCurrency(product.price)}</p>
           </div>
           <button
             type="button"

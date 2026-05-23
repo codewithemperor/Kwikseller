@@ -469,7 +469,15 @@ export const marketplaceApi = {
 export const marketplaceStoresApi = {
   getBySlug: (slug: string) => api.get<Store>(`/stores/${encodeURIComponent(slug)}`),
 
-  getProducts: (slug: string) => api.get<Product[]>(`/stores/${encodeURIComponent(slug)}/products`),
+  getProducts: (
+    slug: string,
+    params?: {
+      limit?: number
+      search?: string
+      category?: string
+      source?: string
+    },
+  ) => api.get<Product[]>(`/stores/${encodeURIComponent(slug)}/products`, { params }),
 
   getProduct: (slug: string, productSlug: string) =>
     api.get<Product>(`/stores/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),

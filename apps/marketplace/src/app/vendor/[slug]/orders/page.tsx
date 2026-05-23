@@ -82,8 +82,7 @@ export default function VendorOrdersPage() {
       <section className="mx-auto max-w-5xl px-4 py-6 lg:px-6">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--store-accent)]">Store orders</p>
-            <h1 className="mt-2 text-2xl font-semibold">Orders</h1>
+            <h1 className="text-2xl font-semibold">Orders</h1>
             <p className="mt-1 text-sm text-kwik-muted dark:text-white/60">Only purchases from this store show here.</p>
           </div>
           <Link href={`/vendor/${store.slug}`} className="text-sm font-semibold text-[var(--store-primary)]">

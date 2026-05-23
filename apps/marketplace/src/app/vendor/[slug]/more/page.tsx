@@ -3,7 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowRight, ClipboardList, Info, Store } from "lucide-react";
+import { ArrowRight, ClipboardList, Info, Moon, ShoppingBag, Store, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { tokenManager } from "@kwikseller/api-client";
 import {
   StorefrontLoading,
@@ -16,6 +17,7 @@ export default function VendorMorePage() {
   const router = useRouter();
   const slug = params.slug;
   const { store, isLoading } = useVendorStorefront(slug, { loadProducts: false });
+  const { resolvedTheme, setTheme } = useTheme();
 
   React.useEffect(() => {
     if (!tokenManager.isAuthenticated()) {
@@ -25,33 +27,55 @@ export default function VendorMorePage() {
 
   if (isLoading || !store) return <StorefrontLoading slug={slug} />;
 
+  const isDark = resolvedTheme === "dark";
+
   return (
     <VendorStorefrontShell store={store} active="more">
-      <section className="border-b border-black/10 dark:border-white/10">
-        <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--store-accent)]">Store account</p>
-          <h1 className="mt-2 text-2xl font-semibold">More</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-kwik-muted dark:text-white/60">
-            Track purchases, review store details, or keep shopping this storefront.
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-5xl gap-4 px-4 py-6 sm:grid-cols-3 lg:px-6">
+      <section className="mx-auto grid max-w-5xl gap-3 px-4 py-5 lg:px-6">
         {[
           { href: `/vendor/${store.slug}/orders`, label: "Orders", text: "Purchases you made from this store.", icon: ClipboardList },
           { href: `/vendor/${store.slug}/details`, label: "Vendor details", text: "Store identity and fulfillment notes.", icon: Info },
           { href: `/vendor/${store.slug}/products`, label: "All products", text: "Search and filter this store catalog.", icon: Store },
+          { href: "/", label: "Marketplace", text: "Go to the main marketplace.", icon: ShoppingBag },
         ].map((item) => (
-          <Link key={item.label} href={item.href} className="border border-black/10 p-4 transition hover:border-[var(--store-accent)] dark:border-white/10">
-            <item.icon className="h-5 w-5 text-[var(--store-accent)]" />
-            <div className="mt-4 flex items-center justify-between gap-2">
-              <h2 className="font-semibold">{item.label}</h2>
-              <ArrowRight className="h-4 w-4" />
+          <Link key={item.label} href={item.href} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_24px] items-center gap-3 border border-black/10 p-3 transition hover:border-[var(--store-accent)] dark:border-white/10">
+            <div className="flex h-11 w-11 items-center justify-center bg-[var(--store-accent)]/10">
+              <item.icon className="h-5 w-5 text-[var(--store-accent)]" />
             </div>
-            <p className="mt-2 text-xs leading-5 text-kwik-muted dark:text-white/60">{item.text}</p>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold">{item.label}</h2>
+              <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-kwik-muted dark:text-white/60">{item.text}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 justify-self-end" />
           </Link>
         ))}
+        <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border border-black/10 p-3 dark:border-white/10">
+          <div className="flex h-11 w-11 items-center justify-center bg-[var(--store-accent)]/10">
+            {isDark ? <Moon className="h-5 w-5 text-[var(--store-accent)]" /> : <Sun className="h-5 w-5 text-[var(--store-accent)]" />}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">Display mode</p>
+            <p className="text-[11px] text-kwik-muted dark:text-white/60">{isDark ? "Dark mode" : "Light mode"}</p>
+          </div>
+          <div className="justify-self-end">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isDark}
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+              className="relative block h-8 w-16 rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--store-accent)]/30"
+            >
+              <span className={`absolute inset-0 rounded-full transition-colors ${isDark ? "bg-[var(--store-primary)]" : "bg-[var(--store-accent)]/80"}`} />
+              <span
+                className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[var(--store-primary)] shadow transition-transform ${
+                  isDark ? "translate-x-9" : "translate-x-1"
+                }`}
+              >
+                {isDark ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+              </span>
+            </button>
+          </div>
+        </div>
       </section>
     </VendorStorefrontShell>
   );
