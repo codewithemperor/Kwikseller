@@ -38,9 +38,23 @@ export const STOREFRONT_TEMPLATE_DEFAULTS = {
   cartTemplate: "CART_COMPACT",
   typographyPreset: "FIGTREE_QUESTRIAL",
   fontPairing: "FIGTREE_QUESTRIAL",
+  headingFont: "SORA",
+  bodyFont: "FIGTREE",
   heroLayout: "BANNER_LEFT",
   productCardStyle: "CLEAN_GRID",
 } as const;
+
+const storefrontFontMap: Record<string, string> = {
+  SORA: "var(--font-heading)",
+  FIGTREE: "var(--font-text)",
+  INTER: "var(--font-store-inter)",
+  POPPINS: "var(--font-store-poppins)",
+  DM_SANS: "var(--font-store-dm-sans)",
+  LATO: "var(--font-store-lato)",
+  MONTSERRAT: "var(--font-store-montserrat)",
+  PLAYFAIR_DISPLAY: "var(--font-store-playfair)",
+  MERRIWEATHER: "var(--font-store-merriweather)",
+};
 
 function unwrap<T>(value: any): T {
   return (value?.data?.data ?? value?.data ?? value) as T;
@@ -81,6 +95,8 @@ export function normalizeDesign(design?: StorefrontDesignConfig | null): Storefr
     ...design,
     primaryColor: design?.primaryColor ?? "#071A2F",
     accentColor: design?.accentColor ?? "#F97316",
+    headingFont: design?.headingFont ?? "SORA",
+    bodyFont: design?.bodyFont ?? "FIGTREE",
     sections: design?.sections?.length ? design.sections : ["hero", "products", "pool", "policies"],
     heroTitle: design?.heroTitle ?? null,
     heroSubtitle: design?.heroSubtitle ?? null,
@@ -92,6 +108,9 @@ export function storefrontThemeStyle(design?: StorefrontDesignConfig | null) {
   return {
     "--store-primary": normalized.primaryColor,
     "--store-accent": normalized.accentColor,
+    "--store-font-heading": storefrontFontMap[normalized.headingFont ?? "SORA"] ?? "var(--font-heading)",
+    "--store-font-body": storefrontFontMap[normalized.bodyFont ?? "FIGTREE"] ?? "var(--font-text)",
+    fontFamily: `var(--store-font-body)`,
   } as React.CSSProperties;
 }
 
@@ -233,7 +252,7 @@ export function VendorStorefrontShell({
   ] as const;
 
   return (
-    <div className="min-h-screen bg-white text-kwik-dark dark:bg-[#07111f] dark:text-white" style={storefrontThemeStyle(design)}>
+    <div className="storefront-themed min-h-screen bg-white text-kwik-dark dark:bg-[#07111f] dark:text-white" style={storefrontThemeStyle(design)}>
       <header className="sticky top-0 z-[80] border-b border-black/10 bg-white/95 backdrop-blur dark:border-white/10 dark:bg-[#07111f]/95">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 lg:px-6">
           {canGoBack && (

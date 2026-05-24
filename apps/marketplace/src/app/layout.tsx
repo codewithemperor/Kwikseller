@@ -1,6 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Figtree, Sora } from "next/font/google";
+import {
+  DM_Sans,
+  Figtree,
+  Inter,
+  Lato,
+  Merriweather,
+  Montserrat,
+  Playfair_Display,
+  Poppins,
+  Sora,
+} from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
@@ -21,6 +31,14 @@ const sora = Sora({
   variable: "--font-heading",
   display: "swap",
 });
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-store-inter", display: "swap" });
+const poppins = Poppins({ subsets: ["latin"], variable: "--font-store-poppins", weight: ["400", "500", "600", "700"], display: "swap" });
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-store-dm-sans", display: "swap" });
+const lato = Lato({ subsets: ["latin"], variable: "--font-store-lato", weight: ["400", "700"], display: "swap" });
+const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-store-montserrat", display: "swap" });
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-store-playfair", display: "swap" });
+const merriweather = Merriweather({ subsets: ["latin"], variable: "--font-store-merriweather", weight: ["400", "700"], display: "swap" });
 
 export const metadata: Metadata = {
   title: {
@@ -113,7 +131,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body className={`${figtree.variable} ${sora.variable} font-sans antialiased bg-background text-foreground`}>
+      <body className={`${figtree.variable} ${sora.variable} ${inter.variable} ${poppins.variable} ${dmSans.variable} ${lato.variable} ${montserrat.variable} ${playfair.variable} ${merriweather.variable} font-sans antialiased bg-background text-foreground`}>
         <HeroUIProviderWrapper>
           <QueryProvider>
             <AuthProvider>

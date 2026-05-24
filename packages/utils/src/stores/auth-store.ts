@@ -108,6 +108,7 @@ export interface RegisterData {
   inviteToken?: string;
   storeName?: string;
   storeCategory?: string;
+  storeSlug?: string;
 }
 
 // ==================== Storage ====================

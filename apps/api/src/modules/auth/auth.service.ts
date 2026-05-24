@@ -36,6 +36,7 @@ export interface JwtPayload {
   email: string;
   role: PrismaUserRole;
   sessionId: string;
+  storeId?: string;
 }
 
 export interface TokenPair {
@@ -62,6 +63,9 @@ export interface AuthUser {
     id: string;
     name: string;
     slug: string;
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
+    category?: string | null;
     isVerified: boolean;
     onboardingComplete: boolean;
     verificationStatus?: string;
@@ -149,6 +153,28 @@ export class AuthService {
     });
   }
 
+  private slugify(value: string) {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "")
+      .slice(0, 70);
+  }
+
+  private async uniqueStoreSlug(tx: any, baseValue: string) {
+    const base = this.slugify(baseValue) || `store-${randomUUID().slice(0, 6)}`;
+    let slug = base;
+    let suffix = 2;
+
+    while (await tx.store.findUnique({ where: { slug }, select: { id: true } })) {
+      slug = `${base}-${suffix}`;
+      suffix += 1;
+    }
+
+    return slug;
+  }
+
   /**
    * Register a new user
    */
@@ -175,11 +201,20 @@ export class AuthService {
       }
     }
 
+    if (dto.role === AuthUserRole.VENDOR) {
+      if (!dto.phone) {
+        throw new BadRequestException("Phone number is required for vendor registration");
+      }
+      if (!dto.storeName || dto.storeName.trim().length < 3) {
+        throw new BadRequestException("Store name is required for vendor registration");
+      }
+    }
+
     // Hash password
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
     // Create user with transaction
-    const user = await this.prisma.$transaction(async (tx) => {
+    const user = await this.prisma.$transaction(async (tx: any) => {
       // Create user
       const newUser = await tx.user.create({
         data: {
@@ -205,6 +240,35 @@ export class AuthService {
 
       // Role-specific setup
       if (dto.role === AuthUserRole.VENDOR) {
+        const storeSlug = await this.uniqueStoreSlug(
+          tx,
+          dto.storeSlug || dto.storeName || dto.email.split("@")[0],
+        );
+        const store = await tx.store.create({
+          data: {
+            vendorId: newUser.id,
+            name: dto.storeName!.trim(),
+            slug: storeSlug,
+            category: dto.storeCategory || "other",
+            onboardingStep: "STORE_SETUP",
+          },
+        });
+        await tx.storefrontDesign.create({
+          data: {
+            storeId: store.id,
+            headingFont: "SORA",
+            bodyFont: "FIGTREE",
+          },
+        });
+        await tx.storeDeliverySetting.create({
+          data: {
+            storeId: store.id,
+            manualDeliveryEnabled: true,
+            kwiksellerDeliveryEnabled: false,
+            processingDays: 1,
+          },
+        });
+
         // Create default subscription (Starter)
         await tx.subscription.create({
           data: {
@@ -642,7 +706,7 @@ export class AuthService {
     }
 
     // Get user with all relations before updating
-    const user = await this.prisma.user.findUnique({
+    const existingUser = await this.prisma.user.findUnique({
       where: { id: verificationData.userId },
       include: {
         profile: true,
@@ -653,14 +717,21 @@ export class AuthService {
       },
     });
 
-    if (!user) {
+    if (!existingUser) {
       throw new UnauthorizedException("User not found");
     }
 
     // Update user - mark email as verified and status as active
-    await this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id: verificationData.userId },
       data: { emailVerified: true, status: "ACTIVE" },
+      include: {
+        profile: true,
+        store: true,
+        rider: true,
+        subscription: true,
+        adminPermission: true,
+      },
     });
 
     // Delete verification OTP
@@ -796,6 +867,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       sessionId,
+      ...(user.store?.id ? { storeId: user.store.id } : {}),
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -889,6 +961,9 @@ export class AuthService {
         id: user.store.id,
         name: user.store.name,
         slug: user.store.slug,
+        logoUrl: user.store.logoUrl,
+        bannerUrl: user.store.bannerUrl,
+        category: user.store.category,
         isVerified: user.store.isVerified,
         onboardingComplete: user.store.onboardingComplete,
         verificationStatus: user.store.verificationStatus,

@@ -158,7 +158,12 @@ declare module "@heroui/react" {
   export const Skeleton: React.FC<any>;
   export const Spinner: React.FC<any>;
   export const Surface: React.FC<any>;
-  export const Switch: React.FC<any>;
+  export const Switch: any;
+  export const ColorPicker: any;
+  export const ColorField: any;
+  export const ColorArea: any;
+  export const ColorSlider: any;
+  export const ColorSwatch: any;
   export const Table: TableComponent;
   export const TextField: React.FC<any>;
   export const TimeField: TimeFieldComponent;
@@ -172,4 +177,5 @@ declare module "@heroui/react" {
   export const ModalDialog: React.FC<any>;
   export const ModalFooter: React.FC<any>;
   export const ModalHeader: React.FC<any>;
+  export const Drawer: any;
 }

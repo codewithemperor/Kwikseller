@@ -12,7 +12,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "dev:api": "turbo run dev --filter=@kwikseller/api",
-    "dev:vendor": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/vendor",
+    "dev:vendor": "turbo run dev --filter=@kwikseller/vendor",
     "dev:admin": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/admin",
     "dev:rider": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/rider",
     "dev:app": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/marketplace",

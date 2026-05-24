@@ -41,6 +41,8 @@ export {
   FieldTextarea,
   FieldSelect,
   AppButton,
+  AppSwitch,
+  AppColorPicker,
 } from "./inputs";
 export type {
   BaseInputProps,
@@ -52,11 +54,16 @@ export type {
   FieldTextareaProps,
   FieldSelectProps,
   AppButtonProps,
+  AppSwitchProps,
+  AppColorPickerProps,
 } from "./inputs";
 
 // OTP Components
 export { OTPInput, OTPModal, SubmitButton } from "./inputs";
 export type { OTPInputProps, OTPModalProps, SubmitButtonProps } from "./inputs";
+
+export { AppModal, AppDrawer } from "./overlays";
+export type { AppModalProps, AppDrawerProps } from "./overlays";
 
 // ==================== Custom Commerce Components ====================
 // These are KWIKSELLER-specific components shared across all apps

@@ -51,6 +51,10 @@ export class RegisterDto {
 
   @ValidateIf((o) => o.role === UserRole.VENDOR)
   @IsString()
+  storeSlug?: string;
+
+  @ValidateIf((o) => o.role === UserRole.VENDOR)
+  @IsString()
   storeCategory?: string;
 
   // Admin registration requires invite token

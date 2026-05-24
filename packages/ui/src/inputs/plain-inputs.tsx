@@ -4,7 +4,7 @@ import React from "react";
 import { cn } from "../lib/utils";
 
 const baseControl =
-  "mt-1 h-12 w-full rounded-md border border-border bg-field-background px-3 text-base text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-[#07111f] dark:text-white";
+  "mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none ring-0 transition placeholder:text-muted-foreground focus:border-border focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white";
 
 export type FieldInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;

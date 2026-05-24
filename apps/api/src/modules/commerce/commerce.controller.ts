@@ -28,6 +28,7 @@ import {
   ManualDeliveryDto,
   RefundPaymentDto,
   UpdateCartItemDto,
+  UpdateDeliverySettingsDto,
   UpdateOrderStatusDto,
   UpdatePoolOfferDto,
   UpdateStorefrontDesignDto,
@@ -245,6 +246,16 @@ export class VendorCommerceController {
     @Body() dto: UpdateVendorProductDto,
   ) {
     return this.commerce.updateVendorProduct(user, productId, dto);
+  }
+
+  @Get('delivery-settings')
+  getDeliverySettings(@CurrentUser() user: any) {
+    return this.commerce.getVendorDeliverySettings(user);
+  }
+
+  @Patch('delivery-settings')
+  updateDeliverySettings(@CurrentUser() user: any, @Body() dto: UpdateDeliverySettingsDto) {
+    return this.commerce.updateVendorDeliverySettings(user, dto);
   }
 
   @Post('inventory/adjustments')

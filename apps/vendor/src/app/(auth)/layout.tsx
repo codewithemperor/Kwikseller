@@ -1,3 +1,5 @@
+"use client";
+
 import { GuestRoute } from "@/components/auth";
 import { BrandedAuthLayout } from "@kwikseller/ui";
 import { BarChart3, Boxes, PackageCheck } from "lucide-react";

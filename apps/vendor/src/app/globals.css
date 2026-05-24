@@ -21,6 +21,10 @@
 [data-theme="light"] {
   color-scheme: light;
 
+  --font-heading: "Sora", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
   /* ── Surfaces ─────────────────────────────────────────── */
   --background: oklch(1 0 0);
   --foreground: oklch(0.14 0.04 264);
@@ -69,23 +73,23 @@
   color-scheme: dark;
 
   /* ── Surfaces ─────────────────────────────────────────── */
-  --background: oklch(0.12 0.04 264);
-  --foreground: oklch(0.96 0.01 264);
-  --surface: oklch(0.17 0.05 264);
-  --surface-foreground: oklch(0.96 0.01 264);
-  --overlay: oklch(0.17 0.05 264);
-  --overlay-foreground: oklch(0.96 0.01 264);
+  --background: oklch(0.1 0.005 0);
+  --foreground: oklch(0.96 0 0);
+  --surface: oklch(0.14 0.005 0);
+  --surface-foreground: oklch(0.96 0 0);
+  --overlay: oklch(0.14 0.005 0);
+  --overlay-foreground: oklch(0.96 0 0);
 
   /* ── HeroUI primary action = Orange (stays vivid in dark) */
   --accent: oklch(0.74 0.17 48);
   --accent-foreground: oklch(0.1 0.02 48);
-  --accent-soft: oklch(0.28 0.08 48);
+  --accent-soft: oklch(0.25 0.06 48);
   --accent-soft-foreground: oklch(0.88 0.08 48);
 
   /* ── Default / neutral ────────────────────────────────── */
-  --default: oklch(0.22 0.04 264);
-  --default-foreground: oklch(0.96 0.01 264);
-  --muted: oklch(0.65 0.03 264);
+  --default: oklch(0.18 0.005 0);
+  --default-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.6 0.005 0);
 
   /* ── Status ───────────────────────────────────────────── */
   --success: oklch(0.68 0.15 155);
@@ -96,9 +100,9 @@
   --danger-foreground: oklch(0.1 0.02 27);
 
   /* ── Form fields ──────────────────────────────────────── */
-  --field-background: oklch(0.2 0.05 264);
-  --field-foreground: oklch(0.96 0.01 264);
-  --field-placeholder: oklch(0.55 0.03 264);
+  --field-background: oklch(0.16 0.005 0);
+  --field-foreground: oklch(0.96 0 0);
+  --field-placeholder: oklch(0.5 0.005 0);
   --field-border: oklch(1 0 0 / 12%);
 
   /* ── Structural ───────────────────────────────────────── */

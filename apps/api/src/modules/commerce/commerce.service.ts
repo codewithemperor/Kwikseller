@@ -22,6 +22,7 @@ import {
   ManualDeliveryDto,
   RefundPaymentDto,
   UpdateCartItemDto,
+  UpdateDeliverySettingsDto,
   UpdateOrderStatusDto,
   UpdatePoolOfferDto,
   UpdateStorefrontDesignDto,
@@ -60,6 +61,18 @@ const STOREFRONT_TEMPLATE_OPTIONS = {
   heroLayout: ['BANNER_LEFT', 'CENTERED_HERO', 'MINIMAL_STRIP'],
   productCardStyle: ['CLEAN_GRID', 'COMPACT_COMMERCE', 'EDITORIAL_CARD'],
 } as const;
+
+const STOREFRONT_FONT_KEYS = [
+  'SORA',
+  'FIGTREE',
+  'INTER',
+  'POPPINS',
+  'DM_SANS',
+  'LATO',
+  'MONTSERRAT',
+  'PLAYFAIR_DISPLAY',
+  'MERRIWEATHER',
+] as const;
 
 const RESERVATION_MINUTES = 15;
 const ORDER_TRANSITIONS: Record<string, string[]> = {
@@ -116,11 +129,51 @@ export class CommerceService {
       })
       .catch(() => null);
 
-    if (!store?.id) {
+    if (store?.id) {
+      return store.id;
+    }
+
+    const vendor = await this.db().user?.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    if (!vendor || `${vendor.role}`.toUpperCase() !== 'VENDOR') {
       throw new ForbiddenException('Vendor store is required for this action');
     }
 
-    return store.id;
+    const baseName =
+      [vendor.profile?.firstName, vendor.profile?.lastName].filter(Boolean).join(' ').trim() ||
+      vendor.email?.split('@')[0] ||
+      'Vendor Store';
+    const created = await this.db().store?.create({
+      data: {
+        vendorId: userId,
+        name: baseName,
+        slug: `${this.slugify(baseName)}-${randomUUID().slice(0, 6)}`,
+        category: 'other',
+        onboardingStep: 'STORE_SETUP',
+        storefrontDesign: {
+          create: {
+            headingFont: 'SORA',
+            bodyFont: 'FIGTREE',
+          },
+        },
+        deliverySetting: {
+          create: {
+            manualDeliveryEnabled: true,
+            kwiksellerDeliveryEnabled: false,
+            processingDays: 1,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!created?.id) {
+      throw new ForbiddenException('Vendor store is required for this action');
+    }
+
+    return created.id;
   }
 
   private checkoutReference() {
@@ -161,9 +214,11 @@ export class CommerceService {
       layoutTemplate: this.safeTemplateKey('layoutTemplate', design?.layoutTemplate),
       cartTemplate: this.safeTemplateKey('cartTemplate', design?.cartTemplate),
       typographyPreset: this.safeTemplateKey('typographyPreset', design?.typographyPreset),
-      primaryColor: design?.primaryColor ?? '#071A2F',
-      accentColor: design?.accentColor ?? '#F97316',
+      primaryColor: this.safeHexColor(design?.primaryColor, '#071A2F'),
+      accentColor: this.safeHexColor(design?.accentColor, '#F97316'),
       fontPairing: this.safeTemplateKey('fontPairing', design?.fontPairing),
+      headingFont: this.safeFontKey(design?.headingFont, 'SORA'),
+      bodyFont: this.safeFontKey(design?.bodyFont, 'FIGTREE'),
       heroLayout: this.safeTemplateKey('heroLayout', design?.heroLayout),
       productCardStyle: this.safeTemplateKey('productCardStyle', design?.productCardStyle),
       sections,
@@ -182,6 +237,51 @@ export class CommerceService {
     const options = STOREFRONT_TEMPLATE_OPTIONS[field] as readonly string[];
     if (!options.includes(value)) {
       throw new BadRequestException(`${field} must be one of: ${options.join(', ')}`);
+    }
+    return value;
+  }
+
+  private assertProductCanPublish(product: any) {
+    if (!product.categoryId) {
+      throw new BadRequestException('Publishing requires a category');
+    }
+    const images = Array.isArray(product.images) ? product.images : [];
+    if (!images.length) {
+      throw new BadRequestException('Publishing requires at least one product image');
+    }
+    if (Number(product.price ?? 0) <= 0) {
+      throw new BadRequestException('Publishing requires a valid price');
+    }
+    const isTrackedPhysical =
+      product.productType === 'PHYSICAL' &&
+      (product.trackInventory ?? product.inventoryPolicy === 'TRACKED');
+    if (isTrackedPhysical && Number(product.stock ?? 0) < 1) {
+      throw new BadRequestException('Publishing tracked physical products requires available stock');
+    }
+  }
+
+  private safeHexColor(value: unknown, fallback: string) {
+    return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value.toUpperCase() : fallback;
+  }
+
+  private assertHexColor(field: string, value?: string) {
+    if (value === undefined) return undefined;
+    if (!/^#[0-9a-fA-F]{6}$/.test(value)) {
+      throw new BadRequestException(`${field} must be a valid #RRGGBB color`);
+    }
+    return value.toUpperCase();
+  }
+
+  private safeFontKey(value: unknown, fallback: (typeof STOREFRONT_FONT_KEYS)[number]) {
+    return typeof value === 'string' && (STOREFRONT_FONT_KEYS as readonly string[]).includes(value)
+      ? value
+      : fallback;
+  }
+
+  private assertFontKey(field: string, value?: string) {
+    if (!value) return undefined;
+    if (!(STOREFRONT_FONT_KEYS as readonly string[]).includes(value)) {
+      throw new BadRequestException(`${field} must be one of: ${STOREFRONT_FONT_KEYS.join(', ')}`);
     }
     return value;
   }
@@ -938,7 +1038,7 @@ export class CommerceService {
     const storeId = await this.resolveStoreId(user);
     return this.db().product?.findMany({
       where: { storeId },
-      include: { variants: true, inventoryItems: true, digitalAssets: true },
+      include: { variants: true, inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -1075,9 +1175,11 @@ export class CommerceService {
       layoutTemplate: this.assertTemplateKey('layoutTemplate', dto.layoutTemplate),
       cartTemplate: this.assertTemplateKey('cartTemplate', dto.cartTemplate),
       typographyPreset: this.assertTemplateKey('typographyPreset', dto.typographyPreset),
-      primaryColor: dto.primaryColor,
-      accentColor: dto.accentColor,
+      primaryColor: this.assertHexColor('primaryColor', dto.primaryColor),
+      accentColor: this.assertHexColor('accentColor', dto.accentColor),
       fontPairing: this.assertTemplateKey('fontPairing', dto.fontPairing),
+      headingFont: this.assertFontKey('headingFont', dto.headingFont),
+      bodyFont: this.assertFontKey('bodyFont', dto.bodyFont),
       heroLayout: this.assertTemplateKey('heroLayout', dto.heroLayout),
       productCardStyle: this.assertTemplateKey('productCardStyle', dto.productCardStyle),
       heroTitle: dto.heroTitle,
@@ -1104,31 +1206,65 @@ export class CommerceService {
 
   async createVendorProduct(user: AuthContext, dto: CreateVendorProductDto) {
     const storeId = await this.resolveStoreId(user);
+    const isPhysical = dto.productType === 'PHYSICAL';
+    const inventoryPolicy = dto.inventoryPolicy ?? (isPhysical ? 'TRACKED' : 'UNLIMITED');
+    const trackInventory = dto.trackInventory ?? inventoryPolicy === 'TRACKED';
+    const initialStock = isPhysical && trackInventory ? Number(dto.initialStock ?? 0) : 0;
+    const images = dto.images?.filter(Boolean) ?? [];
+    if (dto.status === 'ACTIVE') {
+      this.assertProductCanPublish({
+        ...dto,
+        images,
+        inventoryPolicy,
+        trackInventory,
+        stock: initialStock,
+      });
+    }
+
     const product = await this.db().product?.create({
       data: {
         name: dto.name,
         slug: `${this.slugify(dto.name)}-${randomUUID().slice(0, 6)}`,
-        description: dto.description,
+        description: dto.description ?? '',
         price: dto.price,
+        comparePrice: dto.comparePrice,
+        sku: dto.sku,
         categoryId: dto.categoryId,
+        brandId: dto.brandId,
         storeId,
         productType: dto.productType,
         productSource: dto.productSource ?? 'VENDOR_STOCK',
-        requiresShipping: dto.requiresShipping ?? dto.productType === 'PHYSICAL',
-        trackInventory: dto.trackInventory ?? dto.productType === 'PHYSICAL',
+        inventoryPolicy,
+        requiresShipping: dto.requiresShipping ?? isPhysical,
+        trackInventory,
+        stock: initialStock,
+        lowStock: dto.lowStock ?? 5,
+        status: dto.status ?? 'DRAFT',
+        images: images.length
+          ? {
+              create: images.map((url, index) => ({
+                url,
+                alt: dto.name,
+                position: index,
+                isMain: index === 0,
+              })),
+            }
+          : undefined,
         inventoryItems:
-          dto.initialStock === undefined
+          !trackInventory
             ? undefined
             : {
                 create: {
                   storeId,
-                  available: dto.initialStock,
+                  sku: dto.sku,
+                  available: initialStock,
                   reserved: 0,
-                  lowStockThreshold: 5,
+                  lowStockThreshold: dto.lowStock ?? 5,
+                  policy: inventoryPolicy,
                 },
               },
       },
-      include: { inventoryItems: true, digitalAssets: true },
+      include: { inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
     });
 
     return product;
@@ -1137,10 +1273,78 @@ export class CommerceService {
   async updateVendorProduct(user: AuthContext, productId: string, dto: UpdateVendorProductDto) {
     const storeId = await this.resolveStoreId(user);
     await this.assertVendorProductOwnership(storeId, productId);
-    return this.db().product?.update({
+    const product = await this.db().product?.findFirst({
+      where: { id: productId, storeId },
+      include: { images: true, inventoryItems: true },
+    });
+    const next = { ...product, ...dto, images: dto.images ?? product?.images?.map((image: any) => image.url) ?? [] };
+    if (dto.status === 'ACTIVE') {
+      this.assertProductCanPublish({
+        ...next,
+        stock: product?.inventoryItems?.[0]?.available ?? product?.stock ?? 0,
+      });
+    }
+
+    return this.db().$transaction(async (tx: any) => {
+      if (dto.images) {
+        await tx.productImage.deleteMany({ where: { productId } });
+        if (dto.images.length) {
+          await tx.productImage.createMany({
+            data: dto.images.map((url, index) => ({
+              productId,
+              url,
+              alt: dto.name ?? product?.name,
+              position: index,
+              isMain: index === 0,
+            })),
+          });
+        }
+      }
+
+      const { images: _images, ...data } = dto;
+      return tx.product.update({
       where: { id: productId },
-      data: dto,
-      include: { inventoryItems: true, digitalAssets: true },
+        data,
+        include: { inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
+      });
+    });
+  }
+
+  async getVendorDeliverySettings(user: AuthContext) {
+    const storeId = await this.resolveStoreId(user);
+    return this.db().storeDeliverySetting?.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        manualDeliveryEnabled: true,
+        kwiksellerDeliveryEnabled: false,
+        processingDays: 1,
+      },
+      update: {},
+      include: { areas: true },
+    });
+  }
+
+  async updateVendorDeliverySettings(user: AuthContext, dto: UpdateDeliverySettingsDto) {
+    const storeId = await this.resolveStoreId(user);
+    return this.db().storeDeliverySetting?.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        manualDeliveryEnabled: dto.manualDeliveryEnabled ?? true,
+        kwiksellerDeliveryEnabled: false,
+        processingDays: dto.processingDays ?? 1,
+        dispatchNote: dto.dispatchNote,
+        returnPolicy: dto.returnPolicy,
+      },
+      update: {
+        manualDeliveryEnabled: dto.manualDeliveryEnabled,
+        kwiksellerDeliveryEnabled: false,
+        processingDays: dto.processingDays,
+        dispatchNote: dto.dispatchNote,
+        returnPolicy: dto.returnPolicy,
+      },
+      include: { areas: true },
     });
   }
 

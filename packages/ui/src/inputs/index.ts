@@ -41,3 +41,7 @@ export { SubmitButton } from "./submit-button";
 export type { SubmitButtonProps } from "./submit-button";
 export { AppButton } from "./app-button";
 export type { AppButtonProps } from "./app-button";
+export { AppSwitch } from "./app-switch";
+export type { AppSwitchProps } from "./app-switch";
+export { AppColorPicker } from "./app-color-picker";
+export type { AppColorPickerProps } from "./app-color-picker";

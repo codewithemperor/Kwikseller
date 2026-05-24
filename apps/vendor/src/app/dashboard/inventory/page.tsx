@@ -5,6 +5,7 @@ import { Boxes, PlusCircle } from "lucide-react";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product } from "@kwikseller/types";
 import { kwikToast } from "@kwikseller/utils";
+import { AppButton, AppModal, FieldInput, FieldSelect } from "@kwikseller/ui";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
 
@@ -15,6 +16,7 @@ export default function VendorInventoryPage() {
   const [reason, setReason] = React.useState("Manual stock adjustment");
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isAdjustOpen, setIsAdjustOpen] = React.useState(false);
 
   const loadProducts = React.useCallback(() => {
     setIsLoading(true);
@@ -54,42 +56,21 @@ export default function VendorInventoryPage() {
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="font-heading text-2xl font-semibold text-foreground">Inventory</h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold text-foreground">Inventory</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Adjust physical product stock. Checkout uses inventory records and reservations, not product card text.
         </p>
+          </div>
+          <AppButton type="button" onClick={() => setIsAdjustOpen(true)}>
+            <PlusCircle className="h-4 w-4" />
+            Adjust stock
+          </AppButton>
+        </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <form onSubmit={submitAdjustment} className="border border-border bg-background p-5">
-          <div className="flex items-center gap-2">
-            <PlusCircle className="h-5 w-5 text-primary" />
-            <h2 className="font-heading text-base font-semibold">Stock adjustment</h2>
-          </div>
-          <div className="mt-5 space-y-4">
-            <label className="block">
-              <span className="text-xs font-semibold text-muted-foreground">Product</span>
-              <select value={productId} onChange={(event) => setProductId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm">
-                {physicalProducts.map((product) => (
-                  <option key={product.id} value={product.id}>{product.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-muted-foreground">Quantity delta</span>
-              <input type="number" value={quantityDelta} onChange={(event) => setQuantityDelta(Number(event.target.value))} className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
-              <p className="mt-1 text-xs text-muted-foreground">Use positive numbers to add stock, negative numbers to reduce stock.</p>
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-muted-foreground">Reason</span>
-              <input value={reason} onChange={(event) => setReason(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
-            </label>
-            <button disabled={isSaving || !productId || quantityDelta === 0} className="h-10 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">
-              {isSaving ? "Saving..." : "Apply adjustment"}
-            </button>
-          </div>
-        </form>
-
+      <section>
         <section className="border border-border bg-background">
           <div className="flex items-center gap-2 border-b border-border p-4">
             <Boxes className="h-5 w-5 text-primary" />
@@ -126,6 +107,32 @@ export default function VendorInventoryPage() {
           )}
         </section>
       </section>
+
+      <AppModal
+        isOpen={isAdjustOpen}
+        onClose={() => setIsAdjustOpen(false)}
+        title="Stock adjustment"
+        description="Use positive numbers to add stock and negative numbers to reduce available stock."
+      >
+        <form
+          onSubmit={(event) => {
+            submitAdjustment(event);
+            setIsAdjustOpen(false);
+          }}
+          className="space-y-4"
+        >
+          <FieldSelect label="Product" value={productId} onChange={(event) => setProductId(event.target.value)}>
+            {physicalProducts.map((product) => (
+              <option key={product.id} value={product.id}>{product.name}</option>
+            ))}
+          </FieldSelect>
+          <FieldInput type="number" label="Quantity delta" value={quantityDelta} onChange={(event) => setQuantityDelta(Number(event.target.value))} />
+          <FieldInput label="Reason" value={reason} onChange={(event) => setReason(event.target.value)} />
+          <AppButton fullWidth disabled={isSaving || !productId || quantityDelta === 0} isLoading={isSaving}>
+            Apply adjustment
+          </AppButton>
+        </form>
+      </AppModal>
     </div>
   );
 }

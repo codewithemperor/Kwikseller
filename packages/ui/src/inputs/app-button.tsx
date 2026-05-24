@@ -16,13 +16,13 @@ export type AppButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClass: Record<AppButtonVariant, string> = {
-  primary: "bg-accent text-accent-foreground hover:brightness-95 focus:ring-accent/25",
+  primary: "bg-accent text-accent-foreground hover:brightness-95",
   secondary:
-    "border border-border bg-background text-foreground hover:border-accent hover:text-accent focus:ring-accent/15 dark:border-white/10 dark:bg-white/5 dark:text-white",
+    "border border-border bg-background text-foreground hover:border-accent hover:text-accent dark:border-white/10 dark:bg-white/5 dark:text-white",
   ghost:
-    "text-foreground hover:bg-surface focus:ring-accent/15 dark:text-white dark:hover:bg-white/10",
+    "text-foreground hover:bg-surface dark:text-white dark:hover:bg-white/10",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 focus:ring-red-600/20",
+    "bg-red-600 text-white hover:bg-red-700",
 };
 
 const sizeClass: Record<AppButtonSize, string> = {
@@ -47,7 +47,7 @@ export function AppButton({
       {...props}
       disabled={disabled || isLoading}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md font-semibold transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-md font-semibold transition focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
         variantClass[variant],
         sizeClass[size],
         fullWidth && "w-full",

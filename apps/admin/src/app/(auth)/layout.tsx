@@ -1,3 +1,5 @@
+"use client";
+
 import { AdminGuestRoute } from "@/components/auth";
 import { BrandedAuthLayout } from "@kwikseller/ui";
 import { BarChart3, ShieldCheck, UsersRound } from "lucide-react";

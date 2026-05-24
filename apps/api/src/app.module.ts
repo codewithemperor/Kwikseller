@@ -24,6 +24,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { CommerceModule } from './modules/commerce/commerce.module';
+import { StoreModule } from './modules/store/store.module';
 
 @Module({
   imports: [
@@ -144,6 +145,9 @@ import { CommerceModule } from './modules/commerce/commerce.module';
 
     // Sellers module (public seller listings)
     SellersModule,
+
+    // Vendor store profile module
+    StoreModule,
 
     // Commerce module (cart, checkout, orders, payments, pool, vendor/admin ops)
     CommerceModule,

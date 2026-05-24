@@ -4,6 +4,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.storefront-themed {
+  font-family: var(--store-font-body), var(--font-text), system-ui, sans-serif;
+}
+
+.storefront-themed h1,
+.storefront-themed h2,
+.storefront-themed h3,
+.storefront-themed .font-heading {
+  font-family: var(--store-font-heading), var(--font-heading), system-ui, sans-serif;
+}
+
 /* ============================================================
    KWIKSELLER THEME
    HeroUI v3 uses its OWN semantic variables — not shadcn ones.

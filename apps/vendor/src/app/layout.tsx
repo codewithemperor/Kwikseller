@@ -1,20 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Figtree, DM_Sans } from "next/font/google";
+import { JetBrains_Mono, Figtree, Sora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
 import { Toast } from "@heroui/react";
 
-// Heading font - Poppins (modern, geometric sans-serif)
-const fontHeading = Figtree({
+const fontHeading = Sora({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
   display: "swap",
 });
 
-const fontText = DM_Sans({
+const fontText = Figtree({
   subsets: ["latin"],
   variable: "--font-text",
   display: "swap",

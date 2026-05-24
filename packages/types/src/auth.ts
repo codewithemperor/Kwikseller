@@ -35,9 +35,10 @@ export const registerSchema = z
     confirmPassword: z.string().min(1, "Please confirm your password"),
     firstName: z.string().min(2, "First name must be at least 2 characters"),
     lastName: z.string().min(2, "Last name must be at least 2 characters"),
-    phone: z.string().optional(),
+    phone: z.string().min(1, "Phone number is required"),
     role: z.enum(["BUYER", "VENDOR", "RIDER"]),
     storeName: z.string().optional(),
+    storeSlug: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -106,9 +107,13 @@ const vendorBaseSchema = z.object({
   confirmPassword: z.string().min(1, "Please confirm your password"),
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  phone: z.string().optional(),
+  phone: z.string().min(1, "Phone number is required"),
   role: z.enum(["BUYER", "VENDOR", "RIDER"]),
   storeName: z.string().min(3, "Store name must be at least 3 characters"),
+  storeSlug: z
+    .string()
+    .min(3, "Store slug must be at least 3 characters")
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only"),
 });
 
 export const vendorRegisterSchema = vendorBaseSchema.refine(

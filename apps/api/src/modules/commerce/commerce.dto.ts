@@ -13,6 +13,8 @@ import { Type } from 'class-transformer';
 
 const PRODUCT_TYPES = ['PHYSICAL', 'DIGITAL'] as const;
 const PRODUCT_SOURCES = ['VENDOR_STOCK', 'POOL_RESALE', 'GROUP_BUY'] as const;
+const PRODUCT_STATUSES = ['ACTIVE', 'DRAFT', 'ARCHIVED', 'PENDING'] as const;
+const INVENTORY_POLICIES = ['TRACKED', 'UNLIMITED', 'LICENSE_LIMITED'] as const;
 const ORDER_STATUSES = [
   'DRAFT',
   'PENDING_PAYMENT',
@@ -182,16 +184,30 @@ export class CreateVendorProductDto {
   @IsString()
   name!: string;
 
+  @IsOptional()
   @IsString()
-  description!: string;
+  description?: string;
 
   @IsNumber()
   @Min(0)
   price!: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  comparePrice?: number;
+
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  brandId?: string;
 
   @IsIn(PRODUCT_TYPES)
   productType!: string;
@@ -209,8 +225,25 @@ export class CreateVendorProductDto {
   trackInventory?: boolean;
 
   @IsOptional()
+  @IsIn(INVENTORY_POLICIES)
+  inventoryPolicy?: string;
+
+  @IsOptional()
+  @IsIn(PRODUCT_STATUSES)
+  status?: string;
+
+  @IsOptional()
   @IsInt()
   initialStock?: number;
+
+  @IsOptional()
+  @IsInt()
+  lowStock?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }
 
 export class UpdateVendorProductDto {
@@ -228,6 +261,27 @@ export class UpdateVendorProductDto {
   price?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  comparePrice?: number;
+
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  brandId?: string;
+
+  @IsOptional()
+  @IsIn(PRODUCT_STATUSES)
+  status?: string;
+
+  @IsOptional()
   @IsIn(PRODUCT_TYPES)
   productType?: string;
 
@@ -238,6 +292,41 @@ export class UpdateVendorProductDto {
   @IsOptional()
   @IsBoolean()
   trackInventory?: boolean;
+
+  @IsOptional()
+  @IsIn(INVENTORY_POLICIES)
+  inventoryPolicy?: string;
+
+  @IsOptional()
+  @IsInt()
+  lowStock?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+}
+
+export class UpdateDeliverySettingsDto {
+  @IsOptional()
+  @IsBoolean()
+  manualDeliveryEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  kwiksellerDeliveryEnabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  processingDays?: number;
+
+  @IsOptional()
+  @IsString()
+  dispatchNote?: string;
+
+  @IsOptional()
+  @IsString()
+  returnPolicy?: string;
 }
 
 export class UpdateOrderStatusDto {
@@ -413,6 +502,14 @@ export class UpdateStorefrontDesignDto {
   @IsOptional()
   @IsString()
   fontPairing?: string;
+
+  @IsOptional()
+  @IsString()
+  headingFont?: string;
+
+  @IsOptional()
+  @IsString()
+  bodyFont?: string;
 
   @IsOptional()
   @IsString()

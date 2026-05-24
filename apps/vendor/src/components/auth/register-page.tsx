@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Phone, Building2, AlertCircle } from "lucide-react";
+import { Mail, Lock, Phone, Building2, AlertCircle, Link2 } from "lucide-react";
 import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
@@ -44,6 +44,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
       phone: "",
       role: "VENDOR",
       storeName: "",
+      storeSlug: "",
     },
   });
 
@@ -66,6 +67,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
         phone: data.phone,
         role: "VENDOR",
         storeName: data.storeName,
+        storeSlug: data.storeSlug,
         storeCategory: "other",
       });
 
@@ -188,9 +190,10 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           name="phone"
           control={control}
           type="tel"
-          label="Phone (optional)"
+          label="Phone"
           placeholder="+234 801 234 5678"
           startContent={<Phone className="h-4 w-4 text-muted-foreground" />}
+          isRequired
           isDisabled={busy}
         />
 
@@ -202,6 +205,17 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           startContent={<Building2 className="h-4 w-4 text-muted-foreground" />}
           isRequired
           isDisabled={busy}
+        />
+
+        <TextInput
+          name="storeSlug"
+          control={control}
+          label="Public store URL"
+          placeholder="superstore"
+          startContent={<Link2 className="h-4 w-4 text-muted-foreground" />}
+          isRequired
+          isDisabled={busy}
+          description="Use lowercase letters, numbers, and hyphens."
         />
 
         <PasswordInput

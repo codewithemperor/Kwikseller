@@ -9,7 +9,17 @@ export * from './auth'
 export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN' | 'RIDER' | 'SUPER_ADMIN'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'PENDING'
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
-export type AdminRole = 'SUPER_ADMIN' | 'FINANCE' | 'VENDOR_SUPPORT' | 'OPERATIONS' | 'MARKETING' | 'CONTENT'
+export type AdminRole =
+  | 'SUPER_ADMIN'
+  | 'FINANCE'
+  | 'VENDOR_SUPPORT'
+  | 'OPERATIONS'
+  | 'MARKETING'
+  | 'CONTENT'
+  | 'CUSTOMER_SUPPORT'
+  | 'LOGISTICS'
+  | 'CATALOG_MANAGER'
+  | 'AUDITOR'
 
 export interface User {
   id: string
@@ -101,12 +111,25 @@ export interface StorefrontDesignConfig {
   primaryColor: string
   accentColor: string
   fontPairing: string
+  headingFont?: StorefrontFontKey
+  bodyFont?: StorefrontFontKey
   heroLayout: string
   productCardStyle: string
   sections: string[]
   heroTitle?: string | null
   heroSubtitle?: string | null
 }
+
+export type StorefrontFontKey =
+  | 'SORA'
+  | 'FIGTREE'
+  | 'INTER'
+  | 'POPPINS'
+  | 'DM_SANS'
+  | 'LATO'
+  | 'MONTSERRAT'
+  | 'PLAYFAIR_DISPLAY'
+  | 'MERRIWEATHER'
 
 // ==================== SUBSCRIPTION ====================
 

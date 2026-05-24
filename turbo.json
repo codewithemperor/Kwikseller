@@ -3,6 +3,7 @@
   "ui": "tui",
   "globalEnv": [
     "API_VERSION",
+    "API_URL",
     "DATABASE_URL",
     "DATABASE_URL_UNPOOLED",
     "JWT_SECRET",

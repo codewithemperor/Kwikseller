@@ -215,6 +215,7 @@ model Store {
   orders      Order[]       @relation("StoreOrders")
   poolOffers  VendorPoolOffer[]
   storefrontDesign StorefrontDesign?
+  deliverySetting StoreDeliverySetting?
 
   @@index([vendorId])
   @@index([slug])
@@ -233,6 +234,8 @@ model StorefrontDesign {
   primaryColor     String   @default("#071A2F")
   accentColor      String   @default("#F97316")
   fontPairing      String   @default("FIGTREE_QUESTRIAL")
+  headingFont      String   @default("SORA")
+  bodyFont         String   @default("FIGTREE")
   heroLayout       String   @default("BANNER_LEFT")
   productCardStyle String   @default("CLEAN_GRID")
   sections         String   @default("[\"hero\",\"products\",\"pool\",\"policies\"]")
@@ -483,6 +486,48 @@ model DeliveryRate {
   @@index([isActive])
 }
 
+enum DeliveryProvider {
+  MANUAL
+  KWIKSELLER
+}
+
+model StoreDeliverySetting {
+  id                        String   @id @default(cuid())
+  storeId                   String   @unique
+  manualDeliveryEnabled     Boolean  @default(true)
+  kwiksellerDeliveryEnabled Boolean  @default(false)
+  processingDays            Int      @default(1)
+  dispatchNote              String?
+  returnPolicy              String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  areas StoreDeliveryArea[]
+
+  @@index([storeId])
+}
+
+model StoreDeliveryArea {
+  id              String   @id @default(cuid())
+  settingId       String
+  state           String
+  localGovernment String?
+  fee             Float    @default(0)
+  minDeliveryDays Int      @default(3)
+  maxDeliveryDays Int      @default(5)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  setting StoreDeliverySetting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+
+  @@unique([settingId, state, localGovernment])
+  @@index([settingId])
+  @@index([state])
+  @@index([isActive])
+}
+
 // ==================== ATTRIBUTES (from SQL) ====================
 
 model Attribute {
@@ -591,6 +636,7 @@ model Product {
   images      ProductImage[]
   digitalAssets DigitalAsset[]
   inventoryItems InventoryItem[]
+  deliveryOverride ProductDeliveryOverride?
   vendorPoolOffers VendorPoolOffer[]
   category    Category?       @relation(fields: [categoryId], references: [id])
   brand       Brand?          @relation(fields: [brandId], references: [id])
@@ -609,6 +655,21 @@ model Product {
   @@index([productType])
   @@index([productSource])
   @@index([poolProductId])
+}
+
+model ProductDeliveryOverride {
+  id                String           @id @default(cuid())
+  productId         String           @unique
+  useStoreDefault   Boolean          @default(true)
+  requiresShipping  Boolean          @default(true)
+  provider          DeliveryProvider @default(MANUAL)
+  extraFee          Float            @default(0)
+  extraHandlingDays Int              @default(0)
+  dispatchNote      String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ProductVariant {

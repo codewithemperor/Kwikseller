@@ -115,19 +115,16 @@ export function ForgotPasswordPage({
           size="lg"
           isPending={busy}
           isDisabled={busy}
-          onPress={() => {}}
           className="mt-2 rounded-xl font-semibold"
         >
-          {({ isPending }: { isPending: boolean }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Sending code...
-              </span>
-            ) : (
-              "Send Verification Code"
-            )
-          }
+          {busy ? (
+            <span className="flex items-center gap-2">
+              <Spinner size="sm" />
+              Sending code...
+            </span>
+          ) : (
+            "Send Verification Code"
+          )}
         </Button>
 
         <Link

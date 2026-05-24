@@ -1,4 +1,4 @@
-import type { AdminRole } from "@kwikseller/utils";
+import type { AdminRole } from "@kwikseller/types";
 
 export type AdminSection =
   | "dashboard"

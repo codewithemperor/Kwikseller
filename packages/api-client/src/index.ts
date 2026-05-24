@@ -19,8 +19,10 @@ import type {
   PoolCampaign,
   PoolProduct,
   Product,
+  ProductStatus,
   ProductSource,
   ProductType,
+  InventoryPolicy,
   Store,
   StorefrontDesignConfig,
   VendorDashboardMetrics,
@@ -257,6 +259,8 @@ export const authApi = {
     firstName?: string
     lastName?: string
     storeName?: string
+    storeCategory?: string
+    storeSlug?: string
   }) => api.post('/auth/register', data),
 
   logout: () => {
@@ -500,6 +504,7 @@ export const storeApi = {
 
   create: (data: {
     name: string
+    slug?: string
     description?: string
     category?: string
   }) => api.post('/store', data),
@@ -508,6 +513,7 @@ export const storeApi = {
     name: string
     description: string
     category: string
+    slug: string
     logoUrl: string
     bannerUrl: string
   }>) => api.patch('/store', data),
@@ -543,14 +549,21 @@ export const vendorCommerceApi = {
 
   createProduct: (data: {
     name: string
-    description: string
+    description?: string
     price: number
+    comparePrice?: number
+    sku?: string
+    brandId?: string
     categoryId?: string
     productType: ProductType
     productSource?: ProductSource
+    status?: ProductStatus
+    inventoryPolicy?: InventoryPolicy
     requiresShipping?: boolean
     trackInventory?: boolean
     initialStock?: number
+    lowStock?: number
+    images?: string[]
   }) => api.post('/vendor/products', data),
 
   updateProduct: (
@@ -559,11 +572,29 @@ export const vendorCommerceApi = {
       name: string
       description: string
       price: number
+      comparePrice: number
+      sku: string
+      brandId: string
+      categoryId: string
+      status: ProductStatus
       productType: ProductType
+      inventoryPolicy: InventoryPolicy
       requiresShipping: boolean
       trackInventory: boolean
+      lowStock: number
+      images: string[]
     }>,
   ) => api.patch(`/vendor/products/${productId}`, data),
+
+  getDeliverySettings: () => api.get('/vendor/delivery-settings'),
+
+  updateDeliverySettings: (data: {
+    manualDeliveryEnabled?: boolean
+    kwiksellerDeliveryEnabled?: boolean
+    processingDays?: number
+    dispatchNote?: string
+    returnPolicy?: string
+  }) => api.patch('/vendor/delivery-settings', data),
 
   adjustInventory: (
     productId: string,
