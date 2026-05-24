@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { PackageOpen, Trash2 } from "lucide-react";
+import { PackageOpen, ShoppingCart, Trash2 } from "lucide-react";
 import { tokenManager } from "@kwikseller/api-client";
 import { kwikToast } from "@kwikseller/utils";
 import {
@@ -24,10 +23,12 @@ export default function VendorCartPage() {
   const allItems = useCartStore((state) => state.items);
   const removeItem = useCartStore((state) => state.removeItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const [showMixedCartChoice, setShowMixedCartChoice] = React.useState(false);
   const items = React.useMemo(
     () => allItems.filter((item) => item.storeSlug === slug),
     [allItems, slug],
   );
+  const hasOtherStoreItems = allItems.some((item) => item.storeSlug !== slug);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   if (isLoading || !store) return <StorefrontLoading slug={slug} />;
@@ -37,6 +38,10 @@ export default function VendorCartPage() {
     if (!tokenManager.isAuthenticated()) {
       kwikToast.info("Login to continue checkout.");
       router.push(`/login?redirect=/vendor/${store.slug}/checkout`);
+      return;
+    }
+    if (hasOtherStoreItems) {
+      setShowMixedCartChoice(true);
       return;
     }
     router.push(`/vendor/${store.slug}/checkout`);
@@ -55,9 +60,6 @@ export default function VendorCartPage() {
             </p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <StorefrontActionLink href={`/vendor/${store.slug}`}>Shop this store</StorefrontActionLink>
-              <Link href="/vendors" className="inline-flex h-10 items-center justify-center border border-black/10 px-4 text-sm font-semibold dark:border-white/10">
-                Buy From Other Vendors
-              </Link>
             </div>
           </div>
         ) : (
@@ -109,16 +111,46 @@ export default function VendorCartPage() {
               >
                 Checkout
               </button>
-              <Link
-                href="/vendors"
-                className="mt-3 flex h-10 w-full items-center justify-center border border-black/10 text-sm font-semibold text-[var(--store-primary)] dark:border-white/10"
-              >
-                Buy From Other Vendor
-              </Link>
             </aside>
           </div>
         )}
       </section>
+      {showMixedCartChoice && (
+        <div className="fixed inset-0 z-[130] flex items-end bg-black/45 p-4 sm:items-center sm:justify-center">
+          <div className="w-full max-w-md bg-white p-5 shadow-2xl dark:bg-[#07111f]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-[var(--store-accent)] text-white">
+                <ShoppingCart className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold">You have items from other stores</h2>
+                <p className="mt-2 text-sm leading-6 text-kwik-muted dark:text-white/60">
+                  You can checkout only {store.name} now, or review the full marketplace cart to pay for all stores together.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMixedCartChoice(false);
+                  router.push(`/vendor/${store.slug}/checkout`);
+                }}
+                className="h-11 bg-[var(--store-accent)] px-4 text-sm font-semibold text-white"
+              >
+                Checkout this store
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/cart")}
+                className="h-11 border border-black/10 px-4 text-sm font-semibold text-[var(--store-primary)] dark:border-white/10"
+              >
+                Review all carts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </VendorStorefrontShell>
   );
 }

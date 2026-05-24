@@ -377,8 +377,25 @@ export function VendorProductCard({
 }
 
 export function StorefrontLoading({ storeName, logoUrl, slug }: { storeName?: string; logoUrl?: string | null; slug?: string }) {
+  const name = storeName ?? (slug ? titleFromSlug(slug) : "Vendor store");
+
   return (
-    <main className="min-h-screen bg-white dark:bg-[#07111f]" aria-busy="true" aria-label={`Loading ${storeName ?? slug ?? "vendor store"}`} />
+    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-center text-kwik-dark dark:bg-[#07111f] dark:text-white" aria-busy="true" aria-label={`Loading ${name}`}>
+      <div className="w-full max-w-xs">
+        {logoUrl ? (
+          <img src={logoUrl} alt="" className="mx-auto h-14 w-14 object-cover" />
+        ) : (
+          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-[#071A2F] text-white">
+            <Store className="h-7 w-7" />
+          </div>
+        )}
+        <p className="mt-4 font-heading text-lg font-semibold">{name}</p>
+        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-kwik-muted dark:text-white/55">Powered by Kwikseller</p>
+        <div className="mx-auto mt-5 h-1 w-36 overflow-hidden bg-neutral-100 dark:bg-white/10">
+          <div className="h-full w-1/2 animate-pulse bg-[var(--loader-accent,#f97316)]" />
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -410,8 +427,8 @@ export function StorefrontLogoMark() {
 
 export function VendorEmptyProducts({ store }: { store: PublicStoreView }) {
   return (
-    <div className="border border-black/10 p-6 text-sm leading-6 text-kwik-muted dark:border-white/10 dark:text-white/60 sm:col-span-2 lg:col-span-4">
-      {store.name} does not have live products loaded yet. Check back after this store publishes products.
+    <div className="col-span-full flex min-h-[45vh] items-center justify-center border border-black/10 p-6 text-center text-sm leading-6 text-kwik-muted dark:border-white/10 dark:text-white/60">
+      <p className="max-w-sm">{store.name} does not have live products loaded yet. Check back after this store publishes products.</p>
     </div>
   );
 }

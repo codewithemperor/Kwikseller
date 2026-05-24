@@ -14,10 +14,19 @@ import type { NextRequest } from 'next/server';
  * Main marketplace domain
  */
 const MAIN_DOMAIN = 'kwikseller.com';
+function toHostname(value?: string) {
+  if (!value) return undefined;
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return value.replace(/^https?:\/\//, '').split('/')[0];
+  }
+}
+
 const configuredVendorHosts = [
-  process.env.VENDOR_APP_HOST,
-  process.env.NEXT_PUBLIC_VENDOR_APP_HOST,
-  process.env.NEXT_PUBLIC_VENDOR_URL ? new URL(process.env.NEXT_PUBLIC_VENDOR_URL).hostname : undefined,
+  toHostname(process.env.VENDOR_APP_HOST),
+  toHostname(process.env.NEXT_PUBLIC_VENDOR_APP_HOST),
+  toHostname(process.env.NEXT_PUBLIC_VENDOR_URL),
 ].filter(Boolean) as string[];
 
 /**

@@ -259,9 +259,6 @@ export default function VendorCheckoutPage() {
                 <CreditCard className="h-4 w-4" />
                 {isCheckingOut ? "Starting Paystack" : "Continue to Paystack"}
               </button>
-              <Link href="/vendors" className="mt-3 flex h-10 w-full items-center justify-center text-sm font-semibold text-[var(--store-primary)]">
-                Buy From Other Vendors
-              </Link>
             </aside>
           </div>
         )}
