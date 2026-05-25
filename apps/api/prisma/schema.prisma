@@ -211,11 +211,12 @@ model Store {
   updatedAt               DateTime           @updatedAt
 
   vendor      User          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  products    Product[]
-  orders      Order[]       @relation("StoreOrders")
-  poolOffers  VendorPoolOffer[]
-  storefrontDesign StorefrontDesign?
-  deliverySetting StoreDeliverySetting?
+    products    Product[]
+    orders      Order[]       @relation("StoreOrders")
+    poolOffers  VendorPoolOffer[]
+    sourcedPoolOffers VendorPoolOffer[] @relation("PoolSourceStore")
+    storefrontDesign StorefrontDesign?
+    deliverySetting StoreDeliverySetting?
 
   @@index([vendorId])
   @@index([slug])
@@ -622,22 +623,31 @@ model Product {
   status          ProductStatus @default(DRAFT)
   categoryId      String?
   brandId         String?
-  isFeatured      Boolean       @default(false)
-  isPoolProduct   Boolean       @default(false)
-  rating          Float         @default(0)
+    isFeatured      Boolean       @default(false)
+    isPoolProduct   Boolean       @default(false)
+    poolEnabled     Boolean       @default(false)
+    poolBasePrice   Float?
+    poolMinSalePrice Float?
+    poolMaxSelectableQuantity Int?
+    poolSourceStoreId String?
+    poolSourceProductId String?
+    poolSourceBasePrice Float?
+    poolMargin      Float?
+    rating          Float         @default(0)
   reviewCount     Int           @default(0)
   totalSales      Int           @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id])
+    poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id])
   variants    ProductVariant[]
   images      ProductImage[]
   digitalAssets DigitalAsset[]
   inventoryItems InventoryItem[]
   deliveryOverride ProductDeliveryOverride?
-  vendorPoolOffers VendorPoolOffer[]
+    vendorPoolOffers VendorPoolOffer[]
+    sourcePoolOffers VendorPoolOffer[] @relation("PoolSourceProduct")
   category    Category?       @relation(fields: [categoryId], references: [id])
   brand       Brand?          @relation(fields: [brandId], references: [id])
   cartItems   CartItem[]
@@ -654,8 +664,11 @@ model Product {
   @@index([isFeatured])
   @@index([productType])
   @@index([productSource])
-  @@index([poolProductId])
-}
+    @@index([poolProductId])
+    @@index([poolEnabled])
+    @@index([poolSourceStoreId])
+    @@index([poolSourceProductId])
+  }
 
 model ProductDeliveryOverride {
   id                String           @id @default(cuid())
@@ -978,6 +991,12 @@ model OrderItem {
   isPoolItem  Boolean  @default(false)
   productType ProductType   @default(PHYSICAL)
   productSource ProductSource @default(VENDOR_STOCK)
+  sellerStoreId String?
+  sourceStoreId String?
+  sourceProductId String?
+  sourceBasePrice Float?
+  resellerMargin Float?
+  platformFeeAmount Float?
   fulfillmentStatus FulfillmentStatus @default(PENDING)
   createdAt   DateTime @default(now())
 
@@ -990,6 +1009,9 @@ model OrderItem {
 
   @@index([orderId])
   @@index([poolOfferId])
+  @@index([sellerStoreId])
+  @@index([sourceStoreId])
+  @@index([sourceProductId])
 }
 
 // ==================== PAYMENTS ====================
@@ -1206,27 +1228,74 @@ enum PoolOfferStatus {
 }
 
 model VendorPoolOffer {
-  id              String   @id @default(cuid())
-  storeId         String
-  poolProductId   String
-  productId       String?
-  retailPrice     Float
-  markup          Float    @default(0)
+    id              String   @id @default(cuid())
+    storeId         String
+    poolProductId   String?
+    sourceType      PoolSourceType @default(ADMIN_POOL)
+    sourceStoreId   String?
+    sourceProductId String?
+    sourceBasePrice Float          @default(0)
+    productId       String?
+    retailPrice     Float
+    markup          Float    @default(0)
   status          PoolOfferStatus @default(DRAFT)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  poolProduct PoolProduct @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
-  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+    store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+    sourceStore Store?      @relation("PoolSourceStore", fields: [sourceStoreId], references: [id], onDelete: SetNull)
+    sourceProduct Product?  @relation("PoolSourceProduct", fields: [sourceProductId], references: [id], onDelete: SetNull)
+    poolProduct PoolProduct? @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+    product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
   cartItems   CartItem[]
   orderItems  OrderItem[]
 
-  @@unique([storeId, poolProductId])
-  @@index([storeId])
-  @@index([status])
-}
+    @@unique([storeId, sourceType, poolProductId])
+    @@unique([storeId, sourceType, sourceProductId])
+    @@index([storeId])
+    @@index([sourceStoreId])
+    @@index([sourceProductId])
+    @@index([status])
+  }
+
+  enum PoolSourceType {
+    ADMIN_POOL
+    VENDOR_PRODUCT
+  }
+
+  enum PoolSettlementStatus {
+    HELD
+    RELEASED
+    CANCELLED
+    DISPUTED
+  }
+
+  model PoolSettlement {
+    id                  String               @id @default(cuid())
+    orderId             String
+    orderItemId         String
+    buyerStoreId        String
+    sourceStoreId       String?
+    sourceProductId     String?
+    poolOfferId         String?
+    quantity            Int
+    saleAmount          Float
+    sourceAmount        Float
+    resellerMargin      Float
+    platformFeeAmount   Float               @default(0)
+    status              PoolSettlementStatus @default(HELD)
+    releasedAt          DateTime?
+    createdAt           DateTime             @default(now())
+    updatedAt           DateTime             @updatedAt
+
+    @@index([orderId])
+    @@index([orderItemId])
+    @@index([buyerStoreId])
+    @@index([sourceStoreId])
+    @@index([poolOfferId])
+    @@index([status])
+  }
 
 enum PoolCampaignStatus {
   DRAFT

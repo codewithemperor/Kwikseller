@@ -33,7 +33,7 @@ export function AppSwitch({
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>
       )}
-      <Switch isSelected={isSelected} onChange={onChange} size="lg">
+      <Switch isSelected={isSelected} onValueChange={onChange} size="lg">
         {({ isSelected: selected }: { isSelected: boolean }) => (
           <Switch.Control className={selected ? "bg-accent/80" : ""}>
             <Switch.Thumb>

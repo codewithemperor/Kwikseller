@@ -7,6 +7,7 @@ import {
   BarChart3,
   Bell,
   Boxes,
+  Truck,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -28,6 +29,7 @@ const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "Products", href: "/dashboard/products", icon: Package },
   { label: "Inventory", href: "/dashboard/inventory", icon: Boxes },
+  { label: "Delivery", href: "/dashboard/delivery", icon: Truck },
   { label: "Orders", href: "/dashboard/orders", icon: PackageCheck },
   { label: "Pool", href: "/dashboard/pool", icon: Users },
   { label: "Storefront", href: "/dashboard/storefront", icon: Paintbrush },
@@ -52,7 +54,7 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
   }, [pathname]);
 
   return (
-    <ProtectedRoute requiredRole="VENDOR" loginPath="/">
+    <ProtectedRoute requiredRole="VENDOR" loginPath="/login">
       <div className="min-h-screen bg-background text-foreground">
         <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-border bg-background/85 backdrop-blur-xl lg:block">
           <div className="flex h-20 items-center gap-3 border-b border-border px-5">

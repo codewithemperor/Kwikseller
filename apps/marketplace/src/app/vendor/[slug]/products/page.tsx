@@ -202,7 +202,7 @@ export default function VendorProductsPage() {
                 <select value={source} onChange={(event) => setSource(event.target.value as SourceValue)} className="bg-transparent outline-none">
                   <option value="all">All stock</option>
                   <option value="VENDOR_STOCK">Vendor stock</option>
-                  <option value="POOL_RESALE">Pool resale</option>
+                  <option value="POOL_RESALE">Partner sourced</option>
                   <option value="DIGITAL">Digital</option>
                 </select>
               </label>

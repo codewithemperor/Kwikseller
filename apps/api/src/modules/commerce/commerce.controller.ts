@@ -283,13 +283,37 @@ export class VendorCommerceController {
   }
 
   @Get('pool/catalog')
-  listPoolCatalog() {
-    return this.commerce.listPoolCatalog();
+  listPoolCatalog(
+    @CurrentUser() user: any,
+    @Query('categoryId') categoryId?: string,
+    @Query('vendorId') vendorId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.commerce.listPoolCatalog(user, { categoryId, vendorId, search });
   }
 
   @Post('pool/offers')
   createPoolOffer(@CurrentUser() user: any, @Body() dto: CreatePoolOfferDto) {
     return this.commerce.createPoolOffer(user, dto);
+  }
+
+  @Post('pool/selections')
+  createPoolSelection(@CurrentUser() user: any, @Body() dto: CreatePoolOfferDto) {
+    return this.commerce.createPoolOffer(user, dto);
+  }
+
+  @Patch('pool/selections/:offerId')
+  updatePoolSelection(
+    @CurrentUser() user: any,
+    @Param('offerId') offerId: string,
+    @Body() dto: UpdatePoolOfferDto,
+  ) {
+    return this.commerce.updatePoolOffer(user, offerId, dto);
+  }
+
+  @Delete('pool/selections/:offerId')
+  deletePoolSelection(@CurrentUser() user: any, @Param('offerId') offerId: string) {
+    return this.commerce.deletePoolOffer(user, offerId);
   }
 
   @Patch('pool/offers/:offerId')

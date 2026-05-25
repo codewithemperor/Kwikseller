@@ -18,6 +18,7 @@ import type {
   InventoryItem,
   PoolCampaign,
   PoolProduct,
+  PoolSelectionRequest,
   Product,
   ProductStatus,
   ProductSource,
@@ -131,6 +132,16 @@ const createApiClient = (): AxiosInstance => {
     },
   })
 
+  const redirectToLogin = () => {
+    if (typeof window === 'undefined') return
+    const currentPath = window.location.pathname
+    const currentHost = window.location.hostname
+    const isAdminApp = currentHost.includes('admin') || currentPath.startsWith('/admin')
+    const isRiderApp = currentHost.includes('rider') || currentPath.startsWith('/rider')
+    const loginPath = isAdminApp ? '/admin/login' : isRiderApp ? '/rider/login' : '/login'
+    window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`
+  }
+
   // Request interceptor - Add auth token
   instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
@@ -155,9 +166,10 @@ const createApiClient = (): AxiosInstance => {
       const originalRequest = error.config as InternalAxiosRequestConfig & {
         _retry?: boolean
       }
+      const isAuthEndpoint = originalRequest?.url?.includes('/auth/')
 
       // Handle 401 Unauthorized - Try to refresh token
-      if (error.response?.status === 401 && !originalRequest._retry) {
+      if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
         originalRequest._retry = true
 
         try {
@@ -176,22 +188,12 @@ const createApiClient = (): AxiosInstance => {
             }
             return instance(originalRequest)
           }
+          tokenManager.clearTokens()
+          redirectToLogin()
         } catch {
           // Refresh failed - Clear tokens
           tokenManager.clearTokens()
-          
-          // Redirect to login if in browser
-          if (typeof window !== 'undefined') {
-            const currentPath = window.location.pathname
-            const loginPath = currentPath.includes('/admin') 
-              ? '/admin/login' 
-              : currentPath.includes('/vendor')
-                ? '/vendor/login'
-                : currentPath.includes('/rider')
-                  ? '/rider/login'
-                  : '/login'
-            window.location.href = loginPath
-          }
+          redirectToLogin()
         }
       }
 
@@ -539,6 +541,16 @@ export const storeApi = {
     api.get('/store/analytics', { params: { period } }),
 }
 
+export const uploadApi = {
+  productImage: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/upload/product', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+}
+
 // ==================== Vendor Commerce API ====================
 
 export const vendorCommerceApi = {
@@ -564,6 +576,10 @@ export const vendorCommerceApi = {
     initialStock?: number
     lowStock?: number
     images?: string[]
+    poolEnabled?: boolean
+    poolBasePrice?: number
+    poolMinSalePrice?: number
+    poolMaxSelectableQuantity?: number
   }) => api.post('/vendor/products', data),
 
   updateProduct: (
@@ -583,6 +599,10 @@ export const vendorCommerceApi = {
       trackInventory: boolean
       lowStock: number
       images: string[]
+      poolEnabled: boolean
+      poolBasePrice: number
+      poolMinSalePrice: number
+      poolMaxSelectableQuantity: number
     }>,
   ) => api.patch(`/vendor/products/${productId}`, data),
 
@@ -610,11 +630,20 @@ export const vendorCommerceApi = {
   updateOrderStatus: (orderId: string, status: string) =>
     api.patch(`/vendor/orders/${orderId}/status`, { status }),
 
-  listPoolCatalog: (params?: { categoryId?: string; page?: number; limit?: number }) =>
+  listPoolCatalog: (params?: { categoryId?: string; vendorId?: string; search?: string; page?: number; limit?: number }) =>
     api.get<PoolProduct[]>('/vendor/pool/catalog', { params }),
 
   createPoolOffer: (data: { poolProductId: string; retailPrice: number; markup?: number }) =>
     api.post<VendorPoolOffer>('/vendor/pool/offers', data),
+
+  createPoolSelection: (data: PoolSelectionRequest) =>
+    api.post<VendorPoolOffer>('/vendor/pool/selections', data),
+
+  updatePoolSelection: (id: string, data: Partial<{ retailPrice: number; status: string; isActive: boolean }>) =>
+    api.patch<VendorPoolOffer>(`/vendor/pool/selections/${id}`, data),
+
+  deletePoolSelection: (id: string) =>
+    api.delete(`/vendor/pool/selections/${id}`),
 
   updatePoolOffer: (id: string, data: Partial<{ retailPrice: number; markup: number; status: string }>) =>
     api.patch<VendorPoolOffer>(`/vendor/pool/offers/${id}`, data),

@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { BadgeCheck, PackageCheck, ShieldCheck, Truck, Users } from "lucide-react";
+import { BadgeCheck, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import {
   StorefrontActionLink,
   StorefrontLoading,
@@ -27,7 +27,6 @@ export default function VendorPublicStorePage() {
   const sections = design.sections;
   const marketplaceProducts = products.map((product) => toMarketplaceProduct(product, store));
   const previewProducts = marketplaceProducts.slice(0, 10);
-  const poolProducts = marketplaceProducts.filter((product) => product.productSource === "POOL_RESALE");
   const gridClass =
     design.layoutTemplate === "DENSE_GRID"
       ? "grid grid-cols-2 gap-3 lg:grid-cols-5"
@@ -45,7 +44,7 @@ export default function VendorPublicStorePage() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/70">{store.category ?? "Vendor store"}</p>
                 <h1 className="text-3xl font-semibold sm:text-4xl">{design.heroTitle || store.name}</h1>
                 <p className="mt-4 max-w-xl text-sm leading-6 text-white/85">
-                  {design.heroSubtitle || store.description || "Shop verified vendor stock, digital products, and Pool resale offers from this store."}
+                  {design.heroSubtitle || store.description || "Shop verified products, digital goods, and partner-fulfilled items from this store."}
                 </p>
                 <div className="mt-6">
                   <StorefrontActionLink href={`/vendor/${store.slug}/cart`}>Open store cart</StorefrontActionLink>
@@ -58,7 +57,7 @@ export default function VendorPublicStorePage() {
                 {[
                   { label: "Verified store", icon: BadgeCheck },
                   { label: "Manual dispatch", icon: Truck },
-                  { label: "Pool resale ready", icon: Users },
+                  { label: "Partner network", icon: PackageCheck },
                   { label: "Buyer protected", icon: ShieldCheck },
                 ].map((item) => (
                   <div key={item.label} className="border border-black/10 p-4 dark:border-white/10">
@@ -98,25 +97,12 @@ export default function VendorPublicStorePage() {
         </section>
       )}
 
-      {sections.includes("pool") && poolProducts.length > 0 && (
-        <section className="border-y border-black/10 bg-[var(--store-primary)] text-white dark:border-white/10">
-          <div className="mx-auto max-w-7xl px-4 py-8 lg:px-6">
-            <StorefrontSectionTitle title="Pool resale shelf" text="Admin Pool Catalog products resold by this vendor." />
-            <div className={gridClass}>
-              {poolProducts.map((product) => (
-                <VendorProductCard key={product.id} product={product} store={store} design={design} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {sections.includes("policies") && (
         <section className="mx-auto grid max-w-7xl gap-4 px-4 py-8 md:grid-cols-3 lg:px-6">
           {[
             ["Fulfillment", "Physical orders use Kwikseller manual dispatch while Rider remains paused."],
             ["Digital delivery", "Digital products are delivered from vendor-managed digital assets after payment."],
-            ["Inventory", "Checkout validates live inventory and Pool availability before payment."],
+            ["Inventory", "Checkout validates live inventory and partner availability before payment."],
           ].map(([title, text]) => (
             <div key={title} className="border border-black/10 p-5 dark:border-white/10">
               <PackageCheck className="h-5 w-5 text-[var(--store-accent)]" />

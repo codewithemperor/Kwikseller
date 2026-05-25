@@ -124,7 +124,7 @@ function fulfillmentMeta(item: {
   productSource?: string;
   requiresShipping?: boolean;
 }) {
-  if (item.productSource === "POOL_RESALE") return { label: "Pool Resale", icon: Users, color: "text-emerald-700" };
+  if (item.productSource === "POOL_RESALE") return { label: "Partner Fulfilled", icon: Users, color: "text-emerald-700" };
   if (item.productSource === "GROUP_BUY") return { label: "Group Buy", icon: Users, color: "text-cyan-700" };
   if (item.productType === "DIGITAL" || item.requiresShipping === false) return { label: "Digital Delivery", icon: Download, color: "text-violet-700" };
   return { label: "Vendor Stock", icon: PackageCheck, color: "text-kwik-dark" };
@@ -557,7 +557,7 @@ export default function CartPage() {
               <ShoppingCart className="mx-auto h-12 w-12 text-kwik-muted" />
               <h2 className="mt-4 text-xl font-semibold text-kwik-dark dark:text-white">Your cart is empty</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-kwik-muted dark:text-white/60">
-                Browse vendor stock, Pool resale, or digital delivery products and build a checkout-ready cart.
+                Browse vendor stock, partner-fulfilled, or digital delivery products and build a checkout-ready cart.
               </p>
               <Link href="/" className="mt-6 inline-flex h-11 items-center gap-2 rounded-md bg-kwik-blue px-5 text-sm font-semibold text-white">
                 Browse marketplace
@@ -572,7 +572,7 @@ export default function CartPage() {
                     <div className="min-w-0">
                       <h2 className="truncate font-heading text-sm font-semibold text-kwik-dark dark:text-white">{group.storeName}</h2>
                       <p className="mt-0.5 truncate text-[11px] text-kwik-muted dark:text-white/55">
-                        {group.items.length} product{group.items.length === 1 ? "" : "s"} • {group.requiresShipping ? "Delivery required" : "Digital-only"}{group.hasPoolResale ? " • Pool resale" : ""}
+                        {group.items.length} product{group.items.length === 1 ? "" : "s"} • {group.requiresShipping ? "Delivery required" : "Digital-only"}{group.hasPoolResale ? " • Partner fulfilled" : ""}
                       </p>
                     </div>
                     <div className="shrink-0 text-sm font-bold text-kwik-dark dark:text-white">{formatCurrency(group.subtotal)}</div>
@@ -936,7 +936,7 @@ export default function CartPage() {
             <div className="mt-4 space-y-3">
               {[
                 { active: true, icon: ShieldCheck, title: "Server validation", text: "Inventory and fulfillment are checked before payment." },
-                { active: hasPool, icon: Users, title: "Pool-aware", text: hasPool ? "Pool resale item in cart." : "No Pool resale item." },
+                { active: hasPool, icon: Users, title: "Partner-aware", text: hasPool ? "Partner-fulfilled item in cart." : "No partner-fulfilled item." },
                 { active: hasDigital, icon: Download, title: "Digital-ready", text: hasDigital ? "Digital delivery skips shipping." : "Physical delivery rules apply." },
               ].map((item) => (
                 <div key={item.title} className="flex gap-3">

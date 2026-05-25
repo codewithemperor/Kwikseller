@@ -210,7 +210,7 @@ function PoolOfferCard({ offer }: { offer: PoolOffer }) {
   );
   const productId = offer.product?.id;
   const image = offer.product?.images?.[0]?.url ?? null;
-  const name = offer.product?.name ?? offer.poolProduct?.name ?? "Pool resale offer";
+  const name = offer.product?.name ?? offer.poolProduct?.name ?? "Partner-fulfilled offer";
 
   const addToCart = () => {
     if (!productId) {
@@ -233,17 +233,13 @@ function PoolOfferCard({ offer }: { offer: PoolOffer }) {
       productSource: "POOL_RESALE",
       requiresShipping: true,
     });
-    kwikToast.success("Pool resale offer added to cart");
+    kwikToast.success("Offer added to cart");
   };
 
   return (
     <article className="group border-b border-neutral-200 pb-4 dark:border-white/10">
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
         <AppImage src={image} alt={name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" fallbackVariant="product" />
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-800">
-          <Users className="h-3 w-3" />
-          Pool Resale
-        </span>
       </div>
       <div className="mt-3 space-y-3">
         <div>
@@ -552,7 +548,7 @@ export function MarketplaceHomeFeedPage() {
                 <div className="grid gap-2">
                   {[
                     { icon: PackageCheck, title: "Vendor Stock", text: "Physical products with real inventory rules." },
-                    { icon: Users, title: "Pool Resale", text: "Vendor markup on Admin Pool Catalog items." },
+                    { icon: Users, title: "Partner network", text: "More products fulfilled through verified partners." },
                     { icon: Download, title: "Digital Delivery", text: "Checkout skips shipping when fulfillment is digital." },
                   ].map((item) => (
                     <div key={item.title} className="flex gap-3">
@@ -591,7 +587,7 @@ export function MarketplaceHomeFeedPage() {
         <section>
           <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
             <div>
-              <h2 className="text-base font-semibold text-white md:text-xl">Pool resale shelf</h2>
+              <h2 className="text-base font-semibold text-white md:text-xl">Partner-fulfilled shelf</h2>
               <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">
               Vendor offers backed by the Admin Pool Catalog, priced with markup, and ready to validate in checkout.
               </p>

@@ -197,6 +197,7 @@ export interface Milestone {
 export type ProductStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'PENDING'
 export type ProductType = 'PHYSICAL' | 'DIGITAL'
 export type ProductSource = 'VENDOR_STOCK' | 'POOL_RESALE' | 'GROUP_BUY'
+export type PoolSourceType = 'ADMIN_POOL' | 'VENDOR_PRODUCT'
 export type InventoryPolicy = 'TRACKED' | 'UNLIMITED' | 'LICENSE_LIMITED'
 export type DigitalDeliveryType = 'DOWNLOAD' | 'LICENSE_KEY' | 'EXTERNAL_ACCESS'
 
@@ -220,6 +221,14 @@ export interface Product {
   categoryId?: string
   isPoolProduct: boolean
   poolProductId?: string
+  poolEnabled?: boolean
+  poolBasePrice?: number
+  poolMinSalePrice?: number
+  poolMaxSelectableQuantity?: number
+  poolSourceStoreId?: string
+  poolSourceProductId?: string
+  poolSourceBasePrice?: number
+  poolMargin?: number
   digitalAssets?: DigitalAsset[]
   inventoryItems?: InventoryItem[]
   createdAt: string
@@ -457,6 +466,12 @@ export interface OrderItem {
   productType?: ProductType
   productSource?: ProductSource
   poolOfferId?: string
+  sellerStoreId?: string
+  sourceStoreId?: string
+  sourceProductId?: string
+  sourceBasePrice?: number
+  resellerMargin?: number
+  platformFeeAmount?: number
   fulfillmentStatus?: FulfillmentStatus
   product?: Product
   variant?: ProductVariant
@@ -565,11 +580,21 @@ export interface PoolProduct {
   wholesalePrice: number
   suggestedRetailPrice?: number
   categoryId?: string
+  category?: string
   supplierId?: string
   status: PoolProductStatus
   productType: ProductType
   images?: string[]
   inventoryItem?: InventoryItem
+  inventoryItems?: InventoryItem[]
+  sourceType?: PoolSourceType
+  sourceProductId?: string
+  sourceStoreId?: string
+  sourceStoreName?: string
+  sourceStoreSlug?: string
+  alreadySelected?: boolean
+  linkedOfferId?: string
+  linkedProductId?: string
   createdAt: string
   updatedAt: string
 }
@@ -577,14 +602,27 @@ export interface PoolProduct {
 export interface VendorPoolOffer {
   id: string
   storeId: string
-  poolProductId: string
+  poolProductId?: string
+  sourceType?: PoolSourceType
+  sourceStoreId?: string
+  sourceProductId?: string
+  sourceBasePrice?: number
   retailPrice: number
   markup: number
   status: PoolOfferStatus
   productId?: string
   poolProduct?: PoolProduct
+  sourceProduct?: Product
+  product?: Product
   createdAt: string
   updatedAt: string
+}
+
+export interface PoolSelectionRequest {
+  sourceType: PoolSourceType
+  poolProductId?: string
+  sourceProductId?: string
+  retailPrice: number
 }
 
 export interface PoolCampaign {

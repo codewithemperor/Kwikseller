@@ -375,9 +375,7 @@ export class AuthService {
     const user = candidates.find((candidate, index) => passwordMatches[index]);
 
     if (!user) {
-      throw new UnauthorizedException(
-        `No ${dto.role.toLowerCase().replace("_", " ")} account found with these credentials`,
-      );
+      throw new UnauthorizedException("Invalid email or password");
     }
 
     if (user.status === "BANNED") {
@@ -904,9 +902,7 @@ export class AuthService {
       : user.role === (requestedRole as PrismaUserRole);
 
     if (!hasMatchingRole) {
-      throw new UnauthorizedException(
-        `No ${requestedRole.toLowerCase().replace("_", " ")} account found with these credentials`,
-      );
+      throw new UnauthorizedException("Invalid email or password");
     }
 
     if (

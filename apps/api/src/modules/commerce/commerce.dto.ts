@@ -13,6 +13,7 @@ import { Type } from 'class-transformer';
 
 const PRODUCT_TYPES = ['PHYSICAL', 'DIGITAL'] as const;
 const PRODUCT_SOURCES = ['VENDOR_STOCK', 'POOL_RESALE', 'GROUP_BUY'] as const;
+const POOL_SOURCE_TYPES = ['ADMIN_POOL', 'VENDOR_PRODUCT'] as const;
 const PRODUCT_STATUSES = ['ACTIVE', 'DRAFT', 'ARCHIVED', 'PENDING'] as const;
 const INVENTORY_POLICIES = ['TRACKED', 'UNLIMITED', 'LICENSE_LIMITED'] as const;
 const ORDER_STATUSES = [
@@ -244,7 +245,26 @@ export class CreateVendorProductDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
-}
+
+  @IsOptional()
+  @IsBoolean()
+  poolEnabled?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  poolBasePrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  poolMinSalePrice?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  poolMaxSelectableQuantity?: number;
+  }
 
 export class UpdateVendorProductDto {
   @IsOptional()
@@ -305,7 +325,26 @@ export class UpdateVendorProductDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
-}
+
+  @IsOptional()
+  @IsBoolean()
+  poolEnabled?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  poolBasePrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  poolMinSalePrice?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  poolMaxSelectableQuantity?: number;
+  }
 
 export class UpdateDeliverySettingsDto {
   @IsOptional()
@@ -339,8 +378,17 @@ export class UpdateOrderStatusDto {
 }
 
 export class CreatePoolOfferDto {
+  @IsOptional()
+  @IsIn(POOL_SOURCE_TYPES)
+  sourceType?: string;
+
+  @IsOptional()
   @IsString()
-  poolProductId!: string;
+  poolProductId?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceProductId?: string;
 
   @IsNumber()
   @Min(0)

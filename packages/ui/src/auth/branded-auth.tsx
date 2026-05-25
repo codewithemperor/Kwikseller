@@ -139,13 +139,15 @@ export type BrandedAuthLayoutProps = {
   sidePanel: BrandedAuthSidePanelProps;
   mobileLabel: string;
   copyright?: string;
+  formClassName?: string;
 };
 
 export function BrandedAuthLayout({
   children,
   sidePanel,
   mobileLabel,
-  copyright = "Copyright 2026 Kwikseller. All rights reserved.",
+  copyright,
+  formClassName,
 }: BrandedAuthLayoutProps) {
   return (
     <main className="min-h-screen bg-background text-foreground dark:bg-[#07111f] dark:text-white">
@@ -159,11 +161,13 @@ export function BrandedAuthLayout({
             <KwiksellerLogo />
           </div>
           <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-8">
-            <div className="w-full max-w-[500px]">{children}</div>
+            <div className={cn("w-full max-w-[480px]", formClassName)}>{children}</div>
           </div>
-          <p className="border-t border-neutral-200 px-5 py-4 text-center text-xs text-muted dark:border-white/10 dark:text-white/50">
-            {copyright}
-          </p>
+          {copyright ? (
+            <p className="border-t border-neutral-200 px-5 py-4 text-center text-xs text-muted dark:border-white/10 dark:text-white/50">
+              {copyright}
+            </p>
+          ) : null}
         </section>
       </div>
     </main>

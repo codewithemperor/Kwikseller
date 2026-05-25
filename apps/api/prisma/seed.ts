@@ -813,6 +813,7 @@ async function main() {
   try {
     await db.inventoryReservation?.deleteMany();
     await db.fulfillment?.deleteMany();
+    await db.poolSettlement?.deleteMany();
     await db.payment?.deleteMany();
     await db.orderItem?.deleteMany();
     await db.order?.deleteMany();
@@ -1002,6 +1003,47 @@ async function main() {
 
   const secondStore = await prisma.store.findUnique({ where: { slug: "amina-urban-market" } });
   const secondStoreId = secondStore!.id;
+  const deliverySeedAreas = [
+    { state: "Lagos", localGovernment: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
+    { state: "Lagos", localGovernment: "Lekki", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
+    { state: "Abuja", localGovernment: "Municipal", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
+  ];
+  for (const seedStoreId of [storeId, secondStoreId]) {
+    const deliverySetting = await db.storeDeliverySetting?.upsert({
+      where: { storeId: seedStoreId },
+      update: {
+        manualDeliveryEnabled: true,
+        kwiksellerDeliveryEnabled: false,
+        processingDays: 1,
+        dispatchNote: "Seeded manual delivery plan for Pool and checkout testing.",
+      },
+      create: {
+        storeId: seedStoreId,
+        manualDeliveryEnabled: true,
+        kwiksellerDeliveryEnabled: false,
+        processingDays: 1,
+        dispatchNote: "Seeded manual delivery plan for Pool and checkout testing.",
+      },
+    });
+    for (const area of deliverySeedAreas) {
+      await db.storeDeliveryArea?.upsert({
+        where: {
+          settingId_state_localGovernment: {
+            settingId: deliverySetting.id,
+            state: area.state,
+            localGovernment: area.localGovernment,
+          },
+        },
+        update: { ...area, isActive: true },
+        create: {
+          settingId: deliverySetting.id,
+          ...area,
+          isActive: true,
+        },
+      });
+    }
+  }
+  console.log("   ✅ Store delivery settings seeded for Pool source vendors\n");
   await db.storefrontDesign?.upsert({
     where: { storeId: secondStoreId },
     update: {
@@ -1071,25 +1113,34 @@ async function main() {
   for (let i = 0; i < products.length; i += BATCH_SIZE) {
     const batch = products.slice(i, i + BATCH_SIZE);
     await prisma.product.createMany({
-      data: batch.map((p) => ({
-        storeId,
-        name: p.name,
-        slug: `${p.slug}-${Math.random().toString(36).substring(2, 7)}`,
-        description: p.description,
-        price: p.price,
-        comparePrice: p.comparePrice,
-        sku: p.sku,
-        stock: p.stock,
-        productType: "PHYSICAL",
-        productSource: "VENDOR_STOCK",
-        inventoryPolicy: "TRACKED",
-        requiresShipping: true,
-        trackInventory: true,
-        status: p.status as ProductStatus,
-        categoryId: p.categoryId,
-        brandId: p.brandId,
-        isFeatured: p.isFeatured,
-      })) as any,
+      data: batch.map((p, batchIndex) => {
+        const productIndex = i + batchIndex;
+        const poolEnabled = p.status === "ACTIVE" && productIndex % 5 === 0;
+        const poolBasePrice = Math.max(1, Math.round(p.price * 0.82));
+        return {
+          storeId,
+          name: p.name,
+          slug: `${p.slug}-${Math.random().toString(36).substring(2, 7)}`,
+          description: p.description,
+          price: p.price,
+          comparePrice: p.comparePrice,
+          sku: p.sku,
+          stock: p.stock,
+          productType: "PHYSICAL",
+          productSource: "VENDOR_STOCK",
+          inventoryPolicy: "TRACKED",
+          requiresShipping: true,
+          trackInventory: true,
+          status: p.status as ProductStatus,
+          categoryId: p.categoryId,
+          brandId: p.brandId,
+          isFeatured: p.isFeatured,
+          poolEnabled,
+          poolBasePrice: poolEnabled ? poolBasePrice : null,
+          poolMinSalePrice: poolEnabled ? Math.max(poolBasePrice, p.price) : null,
+          poolMaxSelectableQuantity: poolEnabled ? Math.min(p.stock, 50) : null,
+        };
+      }) as any,
     });
     insertedCount += batch.length;
     process.stdout.write(`   📊 ${insertedCount}/${products.length} products inserted\r`);
@@ -1138,6 +1189,10 @@ async function main() {
         status: ProductStatus.ACTIVE,
         categoryId: categoryMap.fashion,
         isFeatured: true,
+        poolEnabled: true,
+        poolBasePrice: 15000,
+        poolMinSalePrice: 18500,
+        poolMaxSelectableQuantity: 30,
         inventoryItems: {
           create: {
             storeId: secondStoreId,
@@ -1259,6 +1314,8 @@ async function main() {
       status: ProductStatus.ACTIVE,
       categoryId: categoryMap.electronics,
       isPoolProduct: true,
+      poolSourceBasePrice: 18000,
+      poolMargin: 6500,
       isFeatured: true,
     } as any,
   });
@@ -1267,6 +1324,8 @@ async function main() {
     data: {
       storeId,
       poolProductId: poolProduct.id,
+      sourceType: "ADMIN_POOL",
+      sourceBasePrice: 18000,
       productId: poolListing.id,
       retailPrice: 24500,
       markup: 6500,
@@ -1327,6 +1386,79 @@ async function main() {
   for (let i = 0; i < imageData.length; i += IMAGE_BATCH_SIZE) {
     const batch = imageData.slice(i, i + IMAGE_BATCH_SIZE);
     await prisma.productImage.createMany({ data: batch });
+  }
+
+  const vendorPoolSource = await db.product?.findFirst({
+    where: { storeId, poolEnabled: true, status: ProductStatus.ACTIVE },
+    include: { images: true },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  if (vendorPoolSource) {
+    const sourceBasePrice = Number(
+      vendorPoolSource.poolBasePrice ??
+        Math.round(Number(vendorPoolSource.price) * 0.82),
+    );
+    const resalePrice = Math.max(
+      Number(vendorPoolSource.poolMinSalePrice ?? vendorPoolSource.price),
+      sourceBasePrice + 3000,
+    );
+    const sourceSku = vendorPoolSource.sku ?? "0001";
+
+    const selectedPoolProduct = await db.product?.create({
+      data: {
+        storeId: secondStoreId,
+        name: vendorPoolSource.name,
+        slug: `${vendorPoolSource.slug}-partner-${Math.random().toString(36).substring(2, 7)}`,
+        description: vendorPoolSource.description,
+        price: resalePrice,
+        comparePrice: vendorPoolSource.comparePrice,
+        sku: `AMINA-POOL-${sourceSku}`.slice(0, 64),
+        stock: 0,
+        productType: vendorPoolSource.productType,
+        productSource: "POOL_RESALE",
+        inventoryPolicy: "TRACKED",
+        requiresShipping: true,
+        trackInventory: true,
+        status: ProductStatus.ACTIVE,
+        categoryId: vendorPoolSource.categoryId,
+        brandId: vendorPoolSource.brandId,
+        isPoolProduct: true,
+        poolSourceStoreId: storeId,
+        poolSourceProductId: vendorPoolSource.id,
+        poolSourceBasePrice: sourceBasePrice,
+        poolMargin: resalePrice - sourceBasePrice,
+        images: vendorPoolSource.images?.length
+          ? {
+              create: vendorPoolSource.images.slice(0, 3).map((image: any, index: number) => ({
+                url: image.url,
+                alt: vendorPoolSource.name,
+                position: index,
+                isMain: index === 0,
+              })),
+            }
+          : undefined,
+      } as any,
+    });
+
+    if (selectedPoolProduct) {
+      await db.vendorPoolOffer?.create({
+        data: {
+          storeId: secondStoreId,
+          sourceType: "VENDOR_PRODUCT",
+          sourceStoreId: storeId,
+          sourceProductId: vendorPoolSource.id,
+          sourceBasePrice,
+          productId: selectedPoolProduct.id,
+          retailPrice: resalePrice,
+          markup: resalePrice - sourceBasePrice,
+          status: "ACTIVE",
+          isActive: true,
+        },
+      });
+
+      console.log("   Vendor-to-vendor Pool selection sample created for Amina Urban Market\n");
+    }
   }
 
   console.log(`   ✅ ${imageData.length} product images created\n`);

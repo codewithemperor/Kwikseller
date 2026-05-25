@@ -9,6 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <GuestRoute redirectPath="/dashboard">
       <BrandedAuthLayout
         mobileLabel="Vendor portal"
+        formClassName="max-w-[480px]"
         sidePanel={{
           eyebrow: "Vendor portal",
           backHref: "/",

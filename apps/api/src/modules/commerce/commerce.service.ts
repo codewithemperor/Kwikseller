@@ -75,6 +75,7 @@ const STOREFRONT_FONT_KEYS = [
 ] as const;
 
 const RESERVATION_MINUTES = 15;
+const STARTER_POOL_SELECTION_LIMIT = 50;
 const ORDER_TRANSITIONS: Record<string, string[]> = {
   DRAFT: ['PENDING_PAYMENT', 'CANCELLED'],
   PENDING_PAYMENT: ['PAID', 'CANCELLED'],
@@ -297,7 +298,14 @@ export class CommerceService {
           include: {
             product: { include: { store: true } },
             variant: true,
-            poolOffer: { include: { poolProduct: true, store: true } },
+            poolOffer: {
+              include: {
+                poolProduct: true,
+                store: true,
+                sourceStore: true,
+                sourceProduct: { include: { inventoryItems: true, store: true } },
+              },
+            },
             reservations: true,
           },
         },
@@ -328,6 +336,14 @@ export class CommerceService {
         digitalAssets: true,
         store: true,
         poolProduct: { include: { inventoryItems: true } },
+        vendorPoolOffers: {
+          where: { isActive: true, status: 'ACTIVE' },
+          include: {
+            poolProduct: { include: { inventoryItems: true } },
+            sourceStore: true,
+            sourceProduct: { include: { inventoryItems: true, store: true } },
+          },
+        },
       },
     });
 
@@ -339,7 +355,12 @@ export class CommerceService {
     if (dto.poolOfferId) {
       poolOffer = await db.vendorPoolOffer?.findUnique({
         where: { id: dto.poolOfferId },
-        include: { poolProduct: { include: { inventoryItems: true } }, store: true },
+        include: {
+          poolProduct: { include: { inventoryItems: true } },
+          store: true,
+          sourceStore: true,
+          sourceProduct: { include: { inventoryItems: true, store: true } },
+        },
       });
       if (!poolOffer || !poolOffer.isActive) {
         throw new BadRequestException('Pool offer is not available');
@@ -390,7 +411,7 @@ export class CommerceService {
   async addPoolOfferToCart(user: AuthContext, poolOfferId: string, quantity: number) {
     const poolOffer = await this.db().vendorPoolOffer?.findUnique({
       where: { id: poolOfferId },
-      include: { product: true, poolProduct: true, store: true },
+      include: { product: true, poolProduct: true, store: true, sourceStore: true, sourceProduct: true },
     });
 
     if (!poolOffer?.productId) {
@@ -413,14 +434,29 @@ export class CommerceService {
         product: {
           include: {
             inventoryItems: true,
-            digitalAssets: true,
-            store: true,
-            poolProduct: { include: { inventoryItems: true } },
+              digitalAssets: true,
+              store: true,
+              poolProduct: { include: { inventoryItems: true } },
+              vendorPoolOffers: {
+                where: { isActive: true, status: 'ACTIVE' },
+                include: {
+                  poolProduct: { include: { inventoryItems: true } },
+                  sourceStore: true,
+                  sourceProduct: { include: { inventoryItems: true, store: true } },
+                },
+              },
+            },
+          },
+          poolOffer: {
+            include: {
+              poolProduct: { include: { inventoryItems: true } },
+              store: true,
+              sourceStore: true,
+              sourceProduct: { include: { inventoryItems: true, store: true } },
+            },
           },
         },
-        poolOffer: { include: { poolProduct: true, store: true } },
-      },
-    });
+      });
 
     if (!item) {
       throw new NotFoundException('Cart item not found');
@@ -624,13 +660,22 @@ export class CommerceService {
         throw new BadRequestException('Shipping address is required for physical products');
       }
 
-      const deliveryQuote = hasPhysicalItems
-        ? await this.resolveDeliveryQuote(
-            tx,
-            dto.shippingAddress?.state,
-            dto.shippingAddress?.localGovernment,
-          )
-        : null;
+      const deliveryQuotes = new Map<string, any>();
+      if (hasPhysicalItems) {
+        for (const group of groups) {
+          if (group.requiresShipping) {
+            deliveryQuotes.set(
+              group.storeId,
+              await this.resolveDeliveryQuote(
+                tx,
+                dto.shippingAddress?.state,
+                dto.shippingAddress?.localGovernment,
+                group.storeId,
+              ),
+            );
+          }
+        }
+      }
 
       const address = dto.shippingAddress
         ? await tx.address.create({
@@ -655,7 +700,7 @@ export class CommerceService {
       const discount = coupon ? Number(coupon.discount ?? 0) : totals.discount;
       const groupDiscounts = this.allocateDiscount(discount, groups);
       const shippingFee = groups.reduce(
-        (sum, group) => sum + (group.requiresShipping ? Number(deliveryQuote?.rate.fee ?? 0) : 0),
+        (sum, group) => sum + (group.requiresShipping ? Number(deliveryQuotes.get(group.storeId)?.rate.fee ?? 0) : 0),
         0,
       );
       const totalAmount = Math.max(0, totals.subtotal + shippingFee - discount);
@@ -678,6 +723,7 @@ export class CommerceService {
 
       const orders: any[] = [];
       for (const [index, group] of groups.entries()) {
+        const deliveryQuote = deliveryQuotes.get(group.storeId);
         const groupShippingFee = group.requiresShipping ? Number(deliveryQuote?.rate.fee ?? 0) : 0;
         const groupDiscount = groupDiscounts.get(group.storeId) ?? 0;
         const groupTotal = Math.max(0, group.subtotal + groupShippingFee - groupDiscount);
@@ -712,9 +758,17 @@ export class CommerceService {
               totalPrice: Number(item.price ?? 0) * Number(item.quantity ?? 0),
               isPoolItem: Boolean(item.poolOfferId),
               productType: item.productType ?? item.product?.productType ?? 'PHYSICAL',
-              productSource: item.productSource ?? item.product?.productSource ?? 'VENDOR_STOCK',
-              fulfillmentStatus: 'PENDING',
-            })),
+                productSource: item.productSource ?? item.product?.productSource ?? 'VENDOR_STOCK',
+                sellerStoreId: item.product?.storeId ?? item.poolOffer?.storeId,
+                sourceStoreId: item.poolOffer?.sourceStoreId ?? item.product?.poolSourceStoreId ?? group.storeId,
+                sourceProductId: item.poolOffer?.sourceProductId ?? item.product?.poolSourceProductId,
+                sourceBasePrice: item.poolOffer?.sourceBasePrice ?? item.product?.poolSourceBasePrice,
+                resellerMargin: item.poolOfferId
+                  ? Math.max(0, Number(item.price ?? 0) - Number(item.poolOffer?.sourceBasePrice ?? item.product?.poolSourceBasePrice ?? 0))
+                  : 0,
+                platformFeeAmount: 0,
+                fulfillmentStatus: 'PENDING',
+              })),
             },
           },
           include: { items: true, store: true },
@@ -723,6 +777,7 @@ export class CommerceService {
         for (const orderItem of order.items) {
           const cartItem = group.items.find((item: any) => this.lineItemKey(item) === this.lineItemKey(orderItem));
           await this.reserveInventoryForOrderItem(tx, orderItem, cartItem);
+          await this.createPoolSettlementForOrderItem(tx, order, orderItem, cartItem);
         }
 
         orders.push(order);
@@ -756,7 +811,7 @@ export class CommerceService {
           shippingFee,
           discount,
           couponCode: coupon?.code,
-          deliveryRateId: deliveryQuote?.rate.id,
+            deliveryRateId: [...deliveryQuotes.values()][0]?.rate.id,
           vendorOrders: orders.map((order: any) => order.id),
           reservedItems: orders.reduce((sum: number, order: any) => sum + order.items.length, 0),
         },
@@ -1211,6 +1266,20 @@ export class CommerceService {
     const trackInventory = dto.trackInventory ?? inventoryPolicy === 'TRACKED';
     const initialStock = isPhysical && trackInventory ? Number(dto.initialStock ?? 0) : 0;
     const images = dto.images?.filter(Boolean) ?? [];
+    const poolEnabled = Boolean(dto.poolEnabled) && dto.productSource !== 'POOL_RESALE';
+    const poolBasePrice = poolEnabled ? Number(dto.poolBasePrice ?? dto.price) : undefined;
+    const poolMinSalePrice = poolEnabled ? Number(dto.poolMinSalePrice ?? poolBasePrice ?? dto.price) : undefined;
+    if (poolEnabled) {
+      if (!isPhysical || !trackInventory || !dto.requiresShipping && dto.requiresShipping !== undefined) {
+        throw new BadRequestException('Only tracked physical products can be made available in Pool');
+      }
+      if (Number(poolBasePrice ?? 0) <= 0) {
+        throw new BadRequestException('Pool base price must be greater than zero');
+      }
+      if (Number(poolMinSalePrice ?? 0) < Number(poolBasePrice ?? 0)) {
+        throw new BadRequestException('Pool minimum sale price cannot be lower than the base price');
+      }
+    }
     if (dto.status === 'ACTIVE') {
       this.assertProductCanPublish({
         ...dto,
@@ -1240,6 +1309,10 @@ export class CommerceService {
         stock: initialStock,
         lowStock: dto.lowStock ?? 5,
         status: dto.status ?? 'DRAFT',
+        poolEnabled,
+        poolBasePrice,
+        poolMinSalePrice,
+        poolMaxSelectableQuantity: poolEnabled ? dto.poolMaxSelectableQuantity : undefined,
         images: images.length
           ? {
               create: images.map((url, index) => ({
@@ -1278,6 +1351,26 @@ export class CommerceService {
       include: { images: true, inventoryItems: true },
     });
     const next = { ...product, ...dto, images: dto.images ?? product?.images?.map((image: any) => image.url) ?? [] };
+    const nextPoolEnabled = dto.poolEnabled ?? product?.poolEnabled ?? false;
+    const nextProductType = dto.productType ?? product?.productType;
+    const nextTrackInventory = dto.trackInventory ?? product?.trackInventory;
+    const nextRequiresShipping = dto.requiresShipping ?? product?.requiresShipping;
+    const nextPoolBasePrice = dto.poolBasePrice ?? product?.poolBasePrice ?? dto.price ?? product?.price;
+    const nextPoolMinSalePrice = dto.poolMinSalePrice ?? product?.poolMinSalePrice ?? nextPoolBasePrice;
+    if (nextPoolEnabled) {
+      if (product?.productSource === 'POOL_RESALE') {
+        throw new BadRequestException('Pool-sourced products cannot be offered back into Pool');
+      }
+      if (nextProductType !== 'PHYSICAL' || nextTrackInventory === false || nextRequiresShipping === false) {
+        throw new BadRequestException('Only tracked physical products can be made available in Pool');
+      }
+      if (Number(nextPoolBasePrice ?? 0) <= 0) {
+        throw new BadRequestException('Pool base price must be greater than zero');
+      }
+      if (Number(nextPoolMinSalePrice ?? 0) < Number(nextPoolBasePrice ?? 0)) {
+        throw new BadRequestException('Pool minimum sale price cannot be lower than the base price');
+      }
+    }
     if (dto.status === 'ACTIVE') {
       this.assertProductCanPublish({
         ...next,
@@ -1304,7 +1397,14 @@ export class CommerceService {
       const { images: _images, ...data } = dto;
       return tx.product.update({
       where: { id: productId },
-        data,
+        data: {
+          ...data,
+          poolBasePrice: nextPoolEnabled ? nextPoolBasePrice : null,
+          poolMinSalePrice: nextPoolEnabled ? nextPoolMinSalePrice : null,
+          poolMaxSelectableQuantity: nextPoolEnabled
+            ? dto.poolMaxSelectableQuantity ?? product?.poolMaxSelectableQuantity ?? null
+            : null,
+        },
         include: { inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
       });
     });
@@ -1427,12 +1527,126 @@ export class CommerceService {
     });
   }
 
-  async listPoolCatalog() {
-    return this.db().poolProduct?.findMany({
-      where: { status: 'ACTIVE' },
+  async listPoolCatalog(user: AuthContext, options: { categoryId?: string; vendorId?: string; search?: string } = {}) {
+    const storeId = await this.resolveStoreId(user);
+    const db = this.db();
+    const search = options.search?.trim();
+    const ownOffers = await db.vendorPoolOffer?.findMany({
+      where: { storeId, isActive: true },
+      select: { id: true, poolProductId: true, sourceProductId: true, productId: true, sourceType: true },
+    });
+    const selectedAdminIds = new Map<string, any>(
+      (ownOffers ?? [])
+        .filter((offer: any) => offer.poolProductId)
+        .map((offer: any) => [offer.poolProductId, offer]),
+    );
+    const selectedVendorIds = new Map<string, any>(
+      (ownOffers ?? [])
+        .filter((offer: any) => offer.sourceProductId)
+        .map((offer: any) => [offer.sourceProductId, offer]),
+    );
+
+    const adminItems = await db.poolProduct?.findMany({
+      where: {
+        status: 'ACTIVE',
+        isActive: true,
+        ...(options.categoryId ? { categoryId: options.categoryId } : {}),
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+                { category: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
       include: { inventoryItems: true, campaigns: true },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
+
+    const vendorItems = await db.product?.findMany({
+      where: {
+        poolEnabled: true,
+        status: 'ACTIVE',
+        productSource: 'VENDOR_STOCK',
+        storeId: { not: storeId },
+        requiresShipping: true,
+        ...(options.categoryId ? { categoryId: options.categoryId } : {}),
+        ...(options.vendorId ? { storeId: options.vendorId } : {}),
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+                { store: { name: { contains: search, mode: 'insensitive' } } },
+                { category: { name: { contains: search, mode: 'insensitive' } } },
+              ],
+            }
+          : {}),
+        store: {
+          deliverySetting: {
+            is: {
+              manualDeliveryEnabled: true,
+              areas: { some: { isActive: true } },
+            },
+          },
+        },
+      },
+      include: { store: true, images: true, inventoryItems: true, category: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
+
+    const adminCatalog = (adminItems ?? []).map((item: any) => {
+      const linked = selectedAdminIds.get(item.id);
+      return {
+        ...item,
+        images: this.parseImageList(item.images),
+        sourceType: 'ADMIN_POOL',
+        sourceProductId: item.id,
+        sourceBasePrice: Number(item.wholesalePrice ?? 0),
+        sourceStoreName: 'Kwikseller',
+        alreadySelected: Boolean(linked),
+        linkedOfferId: linked?.id,
+        linkedProductId: linked?.productId,
+      };
+    });
+
+    const vendorCatalog = (vendorItems ?? []).map((product: any) => {
+      const linked = selectedVendorIds.get(product.id);
+      const basePrice = Number(product.poolBasePrice ?? product.price ?? 0);
+      return {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        wholesalePrice: basePrice,
+        suggestedRetailPrice: Number(product.poolMinSalePrice ?? product.comparePrice ?? product.price ?? basePrice),
+        productType: product.productType,
+        status: 'ACTIVE',
+        categoryId: product.categoryId,
+        category: product.category?.name,
+        stock: product.poolMaxSelectableQuantity ?? product.inventoryItems?.[0]?.available ?? product.stock ?? 0,
+        supplierId: product.storeId,
+        images: (product.images ?? []).map((image: any) => image.url),
+        isActive: true,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+        inventoryItems: product.inventoryItems,
+        sourceType: 'VENDOR_PRODUCT',
+        sourceProductId: product.id,
+        sourceStoreId: product.storeId,
+        sourceStoreName: product.store?.name,
+        sourceStoreSlug: product.store?.slug,
+        sourceBasePrice: basePrice,
+        alreadySelected: Boolean(linked),
+        linkedOfferId: linked?.id,
+        linkedProductId: linked?.productId,
+      };
+    });
+
+    return [...adminCatalog, ...vendorCatalog];
   }
 
   async listAdminPoolProducts(user: AuthContext) {
@@ -1454,7 +1668,7 @@ export class CommerceService {
   async listPublicPoolOffers() {
     return this.db().vendorPoolOffer?.findMany({
       where: { status: 'ACTIVE', isActive: true },
-      include: { poolProduct: true, store: true, product: true },
+      include: { poolProduct: true, store: true, product: true, sourceProduct: true, sourceStore: true },
       orderBy: { updatedAt: 'desc' },
     });
   }
@@ -1469,54 +1683,159 @@ export class CommerceService {
 
   async createPoolOffer(user: AuthContext, dto: CreatePoolOfferDto) {
     const storeId = await this.resolveStoreId(user);
+    const userId = this.getUserId(user);
+    const sourceType = dto.sourceType ?? (dto.sourceProductId ? 'VENDOR_PRODUCT' : 'ADMIN_POOL');
     return this.db().$transaction(async (tx: any) => {
-      const poolProduct = await tx.poolProduct.findUnique({
-        where: { id: dto.poolProductId },
+      const selectionCount = await tx.vendorPoolOffer.count({
+        where: { storeId, isActive: true, status: { in: ['ACTIVE', 'DRAFT'] } },
       });
+      const subscription = await tx.subscription.findUnique({ where: { vendorId: userId } }).catch(() => null);
 
-      if (!poolProduct || poolProduct.status !== 'ACTIVE') {
-        throw new BadRequestException('Pool product is not available for vendor resale');
+      let source: any;
+      let duplicate: any;
+      let sourceBasePrice = 0;
+      let minSalePrice = 0;
+      let sourceStoreId: string | null = null;
+      let sourceProductId: string | null = null;
+      let poolProductId: string | null = null;
+      let images: string[] = [];
+
+      if (sourceType === 'VENDOR_PRODUCT') {
+        if (!dto.sourceProductId) {
+          throw new BadRequestException('Source product is required');
+        }
+        source = await tx.product.findUnique({
+          where: { id: dto.sourceProductId },
+          include: { store: { include: { deliverySetting: { include: { areas: true } } } }, images: true, inventoryItems: true },
+        });
+        if (!source || source.storeId === storeId || !source.poolEnabled || source.status !== 'ACTIVE') {
+          throw new BadRequestException('This product is not available in the Pool catalog');
+        }
+        if (!source.requiresShipping || !source.store?.deliverySetting?.manualDeliveryEnabled) {
+          throw new BadRequestException('This product does not have source-vendor delivery configured');
+        }
+        sourceBasePrice = Number(source.poolBasePrice ?? source.price ?? 0);
+        minSalePrice = Number(source.poolMinSalePrice ?? sourceBasePrice);
+        sourceStoreId = source.storeId;
+        sourceProductId = source.id;
+        images = (source.images ?? []).map((image: any) => image.url).filter(Boolean);
+        duplicate = await tx.vendorPoolOffer.findFirst({
+          where: { storeId, sourceType: 'VENDOR_PRODUCT', sourceProductId: source.id },
+          include: { product: true },
+        });
+      } else {
+        if (!dto.poolProductId) {
+          throw new BadRequestException('Pool product is required');
+        }
+        source = await tx.poolProduct.findUnique({
+          where: { id: dto.poolProductId },
+        });
+        if (!source || source.status !== 'ACTIVE' || !source.isActive) {
+          throw new BadRequestException('Pool product is not available');
+        }
+        sourceBasePrice = Number(source.wholesalePrice ?? 0);
+        minSalePrice = Number(source.wholesalePrice ?? 0);
+        poolProductId = source.id;
+        sourceProductId = null;
+        images = this.parseImageList(source.images);
+        duplicate = await tx.vendorPoolOffer.findFirst({
+          where: { storeId, sourceType: 'ADMIN_POOL', poolProductId: source.id },
+          include: { product: true },
+        });
       }
 
-      const product = await tx.product.create({
-        data: {
-          storeId,
-          poolProductId: poolProduct.id,
-          name: poolProduct.name,
-          slug: `${this.slugify(poolProduct.name)}-${randomUUID().slice(0, 6)}`,
-          description: poolProduct.description,
-          price: dto.retailPrice,
-          comparePrice: poolProduct.suggestedRetailPrice,
-          productType: poolProduct.productType,
-          productSource: 'POOL_RESALE',
-          inventoryPolicy: 'TRACKED',
-          requiresShipping: poolProduct.productType === 'PHYSICAL',
-          trackInventory: poolProduct.productType === 'PHYSICAL',
-          categoryId: poolProduct.categoryId,
-          isPoolProduct: true,
-          status: 'ACTIVE',
-        },
-      });
+      if (Number(dto.retailPrice ?? 0) < Math.max(sourceBasePrice, minSalePrice)) {
+        throw new BadRequestException('Your sale price cannot be lower than the source price');
+      }
+      if (!duplicate && (subscription?.plan ?? 'STARTER') === 'STARTER' && selectionCount >= STARTER_POOL_SELECTION_LIMIT) {
+        throw new BadRequestException('Starter vendors can select up to 50 Pool-sourced products');
+      }
 
-      const offer = await tx.vendorPoolOffer.create({
-        data: {
-          storeId,
-          poolProductId: dto.poolProductId,
-          productId: product.id,
-          retailPrice: dto.retailPrice,
-          markup: dto.markup ?? Math.max(0, dto.retailPrice - Number(poolProduct.wholesalePrice ?? 0)),
-          status: 'ACTIVE',
-          isActive: true,
-        },
-        include: { poolProduct: true, product: true },
-      });
+      const markup = dto.markup ?? Math.max(0, Number(dto.retailPrice) - sourceBasePrice);
+      const productData = {
+        storeId,
+        poolProductId,
+        name: source.name,
+        slug: `${this.slugify(source.name)}-${randomUUID().slice(0, 6)}`,
+        description: source.description,
+        price: dto.retailPrice,
+        comparePrice: source.suggestedRetailPrice ?? source.comparePrice ?? undefined,
+        productType: source.productType,
+        productSource: 'POOL_RESALE',
+        inventoryPolicy: source.productType === 'PHYSICAL' ? 'TRACKED' : 'UNLIMITED',
+        requiresShipping: source.productType === 'PHYSICAL',
+        trackInventory: source.productType === 'PHYSICAL',
+        categoryId: source.categoryId,
+        isPoolProduct: true,
+        poolSourceStoreId: sourceStoreId,
+        poolSourceProductId: sourceProductId,
+        poolSourceBasePrice: sourceBasePrice,
+        poolMargin: markup,
+        status: 'ACTIVE',
+      };
+
+      const product = duplicate?.productId
+        ? await tx.product.update({
+            where: { id: duplicate.productId },
+            data: {
+              price: dto.retailPrice,
+              comparePrice: productData.comparePrice,
+              poolSourceBasePrice: sourceBasePrice,
+              poolMargin: markup,
+            },
+          })
+        : await tx.product.create({
+            data: {
+              ...productData,
+              images: images.length
+                ? {
+                    create: images.slice(0, 5).map((url, index) => ({
+                      url,
+                      alt: source.name,
+                      position: index,
+                      isMain: index === 0,
+                    })),
+                  }
+                : undefined,
+            },
+          });
+
+      const offer = duplicate
+        ? await tx.vendorPoolOffer.update({
+            where: { id: duplicate.id },
+            data: {
+              productId: product.id,
+              retailPrice: dto.retailPrice,
+              markup,
+              sourceBasePrice,
+              status: 'ACTIVE',
+              isActive: true,
+            },
+            include: { poolProduct: true, product: true, sourceProduct: true, sourceStore: true },
+          })
+        : await tx.vendorPoolOffer.create({
+            data: {
+              storeId,
+              poolProductId,
+              sourceType,
+              sourceStoreId,
+              sourceProductId,
+              sourceBasePrice,
+              productId: product.id,
+              retailPrice: dto.retailPrice,
+              markup,
+              status: 'ACTIVE',
+              isActive: true,
+            },
+            include: { poolProduct: true, product: true, sourceProduct: true, sourceStore: true },
+          });
 
       await this.writeAudit(tx, {
-        userId: this.getUserId(user),
+        userId,
         action: 'pool.offer.created',
         entity: 'VendorPoolOffer',
         entityId: offer.id,
-        changes: { poolProductId: dto.poolProductId, retailPrice: dto.retailPrice },
+        changes: { sourceType, poolProductId, sourceProductId, retailPrice: dto.retailPrice },
       });
 
       return offer;
@@ -1527,16 +1846,58 @@ export class CommerceService {
     const storeId = await this.resolveStoreId(user);
     const offer = await this.db().vendorPoolOffer?.findFirst({
       where: { id: offerId, storeId },
+      include: { product: true },
     });
 
     if (!offer) {
       throw new NotFoundException('Pool offer not found');
     }
 
-    return this.db().vendorPoolOffer?.update({
+    if (dto.retailPrice !== undefined && Number(dto.retailPrice) < Number(offer.sourceBasePrice ?? 0)) {
+      throw new BadRequestException('Your sale price cannot be lower than the source price');
+    }
+
+    return this.db().$transaction(async (tx: any) => {
+      if (dto.retailPrice !== undefined && offer.productId) {
+        await tx.product.update({
+          where: { id: offer.productId },
+          data: {
+            price: dto.retailPrice,
+            poolMargin: Math.max(0, Number(dto.retailPrice) - Number(offer.sourceBasePrice ?? 0)),
+          },
+        });
+      }
+      return tx.vendorPoolOffer.update({
       where: { id: offerId },
-      data: dto,
-      include: { poolProduct: true },
+        data: {
+          ...dto,
+          markup: dto.retailPrice !== undefined
+            ? Math.max(0, Number(dto.retailPrice) - Number(offer.sourceBasePrice ?? 0))
+            : dto.markup,
+        },
+        include: { poolProduct: true, product: true, sourceProduct: true, sourceStore: true },
+      });
+    });
+  }
+
+  async deletePoolOffer(user: AuthContext, offerId: string) {
+    const storeId = await this.resolveStoreId(user);
+    const offer = await this.db().vendorPoolOffer?.findFirst({ where: { id: offerId, storeId } });
+    if (!offer) {
+      throw new NotFoundException('Pool selection not found');
+    }
+    return this.db().$transaction(async (tx: any) => {
+      await tx.vendorPoolOffer.update({
+        where: { id: offerId },
+        data: { isActive: false, status: 'PAUSED' },
+      });
+      if (offer.productId) {
+        await tx.product.update({
+          where: { id: offer.productId },
+          data: { status: 'ARCHIVED' },
+        }).catch(() => undefined);
+      }
+      return { success: true };
     });
   }
 
@@ -1897,12 +2258,15 @@ export class CommerceService {
       return;
     }
 
-    const inventoryWhere = product.productSource === 'POOL_RESALE' && product.poolProductId
-      ? { poolProductId: product.poolProductId }
-      : {
-          productId: product.id,
-          variantId: orderItem.variantId ?? null,
-        };
+    const inventoryWhere =
+      product.productSource === 'POOL_RESALE' && cartItem.poolOffer?.sourceType === 'VENDOR_PRODUCT' && cartItem.poolOffer?.sourceProductId
+        ? { productId: cartItem.poolOffer.sourceProductId, variantId: orderItem.variantId ?? null }
+        : product.productSource === 'POOL_RESALE' && product.poolProductId
+          ? { poolProductId: product.poolProductId }
+          : {
+              productId: product.id,
+              variantId: orderItem.variantId ?? null,
+            };
 
     const inventory = await tx.inventoryItem.findFirst({
       where: {
@@ -1933,6 +2297,33 @@ export class CommerceService {
         expiresAt: new Date(Date.now() + RESERVATION_MINUTES * 60 * 1000),
       },
     });
+  }
+
+  private async createPoolSettlementForOrderItem(tx: any, order: any, orderItem: any, cartItem: any) {
+    if (!cartItem?.poolOfferId || !cartItem?.poolOffer) {
+      return;
+    }
+    const quantity = Number(orderItem.quantity ?? cartItem.quantity ?? 1);
+    const saleAmount = Number(orderItem.totalPrice ?? Number(cartItem.price ?? 0) * quantity);
+    const sourceBasePrice = Number(cartItem.poolOffer.sourceBasePrice ?? cartItem.product?.poolSourceBasePrice ?? 0);
+    const sourceAmount = sourceBasePrice * quantity;
+    const resellerMargin = Math.max(0, saleAmount - sourceAmount);
+    await tx.poolSettlement?.create({
+      data: {
+        orderId: order.id,
+        orderItemId: orderItem.id,
+        buyerStoreId: cartItem.product?.storeId ?? cartItem.poolOffer.storeId,
+        sourceStoreId: cartItem.poolOffer.sourceStoreId ?? cartItem.product?.poolSourceStoreId ?? order.storeId,
+        sourceProductId: cartItem.poolOffer.sourceProductId ?? cartItem.product?.poolSourceProductId,
+        poolOfferId: cartItem.poolOfferId,
+        quantity,
+        saleAmount,
+        sourceAmount,
+        resellerMargin,
+        platformFeeAmount: 0,
+        status: 'HELD',
+      },
+    }).catch(() => undefined);
   }
 
   private async processSuccessfulPayment(
@@ -2314,7 +2705,7 @@ export class CommerceService {
     }
   }
 
-  private async resolveDeliveryQuote(db: any, state?: string, localGovernment?: string) {
+  private async resolveDeliveryQuote(db: any, state?: string, localGovernment?: string, storeId?: string) {
     const normalizedState = this.normalizeLocationPart(state ?? '');
     const normalizedLga = this.normalizeLocationPart(localGovernment ?? '');
 
@@ -2329,6 +2720,24 @@ export class CommerceService {
           },
         ],
       });
+    }
+
+    if (storeId) {
+      const storeRate = await db.storeDeliveryArea.findFirst({
+        where: {
+          state: { equals: normalizedState, mode: 'insensitive' },
+          localGovernment: { equals: normalizedLga, mode: 'insensitive' },
+          isActive: true,
+          setting: {
+            storeId,
+            manualDeliveryEnabled: true,
+          },
+        },
+        include: { setting: true },
+      });
+      if (storeRate) {
+        return { rate: storeRate, ...this.deliveryEstimate(storeRate) };
+      }
     }
 
     const rate = await db.deliveryRate.findFirst({
@@ -2505,10 +2914,25 @@ export class CommerceService {
               digitalAssets: true,
               store: true,
               poolProduct: { include: { inventoryItems: true } },
+              vendorPoolOffers: {
+                where: { isActive: true, status: 'ACTIVE' },
+                include: {
+                  poolProduct: { include: { inventoryItems: true } },
+                  sourceStore: true,
+                  sourceProduct: { include: { inventoryItems: true, store: true } },
+                },
+              },
             },
           },
           variant: true,
-          poolOffer: { include: { poolProduct: { include: { inventoryItems: true } }, store: true } },
+          poolOffer: {
+            include: {
+              poolProduct: { include: { inventoryItems: true } },
+              store: true,
+              sourceStore: true,
+              sourceProduct: { include: { inventoryItems: true, store: true } },
+            },
+          },
           reservations: true,
         },
       },
@@ -2703,7 +3127,10 @@ export class CommerceService {
   }
 
   private availableInventoryForLine(product: any, variantId?: string | null, poolOffer?: any) {
-    const poolInventory = poolOffer?.poolProduct?.inventoryItems ?? product.poolProduct?.inventoryItems;
+    const poolInventory =
+      poolOffer?.sourceType === 'VENDOR_PRODUCT'
+        ? poolOffer?.sourceProduct?.inventoryItems
+        : poolOffer?.poolProduct?.inventoryItems ?? product.poolProduct?.inventoryItems;
     const inventoryItems =
       (product.productSource === 'POOL_RESALE' || poolOffer) && poolInventory?.length
         ? poolInventory
@@ -2711,10 +3138,10 @@ export class CommerceService {
 
     return (inventoryItems ?? [])
       .filter((item: any) => {
-        if (item.policy === 'UNLIMITED') return true;
-        if (variantId) return item.variantId === variantId;
-        return !item.variantId || item.productId === product.id || item.poolProductId === product.poolProductId;
-      })
+          if (item.policy === 'UNLIMITED') return true;
+          if (variantId) return item.variantId === variantId;
+          return !item.variantId || item.productId === product.id || item.productId === poolOffer?.sourceProductId || item.poolProductId === product.poolProductId;
+        })
       .reduce((sum: number, item: any) => {
         if (item.policy === 'UNLIMITED') return Number.MAX_SAFE_INTEGER;
         return sum + Math.max(0, Number(item.available ?? 0));
@@ -2736,8 +3163,13 @@ export class CommerceService {
     >();
 
     for (const item of items ?? []) {
-      const store = item.product?.store ?? item.poolOffer?.store;
-      const storeId = item.product?.storeId ?? item.poolOffer?.storeId;
+      const isSourceFulfilledPool = Boolean(item.poolOfferId && item.poolOffer?.sourceStoreId);
+      const store = isSourceFulfilledPool
+        ? item.poolOffer?.sourceStore ?? item.product?.store
+        : item.product?.store ?? item.poolOffer?.store;
+      const storeId = isSourceFulfilledPool
+        ? item.poolOffer?.sourceStoreId
+        : item.product?.storeId ?? item.poolOffer?.storeId;
       if (!storeId) {
         continue;
       }
@@ -2790,6 +3222,24 @@ export class CommerceService {
 
   private lineItemKey(item: any) {
     return [item.productId, item.variantId ?? '', item.poolOfferId ?? ''].join(':');
+  }
+
+  private parseImageList(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+    }
+    if (typeof value !== 'string' || !value.trim()) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+      }
+    } catch {
+      // Seed data sometimes stores a single URL instead of JSON.
+    }
+    return [value].filter(Boolean);
   }
 
   private slugify(value: string) {
