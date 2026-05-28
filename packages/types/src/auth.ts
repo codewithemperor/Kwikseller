@@ -3,13 +3,17 @@
 
 import { z } from "zod";
 
+const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, "Email is required")
+  .email("Please enter a valid email address");
+
 // ==================== LOGIN ====================
 
 export const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: emailSchema,
   password: z
     .string()
     .min(1, "Password is required")
@@ -22,10 +26,7 @@ export type LoginFormData = z.infer<typeof loginSchema>;
 
 export const registerSchema = z
   .object({
-    email: z
-      .string()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address"),
+    email: emailSchema,
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -63,10 +64,7 @@ export type RegisterFormData = z.infer<typeof registerSchema>;
 
 // Rider registration schema - base schema without refinements, then add rider-specific fields
 const riderBaseSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: emailSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -94,10 +92,7 @@ export type RiderRegisterFormData = z.infer<typeof riderRegisterSchema>;
 
 // Vendor registration schema - base schema without refinements, then add vendor-specific fields
 const vendorBaseSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: emailSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -129,10 +124,7 @@ export type VendorRegisterFormData = z.infer<typeof vendorRegisterSchema>;
 // ==================== FORGOT PASSWORD ====================
 
 export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: emailSchema,
 });
 
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;

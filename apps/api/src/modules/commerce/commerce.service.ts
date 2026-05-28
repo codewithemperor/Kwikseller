@@ -152,20 +152,6 @@ export class CommerceService {
         name: baseName,
         slug: `${this.slugify(baseName)}-${randomUUID().slice(0, 6)}`,
         category: 'other',
-        onboardingStep: 'STORE_SETUP',
-        storefrontDesign: {
-          create: {
-            headingFont: 'SORA',
-            bodyFont: 'FIGTREE',
-          },
-        },
-        deliverySetting: {
-          create: {
-            manualDeliveryEnabled: true,
-            kwiksellerDeliveryEnabled: false,
-            processingDays: 1,
-          },
-        },
       },
       select: { id: true },
     });
@@ -173,6 +159,24 @@ export class CommerceService {
     if (!created?.id) {
       throw new ForbiddenException('Vendor store is required for this action');
     }
+
+    await Promise.allSettled([
+      this.db().storefrontDesign?.create({
+        data: {
+          storeId: created.id,
+          headingFont: 'SORA',
+          bodyFont: 'FIGTREE',
+        },
+      }),
+      this.db().storeDeliverySetting?.create({
+        data: {
+          storeId: created.id,
+          manualDeliveryEnabled: true,
+          kwiksellerDeliveryEnabled: false,
+          processingDays: 1,
+        },
+      }),
+    ]);
 
     return created.id;
   }

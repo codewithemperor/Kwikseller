@@ -35,6 +35,7 @@ export interface RequestConfig extends AxiosRequestConfig {
 const STORAGE_KEYS = {
   ACCESS_TOKEN: 'kwikseller_access_token',
   REFRESH_TOKEN: 'kwikseller_refresh_token',
+  AUTH_STORE: 'kwikseller_auth',
 }
 
 // ==================== Token Management ====================
@@ -59,6 +60,7 @@ function clearTokens(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+  localStorage.removeItem(STORAGE_KEYS.AUTH_STORE)
 }
 
 // ==================== Base URL Configuration ====================

@@ -123,7 +123,9 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
         <BrandedAuthHeader
           title="Verify vendor email"
           description="Enter the verification code sent to your email to activate your vendor account."
-          badge="Vendor registration"
+          logoSrc="/icon.png"
+          logoDarkSrc="/icon-dark.png"
+          logoClassName="h-8"
         />
         <OTPVerification
           email={userEmail}
@@ -141,11 +143,13 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
       <BrandedAuthHeader
         title="Create your vendor account"
         description="Start with a store profile built for products, inventory, orders, fulfillment, and Pool resale."
-        badge="Vendor registration"
+        logoSrc="/icon.png"
+        logoDarkSrc="/icon-dark.png"
+        logoClassName="h-8"
       />
 
       {error && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>

@@ -39,6 +39,7 @@ export type BrandedAuthHeaderProps = {
   badge?: string;
   logoSrc?: string;
   logoDarkSrc?: string;
+  logoClassName?: string;
   className?: string;
 };
 
@@ -48,11 +49,12 @@ export function BrandedAuthHeader({
   badge,
   logoSrc,
   logoDarkSrc,
+  logoClassName,
   className,
 }: BrandedAuthHeaderProps) {
   return (
     <div className={cn("mb-8", className)}>
-      <KwiksellerLogo src={logoSrc} darkSrc={logoDarkSrc} />
+      <KwiksellerLogo src={logoSrc} darkSrc={logoDarkSrc} className={logoClassName} />
       {badge && (
         <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-soft-foreground dark:bg-white/5">
           <ShieldCheck className="h-3.5 w-3.5" />
@@ -138,6 +140,7 @@ export type BrandedAuthLayoutProps = {
   children: React.ReactNode;
   sidePanel: BrandedAuthSidePanelProps;
   mobileLabel: string;
+  showMobileHeader?: boolean;
   copyright?: string;
   formClassName?: string;
 };
@@ -146,6 +149,7 @@ export function BrandedAuthLayout({
   children,
   sidePanel,
   mobileLabel,
+  showMobileHeader = true,
   copyright,
   formClassName,
 }: BrandedAuthLayoutProps) {
@@ -154,12 +158,14 @@ export function BrandedAuthLayout({
       <div className="grid min-h-screen lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
         <BrandedAuthSidePanel {...sidePanel} />
         <section className="flex min-h-screen flex-col">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-white/10 lg:hidden">
-            <a href={sidePanel.backHref ?? "/"} className="text-sm font-semibold text-kwik-muted dark:text-white/70">
-              {mobileLabel}
-            </a>
-            <KwiksellerLogo />
-          </div>
+          {showMobileHeader ? (
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-white/10 lg:hidden">
+              <a href={sidePanel.backHref ?? "/"} className="text-sm font-semibold text-kwik-muted dark:text-white/70">
+                {mobileLabel}
+              </a>
+              <KwiksellerLogo />
+            </div>
+          ) : null}
           <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-8">
             <div className={cn("w-full max-w-[480px]", formClassName)}>{children}</div>
           </div>

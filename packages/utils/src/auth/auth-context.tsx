@@ -143,6 +143,8 @@ interface AuthProviderProps {
   onUnauthenticated?: () => void;
 }
 
+const normalizeAuthEmail = (email: string) => email.trim().toLowerCase();
+
 function toStoreUser(user: User): UserStore {
   return {
     id: user.id,
@@ -210,6 +212,15 @@ export function AuthProvider({
     return () => clearTimeout(timer);
   }, [setInitialized]);
 
+  useEffect(() => {
+    if (tokens?.accessToken) {
+      setHttpTokens(tokens.accessToken, tokens.refreshToken);
+      return;
+    }
+
+    clearHttpTokens();
+  }, [tokens?.accessToken, tokens?.refreshToken]);
+
   const storeSession = useCallback(
     (user: User, tokenData: TokenData) => {
       setHttpTokens(tokenData.accessToken, tokenData.refreshToken);
@@ -228,16 +239,17 @@ export function AuthProvider({
   const login = useCallback(
     async (credentials: LoginCredentials): Promise<LoginResponse> => {
       setLoading(true);
-      try {
-        const userAgent =
-          typeof window !== "undefined" ? navigator.userAgent : "Unknown";
+      const normalizedCredentials = {
+        ...credentials,
+        email: normalizeAuthEmail(credentials.email),
+      };
 
+      try {
         // Returns flat: { accessToken, refreshToken, expiresIn, refreshExpiresIn, user }
         const res = await api.post<AuthApiResponse>(
           "/auth/login",
-          credentials,
+          normalizedCredentials,
           {
-            headers: { "user-agent": userAgent },
             skipAuthRefresh: true,
           } as Record<string, unknown>,
         );
@@ -269,7 +281,7 @@ export function AuthProvider({
               code: "EMAIL_NOT_VERIFIED",
               requiresOTP: true,
               message: err.message,
-              email: payload?.user?.email || credentials.email,
+              email: payload?.user?.email || normalizedCredentials.email,
             };
           }
           return { success: false, error: err.message };
@@ -289,11 +301,16 @@ export function AuthProvider({
     async (data: RegisterData) => {
       setLoading(true);
       try {
+        const normalizedData = {
+          ...data,
+          email: normalizeAuthEmail(data.email),
+        };
+
         const result = await api.post<{
           message: string;
           userId: string;
           email?: string;
-        }>("/auth/register", data, {
+        }>("/auth/register", normalizedData, {
           skipAuthRefresh: true,
         } as Record<string, unknown>);
         setLoading(false);
@@ -368,7 +385,7 @@ export function AuthProvider({
       setLoading(true);
       try {
         const res = await api.post<AuthApiResponse>("/auth/verify-email", {
-          email,
+          email: normalizeAuthEmail(email),
           otp,
           role,
         });
@@ -411,7 +428,7 @@ export function AuthProvider({
       try {
         const res = await api.post<{ message?: string }>(
           "/auth/resend-verification",
-          { email, role },
+          { email: normalizeAuthEmail(email), role },
         );
         setLoading(false);
         return {
@@ -442,7 +459,7 @@ export function AuthProvider({
       try {
         await api.post<{ message?: string }>(
           "/auth/forgot-password",
-          { email, role },
+          { email: normalizeAuthEmail(email), role },
           { skipAuthRefresh: true } as Record<string, unknown>,
         );
         setLoading(false);
@@ -476,7 +493,7 @@ export function AuthProvider({
       try {
         await api.post<{ message?: string }>(
           "/auth/reset-password",
-          data,
+          { ...data, email: normalizeAuthEmail(data.email) },
           { skipAuthRefresh: true } as Record<string, unknown>,
         );
         setLoading(false);

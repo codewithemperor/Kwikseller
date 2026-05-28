@@ -32,18 +32,23 @@ export default function VendorPoolPage() {
   const [retailPrice, setRetailPrice] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
-  const loadPool = React.useCallback(async (serverSearch?: string) => {
+  const loadPool = React.useCallback(async (serverSearch?: string, nextCategoryFilter = categoryFilter) => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const response = await vendorCommerceApi.listPoolCatalog({
         search: serverSearch?.trim() || undefined,
-        categoryId: categoryFilter === "ALL" ? undefined : categoryFilter,
+        categoryId: nextCategoryFilter === "ALL" ? undefined : nextCategoryFilter,
       });
-      setCatalog(unwrapApiData<PoolCatalogItem[]>(response.data));
+      const items = unwrapApiData<PoolCatalogItem[]>(response.data);
+      setCatalog(Array.isArray(items) ? items : []);
     } catch (error) {
       setCatalog([]);
-      kwikToast.error(error instanceof Error ? error.message : "Pool catalog is not available yet");
+      const message = error instanceof Error ? error.message : "Pool catalog is not available yet";
+      setLoadError(message);
+      kwikToast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +123,9 @@ export default function VendorPoolPage() {
 
   const clearSearch = () => {
     setSearch("");
-    loadPool("");
+    setSourceFilter("ALL");
+    setCategoryFilter("ALL");
+    loadPool("", "ALL");
   };
 
   return (
@@ -178,6 +185,11 @@ export default function VendorPoolPage() {
             <div key={index} className="h-56 animate-pulse border border-border bg-surface" />
           ))}
         </section>
+      ) : loadError ? (
+        <VendorEmptyState
+          title="Pool catalog could not load"
+          text={`${loadError}. Please refresh the catalog or sign in again if your session expired.`}
+        />
       ) : filteredCatalog.length ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredCatalog.map((item) => {
@@ -222,10 +234,23 @@ export default function VendorPoolPage() {
           })}
         </section>
       ) : (
-        <VendorEmptyState
-          title="No Pool products found"
-          text="There are no matching Pool products right now. Try another search, or check back after vendors publish products to the Pool."
-        />
+        <div className="border border-border bg-background p-6">
+          <VendorEmptyState
+            title="No Pool products found"
+            text={
+              catalog.length
+                ? "There are Pool products loaded, but your current search or filters hide them."
+                : "There are no Pool products available right now. Check back after Kwikseller or vendors publish products to the Pool."
+            }
+          />
+          {search || sourceFilter !== "ALL" || categoryFilter !== "ALL" ? (
+            <div className="mt-5 flex justify-center">
+              <AppButton type="button" variant="secondary" onClick={clearSearch}>
+                Clear filters
+              </AppButton>
+            </div>
+          ) : null}
+        </div>
       )}
 
       <AppModal

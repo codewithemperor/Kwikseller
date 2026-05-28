@@ -174,13 +174,18 @@ export const useAuthStore = create<AuthState>()(
           isInitialized: true,
         }),
 
-      logout: () =>
+      logout: () => {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("kwikseller_access_token");
+          localStorage.removeItem("kwikseller_refresh_token");
+        }
         set({
           user: null,
           tokens: null,
           isLoading: false,
           pendingResetEmail: null, // Clear reset email on logout
-        }),
+        });
+      },
 
       updateUser: (userData) =>
         set((state) => ({

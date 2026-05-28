@@ -48,6 +48,7 @@ export function clearTokens(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_STORAGE_KEYS.ACCESS_TOKEN);
   localStorage.removeItem(TOKEN_STORAGE_KEYS.REFRESH_TOKEN);
+  localStorage.removeItem(TOKEN_STORAGE_KEYS.AUTH_STORE);
 }
 
 export function isAuthenticated(): boolean {

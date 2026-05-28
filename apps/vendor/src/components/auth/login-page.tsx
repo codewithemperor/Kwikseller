@@ -128,7 +128,9 @@ export function LoginPage({ portal, className }: LoginPageProps) {
         <BrandedAuthHeader
           title="Verify vendor email"
           description="Enter the code sent to your email to finish securing your vendor account."
-          badge="Vendor portal"
+          logoSrc="/icon.png"
+          logoDarkSrc="/icon-dark.png"
+          logoClassName="h-8"
         />
         <OTPVerification
           email={userEmail}
@@ -149,11 +151,13 @@ export function LoginPage({ portal, className }: LoginPageProps) {
       <BrandedAuthHeader
         title="Welcome back, seller"
         description={portal.description}
-        badge="Vendor portal"
+        logoSrc="/icon.png"
+        logoDarkSrc="/icon-dark.png"
+        logoClassName="h-8"
       />
 
       {serverError && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/15">
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{serverError}</span>
         </div>

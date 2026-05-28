@@ -87,6 +87,7 @@ const getBaseURL = (): string => {
 const STORAGE_KEYS = {
   ACCESS_TOKEN: 'kwikseller_access_token',
   REFRESH_TOKEN: 'kwikseller_refresh_token',
+  AUTH_STORE: 'kwikseller_auth',
 }
 
 // ==================== Token Management ====================
@@ -114,6 +115,7 @@ export const tokenManager = {
     if (typeof window === 'undefined') return
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+    localStorage.removeItem(STORAGE_KEYS.AUTH_STORE)
   },
 
   isAuthenticated: (): boolean => {

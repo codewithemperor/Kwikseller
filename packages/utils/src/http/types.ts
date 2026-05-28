@@ -9,6 +9,7 @@ import type { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 export const TOKEN_STORAGE_KEYS = {
   ACCESS_TOKEN: 'kwikseller_access_token',
   REFRESH_TOKEN: 'kwikseller_refresh_token',
+  AUTH_STORE: 'kwikseller_auth',
 } as const
 
 /**
