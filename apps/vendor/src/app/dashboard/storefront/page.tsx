@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { ImageIcon, Save, Store } from "lucide-react";
+import { Eye, ImageIcon, Save, Store } from "lucide-react";
 import { storeApi, vendorCommerceApi } from "@kwikseller/api-client";
 import type { Store as StoreType, StorefrontDesignConfig, StorefrontFontKey } from "@kwikseller/types";
 import { kwikToast } from "@kwikseller/utils";
 import { AppButton, AppColorPicker, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/ui";
 import { unwrapApiData } from "@/lib/vendor-format";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 
 const fontOptions: Array<{ key: StorefrontFontKey; label: string }> = [
   { key: "SORA", label: "Sora" },
@@ -38,10 +39,6 @@ const defaultDesign: StorefrontDesignConfig = {
   heroTitle: "",
   heroSubtitle: "",
 };
-
-function fileName(file?: File | null) {
-  return file?.name ?? "Choose image";
-}
 
 export default function StorefrontDesignerPage() {
   const logoInputRef = React.useRef<HTMLInputElement>(null);
@@ -99,7 +96,7 @@ export default function StorefrontDesignerPage() {
   };
 
   if (isLoading) {
-    return <div className="min-h-[45vh] animate-pulse rounded-3xl bg-surface" />;
+    return <KwiksellerLoader />;
   }
 
   return (
@@ -111,14 +108,14 @@ export default function StorefrontDesignerPage() {
             Set your vendor logo, banner, brand colors, and font pair. These only affect your public store pages.
           </p>
         </div>
-        <AppButton type="button" onClick={saveDesign} isLoading={isSaving} loadingLabel="Saving...">
+        <AppButton type="button" onClick={saveDesign} disabled={isSaving}>
           <Save className="h-4 w-4" />
           Save storefront
         </AppButton>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <div className="space-y-5 border border-border bg-background p-5 shadow-sm">
+        <div className="space-y-5 border border-border bg-background p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <FieldInput
               label="Store name"
@@ -140,20 +137,64 @@ export default function StorefrontDesignerPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)} />
             <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={(event) => setBannerFile(event.target.files?.[0] ?? null)} />
-            <button type="button" onClick={() => logoInputRef.current?.click()} className="flex h-20 items-center gap-3 border border-border px-4 text-left">
-              <ImageIcon className="h-5 w-5 text-accent" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">Logo</span>
-                <span className="line-clamp-1 text-xs text-muted-foreground">{fileName(logoFile)}</span>
-              </span>
-            </button>
-            <button type="button" onClick={() => bannerInputRef.current?.click()} className="flex h-20 items-center gap-3 border border-border px-4 text-left">
-              <ImageIcon className="h-5 w-5 text-accent" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">Banner</span>
-                <span className="line-clamp-1 text-xs text-muted-foreground">{fileName(bannerFile)}</span>
-              </span>
-            </button>
+            <div className="flex min-h-24 items-center gap-3 border border-border px-4 py-3">
+              <ImageIcon className="h-5 w-5 shrink-0 text-accent" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Logo</p>
+                <p className="line-clamp-1 text-xs text-muted-foreground">
+                  {logoFile ? logoFile.name : store?.logoUrl ? "Logo uploaded" : "No logo uploaded"}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {store?.logoUrl ? (
+                  <a
+                    href={store.logoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground transition hover:border-accent hover:text-accent"
+                    aria-label="View logo"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="h-9 rounded-full bg-surface px-4 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+            <div className="flex min-h-24 items-center gap-3 border border-border px-4 py-3">
+              <ImageIcon className="h-5 w-5 shrink-0 text-accent" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Banner</p>
+                <p className="line-clamp-1 text-xs text-muted-foreground">
+                  {bannerFile ? bannerFile.name : store?.bannerUrl ? "Banner uploaded" : "No banner uploaded"}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {store?.bannerUrl ? (
+                  <a
+                    href={store.bannerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground transition hover:border-accent hover:text-accent"
+                    aria-label="View banner"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => bannerInputRef.current?.click()}
+                  className="h-9 rounded-full bg-surface px-4 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -192,7 +233,7 @@ export default function StorefrontDesignerPage() {
           />
         </div>
 
-        <div className="overflow-hidden border border-border bg-background shadow-sm">
+        <div className="overflow-hidden border border-border bg-background">
           <div
             className="relative min-h-96 bg-[var(--preview-primary)] p-6 text-white"
             style={{
@@ -219,6 +260,7 @@ export default function StorefrontDesignerPage() {
           </div>
         </div>
       </section>
+      {isSaving ? <KwiksellerLoader overlay /> : null}
     </div>
   );
 }

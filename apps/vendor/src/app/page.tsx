@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@kwikseller/utils";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 
 export default function VendorPage() {
   const router = useRouter();
@@ -24,13 +25,5 @@ export default function VendorPage() {
     }
   }, [isInitialized, isAuthenticated, router]);
 
-  // Show loading state while checking auth
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-muted-foreground text-sm">Loading...</p>
-      </div>
-    </div>
-  );
+  return <KwiksellerLoader className="min-h-screen bg-background" />;
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import {
   Bell,
-  Bookmark,
   Brush,
   History,
   LogOut,
@@ -18,6 +17,7 @@ import {
   VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
+import { StorePublicUrlCard } from "@/components/dashboard/store-public-url-card";
 import { useAuthStore } from "@kwikseller/utils";
 import { AppButton, AppSwitch } from "@kwikseller/ui";
 
@@ -50,8 +50,9 @@ const profileLinks = [
 
 export default function VendorProfilePage() {
   const { user, logout } = useAuthStore();
-  const { resolvedTheme, setTheme } = useTheme();
-  const isLight = resolvedTheme !== "dark";
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+  const isLight = mounted ? (theme === "light" || (theme === "system" && resolvedTheme !== "dark")) : true;
   const store = user?.store;
   const storeLogoUrl = (store as { logoUrl?: string } | undefined)?.logoUrl;
   const name = store?.name || user?.profile?.firstName || user?.email || "Vendor";
@@ -63,6 +64,10 @@ export default function VendorProfilePage() {
     window.location.href = "/";
   };
 
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <div className="space-y-6">
       <VendorPageHeader
@@ -70,7 +75,7 @@ export default function VendorProfilePage() {
         description="Manage your vendor identity, display preferences, and quick account links."
       />
 
-      <VendorSoftPanel>
+      <section>
         <div className="flex flex-col items-center text-center">
           <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent-soft-foreground">
             {storeLogoUrl ? (
@@ -87,35 +92,36 @@ export default function VendorProfilePage() {
           <p className="mt-1 text-sm text-muted-foreground">{email}</p>
           {phone ? <p className="mt-1 text-sm text-muted-foreground">{phone}</p> : null}
         </div>
-      </VendorSoftPanel>
+      </section>
+
+      <StorePublicUrlCard />
 
       <section className="grid gap-3 md:grid-cols-2">
         {profileLinks.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="grid grid-cols-[56px_1fr_auto] items-center gap-4 rounded-[24px] border border-border bg-background p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+            className="grid grid-cols-[52px_1fr] items-center gap-4 rounded-[22px] border border-border bg-background p-4 transition hover:border-accent"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface text-accent">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface text-accent">
               <item.icon className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block font-heading text-lg font-semibold text-foreground">{item.title}</span>
+              <span className="block font-heading text-base font-semibold text-foreground">{item.title}</span>
               <span className="line-clamp-2 text-sm leading-6 text-muted-foreground">{item.description}</span>
             </span>
-            <Bookmark className="h-4 w-4 text-muted-foreground" />
           </Link>
         ))}
       </section>
 
       <VendorSoftPanel title="Preferences">
         <div className="space-y-3">
-          <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 rounded-2xl bg-surface p-4">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background text-accent">
+          <div className="grid grid-cols-[52px_1fr_auto] items-center gap-4 rounded-2xl bg-surface p-4">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-background text-accent">
               <Sun className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block font-heading text-lg font-semibold text-foreground">Display mode</span>
+              <span className="block font-heading text-base font-semibold text-foreground">Display mode</span>
               <span className="text-sm text-muted-foreground">{isLight ? "Light mode" : "Dark mode"}</span>
             </span>
             <AppSwitch
@@ -124,12 +130,12 @@ export default function VendorProfilePage() {
               mode="theme"
             />
           </div>
-          <div className="grid grid-cols-[56px_1fr_auto] items-center gap-4 rounded-2xl bg-surface p-4">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background text-accent">
+          <div className="grid grid-cols-[52px_1fr_auto] items-center gap-4 rounded-2xl bg-surface p-4">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-background text-accent">
               <Bell className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block font-heading text-lg font-semibold text-foreground">Notification</span>
+              <span className="block font-heading text-base font-semibold text-foreground">Notification</span>
               <span className="text-sm text-muted-foreground">Order and inventory alerts</span>
             </span>
             <AppSwitch isSelected onChange={() => undefined} />

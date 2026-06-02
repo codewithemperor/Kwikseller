@@ -7,6 +7,7 @@ import {
   VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import { AppButton, AppSwitch, FieldInput, FieldTextarea } from "@kwikseller/ui";
@@ -61,7 +62,7 @@ export default function VendorDeliveryPage() {
   };
 
   if (isLoading) {
-    return <div className="min-h-[40vh] animate-pulse rounded-[28px] bg-background" />;
+    return <KwiksellerLoader />;
   }
 
   return (
@@ -70,7 +71,7 @@ export default function VendorDeliveryPage() {
         title="Delivery"
         description="Set manual delivery rules for your physical products. Kwikseller delivery remains visible as coming soon."
         action={
-          <AppButton type="button" size="lg" onClick={save} isLoading={isSaving} loadingLabel="Saving...">
+          <AppButton type="button" size="lg" onClick={save} disabled={isSaving}>
             <Save className="h-4 w-4" />
             Save delivery
           </AppButton>
@@ -100,21 +101,21 @@ export default function VendorDeliveryPage() {
               label="Processing days"
               value={settings.processingDays}
               onChange={(event) => setSettings((current) => ({ ...current, processingDays: Number(event.target.value) }))}
-              className="h-12 rounded-2xl bg-surface"
+              className="h-12 rounded-2xl bg-white dark:bg-white/5"
             />
             <FieldTextarea
               label="Dispatch note"
               placeholder="Example: Orders before 2pm dispatch same day inside Lagos."
               value={settings.dispatchNote ?? ""}
               onChange={(event) => setSettings((current) => ({ ...current, dispatchNote: event.target.value }))}
-              className="rounded-2xl bg-surface"
+              className="rounded-2xl bg-white dark:bg-white/5"
             />
             <FieldTextarea
               label="Return policy"
               placeholder="Example: Returns accepted within 3 days for unopened items."
               value={settings.returnPolicy ?? ""}
               onChange={(event) => setSettings((current) => ({ ...current, returnPolicy: event.target.value }))}
-              className="rounded-2xl bg-surface"
+              className="rounded-2xl bg-white dark:bg-white/5"
             />
           </div>
         </VendorSoftPanel>
@@ -133,6 +134,7 @@ export default function VendorDeliveryPage() {
           </button>
         </VendorSoftPanel>
       </section>
+      {isSaving ? <KwiksellerLoader overlay /> : null}
     </div>
   );
 }

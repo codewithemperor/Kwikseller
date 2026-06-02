@@ -288,8 +288,10 @@ export class VendorCommerceController {
     @Query('categoryId') categoryId?: string,
     @Query('vendorId') vendorId?: string,
     @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.commerce.listPoolCatalog(user, { categoryId, vendorId, search });
+    return this.commerce.listPoolCatalog(user, { categoryId, vendorId, search, page, limit });
   }
 
   @Post('pool/offers')

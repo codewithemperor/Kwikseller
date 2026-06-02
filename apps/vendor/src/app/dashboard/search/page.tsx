@@ -9,12 +9,12 @@ import {
   Search,
   ShoppingBag,
   Store,
-  X,
 } from "lucide-react";
 import {
   VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { PoolCatalogItem, poolItemRouteKey, poolSourceName } from "@/lib/pool";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
@@ -29,7 +29,6 @@ type SearchResults = {
   orders: Order[];
 };
 
-const quickActions = ["low stock", "active orders", "pool electronics", "digital products"];
 const RECENTS_KEY = "kwikseller_vendor_search_recents";
 
 function readRecents() {
@@ -134,33 +133,18 @@ export default function VendorSearchPage() {
               if (event.key === "Enter") runSearch();
             }}
             placeholder="Search products, Pool, or orders"
-            className="h-14 rounded-2xl bg-surface text-base"
+            className="h-14 rounded-2xl bg-white text-base dark:bg-white/5"
           />
-          <AppButton type="button" size="lg" onClick={() => runSearch()} isLoading={isLoading} loadingLabel="Searching...">
+          <AppButton type="button" size="lg" onClick={() => runSearch()} disabled={isLoading}>
             <Search className="h-4 w-4" />
             Search
           </AppButton>
         </div>
       </VendorSoftPanel>
 
-      <VendorSoftPanel title="Quick actions">
-        <div className="flex flex-wrap gap-2">
-          {quickActions.map((item) => (
-            <button
-              type="button"
-              key={item}
-              onClick={() => runSearch(item)}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent"
-            >
-              <PackageSearch className="h-4 w-4 text-accent" />
-              {item}
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      </VendorSoftPanel>
-
-      {!results ? (
+      {isLoading ? (
+        <KwiksellerLoader />
+      ) : !results ? (
         <VendorSoftPanel
           title="Recents"
           action={

@@ -1526,10 +1526,15 @@ export class CommerceService {
     });
   }
 
-  async listPoolCatalog(user: AuthContext, options: { categoryId?: string; vendorId?: string; search?: string } = {}) {
+  async listPoolCatalog(user: AuthContext, options: { categoryId?: string; vendorId?: string; search?: string; page?: string | number; limit?: string | number } = {}) {
     const storeId = await this.resolveStoreId(user);
     const db = this.db();
     const search = options.search?.trim();
+    const page = Math.max(1, Number(options.page ?? 1) || 1);
+    const limit = Math.min(100, Math.max(1, Number(options.limit ?? 100) || 100));
+    const sourceTake = page * limit;
+    const start = (page - 1) * limit;
+    const end = start + limit;
     const ownOffers = await db.vendorPoolOffer?.findMany({
       where: { storeId, isActive: true },
       select: { id: true, poolProductId: true, sourceProductId: true, productId: true, sourceType: true },
@@ -1562,7 +1567,7 @@ export class CommerceService {
       },
       include: { inventoryItems: true, campaigns: true },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: sourceTake,
     });
 
     const vendorItems = await db.product?.findMany({
@@ -1595,7 +1600,7 @@ export class CommerceService {
       },
       include: { store: true, images: true, inventoryItems: true, category: true },
       orderBy: { updatedAt: 'desc' },
-      take: 100,
+      take: sourceTake,
     });
 
     const adminCatalog = (adminItems ?? []).map((item: any) => {
@@ -1645,7 +1650,7 @@ export class CommerceService {
       };
     });
 
-    return [...adminCatalog, ...vendorCatalog];
+    return [...adminCatalog, ...vendorCatalog].slice(start, end);
   }
 
   async listAdminPoolProducts(user: AuthContext) {

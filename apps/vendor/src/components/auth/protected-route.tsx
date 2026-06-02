@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore, UserRole } from "@kwikseller/utils";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -103,7 +104,7 @@ export function ProtectedRoute({
 
   // Not initialized or not authenticated - show nothing
   if (!isInitialized || !isAuthenticated) {
-    return null;
+    return <KwiksellerLoader className="min-h-screen bg-background" />;
   }
 
   // Check role

@@ -24,6 +24,7 @@
   --font-heading: "Sora", "Segoe UI", system-ui, sans-serif;
   --font-text: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --kwik-blue: #2563eb;
 
   /* ── Surfaces ─────────────────────────────────────────── */
   --background: oklch(1 0 0);
@@ -71,6 +72,7 @@
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
+  --kwik-blue: #60a5fa;
 
   /* ── Surfaces ─────────────────────────────────────────── */
   --background: oklch(0.1 0.005 0);
@@ -135,6 +137,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
   --color-accent-soft-foreground: var(--accent-soft-foreground);
+  --color-kwik-blue: var(--kwik-blue);
 
   /* Neutral */
   --color-default: var(--default);
@@ -245,6 +248,40 @@
   .kwik-shadow-lg {
     box-shadow: 0 8px 30px 0 oklch(0.22 0.12 264 / 22%);
   }
+
+  .vendor-sidebar-blue {
+    background: var(--kwik-blue);
+  }
+
+  .dark .vendor-sidebar-blue {
+    background: color-mix(in srgb, var(--kwik-blue) 72%, #020617 28%);
+  }
+
+  .pool-description-html :where(p, ul, ol, blockquote) {
+    margin-block: 0.75rem;
+  }
+
+  .pool-description-html :where(ul, ol) {
+    padding-left: 1.25rem;
+  }
+
+  .pool-description-html :where(ul) {
+    list-style: disc;
+  }
+
+  .pool-description-html :where(ol) {
+    list-style: decimal;
+  }
+
+  .pool-description-html :where(a) {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .pool-description-html :where(strong, b) {
+    color: var(--foreground);
+    font-weight: 700;
+  }
 }
 
 /* ── Scrollbar ────────────────────────────────────────────── */
@@ -284,6 +321,14 @@
     animation: scaleIn 0.2s ease-out;
   }
 
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  .vendor-loader-dot {
+    animation: vendorLoaderBounce 0.7s ease-in-out infinite;
+  }
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -319,6 +364,28 @@
     }
     to {
       transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulseGlow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, #f97316 40%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 22px 5px color-mix(in srgb, #f97316 24%, transparent);
+    }
+  }
+
+  @keyframes vendorLoaderBounce {
+    0%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.55;
+    }
+    50% {
+      transform: translateY(-8px);
       opacity: 1;
     }
   }

@@ -14,6 +14,7 @@ import {
   VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
@@ -83,7 +84,7 @@ export default function VendorOrdersPage() {
         title="Orders"
         description="Review checkout activity, confirm fulfillment, and keep each customer order moving."
         action={
-          <AppButton type="button" variant="secondary" onClick={loadOrders} isLoading={isLoading} loadingLabel="Loading">
+          <AppButton type="button" variant="secondary" onClick={loadOrders} disabled={isLoading}>
             <RefreshCw className="h-4 w-4" />
             Refresh
           </AppButton>
@@ -126,15 +127,11 @@ export default function VendorOrdersPage() {
 
       <VendorSoftPanel title="Order queue">
         {isLoading ? (
-          <div className="grid gap-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-32 animate-pulse rounded-2xl bg-surface" />
-            ))}
-          </div>
+          <KwiksellerLoader />
         ) : filteredOrders.length ? (
           <div className="grid gap-4">
             {filteredOrders.map((order) => (
-              <article key={order.id} className="rounded-[22px] border border-border bg-background p-4 shadow-sm">
+              <article key={order.id} className="rounded-[22px] border border-border bg-background p-4">
                 <div className="grid gap-4 lg:grid-cols-[1fr_180px_220px] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -186,7 +183,7 @@ export default function VendorOrdersPage() {
                         const status = event.target.value as OrderStatus;
                         if (status) updateStatus(order.id, status);
                       }}
-                      className="h-11 w-full rounded-2xl border border-border bg-surface px-3 text-sm font-semibold text-foreground outline-none"
+                      className="h-11 w-full rounded-2xl border border-border bg-white px-3 text-sm font-semibold text-foreground outline-none dark:bg-white/5"
                     >
                       <option value="">Update status</option>
                       {nextStatuses.map((status) => (

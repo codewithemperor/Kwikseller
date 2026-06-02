@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import React from "react";
 import {
   ArrowUpRight,
+  Boxes,
   Home,
   PackageSearch,
-  Search,
   ShoppingBag,
   UserRound,
 } from "lucide-react";
@@ -23,10 +23,12 @@ export type VendorTabItem = {
 export const vendorPrimaryTabs: VendorTabItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Pool", href: "/dashboard/pool", icon: PackageSearch },
-  { label: "Search", href: "/dashboard/search", icon: Search },
+  { label: "Products", href: "/dashboard/products", icon: Boxes },
   { label: "Orders", href: "/dashboard/orders", icon: ShoppingBag },
   { label: "Profile", href: "/dashboard/profile", icon: UserRound },
 ];
+
+const vendorBottomTabs = vendorPrimaryTabs.filter((item) => item.label !== "Profile");
 
 export function isVendorTabActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === href;
@@ -45,18 +47,18 @@ export function VendorPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <section className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+        <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -80,7 +82,7 @@ export function VendorSolidCard({
   secondaryAction?: React.ReactNode;
 }) {
   return (
-    <article className="relative min-h-48 overflow-hidden rounded-[28px] bg-[#071a2f] p-6 text-white shadow-sm">
+    <article className="relative min-h-48 overflow-hidden rounded-[24px] bg-[#071a2f] p-6 text-white">
       <div className="pointer-events-none absolute -right-14 bottom-2 h-52 w-52 rounded-full border-[28px] border-white/12" />
       <div className="pointer-events-none absolute left-12 top-24 h-36 w-36 rounded-full border-[22px] border-white/10" />
       <div className="relative z-10">
@@ -130,11 +132,11 @@ export function VendorMetricCard({
   }[tone];
 
   return (
-    <article className="rounded-[22px] border border-border bg-background p-5 shadow-sm">
+    <article className="rounded-[20px] border border-border bg-background p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-3 font-heading text-2xl font-semibold tracking-tight text-foreground">
+          <p className="mt-2 font-heading text-xl font-semibold tracking-tight text-foreground">
             {value}
           </p>
           {note ? <p className="mt-1 text-xs font-medium text-muted-foreground">{note}</p> : null}
@@ -161,11 +163,11 @@ export function VendorSoftPanel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-[24px] border border-border bg-background p-5 shadow-sm", className)}>
+    <section className={cn("rounded-[22px] border border-border bg-background p-5", className)}>
       {(title || description || action) ? (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            {title ? <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2> : null}
+            {title ? <h2 className="font-heading text-base font-semibold text-foreground">{title}</h2> : null}
             {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p> : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
@@ -180,9 +182,9 @@ export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[28px] border border-border bg-background/92 px-2 py-2 shadow-2xl shadow-black/10 backdrop-blur-xl lg:hidden">
-      <div className="grid grid-cols-5 gap-1">
-        {vendorPrimaryTabs.map((item) => {
+    <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[24px] border border-border bg-background/92 px-2 py-2 backdrop-blur-xl lg:hidden">
+      <div className="grid grid-cols-4 gap-1">
+        {vendorBottomTabs.map((item) => {
           const active = isVendorTabActive(pathname, item.href);
           const badge = item.label === "Orders" ? orderCount : item.badge;
           return (
@@ -215,36 +217,34 @@ export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
 
 export function VendorDesktopNav({
   vendorName,
+  storeLogoUrl,
   orderCount = 0,
   onLogout,
 }: {
   vendorName: string;
+  storeLogoUrl?: string;
   orderCount?: number;
   onLogout: () => void;
 }) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-border bg-[#f4f6f5]/95 p-4 backdrop-blur-xl dark:bg-[#0f1115]/95 lg:flex lg:flex-col">
+    <aside className="vendor-sidebar-blue fixed inset-y-0 left-0 hidden w-72 border-r border-white/15 p-4 text-white backdrop-blur-xl lg:flex lg:flex-col">
       <Link href="/dashboard" className="flex items-center gap-3 px-2 py-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-soft-foreground">
-          <Home className="h-5 w-5" />
+        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/18 text-white ring-1 ring-white/20">
+          {storeLogoUrl ? (
+            <img src={storeLogoUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Home className="h-5 w-5" />
+          )}
         </div>
         <div className="min-w-0">
-          <p className="truncate font-heading text-base font-semibold text-foreground">{vendorName}</p>
-          <p className="truncate text-xs font-medium text-muted-foreground">Vendor workspace</p>
+          <p className="truncate font-heading text-base font-semibold text-white">{vendorName}</p>
+          <p className="truncate text-xs font-medium text-white/72">Vendor workspace</p>
         </div>
       </Link>
 
-      <div className="mt-6 rounded-2xl border border-border bg-background p-3 shadow-sm">
-        <p className="truncate text-sm font-semibold text-foreground">Store account</p>
-        <p className="mt-1 text-xs text-muted-foreground">Powered by Kwikseller</p>
-      </div>
-
-      <p className="mt-8 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Main menu
-      </p>
-      <nav className="mt-3 grid gap-1">
+      <nav className="mt-8 grid gap-1">
         {vendorPrimaryTabs.map((item) => {
           const active = isVendorTabActive(pathname, item.href);
           const badge = item.label === "Orders" ? orderCount : item.badge;
@@ -255,8 +255,8 @@ export function VendorDesktopNav({
               className={cn(
                 "relative flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-semibold transition",
                 active
-                  ? "bg-background text-[#071a2f] shadow-sm dark:text-white"
-                  : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+                  ? "bg-white text-kwik-blue"
+                  : "text-white/78 hover:bg-white/12 hover:text-white",
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -271,15 +271,11 @@ export function VendorDesktopNav({
         })}
       </nav>
 
-      <div className="mt-auto rounded-[22px] border border-border bg-background p-4 shadow-sm">
-        <p className="font-heading text-base font-semibold text-foreground">Store tools</p>
-        <p className="mt-2 text-sm leading-5 text-muted-foreground">
-          Manage products, inventory, and storefront settings from your dashboard.
-        </p>
+      <div className="mt-auto">
         <button
           type="button"
           onClick={onLogout}
-          className="mt-4 flex h-11 w-full items-center justify-center rounded-2xl bg-[#071a2f] text-sm font-semibold text-white transition hover:brightness-110"
+          className="flex h-11 w-full items-center justify-center rounded-2xl bg-danger text-sm font-semibold text-danger-foreground transition hover:brightness-110"
         >
           Sign out
         </button>

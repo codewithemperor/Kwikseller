@@ -3,6 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   AlertTriangle,
   Boxes,
   PackageCheck,
@@ -15,6 +24,8 @@ import {
   VendorSoftPanel,
   VendorSolidCard,
 } from "@/components/dashboard/vendor-dashboard-ui";
+import { StorePublicUrlCard } from "@/components/dashboard/store-public-url-card";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
@@ -31,68 +42,150 @@ type VendorDashboardResponse = {
   poolOffers: VendorPoolOffer[];
 };
 
-function buildMonthlySales(orders: Order[]) {
-  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const values = Array.from({ length: 12 }, () => 0);
-  orders.forEach((order) => {
-    const date = new Date(order.createdAt);
-    if (!Number.isNaN(date.getTime())) values[date.getMonth()] += Number(order.totalAmount ?? 0);
-  });
-  return monthLabels.map((label, index) => ({ label, value: values[index] }));
+type SalesPeriod = "week" | "month" | "last3" | "last6" | "year" | "lastYear";
+
+const salesPeriodOptions: Array<{ value: SalesPeriod; label: string }> = [
+  { value: "week", label: "This week" },
+  { value: "month", label: "This month" },
+  { value: "last3", label: "Last 3 months" },
+  { value: "last6", label: "Last 6 months" },
+  { value: "year", label: "This year" },
+  { value: "lastYear", label: "Last year" },
+];
+
+const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
 }
 
-function SalesTrendChart({ orders, revenue }: { orders: Order[]; revenue: number }) {
-  const sales = buildMonthlySales(orders);
-  const fallback = revenue ? sales.map((point, index) => ({
-    ...point,
-    value: point.value || Math.max(0, Math.round((revenue / 12) * (0.45 + ((index % 5) * 0.12)))),
-  })) : sales;
-  const max = Math.max(...fallback.map((point) => point.value), 1);
-  const points = fallback
-    .map((point, index) => {
-      const x = 16 + index * (268 / 11);
-      const y = 126 - (point.value / max) * 94;
-      return `${x},${y}`;
-    })
-    .join(" ");
+function buildSalesTrend(orders: Order[], period: SalesPeriod) {
+  const now = new Date();
+  const buckets: Array<{ label: string; value: number; startsAt: Date; endsAt: Date }> = [];
+
+  if (period === "week") {
+    const day = now.getDay() || 7;
+    const weekStart = startOfDay(now);
+    weekStart.setDate(now.getDate() - day + 1);
+    for (let index = 0; index < 7; index += 1) {
+      const startsAt = new Date(weekStart);
+      startsAt.setDate(weekStart.getDate() + index);
+      const endsAt = new Date(startsAt);
+      endsAt.setDate(startsAt.getDate() + 1);
+      buckets.push({ label: dayLabels[index], value: 0, startsAt, endsAt });
+    }
+  } else if (period === "month") {
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const startsAt = new Date(now.getFullYear(), now.getMonth(), day);
+      const endsAt = new Date(now.getFullYear(), now.getMonth(), day + 1);
+      buckets.push({ label: String(day), value: 0, startsAt, endsAt });
+    }
+  } else {
+    const count = period === "last3" ? 3 : period === "last6" ? 6 : 12;
+    const baseYear = period === "lastYear" ? now.getFullYear() - 1 : now.getFullYear();
+    const startMonth = period === "last3" || period === "last6" ? now.getMonth() - count + 1 : 0;
+    for (let index = 0; index < count; index += 1) {
+      const startsAt = new Date(baseYear, startMonth + index, 1);
+      const endsAt = new Date(startsAt.getFullYear(), startsAt.getMonth() + 1, 1);
+      buckets.push({ label: monthLabels[startsAt.getMonth()], value: 0, startsAt, endsAt });
+    }
+  }
+
+  orders.forEach((order) => {
+    const createdAt = new Date(order.createdAt);
+    if (Number.isNaN(createdAt.getTime())) return;
+    const bucket = buckets.find((item) => createdAt >= item.startsAt && createdAt < item.endsAt);
+    if (bucket) bucket.value += Number(order.totalAmount ?? 0);
+  });
+
+  return buckets.map(({ label, value }) => ({ label, value }));
+}
+
+function SalesTrendChart({
+  orders,
+  period,
+  isLoading,
+  onPeriodChange,
+}: {
+  orders: Order[];
+  period: SalesPeriod;
+  isLoading: boolean;
+  onPeriodChange: (period: SalesPeriod) => void;
+}) {
+  const sales = React.useMemo(() => buildSalesTrend(orders, period), [orders, period]);
+  const total = sales.reduce((sum, point) => sum + point.value, 0);
 
   return (
     <div className="overflow-hidden rounded-[22px] bg-surface p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sales trend</p>
-          <p className="mt-1 font-heading text-2xl font-semibold text-foreground">{formatCurrency(revenue)}</p>
+          <p className="mt-1 font-heading text-2xl font-semibold text-foreground">{formatCurrency(total)}</p>
         </div>
-        <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-muted-foreground">
-          This year
-        </span>
+        <select
+          value={period}
+          onChange={(event) => onPeriodChange(event.target.value as SalesPeriod)}
+          className="h-9 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground outline-none transition focus:border-accent"
+          aria-label="Sales trend period"
+        >
+          {salesPeriodOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
       </div>
-      <svg viewBox="0 0 300 160" className="mt-4 h-52 w-full">
-        {[30, 55, 80, 105, 130].map((y) => (
-          <line key={y} x1="12" x2="292" y1={y} y2={y} stroke="currentColor" className="text-border" strokeWidth="1" />
-        ))}
-        <polyline points={points} fill="none" stroke="#071a2f" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        {fallback.map((point, index) => {
-          const x = 16 + index * (268 / 11);
-          const y = 126 - (point.value / max) * 94;
-          return <circle key={point.label} cx={x} cy={y} r="4" fill="#F97316" />;
-        })}
-        {fallback.map((point, index) => {
-          const x = 16 + index * (268 / 11);
-          return (
-            <text key={point.label} x={x} y="153" textAnchor="middle" className="fill-muted text-[9px]">
-              {point.label}
-            </text>
-          );
-        })}
-      </svg>
+      <div className="mt-4 h-52">
+        {isLoading ? (
+          <KwiksellerLoader className="min-h-full" />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={sales} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="salesTrendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#F97316" stopOpacity={0.28} />
+                  <stop offset="95%" stopColor="#F97316" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="currentColor" className="text-border" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "currentColor" }} className="text-muted-foreground" />
+              <YAxis hide domain={[0, "auto"]} />
+              <Tooltip
+                formatter={(value) => formatCurrency(Number(value))}
+                labelClassName="text-xs font-semibold text-muted-foreground"
+                contentStyle={{
+                  borderRadius: 14,
+                  border: "1px solid var(--border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#071a2f"
+                strokeWidth={3}
+                fill="url(#salesTrendFill)"
+                dot={{ r: 4, fill: "#F97316", stroke: "#F97316" }}
+                activeDot={{ r: 6, fill: "#F97316", stroke: "#fff", strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </div>
   );
 }
 
 export default function VendorDashboardPage() {
   const [data, setData] = React.useState<VendorDashboardResponse | null>(null);
+  const [chartOrders, setChartOrders] = React.useState<Order[]>([]);
+  const [chartPeriod, setChartPeriod] = React.useState<SalesPeriod>("year");
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isChartLoading, setIsChartLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
@@ -100,7 +193,10 @@ export default function VendorDashboardPage() {
     vendorCommerceApi
       .getDashboard()
       .then((response) => {
-        if (active) setData(unwrapApiData<VendorDashboardResponse>(response.data));
+        if (!active) return;
+        const dashboard = unwrapApiData<VendorDashboardResponse>(response.data);
+        setData(dashboard);
+        setChartOrders(dashboard?.recentOrders ?? []);
       })
       .catch(() => {
         if (active) setError("Could not load vendor dashboard.");
@@ -113,14 +209,29 @@ export default function VendorDashboardPage() {
     };
   }, []);
 
+  React.useEffect(() => {
+    let active = true;
+    setIsChartLoading(true);
+    vendorCommerceApi
+      .listOrders({ limit: 500 })
+      .then((response) => {
+        if (!active) return;
+        const orders = unwrapApiData<Order[]>(response.data);
+        setChartOrders(Array.isArray(orders) ? orders : data?.recentOrders ?? []);
+      })
+      .catch(() => {
+        if (active) setChartOrders(data?.recentOrders ?? []);
+      })
+      .finally(() => {
+        if (active) setIsChartLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [chartPeriod, data?.recentOrders]);
+
   if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div key={index} className="h-36 animate-pulse rounded-[24px] bg-background" />
-        ))}
-      </div>
-    );
+    return <KwiksellerLoader />;
   }
 
   if (error) {
@@ -147,26 +258,29 @@ export default function VendorDashboardPage() {
   return (
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.6fr)]">
-        <VendorSolidCard
-          title="Total revenue"
-          value={formatCurrency(data?.revenue ?? 0)}
-          primaryAction={
-            <Link
-              href="/dashboard/orders"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#071a2f]"
-            >
-              Orders
-            </Link>
-          }
-          secondaryAction={
-            <Link
-              href="/dashboard/pool"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-white/14 px-4 text-sm font-semibold text-white ring-1 ring-white/20"
-            >
-              Pool
-            </Link>
-          }
-        />
+        <div className="grid gap-4">
+          <VendorSolidCard
+            title="Total revenue"
+            value={formatCurrency(data?.revenue ?? 0)}
+            primaryAction={
+              <Link
+                href="/dashboard/orders"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#071a2f]"
+              >
+                Orders
+              </Link>
+            }
+            secondaryAction={
+              <Link
+                href="/dashboard/pool"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-white/14 px-4 text-sm font-semibold text-white ring-1 ring-white/20"
+              >
+                Pool
+              </Link>
+            }
+          />
+          <StorePublicUrlCard />
+        </div>
 
         <VendorSoftPanel
           title="Store activity"
@@ -202,7 +316,12 @@ export default function VendorDashboardPage() {
           title="Sales performance"
           description="Monthly sales movement from completed and recent checkout activity."
         >
-          <SalesTrendChart orders={recentOrders} revenue={data?.revenue ?? 0} />
+          <SalesTrendChart
+            orders={chartOrders}
+            period={chartPeriod}
+            isLoading={isChartLoading}
+            onPeriodChange={setChartPeriod}
+          />
         </VendorSoftPanel>
 
         <VendorSoftPanel title="Finance score">

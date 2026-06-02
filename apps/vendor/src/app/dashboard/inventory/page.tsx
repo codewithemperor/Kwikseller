@@ -7,6 +7,7 @@ import {
   VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
+import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
@@ -87,11 +88,7 @@ export default function VendorInventoryPage() {
 
       <VendorSoftPanel title="Stock ledger" description="Available, reserved, and low-stock thresholds.">
         {isLoading ? (
-          <div className="grid gap-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-20 animate-pulse rounded-2xl bg-surface" />
-            ))}
-          </div>
+          <KwiksellerLoader />
         ) : physicalProducts.length ? (
           <div className="space-y-3">
             {physicalProducts.map((product) => {
@@ -149,11 +146,12 @@ export default function VendorInventoryPage() {
           </FieldSelect>
           <FieldInput type="number" label="Quantity delta" value={quantityDelta} onChange={(event) => setQuantityDelta(Number(event.target.value))} />
           <FieldInput label="Reason" value={reason} onChange={(event) => setReason(event.target.value)} />
-          <AppButton fullWidth disabled={isSaving || !productId || quantityDelta === 0} isLoading={isSaving}>
+          <AppButton fullWidth disabled={isSaving || !productId || quantityDelta === 0}>
             Apply adjustment
           </AppButton>
         </form>
       </AppModal>
+      {isSaving ? <KwiksellerLoader overlay /> : null}
     </div>
   );
 }
