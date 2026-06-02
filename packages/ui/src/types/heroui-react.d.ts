@@ -124,6 +124,15 @@ declare module "@heroui/react" {
   export type DateValue = any;
   export type TimeValue = any;
   export type Key = React.Key;
+  export type ColorChannel =
+    | "hue"
+    | "saturation"
+    | "brightness"
+    | "lightness"
+    | "red"
+    | "green"
+    | "blue";
+  export type ColorSpace = "hsb" | "hsl" | "rgb";
 
   export type SortDescriptor = {
     column?: React.Key;

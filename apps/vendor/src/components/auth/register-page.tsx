@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { type FieldErrors, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Phone, Building2, AlertCircle, Link2 } from "lucide-react";
+import { Mail, Lock, Phone, Building2, AlertCircle } from "lucide-react";
 import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
@@ -22,6 +22,35 @@ export interface VendorRegisterConfig {
 interface RegisterPageProps {
   config: VendorRegisterConfig;
   className?: string;
+}
+
+function collectValidationMessages(value: unknown): string[] {
+  if (!value) return [];
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(collectValidationMessages);
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).flatMap(collectValidationMessages);
+  }
+  return [];
+}
+
+function getRegisterErrorMessage(error: unknown) {
+  const responseData = (error as { response?: { data?: unknown } })?.response?.data;
+  const messages = collectValidationMessages(responseData);
+  if (messages.length) return messages[0];
+
+  if (error instanceof Error && error.message && error.message !== "Validation error") {
+    return error.message;
+  }
+
+  return "Registration failed. Please check your details and try again.";
+}
+
+function getFirstFormError(errors: FieldErrors<RegisterFormData>) {
+  for (const value of Object.values(errors)) {
+    if (value?.message && typeof value.message === "string") return value.message;
+  }
+  return "Please fix the highlighted fields before continuing.";
 }
 
 export function RegisterPage({ config, className }: RegisterPageProps) {
@@ -44,7 +73,6 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
       phone: "",
       role: "VENDOR",
       storeName: "",
-      storeSlug: "",
     },
   });
 
@@ -67,7 +95,6 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
         phone: data.phone,
         role: "VENDOR",
         storeName: data.storeName,
-        storeSlug: data.storeSlug,
         storeCategory: "other",
       });
 
@@ -77,10 +104,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
         result.message || "Please check your email for the verification code.",
       );
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Registration failed. Please try again.";
+      const message = getRegisterErrorMessage(err);
       setError(message);
       kwikToast.error(message);
     } finally {
@@ -116,6 +140,11 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
   };
 
   const busy = isSubmitting || isLoading;
+  const onInvalid = (errors: FieldErrors<RegisterFormData>) => {
+    const message = getFirstFormError(errors);
+    setError(message);
+    kwikToast.error(message);
+  };
 
   if (showOTP) {
     return (
@@ -156,7 +185,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
       )}
 
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="flex flex-col gap-4"
         noValidate
       >
@@ -209,17 +238,6 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           startContent={<Building2 className="h-4 w-4 text-muted-foreground" />}
           isRequired
           isDisabled={busy}
-        />
-
-        <TextInput
-          name="storeSlug"
-          control={control}
-          label="Public store URL"
-          placeholder="superstore"
-          startContent={<Link2 className="h-4 w-4 text-muted-foreground" />}
-          isRequired
-          isDisabled={busy}
-          description="Use lowercase letters, numbers, and hyphens."
         />
 
         <PasswordInput

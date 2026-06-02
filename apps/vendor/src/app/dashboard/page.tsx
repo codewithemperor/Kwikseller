@@ -120,7 +120,7 @@ function SalesTrendChart({
   const total = sales.reduce((sum, point) => sum + point.value, 0);
 
   return (
-    <div className="overflow-hidden rounded-[22px] bg-surface p-4">
+    <div className="overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sales trend</p>
@@ -129,7 +129,7 @@ function SalesTrendChart({
         <select
           value={period}
           onChange={(event) => onPeriodChange(event.target.value as SalesPeriod)}
-          className="h-9 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground outline-none transition focus:border-accent"
+          className="h-9 rounded-full bg-white px-3 text-xs font-semibold text-foreground outline-none ring-1 ring-border transition focus:ring-accent dark:bg-white/5"
           aria-label="Sales trend period"
         >
           {salesPeriodOptions.map((option) => (
@@ -160,7 +160,7 @@ function SalesTrendChart({
                   border: "1px solid var(--border)",
                   background: "var(--background)",
                   color: "var(--foreground)",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                  boxShadow: "none",
                 }}
               />
               <Area
@@ -257,8 +257,8 @@ export default function VendorDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.6fr)]">
-        <div className="grid gap-4">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.6fr)]">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
           <VendorSolidCard
             title="Total revenue"
             value={formatCurrency(data?.revenue ?? 0)}
@@ -286,7 +286,7 @@ export default function VendorDashboardPage() {
           title="Store activity"
           description="Live API metrics from products, fulfillment, and Pool sourcing."
         >
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="-mx-5 grid auto-cols-[230px] grid-flow-col gap-3 overflow-x-auto px-5 pb-1 sm:mx-0 sm:grid-flow-row sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
             <VendorMetricCard
               label="Products"
               value={String(data?.productsCount ?? 0)}
@@ -311,7 +311,7 @@ export default function VendorDashboardPage() {
         </VendorSoftPanel>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <VendorSoftPanel
           title="Sales performance"
           description="Monthly sales movement from completed and recent checkout activity."
@@ -351,7 +351,7 @@ export default function VendorDashboardPage() {
         </VendorSoftPanel>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <VendorSoftPanel
           title="Recent orders"
           description="Latest buyer activity and fulfillment queue."

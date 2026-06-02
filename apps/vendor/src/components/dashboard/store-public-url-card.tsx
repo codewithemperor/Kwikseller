@@ -32,15 +32,15 @@ export function StorePublicUrlCard() {
   };
 
   return (
-    <section className="rounded-[22px] border border-border bg-background p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+    <section className="w-full max-w-full overflow-hidden rounded-[22px] border border-border bg-background p-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <p className="text-xs font-semibold uppercase text-muted-foreground">Public store URL</p>
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 block truncate font-mono text-sm font-semibold text-foreground transition hover:text-accent"
+            className="mt-2 block max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-sm font-semibold text-foreground transition hover:text-accent"
           >
             {url}
           </a>

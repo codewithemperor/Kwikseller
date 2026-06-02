@@ -234,7 +234,7 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
           onLogout={handleLogout}
         />
 
-        <div className="min-h-screen pb-28 lg:pl-72">
+        <div className="min-h-screen pb-24 lg:pl-72">
           <header className="sticky top-0 z-30 border-b border-border bg-white/72 backdrop-blur-xl dark:bg-[#10131a]/76">
             <div className="flex h-16 items-center justify-between gap-3 px-3 lg:px-5">
               <div className="flex min-w-0 items-center gap-3">
@@ -242,12 +242,8 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                   href="/dashboard"
                   className="flex min-w-0 items-center gap-2 px-0 py-1.5 lg:hidden"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent-soft-foreground">
-                    {storeLogoUrl ? (
-                      <img src={storeLogoUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Store className="h-4 w-4" />
-                    )}
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                    <img src="/icon.png" alt="" className="h-full w-full object-contain" />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate font-heading text-sm font-semibold text-foreground">
@@ -275,16 +271,16 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
                   aria-label="Search"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-foreground ring-1 ring-border transition hover:bg-surface dark:bg-white/5 md:hidden"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition hover:bg-surface md:hidden"
                 >
-                  <Search className="h-5 w-5" />
+                  <Search className="h-5 w-5" strokeWidth={2.1} />
                 </button>
                 <Link
                   href="/dashboard/orders"
                   aria-label="Orders"
-                  className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white text-foreground ring-1 ring-border transition hover:bg-surface dark:bg-white/5"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-foreground transition hover:bg-surface"
                 >
-                  <Bell className="h-5 w-5" />
+                  <Bell className="h-5 w-5" strokeWidth={2.1} />
                   {orderCount ? (
                     <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-danger-foreground">
                       {orderCount > 99 ? "99+" : orderCount}
@@ -294,9 +290,13 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                 <Link
                   href="/dashboard/profile"
                   aria-label="Profile"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-soft-foreground transition hover:brightness-95"
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent-soft-foreground transition hover:brightness-95"
                 >
-                  <UserRound className="h-5 w-5" />
+                  {storeLogoUrl ? (
+                    <img src={storeLogoUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <UserRound className="h-5 w-5" />
+                  )}
                 </Link>
               </div>
             </div>

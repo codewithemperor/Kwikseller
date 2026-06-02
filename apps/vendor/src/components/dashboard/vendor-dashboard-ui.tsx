@@ -182,7 +182,7 @@ export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[24px] border border-border bg-background/92 px-2 py-2 backdrop-blur-xl lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/96 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl lg:hidden">
       <div className="grid grid-cols-4 gap-1">
         {vendorBottomTabs.map((item) => {
           const active = isVendorTabActive(pathname, item.href);
@@ -192,21 +192,21 @@ export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-semibold transition",
+                "relative flex h-[52px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-semibold transition",
                 active
-                  ? "bg-surface text-accent"
+                  ? "bg-accent-soft text-accent"
                   : "text-muted-foreground hover:bg-surface hover:text-foreground",
               )}
             >
               <span className="relative">
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.35 : 2} />
                 {badge ? (
                   <span className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-danger-foreground">
                     {badge > 99 ? "99+" : badge}
                   </span>
                 ) : null}
               </span>
-              <span className="truncate">{item.label}</span>
+              <span className="max-w-full truncate leading-none">{item.label}</span>
             </Link>
           );
         })}

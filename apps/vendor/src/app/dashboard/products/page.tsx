@@ -80,7 +80,7 @@ function ProductStatCard({
   }[tone];
 
   return (
-    <article className={`rounded-[22px] border p-5 ${toneClass}`}>
+    <article className={`min-w-[238px] rounded-[22px] border p-5 md:min-w-0 ${toneClass}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold opacity-85">{label}</p>
@@ -260,7 +260,7 @@ export default function VendorProductsPage() {
         </VendorSoftPanel>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0">
         <ProductStatCard label="Catalog" value={String(products.length)} note="Total products" icon={Package} tone="blue" />
         <ProductStatCard label="Physical stock" value={String(physicalProducts.length)} note="Inventory tracked" icon={PackagePlus} tone="orange" />
         <ProductStatCard label="Pool items" value={String(poolProducts.length)} note="Available or sourced" icon={Check} tone="green" />
