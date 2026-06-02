@@ -17,6 +17,7 @@ export class CouponsService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: { products: true, categories: true },
       }),
       this.prisma.coupon.count(),
     ]);
@@ -35,6 +36,7 @@ export class CouponsService {
   async findOne(id: string) {
     const coupon = await this.prisma.coupon.findUnique({
       where: { id },
+      include: { products: true, categories: true },
     });
 
     if (!coupon) {
@@ -65,11 +67,16 @@ export class CouponsService {
         minOrderValue: dto.minOrderValue ?? 0,
         maxDiscount: dto.maxDiscount,
         maxUses: dto.maxUses,
-        applicableTo: dto.applicableTo,
-        applicableIds: dto.applicableIds,
         startDate: new Date(dto.startDate),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
+        products: dto.productIds?.length
+          ? { create: dto.productIds.map((productId) => ({ productId })) }
+          : undefined,
+        categories: dto.categoryIds?.length
+          ? { create: dto.categoryIds.map((categoryId) => ({ categoryId })) }
+          : undefined,
       },
+      include: { products: true, categories: true },
     });
   }
 
@@ -94,15 +101,31 @@ export class CouponsService {
     if (dto.minOrderValue !== undefined) data.minOrderValue = dto.minOrderValue;
     if (dto.maxDiscount !== undefined) data.maxDiscount = dto.maxDiscount;
     if (dto.maxUses !== undefined) data.maxUses = dto.maxUses;
-    if (dto.applicableTo !== undefined) data.applicableTo = dto.applicableTo;
-    if (dto.applicableIds !== undefined) data.applicableIds = dto.applicableIds;
     if (dto.startDate !== undefined) data.startDate = new Date(dto.startDate);
     if (dto.endDate !== undefined) data.endDate = dto.endDate ? new Date(dto.endDate) : null;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
 
-    return this.prisma.coupon.update({
-      where: { id },
-      data,
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.productIds !== undefined) {
+        await tx.couponProduct.deleteMany({ where: { couponId: id } });
+      }
+      if (dto.categoryIds !== undefined) {
+        await tx.couponCategory.deleteMany({ where: { couponId: id } });
+      }
+
+      return tx.coupon.update({
+        where: { id },
+        data: {
+          ...data,
+          products: dto.productIds?.length
+            ? { create: dto.productIds.map((productId) => ({ productId })) }
+            : undefined,
+          categories: dto.categoryIds?.length
+            ? { create: dto.categoryIds.map((categoryId) => ({ categoryId })) }
+            : undefined,
+        },
+        include: { products: true, categories: true },
+      });
     });
   }
 
@@ -120,6 +143,7 @@ export class CouponsService {
 
     const coupon = await this.prisma.coupon.findUnique({
       where: { code },
+      include: { products: true, categories: true },
     });
 
     if (!coupon) {
@@ -148,6 +172,23 @@ export class CouponsService {
       );
     }
 
+    const productIds = this.parseIdList(dto.productIds);
+    const categoryIds = this.parseIdList(dto.categoryIds);
+    const couponProductIds = coupon.products.map((item) => item.productId);
+    const couponCategoryIds = coupon.categories.map((item) => item.categoryId);
+    if (
+      couponProductIds.length &&
+      !productIds.some((productId) => couponProductIds.includes(productId))
+    ) {
+      throw new BadRequestException('This coupon does not apply to the selected products');
+    }
+    if (
+      couponCategoryIds.length &&
+      !categoryIds.some((categoryId) => couponCategoryIds.includes(categoryId))
+    ) {
+      throw new BadRequestException('This coupon does not apply to the selected categories');
+    }
+
     // Calculate discount
     let discount = 0;
     if (coupon.discountType === 'PERCENTAGE') {
@@ -172,5 +213,18 @@ export class CouponsService {
       orderAmount: dto.orderAmount,
       finalAmount: Math.max(dto.orderAmount - discount, 0),
     };
+  }
+
+  private parseIdList(value?: string) {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
   }
 }

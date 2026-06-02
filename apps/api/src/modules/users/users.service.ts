@@ -186,47 +186,23 @@ export class UsersService {
     const addresses = await this.prisma.address.findMany({
       where: { userId },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      include: { state: true, lga: true },
     });
 
-    return addresses.map((addr) => ({
-      id: addr.id,
-      userId: addr.userId,
-      line1: addr.line1,
-      line2: addr.line2 ?? undefined,
-      city: addr.city,
-      state: addr.state,
-      country: addr.country,
-      postalCode: addr.postalCode ?? undefined,
-      isDefault: addr.isDefault,
-      type: addr.type as AddressType,
-      createdAt: addr.createdAt,
-      updatedAt: addr.updatedAt,
-    }));
+    return addresses.map((addr) => this.toAddressResponse(addr));
   }
 
   async getAddress(userId: string, addressId: string): Promise<AddressResponseDto> {
     const address = await this.prisma.address.findFirst({
       where: { id: addressId, userId },
+      include: { state: true, lga: true },
     });
 
     if (!address) {
       throw new NotFoundException('Address not found');
     }
 
-    return {
-      id: address.id,
-      userId: address.userId,
-      line1: address.line1,
-      line2: address.line2 ?? undefined,
-      city: address.city,
-      state: address.state,
-      country: address.country,
-      postalCode: address.postalCode ?? undefined,
-      isDefault: address.isDefault,
-      type: address.type as AddressType,
-      createdAt: address.createdAt,
-      updatedAt: address.updatedAt,
-    };
+    return this.toAddressResponse(address);
   }
 
   async createAddress(
@@ -247,7 +223,8 @@ export class UsersService {
         line1: dto.line1,
         line2: dto.line2,
         city: dto.city,
-        state: dto.state,
+        stateId: dto.stateId,
+        lgaId: dto.lgaId,
         country: dto.country ?? 'Nigeria',
         postalCode: dto.postalCode,
         isDefault: dto.isDefault ?? false,
@@ -266,20 +243,7 @@ export class UsersService {
 
     this.logger.log(`Address created for user: ${userId}`);
 
-    return {
-      id: address.id,
-      userId: address.userId,
-      line1: address.line1,
-      line2: address.line2 ?? undefined,
-      city: address.city,
-      state: address.state,
-      country: address.country,
-      postalCode: address.postalCode ?? undefined,
-      isDefault: address.isDefault,
-      type: address.type as AddressType,
-      createdAt: address.createdAt,
-      updatedAt: address.updatedAt,
-    };
+    return this.getAddress(userId, address.id);
   }
 
   async updateAddress(
@@ -309,7 +273,8 @@ export class UsersService {
         line1: dto.line1,
         line2: dto.line2,
         city: dto.city,
-        state: dto.state,
+        stateId: dto.stateId,
+        lgaId: dto.lgaId,
         country: dto.country,
         postalCode: dto.postalCode,
         isDefault: dto.isDefault,
@@ -326,20 +291,7 @@ export class UsersService {
       ipAddress,
     });
 
-    return {
-      id: address.id,
-      userId: address.userId,
-      line1: address.line1,
-      line2: address.line2 ?? undefined,
-      city: address.city,
-      state: address.state,
-      country: address.country,
-      postalCode: address.postalCode ?? undefined,
-      isDefault: address.isDefault,
-      type: address.type as AddressType,
-      createdAt: address.createdAt,
-      updatedAt: address.updatedAt,
-    };
+    return this.getAddress(userId, address.id);
   }
 
   async deleteAddress(userId: string, addressId: string, ipAddress: string): Promise<void> {
@@ -387,6 +339,7 @@ export class UsersService {
     const updated = await this.prisma.address.update({
       where: { id: addressId },
       data: { isDefault: true },
+      include: { state: true, lga: true },
     });
 
     await this.auditService.log({
@@ -397,19 +350,23 @@ export class UsersService {
       ipAddress,
     });
 
+    return this.toAddressResponse(updated);
+  }
+
+  private toAddressResponse(address: any): AddressResponseDto {
     return {
-      id: updated.id,
-      userId: updated.userId,
-      line1: updated.line1,
-      line2: updated.line2 ?? undefined,
-      city: updated.city,
-      state: updated.state,
-      country: updated.country,
-      postalCode: updated.postalCode ?? undefined,
-      isDefault: updated.isDefault,
-      type: updated.type as AddressType,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      id: address.id,
+      userId: address.userId,
+      line1: address.line1,
+      line2: address.line2 ?? undefined,
+      city: address.city,
+      state: address.state?.name ?? '',
+      country: address.country,
+      postalCode: address.postalCode ?? undefined,
+      isDefault: address.isDefault,
+      type: address.type as AddressType,
+      createdAt: address.createdAt,
+      updatedAt: address.updatedAt,
     };
   }
 

@@ -157,10 +157,11 @@ export class CreateProductVariantDto {
   @IsString()
   name: string;
 
-  @ApiPropertyOptional({ description: 'Variant options as JSON string' })
+  @ApiPropertyOptional({ description: 'Variant value IDs that compose this SKU' })
   @IsOptional()
-  @IsString()
-  options?: string;
+  @IsArray()
+  @IsString({ each: true })
+  variantValueIds?: string[];
 
   @ApiProperty({ description: 'Variant price' })
   @IsNumber()
@@ -186,10 +187,11 @@ export class UpdateProductVariantDto {
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Variant options as JSON string' })
+  @ApiPropertyOptional({ description: 'Variant value IDs that compose this SKU' })
   @IsOptional()
-  @IsString()
-  options?: string;
+  @IsArray()
+  @IsString({ each: true })
+  variantValueIds?: string[];
 
   @ApiPropertyOptional({ description: 'Variant price' })
   @IsOptional()

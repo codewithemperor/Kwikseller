@@ -27,10 +27,20 @@ export class CreateAddressDto {
   city: string;
 
   @ApiProperty({ example: 'Lagos' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  state: string;
+  state?: string;
+
+  @ApiPropertyOptional({ example: 'clw...' })
+  @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @ApiPropertyOptional({ example: 'clw...' })
+  @IsOptional()
+  @IsString()
+  lgaId?: string;
 
   @ApiPropertyOptional({ example: 'Nigeria' })
   @IsOptional()
@@ -79,6 +89,16 @@ export class UpdateAddressDto {
   @IsString()
   @MaxLength(100)
   state?: string;
+
+  @ApiPropertyOptional({ example: 'clw...' })
+  @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @ApiPropertyOptional({ example: 'clw...' })
+  @IsOptional()
+  @IsString()
+  lgaId?: string;
 
   @ApiPropertyOptional({ example: 'Nigeria' })
   @IsOptional()

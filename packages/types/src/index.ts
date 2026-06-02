@@ -200,23 +200,34 @@ export type ProductSource = 'VENDOR_STOCK' | 'POOL_RESALE' | 'GROUP_BUY'
 export type PoolSourceType = 'ADMIN_POOL' | 'VENDOR_PRODUCT'
 export type InventoryPolicy = 'TRACKED' | 'UNLIMITED' | 'LICENSE_LIMITED'
 export type DigitalDeliveryType = 'DOWNLOAD' | 'LICENSE_KEY' | 'EXTERNAL_ACCESS'
+export type ProductCondition = 'NEW' | 'USED' | 'REFURBISHED'
+export type MediaType = 'IMAGE' | 'VIDEO'
 
 export interface Product {
   id: string
   storeId: string
   name: string
   slug: string
+  shortDescription?: string
   description?: string
   price: number
   comparePrice?: number
   sku?: string
+  barcode?: string
   productType?: ProductType
   productSource?: ProductSource
   inventoryPolicy?: InventoryPolicy
   requiresShipping?: boolean
+  useStoreDeliveryZones?: boolean
   trackInventory?: boolean
   lowStock?: number
   stock: number
+  minOrderQuantity?: number
+  maxOrderQuantity?: number
+  condition?: ProductCondition
+  isPreorder?: boolean
+  preorderDate?: string
+  weight?: number
   status: ProductStatus
   categoryId?: string
   isPoolProduct: boolean
@@ -235,7 +246,8 @@ export interface Product {
   updatedAt: string
   store?: Store
   variants?: ProductVariant[]
-  images?: ProductImage[]
+  variantTypes?: VariantType[]
+  images?: ProductMedia[]
   category?: Category
 }
 
@@ -243,7 +255,7 @@ export interface ProductVariant {
   id: string
   productId: string
   name: string
-  options: Record<string, string>
+  values?: VariantValue[]
   price: number
   stock: number
   inventoryItem?: InventoryItem
@@ -296,10 +308,29 @@ export interface InventoryReservation {
   updatedAt: string
 }
 
-export interface ProductImage {
+export interface VariantType {
+  id: string
+  productId: string
+  name: string
+  position: number
+  values?: VariantValue[]
+}
+
+export interface VariantValue {
+  id: string
+  variantTypeId: string
+  value: string
+  hexCode?: string
+  imageUrl?: string
+  position: number
+}
+
+export interface ProductMedia {
   id: string
   productId: string
   url: string
+  mediaType: MediaType
+  thumbnailUrl?: string
   alt?: string
   position: number
   isMain: boolean

@@ -88,6 +88,9 @@ model User {
   withdrawals   Withdrawal[]
   adminPermission AdminPermission?
   auditLogs     AuditLog[]
+  reviews       Review[]
+  productQuestions ProductQuestion[] @relation("ProductQuestionUser")
+  productAnswers   ProductQuestion[] @relation("ProductQuestionAnswerer")
 
   @@unique([email, role])
   @@index([email])
@@ -115,8 +118,8 @@ model Address {
   line1       String
   line2       String?
   city        String
-  state       String
-  localGovernment String?
+  stateId     String?
+  lgaId       String?
   deliveryInstructions String?
   country     String   @default("Nigeria")
   postalCode  String?
@@ -126,9 +129,13 @@ model Address {
   updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state State? @relation(fields: [stateId], references: [id])
+  lga LocalGovernment? @relation(fields: [lgaId], references: [id])
   orders Order[]
 
   @@index([userId])
+  @@index([stateId])
+  @@index([lgaId])
 }
 
 model KycDocument {
@@ -207,6 +214,7 @@ model Store {
   bankName                String?
   accountNumber           String?
   accountName             String?
+  deliverySetupComplete   Boolean            @default(false)
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
 
@@ -217,6 +225,7 @@ model Store {
     sourcedPoolOffers VendorPoolOffer[] @relation("PoolSourceStore")
     storefrontDesign StorefrontDesign?
     deliverySetting StoreDeliverySetting?
+    deliveryZones StoreDeliveryZone[]
 
   @@index([vendorId])
   @@index([slug])
@@ -459,16 +468,39 @@ model Coupon {
   maxDiscount     Float?
   maxUses         Int?
   usedCount       Int          @default(0)
-  applicableTo    String?      // "all", "specific_categories", "specific_products"
-  applicableIds   String?      // JSON array of category or product IDs
   startDate       DateTime
   endDate         DateTime?
   isActive        Boolean      @default(true)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
+  products        CouponProduct[]
+  categories      CouponCategory[]
+
   @@index([code])
   @@index([isActive])
+}
+
+model CouponProduct {
+  couponId  String
+  productId String
+
+  coupon  Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, productId])
+  @@index([productId])
+}
+
+model CouponCategory {
+  couponId   String
+  categoryId String
+
+  coupon   Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, categoryId])
+  @@index([categoryId])
 }
 
 model DeliveryRate {
@@ -484,6 +516,36 @@ model DeliveryRate {
 
   @@unique([state, localGovernment])
   @@index([state])
+  @@index([isActive])
+}
+
+model State {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  code     String  @unique
+  isActive Boolean @default(true)
+
+  lgas         LocalGovernment[]
+  addresses    Address[]
+  storeZones   StoreDeliveryZone[]
+  productZones ProductDeliveryZone[]
+
+  @@index([isActive])
+}
+
+model LocalGovernment {
+  id       String  @id @default(cuid())
+  stateId  String
+  name     String
+  isActive Boolean @default(true)
+
+  state        State @relation(fields: [stateId], references: [id])
+  addresses    Address[]
+  storeZones   StoreDeliveryZone[]
+  productZones ProductDeliveryZone[]
+
+  @@unique([stateId, name])
+  @@index([stateId])
   @@index([isActive])
 }
 
@@ -529,6 +591,52 @@ model StoreDeliveryArea {
   @@index([isActive])
 }
 
+model StoreDeliveryZone {
+  id              String   @id @default(cuid())
+  storeId         String
+  stateId         String
+  lgaId           String?
+  fee             Float
+  minDeliveryDays Int      @default(1)
+  maxDeliveryDays Int      @default(5)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  store Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  state State            @relation(fields: [stateId], references: [id])
+  lga   LocalGovernment? @relation(fields: [lgaId], references: [id])
+
+  @@unique([storeId, stateId, lgaId])
+  @@index([storeId])
+  @@index([stateId])
+  @@index([lgaId])
+  @@index([isActive])
+}
+
+model ProductDeliveryZone {
+  id              String   @id @default(cuid())
+  productId       String
+  stateId         String
+  lgaId           String?
+  fee             Float
+  minDeliveryDays Int      @default(1)
+  maxDeliveryDays Int      @default(5)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  product Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  state   State            @relation(fields: [stateId], references: [id])
+  lga     LocalGovernment? @relation(fields: [lgaId], references: [id])
+
+  @@unique([productId, stateId, lgaId])
+  @@index([productId])
+  @@index([stateId])
+  @@index([lgaId])
+  @@index([isActive])
+}
+
 // ==================== ATTRIBUTES (from SQL) ====================
 
 model Attribute {
@@ -538,6 +646,7 @@ model Attribute {
   updatedAt DateTime @updatedAt
 
   values AttributeValue[]
+  productAttributes ProductAttribute[]
 }
 
 model AttributeValue {
@@ -548,8 +657,25 @@ model AttributeValue {
   updatedAt   DateTime @updatedAt
 
   attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  productAttributes ProductAttribute[]
 
   @@index([attributeId])
+}
+
+model ProductAttribute {
+  id               String @id @default(cuid())
+  productId        String
+  attributeId      String
+  attributeValueId String
+
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute      Attribute      @relation(fields: [attributeId], references: [id])
+  attributeValue AttributeValue @relation(fields: [attributeValueId], references: [id])
+
+  @@unique([productId, attributeId])
+  @@index([productId])
+  @@index([attributeId])
+  @@index([attributeValueId])
 }
 
 // ==================== TAGS ====================
@@ -603,23 +729,49 @@ enum InventoryReservationStatus {
   EXPIRED
 }
 
+enum ProductCondition {
+  NEW
+  USED
+  REFURBISHED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum RelationType {
+  RELATED
+  UPSELL
+  CROSS_SELL
+}
+
 model Product {
   id              String        @id @default(cuid())
   storeId         String
   poolProductId   String?
   name            String
   slug            String
+  shortDescription String?
   description     String?
   price           Float
   comparePrice    Float?
   sku             String?
+  barcode         String?
   productType     ProductType    @default(PHYSICAL)
   productSource   ProductSource  @default(VENDOR_STOCK)
   inventoryPolicy InventoryPolicy @default(TRACKED)
   requiresShipping Boolean       @default(true)
+  useStoreDeliveryZones Boolean  @default(true)
   trackInventory  Boolean        @default(true)
   stock           Int           @default(0)
   lowStock        Int           @default(5)
+  minOrderQuantity Int           @default(1)
+  maxOrderQuantity Int?
+  condition       ProductCondition?
+  isPreorder      Boolean       @default(false)
+  preorderDate    DateTime?
+  weight          Float?
   status          ProductStatus @default(DRAFT)
   categoryId      String?
   brandId         String?
@@ -642,7 +794,12 @@ model Product {
   store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
     poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id])
   variants    ProductVariant[]
-  images      ProductImage[]
+  variantTypes VariantType[]
+  images      ProductMedia[]
+  attributes  ProductAttribute[]
+  dimension   ProductDimension?
+  seo         ProductSeo?
+  deliveryZones ProductDeliveryZone[]
   digitalAssets DigitalAsset[]
   inventoryItems InventoryItem[]
   deliveryOverride ProductDeliveryOverride?
@@ -655,6 +812,11 @@ model Product {
   adCampaigns AdCampaign[]
   tags        ProductTag[]
   dealProducts DealProduct[]
+  couponProducts CouponProduct[]
+  reviews     Review[]
+  questions   ProductQuestion[]
+  relatedProducts RelatedProduct[] @relation("ProductRelations")
+  relatedByProducts RelatedProduct[] @relation("RelatedProductRelations")
 
   @@unique([storeId, slug])
   @@index([storeId])
@@ -689,7 +851,6 @@ model ProductVariant {
   id          String   @id @default(cuid())
   productId   String
   name        String
-  options     String
   price       Float
   stock       Int      @default(0)
   sku         String?
@@ -697,12 +858,60 @@ model ProductVariant {
   updatedAt   DateTime @updatedAt
 
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values    VariantValue[] @relation("VariantValueMap")
   cartItems CartItem[]
   orderItems OrderItem[]
   digitalAssets DigitalAsset[]
   inventoryItems InventoryItem[]
 
   @@index([productId])
+}
+
+model VariantType {
+  id        String @id @default(cuid())
+  productId String
+  name      String
+  position  Int    @default(0)
+
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  VariantValue[]
+
+  @@index([productId])
+}
+
+model VariantValue {
+  id            String  @id @default(cuid())
+  variantTypeId String
+  value         String
+  hexCode       String?
+  imageUrl      String?
+  position      Int     @default(0)
+
+  type     VariantType      @relation(fields: [variantTypeId], references: [id], onDelete: Cascade)
+  variants ProductVariant[] @relation("VariantValueMap")
+
+  @@index([variantTypeId])
+}
+
+model ProductDimension {
+  id        String @id @default(cuid())
+  productId String @unique
+  weight    Float?
+  length    Float?
+  width     Float?
+  height    Float?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductSeo {
+  id              String  @id @default(cuid())
+  productId       String  @unique
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model DigitalAsset {
@@ -778,18 +987,32 @@ model InventoryReservation {
   @@index([expiresAt])
 }
 
-model ProductImage {
-  id          String   @id @default(cuid())
-  productId   String
-  url         String
-  alt         String?
-  position    Int      @default(0)
-  isMain      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+model ProductMedia {
+  id           String    @id @default(cuid())
+  productId    String
+  url          String
+  mediaType    MediaType @default(IMAGE)
+  thumbnailUrl String?
+  alt          String?
+  position     Int       @default(0)
+  isMain       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
+}
+
+model RelatedProduct {
+  productId        String
+  relatedProductId String
+  type             RelationType @default(RELATED)
+
+  product        Product @relation("ProductRelations", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct Product @relation("RelatedProductRelations", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@id([productId, relatedProductId, type])
+  @@index([relatedProductId])
 }
 
 model ProductTag {
@@ -817,6 +1040,7 @@ model Category {
   parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children Category[] @relation("CategoryTree")
   products Product[]
+  couponCategories CouponCategory[]
 
   @@index([parentId])
   @@index([isActive])
@@ -945,6 +1169,7 @@ model Order {
   delivery    Delivery?
   commission  Commission?
   fulfillments Fulfillment[]
+  reviews     Review[]
 
   @@index([buyerId])
   @@index([storeId])
@@ -1513,15 +1738,47 @@ model Review {
   id          String   @id @default(cuid())
   productId   String
   userId      String
+  orderId     String?
   rating      Int
+  title       String?
   comment     String?
   images      String?
   isApproved  Boolean  @default(false)
+  isVerifiedPurchase Boolean @default(false)
+  helpfulCount Int     @default(0)
+  vendorReply String?
+  vendorRepliedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order   Order?  @relation(fields: [orderId], references: [id])
+
   @@index([productId])
   @@index([userId])
+  @@index([orderId])
+}
+
+model ProductQuestion {
+  id          String    @id @default(cuid())
+  productId   String
+  userId      String
+  question    String
+  answer      String?
+  answeredBy  String?
+  answeredAt  DateTime?
+  isApproved  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  product  Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user     User    @relation("ProductQuestionUser", fields: [userId], references: [id], onDelete: Cascade)
+  answerer User?   @relation("ProductQuestionAnswerer", fields: [answeredBy], references: [id])
+
+  @@index([productId])
+  @@index([userId])
+  @@index([answeredBy])
 }
 
 // ==================== WISHLIST ====================

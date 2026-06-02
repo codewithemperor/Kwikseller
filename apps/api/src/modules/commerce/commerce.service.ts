@@ -21,6 +21,7 @@ import {
   InventoryAdjustmentDto,
   ManualDeliveryDto,
   RefundPaymentDto,
+  ShippingAddressDto,
   UpdateCartItemDto,
   UpdateDeliverySettingsDto,
   UpdateOrderStatusDto,
@@ -668,15 +669,7 @@ export class CommerceService {
       if (hasPhysicalItems) {
         for (const group of groups) {
           if (group.requiresShipping) {
-            deliveryQuotes.set(
-              group.storeId,
-              await this.resolveDeliveryQuote(
-                tx,
-                dto.shippingAddress?.state,
-                dto.shippingAddress?.localGovernment,
-                group.storeId,
-              ),
-            );
+            deliveryQuotes.set(group.storeId, await this.resolveDeliveryQuote(tx, dto.shippingAddress, group));
           }
         }
       }
@@ -688,8 +681,8 @@ export class CommerceService {
               line1: dto.shippingAddress.addressLine1,
               line2: dto.shippingAddress.addressLine2,
               city: dto.shippingAddress.city,
-              state: dto.shippingAddress.state,
-              localGovernment: dto.shippingAddress.localGovernment,
+              stateId: deliveryQuotes.values().next().value?.location?.stateId ?? null,
+              lgaId: deliveryQuotes.values().next().value?.location?.lgaId ?? null,
               deliveryInstructions: dto.shippingAddress.deliveryInstructions,
               country: dto.shippingAddress.country,
               type: 'SHIPPING',
@@ -743,11 +736,11 @@ export class CommerceService {
             discount: groupDiscount,
             couponId: coupon?.couponId,
             deliveryRateId: group.requiresShipping ? deliveryQuote?.rate.id : null,
-            deliveryState: group.requiresShipping ? deliveryQuote?.rate.state : null,
-            deliveryLocalGovernment: group.requiresShipping ? deliveryQuote?.rate.localGovernment : null,
+            deliveryState: group.requiresShipping ? deliveryQuote?.location?.stateName : null,
+            deliveryLocalGovernment: group.requiresShipping ? deliveryQuote?.location?.lgaName : null,
             estimatedDeliveryStart: group.requiresShipping ? deliveryQuote?.estimatedDeliveryStart : null,
             estimatedDeliveryEnd: group.requiresShipping ? deliveryQuote?.estimatedDeliveryEnd : null,
-            deliveryRateSnapshot: group.requiresShipping && deliveryQuote ? JSON.stringify(deliveryQuote.rate) : null,
+            deliveryRateSnapshot: group.requiresShipping && deliveryQuote ? JSON.stringify(deliveryQuote.snapshot) : null,
             status: 'PENDING_PAYMENT',
             paymentStatus: 'PENDING',
             checkoutReference: `${reference}-${index + 1}`,
@@ -1292,6 +1285,7 @@ export class CommerceService {
         trackInventory,
         stock: initialStock,
       });
+      await this.assertStoreDeliverySetupComplete(storeId);
     }
 
     const product = await this.db().product?.create({
@@ -1380,13 +1374,14 @@ export class CommerceService {
         ...next,
         stock: product?.inventoryItems?.[0]?.available ?? product?.stock ?? 0,
       });
+      await this.assertStoreDeliverySetupComplete(storeId);
     }
 
     return this.db().$transaction(async (tx: any) => {
       if (dto.images) {
-        await tx.productImage.deleteMany({ where: { productId } });
+        await tx.productMedia.deleteMany({ where: { productId } });
         if (dto.images.length) {
-          await tx.productImage.createMany({
+          await tx.productMedia.createMany({
             data: dto.images.map((url, index) => ({
               productId,
               url,
@@ -2709,11 +2704,10 @@ export class CommerceService {
     }
   }
 
-  private async resolveDeliveryQuote(db: any, state?: string, localGovernment?: string, storeId?: string) {
-    const normalizedState = this.normalizeLocationPart(state ?? '');
-    const normalizedLga = this.normalizeLocationPart(localGovernment ?? '');
+  private async resolveDeliveryQuote(db: any, shippingAddress?: ShippingAddressDto, group?: { storeId: string; items: any[] }) {
+    const location = await this.resolveCheckoutLocation(db, shippingAddress);
 
-    if (!normalizedState || !normalizedLga) {
+    if (!location.stateId || !location.lgaId) {
       throw new BadRequestException({
         message: 'Cart validation failed',
         errors: [
@@ -2726,33 +2720,90 @@ export class CommerceService {
       });
     }
 
-    if (storeId) {
-      const storeRate = await db.storeDeliveryArea.findFirst({
-        where: {
-          state: { equals: normalizedState, mode: 'insensitive' },
-          localGovernment: { equals: normalizedLga, mode: 'insensitive' },
-          isActive: true,
-          setting: {
-            storeId,
-            manualDeliveryEnabled: true,
-          },
-        },
-        include: { setting: true },
+    const itemQuotes: any[] = [];
+    for (const item of group?.items ?? []) {
+      if (!(item.requiresShipping || item.product?.productType !== 'DIGITAL')) {
+        continue;
+      }
+
+      const product = item.product;
+      const productRate =
+        product?.useStoreDeliveryZones === false
+          ? await this.findProductDeliveryZone(db, product.id, location.stateId, location.lgaId)
+          : null;
+
+      const rate =
+        product?.useStoreDeliveryZones === false
+          ? productRate
+          : await this.findStoreDeliveryZone(db, group?.storeId, location.stateId, location.lgaId);
+
+      if (!rate) {
+        throw new BadRequestException({
+          message: 'Cart validation failed',
+          errors: [
+            {
+              code: 'DELIVERY_RATE_UNAVAILABLE',
+              message: `${product?.name ?? 'A cart item'} is not available in the selected delivery area.`,
+              cartItemId: item.id,
+              productId: product?.id,
+              field: 'shippingAddress.localGovernment',
+            },
+          ],
+        });
+      }
+
+      itemQuotes.push({
+        cartItemId: item.id,
+        productId: product?.id,
+        productName: product?.name,
+        rate,
+        resolvedFrom: product?.useStoreDeliveryZones === false ? 'PRODUCT_ZONE' : 'STORE_ZONE',
       });
-      if (storeRate) {
-        return { rate: storeRate, ...this.deliveryEstimate(storeRate) };
+    }
+
+    if (!itemQuotes.length && group?.storeId) {
+      const rate = await this.findStoreDeliveryZone(db, group.storeId, location.stateId, location.lgaId);
+      if (rate) {
+        itemQuotes.push({ rate, resolvedFrom: 'STORE_ZONE' });
       }
     }
 
-    const rate = await db.deliveryRate.findFirst({
+    const selected = itemQuotes.reduce((best, quote) => {
+      if (!best) return quote;
+      return Number(quote.rate.fee ?? 0) > Number(best.rate.fee ?? 0) ? quote : best;
+    }, null as any);
+
+    if (selected) {
+      const snapshot = {
+        state: location.stateName,
+        stateId: location.stateId,
+        localGovernment: location.lgaName,
+        lgaId: location.lgaId,
+        fee: Number(selected.rate.fee ?? 0),
+        minDeliveryDays: selected.rate.minDeliveryDays,
+        maxDeliveryDays: selected.rate.maxDeliveryDays,
+        resolvedFrom: selected.resolvedFrom,
+        resolvedAt: new Date().toISOString(),
+        itemRates: itemQuotes.map((quote) => ({
+          cartItemId: quote.cartItemId,
+          productId: quote.productId,
+          productName: quote.productName,
+          fee: Number(quote.rate.fee ?? 0),
+          resolvedFrom: quote.resolvedFrom,
+        })),
+      };
+      return { rate: selected.rate, location, snapshot, ...this.deliveryEstimate(selected.rate) };
+    }
+
+    const legacyRate = await db.deliveryRate.findFirst({
       where: {
-        state: { equals: normalizedState, mode: 'insensitive' },
-        localGovernment: { equals: normalizedLga, mode: 'insensitive' },
+        state: { equals: location.stateName, mode: 'insensitive' },
+        localGovernment: { equals: location.lgaName, mode: 'insensitive' },
         isActive: true,
       },
     });
 
-    if (!rate) {
+    if (!legacyRate) {
       throw new BadRequestException({
         message: 'Cart validation failed',
         errors: [
@@ -2765,7 +2816,93 @@ export class CommerceService {
       });
     }
 
-    return { rate, ...this.deliveryEstimate(rate) };
+    const snapshot = {
+      state: location.stateName,
+      stateId: location.stateId,
+      localGovernment: location.lgaName,
+      lgaId: location.lgaId,
+      fee: Number(legacyRate.fee ?? 0),
+      minDeliveryDays: legacyRate.minDeliveryDays,
+      maxDeliveryDays: legacyRate.maxDeliveryDays,
+      resolvedFrom: 'LEGACY_DELIVERY_RATE',
+      resolvedAt: new Date().toISOString(),
+    };
+
+    return { rate: legacyRate, location, snapshot, ...this.deliveryEstimate(legacyRate) };
+  }
+
+  private async resolveCheckoutLocation(db: any, shippingAddress?: ShippingAddressDto) {
+    const normalizedState = this.normalizeLocationPart(shippingAddress?.state ?? '');
+    const normalizedLga = this.normalizeLocationPart(shippingAddress?.localGovernment ?? '');
+
+    const state = shippingAddress?.stateId
+      ? await db.state.findUnique({ where: { id: shippingAddress.stateId } })
+      : normalizedState
+        ? await db.state.findFirst({
+            where: {
+              OR: [
+                { name: { equals: normalizedState, mode: 'insensitive' } },
+                { name: { equals: `${normalizedState} State`, mode: 'insensitive' } },
+                { code: { equals: normalizedState, mode: 'insensitive' } },
+              ],
+              isActive: true,
+            },
+          })
+        : null;
+
+    const lga = shippingAddress?.lgaId
+      ? await db.localGovernment.findUnique({ where: { id: shippingAddress.lgaId } })
+      : state?.id && normalizedLga
+        ? await db.localGovernment.findFirst({
+            where: {
+              stateId: state.id,
+              name: { equals: normalizedLga, mode: 'insensitive' },
+              isActive: true,
+            },
+          })
+        : null;
+
+    if (!state || !lga) {
+      throw new BadRequestException({
+        message: 'Cart validation failed',
+        errors: [
+          {
+            code: 'DELIVERY_LOCATION_REQUIRED',
+            message: 'Select a supported state and local government before checkout.',
+            field: 'shippingAddress',
+          },
+        ],
+      });
+    }
+
+    return {
+      stateId: state.id,
+      stateName: state.name,
+      lgaId: lga.id,
+      lgaName: lga.name,
+    };
+  }
+
+  private async findStoreDeliveryZone(db: any, storeId: string | undefined, stateId: string, lgaId: string) {
+    if (!storeId) return null;
+    const exact = await db.storeDeliveryZone.findFirst({
+      where: { storeId, stateId, lgaId, isActive: true },
+    });
+    if (exact) return exact;
+    return db.storeDeliveryZone.findFirst({
+      where: { storeId, stateId, lgaId: null, isActive: true },
+    });
+  }
+
+  private async findProductDeliveryZone(db: any, productId: string | undefined, stateId: string, lgaId: string) {
+    if (!productId) return null;
+    const exact = await db.productDeliveryZone.findFirst({
+      where: { productId, stateId, lgaId, isActive: true },
+    });
+    if (exact) return exact;
+    return db.productDeliveryZone.findFirst({
+      where: { productId, stateId, lgaId: null, isActive: true },
+    });
   }
 
   private async resolveCouponDiscount(db: any, code: string, subtotal: number) {
@@ -2905,6 +3042,16 @@ export class CommerceService {
 
     if (!product) {
       throw new NotFoundException('Product not found for this vendor');
+    }
+  }
+
+  private async assertStoreDeliverySetupComplete(storeId: string) {
+    const store = await this.db().store?.findUnique({
+      where: { id: storeId },
+      select: { deliverySetupComplete: true },
+    });
+    if (!store?.deliverySetupComplete) {
+      throw new BadRequestException('Complete store delivery zones before publishing products');
     }
   }
 

@@ -400,6 +400,10 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto) {
+    if (dto.status === 'ACTIVE') {
+      await this.assertStoreDeliverySetupComplete(dto.storeId);
+    }
+
     // Generate slug from name
     const slug = dto.name
       .toLowerCase()
@@ -434,10 +438,12 @@ export class ProductsService {
           ? {
               create: dto.variants.map((v) => ({
                 name: v.name,
-                options: v.options || '{}',
                 price: v.price,
                 stock: v.stock ?? 0,
                 sku: v.sku,
+                values: v.variantValueIds?.length
+                  ? { connect: v.variantValueIds.map((id) => ({ id })) }
+                  : undefined,
               })),
             }
           : undefined,
@@ -476,7 +482,7 @@ export class ProductsService {
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.images !== undefined) {
-        await tx.productImage.deleteMany({
+        await tx.productMedia.deleteMany({
           where: { productId: id },
         });
       }
@@ -509,7 +515,10 @@ export class ProductsService {
   }
 
   async updateStatus(id: string, dto: UpdateProductStatusDto) {
-    await this.findOneAdmin(id);
+    const product = await this.findOneAdmin(id);
+    if (dto.status === 'ACTIVE') {
+      await this.assertStoreDeliverySetupComplete(product.storeId);
+    }
 
     return this.prisma.product.update({
       where: { id },
@@ -539,13 +548,13 @@ export class ProductsService {
 
     // If this is set as main, unset all other main images
     if (dto.isMain) {
-      await this.prisma.productImage.updateMany({
+      await this.prisma.productMedia.updateMany({
         where: { productId, isMain: true },
         data: { isMain: false },
       });
     }
 
-    return this.prisma.productImage.create({
+    return this.prisma.productMedia.create({
       data: {
         productId,
         url: dto.url,
@@ -559,7 +568,7 @@ export class ProductsService {
   async removeImage(productId: string, imageId: string) {
     await this.findOneAdmin(productId);
 
-    const image = await this.prisma.productImage.findFirst({
+    const image = await this.prisma.productMedia.findFirst({
       where: { id: imageId, productId },
     });
 
@@ -567,7 +576,7 @@ export class ProductsService {
       throw new NotFoundException(`Image with ID "${imageId}" not found for this product`);
     }
 
-    return this.prisma.productImage.delete({
+    return this.prisma.productMedia.delete({
       where: { id: imageId },
     });
   }
@@ -579,10 +588,12 @@ export class ProductsService {
       data: {
         productId,
         name: dto.name,
-        options: dto.options || '{}',
         price: dto.price,
         stock: dto.stock ?? 0,
         sku: dto.sku,
+        values: dto.variantValueIds?.length
+          ? { connect: dto.variantValueIds.map((id) => ({ id })) }
+          : undefined,
       },
     });
   }
@@ -600,14 +611,18 @@ export class ProductsService {
 
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.options !== undefined) data.options = dto.options;
     if (dto.price !== undefined) data.price = dto.price;
     if (dto.stock !== undefined) data.stock = dto.stock;
     if (dto.sku !== undefined) data.sku = dto.sku;
 
     return this.prisma.productVariant.update({
       where: { id: variantId },
-      data,
+      data: {
+        ...data,
+        values: dto.variantValueIds
+          ? { set: dto.variantValueIds.map((id) => ({ id })) }
+          : undefined,
+      },
     });
   }
 
@@ -625,5 +640,15 @@ export class ProductsService {
     return this.prisma.productVariant.delete({
       where: { id: variantId },
     });
+  }
+
+  private async assertStoreDeliverySetupComplete(storeId: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { deliverySetupComplete: true },
+    });
+    if (!store?.deliverySetupComplete) {
+      throw new BadRequestException('Complete store delivery zones before publishing products');
+    }
   }
 }

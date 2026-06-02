@@ -71,6 +71,14 @@ export class ShippingAddressDto {
 
   @IsOptional()
   @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
+  lgaId?: string;
+
+  @IsOptional()
+  @IsString()
   deliveryInstructions?: string;
 
   @IsString()

@@ -558,7 +558,7 @@ export const uploadApi = {
 export const vendorCommerceApi = {
   getDashboard: () => api.get<VendorDashboardMetrics>('/vendor/dashboard'),
 
-  listProducts: (params?: { status?: string; type?: ProductType; page?: number; limit?: number }) =>
+  listProducts: (params?: { status?: string; type?: ProductType; search?: string; page?: number; limit?: number }) =>
     api.get('/vendor/products', { params }),
 
   createProduct: (data: {

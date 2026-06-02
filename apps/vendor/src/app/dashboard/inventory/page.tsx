@@ -1,13 +1,18 @@
 "use client";
 
 import React from "react";
-import { Boxes, PlusCircle } from "lucide-react";
+import { AlertTriangle, Boxes, PackageCheck, PlusCircle } from "lucide-react";
+import {
+  VendorMetricCard,
+  VendorPageHeader,
+  VendorSoftPanel,
+} from "@/components/dashboard/vendor-dashboard-ui";
+import { VendorEmptyState } from "@/components/vendor-empty-state";
+import { unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product } from "@kwikseller/types";
-import { kwikToast } from "@kwikseller/utils";
 import { AppButton, AppModal, FieldInput, FieldSelect } from "@kwikseller/ui";
-import { unwrapApiData } from "@/lib/vendor-format";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
+import { kwikToast } from "@kwikseller/utils";
 
 export default function VendorInventoryPage() {
   const [products, setProducts] = React.useState<Product[]>([]);
@@ -43,6 +48,7 @@ export default function VendorInventoryPage() {
       await vendorCommerceApi.adjustInventory(productId, { quantityDelta, reason });
       kwikToast.success("Inventory adjusted");
       setQuantityDelta(0);
+      setIsAdjustOpen(false);
       loadProducts();
     } catch (error) {
       kwikToast.error(error instanceof Error ? error.message : "Inventory adjustment failed");
@@ -52,61 +58,82 @@ export default function VendorInventoryPage() {
   };
 
   const physicalProducts = products.filter((product) => product.productType !== "DIGITAL");
+  const lowStockProducts = physicalProducts.filter((product) => {
+    const inventory = product.inventoryItems?.[0];
+    const available = inventory?.available ?? product.stock ?? 0;
+    const threshold = inventory?.lowStockThreshold ?? product.lowStock ?? 5;
+    return available <= threshold;
+  });
+  const reserved = physicalProducts.reduce((total, product) => total + Number(product.inventoryItems?.[0]?.reserved ?? 0), 0);
 
   return (
     <div className="space-y-6">
-      <section>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="font-heading text-2xl font-semibold text-foreground">Inventory</h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Adjust physical product stock. Checkout uses inventory records and reservations, not product card text.
-        </p>
-          </div>
-          <AppButton type="button" onClick={() => setIsAdjustOpen(true)}>
+      <VendorPageHeader
+        title="Inventory"
+        description="Track stock availability, reservations, safety thresholds, and manual adjustments."
+        action={
+          <AppButton type="button" size="lg" onClick={() => setIsAdjustOpen(true)} disabled={!physicalProducts.length}>
             <PlusCircle className="h-4 w-4" />
             Adjust stock
           </AppButton>
-        </div>
+        }
+      />
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <VendorMetricCard label="Tracked products" value={String(physicalProducts.length)} note="Physical catalog" icon={Boxes} />
+        <VendorMetricCard label="Reserved" value={String(reserved)} note="Checkout holds" icon={PackageCheck} tone="accent" />
+        <VendorMetricCard label="Low stock" value={String(lowStockProducts.length)} note="Needs attention" icon={AlertTriangle} tone="warning" />
       </section>
 
-      <section>
-        <section className="border border-border bg-background">
-          <div className="flex items-center gap-2 border-b border-border p-4">
-            <Boxes className="h-5 w-5 text-primary" />
-            <div>
-              <h2 className="font-heading text-base font-semibold">Stock ledger</h2>
-              <p className="text-sm text-muted-foreground">Available, reserved, and low-stock thresholds.</p>
-            </div>
+      <VendorSoftPanel title="Stock ledger" description="Available, reserved, and low-stock thresholds.">
+        {isLoading ? (
+          <div className="grid gap-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-20 animate-pulse rounded-2xl bg-surface" />
+            ))}
           </div>
-          {isLoading ? (
-            <div className="p-6 text-sm text-muted-foreground">Loading inventory...</div>
-          ) : physicalProducts.length ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted-foreground">
-                  <tr><th className="px-4 py-3">Product</th><th className="px-4 py-3">Available</th><th className="px-4 py-3">Reserved</th><th className="px-4 py-3">Threshold</th></tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {physicalProducts.map((product) => {
-                    const inventory = product.inventoryItems?.[0];
-                    return (
-                      <tr key={product.id}>
-                        <td className="px-4 py-3 font-semibold text-foreground">{product.name}</td>
-                        <td className="px-4 py-3">{inventory?.available ?? product.stock ?? 0}</td>
-                        <td className="px-4 py-3">{inventory?.reserved ?? 0}</td>
-                        <td className="px-4 py-3">{inventory?.lowStockThreshold ?? product.lowStock ?? 5}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <VendorEmptyState title="No physical products" text="Create a physical product before managing stock." />
-          )}
-        </section>
-      </section>
+        ) : physicalProducts.length ? (
+          <div className="space-y-3">
+            {physicalProducts.map((product) => {
+              const inventory = product.inventoryItems?.[0];
+              const available = inventory?.available ?? product.stock ?? 0;
+              const threshold = inventory?.lowStockThreshold ?? product.lowStock ?? 5;
+              const isLow = available <= threshold;
+              return (
+                <article key={product.id} className="grid gap-3 rounded-[22px] border border-border bg-background p-4 md:grid-cols-[1fr_auto] md:items-center">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="line-clamp-1 font-heading text-lg font-semibold text-foreground">{product.name}</h3>
+                      {isLow ? (
+                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
+                          Low stock
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">SKU {product.sku || "not set"}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-right">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Available</p>
+                      <p className="font-heading text-lg font-semibold text-foreground">{available}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Reserved</p>
+                      <p className="font-heading text-lg font-semibold text-foreground">{inventory?.reserved ?? 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Threshold</p>
+                      <p className="font-heading text-lg font-semibold text-foreground">{threshold}</p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <VendorEmptyState title="No physical products" text="Create a physical product before managing stock." />
+        )}
+      </VendorSoftPanel>
 
       <AppModal
         isOpen={isAdjustOpen}
@@ -114,13 +141,7 @@ export default function VendorInventoryPage() {
         title="Stock adjustment"
         description="Use positive numbers to add stock and negative numbers to reduce available stock."
       >
-        <form
-          onSubmit={(event) => {
-            submitAdjustment(event);
-            setIsAdjustOpen(false);
-          }}
-          className="space-y-4"
-        >
+        <form onSubmit={submitAdjustment} className="space-y-4">
           <FieldSelect label="Product" value={productId} onChange={(event) => setProductId(event.target.value)}>
             {physicalProducts.map((product) => (
               <option key={product.id} value={product.id}>{product.name}</option>

@@ -22,7 +22,7 @@ import {
 import { Button } from "@heroui/react";
 import { AppButton, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/ui";
 import { cartApi, checkoutApi, deliveryRatesApi, tokenManager } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { getLgasForState, kwikToast, NIGERIA_STATES } from "@kwikseller/utils";
 import type { CartValidationIssue, CartVendorGroup, CouponValidationResponse, DeliveryRate } from "@kwikseller/types";
 import { EscrowSafetyDialog } from "@/components/checkout/escrow-safety-dialog";
 import { AppImage } from "@/components/ui/app-image";
@@ -41,46 +41,6 @@ const defaultShipping = {
   country: "Nigeria",
   deliveryInstructions: "",
 };
-
-const NIGERIA_STATES = [
-  "Abia",
-  "Adamawa",
-  "Akwa Ibom",
-  "Anambra",
-  "Bauchi",
-  "Bayelsa",
-  "Benue",
-  "Borno",
-  "Cross River",
-  "Delta",
-  "Ebonyi",
-  "Edo",
-  "Ekiti",
-  "Enugu",
-  "FCT",
-  "Gombe",
-  "Imo",
-  "Jigawa",
-  "Kaduna",
-  "Kano",
-  "Katsina",
-  "Kebbi",
-  "Kogi",
-  "Kwara",
-  "Lagos",
-  "Nasarawa",
-  "Niger",
-  "Ogun",
-  "Ondo",
-  "Osun",
-  "Oyo",
-  "Plateau",
-  "Rivers",
-  "Sokoto",
-  "Taraba",
-  "Yobe",
-  "Zamfara",
-];
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -258,7 +218,11 @@ export default function CartPage() {
   }, [requiresShipping, shipping.state, shipping.localGovernment]);
 
   const updateShipping = (field: keyof typeof defaultShipping, value: string) => {
-    setShipping((current) => ({ ...current, [field]: value }));
+    setShipping((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "state" ? { localGovernment: "" } : {}),
+    }));
   };
 
   const applyCoupon = async () => {
@@ -691,12 +655,19 @@ export default function CartPage() {
                       </option>
                     ))}
                 </FieldSelect>
-                <FieldInput
+                <FieldSelect
                   label="Local government"
                   value={shipping.localGovernment}
                   onChange={(event) => updateShipping("localGovernment", event.target.value)}
-                  placeholder="e.g. Ikeja"
-                />
+                  disabled={!shipping.state}
+                >
+                  <option value="">Select local government</option>
+                  {getLgasForState(shipping.state).map((lga) => (
+                    <option key={lga} value={lga}>
+                      {lga}
+                    </option>
+                  ))}
+                </FieldSelect>
                 <FieldInput
                   wrapperClassName="sm:col-span-2"
                   label="Street address"

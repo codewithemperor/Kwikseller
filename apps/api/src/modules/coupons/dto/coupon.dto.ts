@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsNumber,
   IsDateString,
+  IsArray,
   Min,
   Max,
 } from 'class-validator';
@@ -61,15 +62,17 @@ export class CreateCouponDto {
   @Min(1)
   maxUses?: number;
 
-  @ApiPropertyOptional({ description: 'Applicable scope (all, specific_categories, specific_products)' })
+  @ApiPropertyOptional({ description: 'Product IDs this coupon applies to' })
   @IsOptional()
-  @IsString()
-  applicableTo?: string;
+  @IsArray()
+  @IsString({ each: true })
+  productIds?: string[];
 
-  @ApiPropertyOptional({ description: 'JSON array of applicable IDs' })
+  @ApiPropertyOptional({ description: 'Category IDs this coupon applies to' })
   @IsOptional()
-  @IsString()
-  applicableIds?: string;
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds?: string[];
 
   @ApiProperty({ description: 'Coupon start date (ISO string)' })
   @IsDateString()
@@ -127,15 +130,17 @@ export class UpdateCouponDto {
   @Min(1)
   maxUses?: number;
 
-  @ApiPropertyOptional({ description: 'Applicable scope' })
+  @ApiPropertyOptional({ description: 'Product IDs this coupon applies to' })
   @IsOptional()
-  @IsString()
-  applicableTo?: string;
+  @IsArray()
+  @IsString({ each: true })
+  productIds?: string[];
 
-  @ApiPropertyOptional({ description: 'JSON array of applicable IDs' })
+  @ApiPropertyOptional({ description: 'Category IDs this coupon applies to' })
   @IsOptional()
-  @IsString()
-  applicableIds?: string;
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds?: string[];
 
   @ApiPropertyOptional({ description: 'Coupon start date (ISO string)' })
   @IsOptional()

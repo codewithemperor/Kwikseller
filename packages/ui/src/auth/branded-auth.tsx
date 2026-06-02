@@ -138,7 +138,7 @@ export function BrandedAuthSidePanel({
 
 export type BrandedAuthLayoutProps = {
   children: React.ReactNode;
-  sidePanel: BrandedAuthSidePanelProps;
+  sidePanel?: BrandedAuthSidePanelProps;
   mobileLabel: string;
   showMobileHeader?: boolean;
   copyright?: string;
@@ -155,12 +155,17 @@ export function BrandedAuthLayout({
 }: BrandedAuthLayoutProps) {
   return (
     <main className="min-h-screen bg-background text-foreground dark:bg-[#07111f] dark:text-white">
-      <div className="grid min-h-screen lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
-        <BrandedAuthSidePanel {...sidePanel} />
+      <div
+        className={cn(
+          "grid min-h-screen",
+          sidePanel ? "lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]" : "lg:grid-cols-1",
+        )}
+      >
+        {sidePanel ? <BrandedAuthSidePanel {...sidePanel} /> : null}
         <section className="flex min-h-screen flex-col">
           {showMobileHeader ? (
             <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-white/10 lg:hidden">
-              <a href={sidePanel.backHref ?? "/"} className="text-sm font-semibold text-kwik-muted dark:text-white/70">
+              <a href={sidePanel?.backHref ?? "/"} className="text-sm font-semibold text-kwik-muted dark:text-white/70">
                 {mobileLabel}
               </a>
               <KwiksellerLogo />

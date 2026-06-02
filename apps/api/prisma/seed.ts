@@ -22,9 +22,22 @@ import {
   ProductStatus,
 } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const prisma = new PrismaClient();
 const db = prisma as any;
+
+type NigeriaLgaSeedRow = {
+  name: string;
+  state_code: string;
+  state_name: string;
+};
+
+function loadNigeriaLocations(): NigeriaLgaSeedRow[] {
+  const filePath = join(__dirname, "nigeria-lgas-flat.json");
+  return JSON.parse(readFileSync(filePath, "utf8")) as NigeriaLgaSeedRow[];
+}
 
 // ============================================================
 // SUPER ADMIN
@@ -125,6 +138,72 @@ interface SeedProduct {
   isFeatured: boolean;
   categoryId: string;
   brandId: string;
+}
+
+function richProductDescription(name: string, shortDescription: string): string {
+  return [
+    `<h2>${name}</h2>`,
+    `<p>${shortDescription}</p>`,
+    "<ul>",
+    "<li>Quality checked for Kwikseller marketplace listings.</li>",
+    "<li>Ready for secure checkout, inventory tracking, and vendor fulfillment.</li>",
+    "<li>Ships from a configured vendor delivery zone where available.</li>",
+    "</ul>",
+  ].join("");
+}
+
+function barcodeForSku(sku: string): string {
+  const digits = sku
+    .split("")
+    .reduce((value, char) => value + char.charCodeAt(0), 100000000000)
+    .toString()
+    .slice(0, 12)
+    .padEnd(12, "0");
+  return digits;
+}
+
+function seededProductColumns(input: {
+  name: string;
+  description: string;
+  sku: string;
+  price: number;
+  stock: number;
+  index: number;
+  isPhysical?: boolean;
+}) {
+  const isPhysical = input.isPhysical ?? true;
+  return {
+    shortDescription: input.description,
+    description: richProductDescription(input.name, input.description),
+    barcode: barcodeForSku(input.sku),
+    minOrderQuantity: input.index % 11 === 0 ? 2 : 1,
+    maxOrderQuantity: isPhysical ? Math.max(5, Math.min(input.stock, 25)) : 1,
+    condition: "NEW" as const,
+    isPreorder: input.index % 19 === 0,
+    preorderDate: input.index % 19 === 0 ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null,
+    weight: isPhysical ? Number((0.2 + (input.price % 9000) / 3000).toFixed(2)) : null,
+    useStoreDeliveryZones: true,
+  };
+}
+
+function seededDimension(input: { id: string; price: number; weight?: number | null }) {
+  const sizeSeed = Math.max(1, Math.round((input.price % 50000) / 2500));
+  return {
+    productId: input.id,
+    weight: input.weight ?? Number((0.5 + sizeSeed / 10).toFixed(2)),
+    length: 18 + sizeSeed,
+    width: 12 + Math.round(sizeSeed / 2),
+    height: 6 + Math.round(sizeSeed / 3),
+  };
+}
+
+function seededSeo(product: { id: string; name: string; shortDescription?: string | null; sku?: string | null }) {
+  return {
+    productId: product.id,
+    metaTitle: `${product.name} | Kwikseller`,
+    metaDescription: product.shortDescription ?? `Shop ${product.name} on Kwikseller.`,
+    metaKeywords: [product.name, product.sku, "Kwikseller", "Nigeria marketplace"].filter(Boolean).join(", "),
+  };
 }
 
 // Helper: generate SKU
@@ -808,6 +887,41 @@ async function main() {
   }
   console.log(`   ✅ ${CURRENCIES.length} currencies seeded\n`);
 
+  console.log("Seeding Nigerian states and LGAs...");
+  const lgaRows = loadNigeriaLocations();
+  const statesByCode = new Map<string, { code: string; name: string; lgas: string[] }>();
+  for (const row of lgaRows) {
+    const code = row.state_code.toUpperCase();
+    const name = row.state_name.toUpperCase() === "FCT" ? "Federal Capital Territory" : `${row.state_name} State`;
+    const existing = statesByCode.get(code) ?? { code, name, lgas: [] };
+    existing.lgas.push(row.name);
+    statesByCode.set(code, existing);
+  }
+
+  let seededLgaCount = 0;
+  for (const stateSeed of statesByCode.values()) {
+    const state = await db.state.upsert({
+      where: { code: stateSeed.code },
+      update: { name: stateSeed.name, isActive: true },
+      create: { code: stateSeed.code, name: stateSeed.name, isActive: true },
+    });
+
+    for (const lgaName of stateSeed.lgas) {
+      await db.localGovernment.upsert({
+        where: {
+          stateId_name: {
+            stateId: state.id,
+            name: lgaName,
+          },
+        },
+        update: { isActive: true },
+        create: { stateId: state.id, name: lgaName, isActive: true },
+      });
+      seededLgaCount += 1;
+    }
+  }
+  console.log(`   Seeded ${statesByCode.size} states/FCT and ${seededLgaCount} LGAs\n`);
+
   // ── 5. Clean up existing seed data ─────────────────────────
   console.log("🧹 Cleaning up existing seed data...");
   try {
@@ -825,9 +939,9 @@ async function main() {
     await db.poolCampaign?.deleteMany();
     await db.poolProduct?.deleteMany();
 
-    // Delete product images first (depends on products)
-    await prisma.productImage.deleteMany();
-    console.log("   🗑️  Cleared product images");
+    // Delete product media first (depends on products)
+    await prisma.productMedia.deleteMany();
+    console.log("   🗑️  Cleared product media");
 
     // Delete products
     const deletedProducts = await prisma.product.deleteMany();
@@ -1008,6 +1122,11 @@ async function main() {
     { state: "Lagos", localGovernment: "Lekki", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
     { state: "Abuja", localGovernment: "Municipal", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
   ];
+  const deliveryZoneSeedAreas = [
+    { stateCode: "LA", lgaName: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
+    { stateCode: "LA", lgaName: "Eti Osa", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
+    { stateCode: "FC", lgaName: "Abuja", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
+  ];
   for (const seedStoreId of [storeId, secondStoreId]) {
     const deliverySetting = await db.storeDeliverySetting?.upsert({
       where: { storeId: seedStoreId },
@@ -1042,6 +1161,42 @@ async function main() {
         },
       });
     }
+    for (const area of deliveryZoneSeedAreas) {
+      const state = await db.state.findUnique({ where: { code: area.stateCode } });
+      const lga = state
+        ? await db.localGovernment.findFirst({ where: { stateId: state.id, name: area.lgaName } })
+        : null;
+      if (!state || !lga) continue;
+
+      await db.storeDeliveryZone?.upsert({
+        where: {
+          storeId_stateId_lgaId: {
+            storeId: seedStoreId,
+            stateId: state.id,
+            lgaId: lga.id,
+          },
+        },
+        update: {
+          fee: area.fee,
+          minDeliveryDays: area.minDeliveryDays,
+          maxDeliveryDays: area.maxDeliveryDays,
+          isActive: true,
+        },
+        create: {
+          storeId: seedStoreId,
+          stateId: state.id,
+          lgaId: lga.id,
+          fee: area.fee,
+          minDeliveryDays: area.minDeliveryDays,
+          maxDeliveryDays: area.maxDeliveryDays,
+          isActive: true,
+        },
+      });
+    }
+    await db.store.update({
+      where: { id: seedStoreId },
+      data: { deliverySetupComplete: true },
+    });
   }
   console.log("   ✅ Store delivery settings seeded for Pool source vendors\n");
   await db.storefrontDesign?.upsert({
@@ -1121,7 +1276,14 @@ async function main() {
           storeId,
           name: p.name,
           slug: `${p.slug}-${Math.random().toString(36).substring(2, 7)}`,
-          description: p.description,
+          ...seededProductColumns({
+            name: p.name,
+            description: p.description,
+            sku: p.sku,
+            price: p.price,
+            stock: p.stock,
+            index: productIndex,
+          }),
           price: p.price,
           comparePrice: p.comparePrice,
           sku: p.sku,
@@ -1176,7 +1338,14 @@ async function main() {
         storeId: secondStoreId,
         name: "Amina Ankara Tote Bag",
         slug: `amina-ankara-tote-bag-${Math.random().toString(36).substring(2, 7)}`,
-        description: "A physical product from the second demo vendor for multi-vendor checkout testing.",
+        ...seededProductColumns({
+          name: "Amina Ankara Tote Bag",
+          description: "A physical product from the second demo vendor for multi-vendor checkout testing.",
+          sku: "AMINA-TOTE-0001",
+          price: 18500,
+          stock: 42,
+          index: 1001,
+        }),
         price: 18500,
         comparePrice: 24000,
         sku: "AMINA-TOTE-0001",
@@ -1210,7 +1379,15 @@ async function main() {
         storeId: secondStoreId,
         name: "Amina Style Capsule Lookbook",
         slug: `amina-style-capsule-lookbook-${Math.random().toString(36).substring(2, 7)}`,
-        description: "Digital lookbook from a second vendor; useful for testing mixed physical and digital carts.",
+        ...seededProductColumns({
+          name: "Amina Style Capsule Lookbook",
+          description: "Digital lookbook from a second vendor; useful for testing mixed physical and digital carts.",
+          sku: "AMINA-DIGI-0001",
+          price: 4500,
+          stock: 0,
+          index: 1002,
+          isPhysical: false,
+        }),
         price: 4500,
         comparePrice: 7000,
         sku: "AMINA-DIGI-0001",
@@ -1242,7 +1419,15 @@ async function main() {
       storeId,
       name: "Kwikseller Vendor Growth Playbook",
       slug: `kwikseller-vendor-growth-playbook-${Math.random().toString(36).substring(2, 7)}`,
-      description: "A downloadable guide for vendors learning product listing, pricing, fulfillment, and Pool resale.",
+      ...seededProductColumns({
+        name: "Kwikseller Vendor Growth Playbook",
+        description: "A downloadable guide for vendors learning product listing, pricing, fulfillment, and Pool resale.",
+        sku: "DIGI-0001",
+        price: 7500,
+        stock: 0,
+        index: 1003,
+        isPhysical: false,
+      }),
       price: 7500,
       comparePrice: 12000,
       sku: "DIGI-0001",
@@ -1301,7 +1486,14 @@ async function main() {
       poolProductId: poolProduct.id,
       name: "Oraimo Smart Accessories Pool Resale Pack",
       slug: `oraimo-smart-accessories-pool-resale-${Math.random().toString(36).substring(2, 7)}`,
-      description: "Vendor storefront listing backed by the Admin Pool Catalog.",
+      ...seededProductColumns({
+        name: "Oraimo Smart Accessories Pool Resale Pack",
+        description: "Vendor storefront listing backed by the Admin Pool Catalog.",
+        sku: "POOL-LIST-0001",
+        price: 24500,
+        stock: 0,
+        index: 1004,
+      }),
       price: 24500,
       comparePrice: 28000,
       sku: "POOL-LIST-0001",
@@ -1385,7 +1577,7 @@ async function main() {
   const IMAGE_BATCH_SIZE = 100;
   for (let i = 0; i < imageData.length; i += IMAGE_BATCH_SIZE) {
     const batch = imageData.slice(i, i + IMAGE_BATCH_SIZE);
-    await prisma.productImage.createMany({ data: batch });
+    await prisma.productMedia.createMany({ data: batch });
   }
 
   const vendorPoolSource = await db.product?.findFirst({
@@ -1410,7 +1602,16 @@ async function main() {
         storeId: secondStoreId,
         name: vendorPoolSource.name,
         slug: `${vendorPoolSource.slug}-partner-${Math.random().toString(36).substring(2, 7)}`,
+        shortDescription: vendorPoolSource.shortDescription,
         description: vendorPoolSource.description,
+        barcode: barcodeForSku(`AMINA-POOL-${sourceSku}`),
+        minOrderQuantity: 1,
+        maxOrderQuantity: 20,
+        condition: "NEW",
+        isPreorder: false,
+        preorderDate: null,
+        weight: vendorPoolSource.weight,
+        useStoreDeliveryZones: true,
         price: resalePrice,
         comparePrice: vendorPoolSource.comparePrice,
         sku: `AMINA-POOL-${sourceSku}`.slice(0, 64),
@@ -1461,7 +1662,33 @@ async function main() {
     }
   }
 
-  console.log(`   ✅ ${imageData.length} product images created\n`);
+  const seededProductsForMetadata = await prisma.product.findMany({
+    where: { storeId: { in: [storeId, secondStoreId] } },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      price: true,
+      weight: true,
+      shortDescription: true,
+      productType: true,
+    },
+  });
+
+  await db.productDimension?.createMany({
+    data: seededProductsForMetadata
+      .filter((product) => product.productType === "PHYSICAL")
+      .map((product) => seededDimension(product)),
+    skipDuplicates: true,
+  });
+
+  await db.productSeo?.createMany({
+    data: seededProductsForMetadata.map((product) => seededSeo(product)),
+    skipDuplicates: true,
+  });
+
+  console.log(`   ✅ ${imageData.length} product media created`);
+  console.log(`   ✅ Dimensions and SEO seeded for ${seededProductsForMetadata.length} products\n`);
 
   // ── Summary ────────────────────────────────────────────────
   console.log("══════════════════════════════════════════════════");
@@ -1607,7 +1834,6 @@ async function main() {
       minOrderValue: 2000,
       maxDiscount: 5000,
       maxUses: 1000,
-      applicableTo: "all",
       startDate: now,
       endDate: monthLater,
       isActive: true,
@@ -1621,8 +1847,6 @@ async function main() {
       minOrderValue: 5000,
       maxDiscount: 10000,
       maxUses: 200,
-      applicableTo: "specific_categories",
-      applicableIds: JSON.stringify(["electronics", "phones"]),
       startDate: now,
       endDate: weekLater,
       isActive: true,
@@ -1641,7 +1865,7 @@ async function main() {
     brands: await prisma.brand.count(),
     categories: await prisma.category.count(),
     products: await prisma.product.count(),
-    productImages: await prisma.productImage.count(),
+    productImages: await prisma.productMedia.count(),
     featuredProducts: await prisma.product.count({ where: { isFeatured: true } }),
     activeProducts: await prisma.product.count({ where: { status: ProductStatus.ACTIVE } }),
     draftProducts: await prisma.product.count({ where: { status: ProductStatus.DRAFT } }),
