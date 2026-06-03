@@ -32,15 +32,15 @@ export function StorePublicUrlCard() {
   };
 
   return (
-    <section className="w-full max-w-full overflow-hidden rounded-[22px] border border-border bg-background p-4">
+    <section className="premium-card w-full max-w-full p-4">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1 overflow-hidden">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Public store URL</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Public store URL</p>
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 block max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-sm font-semibold text-foreground transition hover:text-accent"
+            className="mt-2 block max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-sm font-medium text-foreground transition hover:text-accent"
           >
             {url}
           </a>
@@ -50,18 +50,18 @@ export function StorePublicUrlCard() {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-foreground transition hover:border-accent hover:text-accent dark:bg-white/5"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#111827] transition hover:border-[#111827] dark:bg-white/5 dark:text-white"
             aria-label="Open public store"
           >
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
           </a>
           <button
             type="button"
             onClick={copyUrl}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground transition hover:brightness-105"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#111827] text-white transition hover:bg-[#1F2937]"
             aria-label="Copy public store URL"
           >
-            <Copy className="h-4 w-4" />
+            <Copy className="h-4 w-4" strokeWidth={1.5} />
           </button>
         </div>
       </div>

@@ -236,7 +236,7 @@ export function ResetPasswordPage({
         </div>
         <Link
           href={loginPath}
-          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          className="text-sm font-medium text-accent underline-offset-4 hover:underline"
         >
           Go to login now
         </Link>
@@ -336,7 +336,7 @@ export function ResetPasswordPage({
 
         <Link
           href={loginPath}
-          className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center justify-center gap-2 text-center text-sm font-medium text-accent transition-colors hover:text-accent/80"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to login

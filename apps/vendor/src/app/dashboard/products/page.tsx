@@ -80,15 +80,15 @@ function ProductStatCard({
   }[tone];
 
   return (
-    <article className={`min-w-[238px] rounded-[22px] border p-5 md:min-w-0 ${toneClass}`}>
+    <article className={`min-w-[220px] rounded-xl border p-4 md:min-w-0 ${toneClass}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold opacity-85">{label}</p>
-          <p className="mt-3 font-heading text-4xl font-semibold tracking-tight">{value}</p>
-          <p className="mt-2 text-sm font-medium opacity-80">{note}</p>
+          <p className="text-sm font-medium opacity-85">{label}</p>
+          <p className="mt-3 text-3xl font-semibold leading-tight">{value}</p>
+          <p className="mt-2 text-sm font-normal opacity-80">{note}</p>
         </div>
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/75 text-current dark:bg-white/10">
-          <Icon className="h-5 w-5" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/75 text-current dark:bg-white/10">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
         </span>
       </div>
     </article>
@@ -204,7 +204,7 @@ export default function VendorProductsPage() {
   const poolProducts = products.filter((product) => product.poolEnabled || product.productSource === "POOL_RESALE");
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Products"
         description="Create, review, and manage store products. Product creation now follows a focused step flow."
@@ -214,9 +214,9 @@ export default function VendorProductsPage() {
               type="button"
               onClick={() => setShowSearch((value) => !value)}
               aria-label={showSearch ? "Hide product search" : "Search products"}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-foreground transition hover:border-accent hover:text-accent dark:bg-white/5"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6] text-[#111827] transition hover:bg-white hover:ring-1 hover:ring-[#E5E7EB] dark:bg-white/8 dark:text-white"
             >
-              {showSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+              {showSearch ? <X className="h-[18px] w-[18px]" strokeWidth={1.5} /> : <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />}
             </button>
             <AppButton
               type="button"
@@ -239,7 +239,7 @@ export default function VendorProductsPage() {
       {showSearch ? (
         <VendorSoftPanel>
           <form
-            className="grid grid-cols-[minmax(0,1fr)_52px] items-end gap-2"
+            className="grid grid-cols-[minmax(0,1fr)_40px] items-center gap-2"
             onSubmit={(event) => event.preventDefault()}
           >
             <FieldInput
@@ -247,20 +247,20 @@ export default function VendorProductsPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search products, SKU, description"
-              className="h-12 rounded-2xl bg-white dark:bg-white/5"
+              className="premium-search px-4 dark:bg-white/8"
             />
             <button
               type="submit"
               aria-label="Search"
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-accent-foreground transition hover:brightness-105"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111827] text-white transition hover:bg-[#1F2937]"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
             </button>
           </form>
         </VendorSoftPanel>
       ) : null}
 
-      <section className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0">
+      <section className="scrollbar-hide -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0">
         <ProductStatCard label="Catalog" value={String(products.length)} note="Total products" icon={Package} tone="blue" />
         <ProductStatCard label="Physical stock" value={String(physicalProducts.length)} note="Inventory tracked" icon={PackagePlus} tone="orange" />
         <ProductStatCard label="Pool items" value={String(poolProducts.length)} note="Available or sourced" icon={Check} tone="green" />
@@ -270,52 +270,52 @@ export default function VendorProductsPage() {
         {isLoading ? (
           <KwiksellerLoader />
         ) : filteredProducts.length ? (
-          <div className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-3">
             {filteredProducts.map((product) => {
               const inventory = product.inventoryItems?.[0];
               const image = productImage(product);
               return (
-                <article key={product.id} className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-[22px] border border-border bg-background p-2 md:block md:p-0">
-                  <div className="h-20 w-20 overflow-hidden rounded-2xl bg-surface md:aspect-[4/3] md:h-auto md:w-full md:rounded-none">
+                <article key={product.id} className="premium-card grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 p-2 md:block md:p-0">
+                  <div className="h-[76px] w-[76px] overflow-hidden rounded-lg bg-[#F7F8FA] md:aspect-[3/4] md:h-auto md:w-full md:rounded-none">
                     {image ? (
                       <img src={image} alt={product.name} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <ImageIcon className="h-8 w-8" />
+                        <ImageIcon className="h-8 w-8" strokeWidth={1.2} />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 md:p-4">
                     <div className="hidden flex-wrap gap-2 md:flex">
-                      <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-soft-foreground">
+                      <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-[#6B7280] dark:bg-white/8 dark:text-white/72">
                         {product.productType ?? "PHYSICAL"}
                       </span>
                       {product.poolEnabled ? (
-                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
                           Available in Pool
                         </span>
                       ) : null}
                       {product.productSource === "POOL_RESALE" ? (
-                        <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted-foreground">
+                        <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-[#6B7280] dark:bg-white/8 dark:text-white/72">
                           Pool sourced
                         </span>
                       ) : null}
                     </div>
-                    <h3 className="line-clamp-1 font-heading text-sm font-semibold text-foreground md:mt-3 md:line-clamp-2 md:text-lg">{product.name}</h3>
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:mt-2 md:line-clamp-2 md:text-sm md:leading-6">{product.description || product.productType || "No description yet."}</p>
+                    <h3 className="product-title-clamp text-sm font-normal text-[#111827] dark:text-white md:mt-3">{product.name}</h3>
+                    <p className="mt-1 line-clamp-1 text-xs font-normal text-[#6B7280] md:mt-2 md:line-clamp-2 md:text-sm md:leading-6">{product.description || product.productType || "No description yet."}</p>
                     <div className="mt-2 flex items-center gap-3 md:mt-4 md:items-end md:justify-between">
                       <div>
-                        <p className="hidden text-xs font-semibold uppercase tracking-wide text-muted-foreground md:block">Price</p>
-                        <p className="font-heading text-base font-semibold text-foreground md:text-xl">{formatCurrency(product.price)}</p>
+                        <p className="hidden text-[11px] font-medium uppercase tracking-wide text-[#6B7280] md:block">Price</p>
+                        <p className="text-base font-semibold leading-tight text-[#111827] dark:text-white md:text-base">{formatCurrency(product.price)}</p>
                       </div>
                       <div className="text-left md:text-right">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Available</p>
-                        <p className="font-heading text-base font-semibold text-foreground md:text-xl">{inventory?.available ?? product.stock ?? 0}</p>
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6B7280]">Available</p>
+                        <p className="text-base font-semibold leading-tight text-[#111827] dark:text-white md:text-base">{inventory?.available ?? product.stock ?? 0}</p>
                       </div>
                     </div>
                   </div>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-foreground md:hidden">
-                    <ChevronRight className="h-4 w-4" />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full text-[#111827] md:hidden">
+                    <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                 </article>
               );
@@ -389,7 +389,7 @@ export default function VendorProductsPage() {
                   <FieldInput type="number" min={0} label="Low stock alert" value={form.lowStock} onChange={(event) => setForm((v) => ({ ...v, lowStock: Number(event.target.value) }))} />
                 </div>
               ) : (
-                <div className="rounded-2xl bg-surface p-4 text-sm text-muted-foreground">
+                <div className="rounded-lg bg-surface p-4 text-sm text-muted-foreground">
                   Digital products default to unlimited delivery unless you later attach license-limited assets.
                 </div>
               )}
@@ -401,7 +401,7 @@ export default function VendorProductsPage() {
               <FieldInput label="SKU" value={form.sku} onChange={(event) => setForm((v) => ({ ...v, sku: event.target.value }))} />
               <label className="block">
                 <span className="text-xs font-semibold text-muted-foreground">Product images</span>
-                <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-[22px] border border-dashed border-border bg-surface p-6 text-center">
+                <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface p-6 text-center">
                   <ImageIcon className="h-10 w-10 text-muted-foreground" />
                   <p className="mt-3 text-sm font-semibold text-foreground">
                     <span className="text-accent underline">Click to upload</span> or drag and drop
@@ -425,7 +425,7 @@ export default function VendorProductsPage() {
                       key={url}
                       type="button"
                       onClick={() => setForm((current) => ({ ...current, images: current.images.filter((image) => image !== url) }))}
-                      className="aspect-square overflow-hidden rounded-2xl border border-border bg-surface"
+                      className="aspect-square overflow-hidden rounded-lg border border-border bg-surface"
                       title="Remove image"
                     >
                       <img src={url} alt="" className="h-full w-full object-cover" />
@@ -434,7 +434,7 @@ export default function VendorProductsPage() {
                 </div>
               ) : null}
               {form.productType === "PHYSICAL" ? (
-                <div className="rounded-[22px] border border-border bg-surface p-4">
+                <div className="rounded-lg border border-border bg-surface p-4">
                   <AppSwitch
                     isSelected={form.poolEnabled}
                     onChange={(selected) => setForm((v) => ({
@@ -460,7 +460,7 @@ export default function VendorProductsPage() {
 
           {step === 3 ? (
             <div className="space-y-4">
-              <div className="rounded-[22px] border border-border bg-surface p-5">
+              <div className="rounded-lg border border-border bg-surface p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review</p>
                 <h3 className="mt-2 font-heading text-2xl font-semibold text-foreground">{form.name || "Untitled product"}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{form.description || "No description added."}</p>
@@ -471,7 +471,7 @@ export default function VendorProductsPage() {
                 </div>
               </div>
               {form.poolEnabled ? (
-                <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                <div className="rounded-lg bg-emerald-50 p-4 text-sm font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
                   This product will be available in Pool at source price {formatCurrency(form.poolBasePrice || form.price)}.
                 </div>
               ) : null}

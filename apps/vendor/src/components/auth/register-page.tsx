@@ -275,7 +275,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           Already have an account?{" "}
           <Link
             href={config.loginPath}
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-accent hover:underline"
           >
             Sign in
           </Link>

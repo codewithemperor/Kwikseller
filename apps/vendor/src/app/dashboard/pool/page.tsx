@@ -95,13 +95,13 @@ export default function VendorPoolPage() {
   const showInitialLoader = isLoading && !catalog.length;
 
   return (
-    <div className="space-y-5">
+    <div className="safe-container space-y-5">
       <section className="flex flex-row items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          <h1 className="text-[22px] font-semibold leading-tight text-foreground md:text-2xl">
             Pool
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          <p className="mt-2 max-w-2xl text-sm font-normal leading-6 text-muted-foreground">
             Browse source products from Kwikseller and other vendors. Open a product first, review the source details, then add it to your store.
           </p>
         </div>
@@ -110,18 +110,18 @@ export default function VendorPoolPage() {
             type="button"
             onClick={() => setShowFilters((value) => !value)}
             aria-label="Search Pool"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-foreground transition hover:border-accent hover:text-accent dark:bg-white/5"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6] text-[#111827] transition hover:bg-white hover:ring-1 hover:ring-[#E5E7EB] dark:bg-white/8 dark:text-white"
           >
-            <Search className="h-5 w-5" />
+            <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </button>
           <button
             type="button"
             onClick={refreshCatalog}
             disabled={isLoading}
             aria-label="Refresh Pool"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-foreground transition hover:border-accent hover:text-accent disabled:opacity-60 dark:bg-white/5"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6] text-[#111827] transition hover:bg-white hover:ring-1 hover:ring-[#E5E7EB] disabled:opacity-60 dark:bg-white/8 dark:text-white"
           >
-            <RefreshCw className={isLoading ? "h-5 w-5 animate-spin" : "h-5 w-5"} />
+            <RefreshCw className={isLoading ? "h-[18px] w-[18px] animate-spin" : "h-[18px] w-[18px]"} strokeWidth={1.5} />
           </button>
         </div>
       </section>
@@ -129,7 +129,7 @@ export default function VendorPoolPage() {
       {showFilters ? (
         <VendorSoftPanel>
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Source">
+            <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0" role="group" aria-label="Source">
               {sourceFilters.map((item) => {
                 const active = draftSource === item.value;
                 return (
@@ -137,10 +137,10 @@ export default function VendorPoolPage() {
                     key={item.value}
                     type="button"
                     onClick={() => setDraftSource(item.value)}
-                    className={`h-9 rounded-full border px-4 text-sm font-semibold transition ${
+                    className={`filter-tab ${
                       active
-                        ? "border-kwik-blue bg-kwik-blue text-white"
-                        : "border-border bg-white text-muted-foreground hover:border-kwik-blue hover:text-kwik-blue dark:bg-white/5"
+                        ? "filter-tab-active"
+                        : ""
                     }`}
                   >
                     {item.label}
@@ -148,7 +148,7 @@ export default function VendorPoolPage() {
                 );
               })}
             </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(118px,0.55fr)_44px] items-end gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(118px,0.55fr)_40px] items-end gap-2">
               <FieldInput
                 aria-label="Search Pool"
                 value={draftSearch}
@@ -157,13 +157,13 @@ export default function VendorPoolPage() {
                   if (event.key === "Enter") applyFilters();
                 }}
                 placeholder="Search products or vendors"
-                className="h-11 rounded-2xl bg-white dark:bg-white/5"
+                className="premium-search px-4 dark:bg-white/8"
               />
               <FieldSelect
                 aria-label="Category"
                 value={draftCategory}
                 onChange={(event) => setDraftCategory(event.target.value)}
-                className="h-11 rounded-2xl bg-white dark:bg-white/5"
+                className="h-10 rounded-full border-0 bg-[#F3F4F6] px-3 text-sm dark:bg-white/8"
               >
                 <option value="ALL">All categories</option>
                 {categories.map((category) => (
@@ -175,18 +175,18 @@ export default function VendorPoolPage() {
                 onClick={applyFilters}
                 disabled={isLoading}
                 aria-label="Search"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-accent-foreground transition hover:brightness-105 disabled:opacity-60"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111827] text-white transition hover:bg-[#1F2937] disabled:opacity-60"
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
               </button>
             </div>
             {hasActiveFilters ? (
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
+                className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" strokeWidth={1.5} />
                 Clear filters
               </button>
             ) : null}
@@ -205,53 +205,53 @@ export default function VendorPoolPage() {
         </VendorSoftPanel>
       ) : catalog.length ? (
         <>
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
+          <section className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-4">
             {catalog.map((item) => {
               const image = Array.isArray(item.images) ? item.images[0] : undefined;
               return (
                 <Link
                   key={`${item.sourceType}-${item.id}`}
                   href={`/dashboard/pool/product/${poolItemRouteKey(item)}`}
-                  className="group grid grid-cols-[84px_minmax(0,1fr)_36px] items-center gap-3 overflow-hidden rounded-[22px] border border-border bg-background p-2 transition hover:border-accent md:flex md:min-h-[292px] md:flex-col md:items-stretch md:gap-0 md:p-0 md:hover:-translate-y-0.5"
+                  className="group premium-card grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 p-2 transition hover:border-[#D1D5DB] md:flex md:min-h-[292px] md:flex-col md:items-stretch md:gap-0 md:p-0"
                 >
-                  <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-surface md:aspect-[4/3] md:h-auto md:w-full md:rounded-none">
+                  <div className="relative h-[76px] w-[76px] overflow-hidden rounded-lg bg-[#F7F8FA] md:aspect-[3/4] md:h-auto md:w-full md:rounded-none">
                     {image ? (
                       <img src={image} alt={item.name} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <PackageSearch className="h-9 w-9" />
+                        <PackageSearch className="h-8 w-8" strokeWidth={1.2} />
                       </div>
                     )}
                     {item.alreadySelected ? (
-                      <span className="absolute left-1.5 top-1.5 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white md:left-3 md:top-3 md:px-3 md:py-1 md:text-xs">
+                      <span className="absolute left-1.5 top-1.5 rounded-full bg-[#111827] px-2 py-0.5 text-[10px] font-medium text-white md:left-3 md:top-3">
                         Selected
                       </span>
                     ) : null}
                   </div>
                   <div className="min-w-0 md:flex md:flex-1 md:flex-col md:p-4">
-                    <h2 className="line-clamp-1 font-heading text-sm font-semibold text-foreground md:line-clamp-2 md:text-base">
+                    <h2 className="product-title-clamp text-sm font-normal text-[#111827] dark:text-white md:text-sm">
                       {item.name}
                     </h2>
-                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground md:mt-2">
-                      <Store className="h-3.5 w-3.5" />
+                    <p className="mt-1 flex items-center gap-1 text-xs font-normal text-[#6B7280] md:mt-2">
+                      <Store className="h-3.5 w-3.5" strokeWidth={1.5} />
                       <span className="line-clamp-1">{poolSourceName(item)}</span>
                     </p>
                     <div className="mt-2 md:mt-auto md:pt-4">
-                      <p className="hidden text-xs font-semibold uppercase text-muted-foreground md:block">
+                      <p className="hidden text-[11px] font-medium uppercase tracking-wide text-[#6B7280] md:block">
                         Source price
                       </p>
                       <div className="md:mt-1 md:flex md:items-center md:justify-between md:gap-3">
-                        <p className="font-heading text-base font-semibold text-foreground md:text-lg">
+                        <p className="text-base font-semibold leading-tight text-[#111827] dark:text-white md:text-base">
                           {formatCurrency(poolSourcePrice(item))}
                         </p>
-                        <span className="hidden h-9 w-9 items-center justify-center rounded-full bg-surface text-foreground transition group-hover:bg-accent group-hover:text-accent-foreground md:flex">
-                          <ChevronRight className="h-4 w-4" />
+                        <span className="hidden h-8 w-8 items-center justify-center rounded-full text-[#111827] transition group-hover:bg-[#111827] group-hover:text-white md:flex">
+                          <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
                         </span>
                       </div>
                     </div>
                   </div>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-foreground transition group-hover:bg-accent group-hover:text-accent-foreground md:hidden">
-                    <ChevronRight className="h-4 w-4" />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full text-[#111827] transition group-hover:bg-[#111827] group-hover:text-white md:hidden">
+                    <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                 </Link>
               );
@@ -295,9 +295,9 @@ export default function VendorPoolPage() {
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         aria-label="Scroll to top"
-        className="fixed bottom-24 right-5 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-foreground transition hover:border-accent hover:text-accent dark:bg-[#10131a]"
+        className="fixed bottom-20 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#111827] transition hover:border-[#111827] dark:bg-[#10131a] dark:text-white"
       >
-        <ArrowUp className="h-5 w-5" />
+        <ArrowUp className="h-5 w-5" strokeWidth={1.5} />
       </button>
     </div>
   );

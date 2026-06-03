@@ -250,7 +250,7 @@ export class AuthService {
             name: dto.storeName!.trim(),
             slug: storeSlug,
             category: dto.storeCategory || "other",
-            onboardingStep: "STORE_SETUP",
+            onboardingStep: "PROFILE_SETUP",
           },
         });
         await tx.storefrontDesign.create({

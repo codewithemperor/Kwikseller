@@ -79,7 +79,7 @@ export default function VendorOrdersPage() {
   const waitingCount = orders.filter((order) => ["PENDING", "PAID", "CONFIRMED"].includes(order.status)).length;
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Orders"
         description="Review checkout activity, confirm fulfillment, and keep each customer order moving."
@@ -91,7 +91,7 @@ export default function VendorOrdersPage() {
         }
       />
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
         {tabs.map((item) => {
           const active = tab === item.value;
           const count = item.value === "ALL"
@@ -104,10 +104,10 @@ export default function VendorOrdersPage() {
               key={item.value}
               type="button"
               onClick={() => setTab(item.value)}
-              className={`h-11 shrink-0 rounded-2xl px-4 text-sm font-semibold transition ${
+              className={`filter-tab shrink-0 ${
                 active
-                  ? "bg-[#071a2f] text-white dark:bg-accent dark:text-accent-foreground"
-                  : "bg-background text-muted-foreground hover:text-foreground"
+                  ? "filter-tab-active"
+                  : ""
               }`}
             >
               {item.label} ({count})
@@ -117,9 +117,9 @@ export default function VendorOrdersPage() {
       </div>
 
       {waitingCount ? (
-        <div className="flex items-center gap-3 rounded-[22px] bg-amber-50 p-4 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
-          <AlertTriangle className="h-5 w-5 shrink-0" />
-          <p className="text-sm font-semibold">
+        <div className="flex items-center gap-3 rounded-lg bg-amber-50 p-4 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+          <AlertTriangle className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+          <p className="text-sm font-medium">
             {waitingCount} order{waitingCount === 1 ? "" : "s"} waiting for your approval.
           </p>
         </div>
@@ -131,34 +131,34 @@ export default function VendorOrdersPage() {
         ) : filteredOrders.length ? (
           <div className="grid gap-4">
             {filteredOrders.map((order) => (
-              <article key={order.id} className="rounded-[22px] border border-border bg-background p-4">
+              <article key={order.id} className="premium-card p-4">
                 <div className="grid gap-4 lg:grid-cols-[1fr_180px_220px] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-surface px-3 py-1 font-mono text-xs font-semibold text-muted-foreground">
+                      <span className="rounded-full bg-[#F3F4F6] px-3 py-1 font-mono text-xs font-medium text-muted-foreground dark:bg-white/8">
                         {order.checkoutReference ?? order.id}
                       </span>
                       {order.parentCheckout?.checkoutReference ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted-foreground">
-                          <CreditCard className="h-3 w-3" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
+                          <CreditCard className="h-3 w-3" strokeWidth={1.5} />
                           Parent {order.parentCheckout.checkoutReference}
                         </span>
                       ) : null}
                     </div>
-                    <h3 className="mt-3 font-heading text-lg font-semibold text-foreground">{order.status}</h3>
+                    <h3 className="mt-3 font-heading text-base font-semibold text-foreground">{order.status}</h3>
                     <p className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
-                        <ShoppingBag className="h-4 w-4" />
+                        <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
                         {order.items?.length ?? 0} item{order.items?.length === 1 ? "" : "s"}
                       </span>
                       <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
+                        <CalendarDays className="h-4 w-4" strokeWidth={1.5} />
                         {formatDate(order.createdAt)}
                       </span>
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {order.items?.slice(0, 3).map((item) => (
-                        <span key={item.id} className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted-foreground">
+                        <span key={item.id} className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
                           {item.product?.name ?? item.productId} x{item.quantity}
                         </span>
                       ))}
@@ -166,11 +166,11 @@ export default function VendorOrdersPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
-                    <p className="mt-1 font-heading text-xl font-semibold text-foreground">{formatCurrency(order.totalAmount)}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total</p>
+                    <p className="mt-1 font-heading text-lg font-semibold text-foreground">{formatCurrency(order.totalAmount)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{order.paymentStatus}</p>
-                    <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-                      <Truck className="h-3.5 w-3.5 text-accent" />
+                    <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <Truck className="h-3.5 w-3.5 text-[#111827] dark:text-white" strokeWidth={1.5} />
                       Delivery {formatCurrency(order.shippingFee ?? 0)}
                     </p>
                   </div>
@@ -183,7 +183,7 @@ export default function VendorOrdersPage() {
                         const status = event.target.value as OrderStatus;
                         if (status) updateStatus(order.id, status);
                       }}
-                      className="h-11 w-full rounded-2xl border border-border bg-white px-3 text-sm font-semibold text-foreground outline-none dark:bg-white/5"
+                      className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm font-medium text-foreground outline-none dark:bg-white/5"
                     >
                       <option value="">Update status</option>
                       {nextStatuses.map((status) => (

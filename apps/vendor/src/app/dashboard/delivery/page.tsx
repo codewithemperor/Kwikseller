@@ -66,7 +66,7 @@ export default function VendorDeliveryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Delivery"
         description="Set manual delivery rules for your physical products. Kwikseller delivery remains visible as coming soon."
@@ -78,16 +78,16 @@ export default function VendorDeliveryPage() {
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-3 md:gap-4">
         <VendorMetricCard label="Manual delivery" value={settings.manualDeliveryEnabled ? "Live" : "Off"} note="Vendor controlled" icon={Truck} tone="success" />
         <VendorMetricCard label="Processing" value={`${settings.processingDays || 1} day${Number(settings.processingDays || 1) === 1 ? "" : "s"}`} note="Before dispatch" icon={Clock} tone="accent" />
         <VendorMetricCard label="Kwikseller delivery" value="Soon" note="Not enabled yet" icon={PackageCheck} />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <VendorSoftPanel title="Manual delivery" description="You control dispatch timing, notes, and return policy.">
           <div className="space-y-4">
-            <div className="rounded-[22px] bg-surface p-4">
+            <div className="rounded-lg bg-[#F7F8FA] p-4 dark:bg-white/5">
               <AppSwitch
                 isSelected={settings.manualDeliveryEnabled}
                 onChange={(selected) => setSettings((current) => ({ ...current, manualDeliveryEnabled: selected }))}
@@ -101,27 +101,27 @@ export default function VendorDeliveryPage() {
               label="Processing days"
               value={settings.processingDays}
               onChange={(event) => setSettings((current) => ({ ...current, processingDays: Number(event.target.value) }))}
-              className="h-12 rounded-2xl bg-white dark:bg-white/5"
+              className="h-12 rounded-lg bg-white dark:bg-white/5"
             />
             <FieldTextarea
               label="Dispatch note"
               placeholder="Example: Orders before 2pm dispatch same day inside Lagos."
               value={settings.dispatchNote ?? ""}
               onChange={(event) => setSettings((current) => ({ ...current, dispatchNote: event.target.value }))}
-              className="rounded-2xl bg-white dark:bg-white/5"
+              className="rounded-lg bg-white dark:bg-white/5"
             />
             <FieldTextarea
               label="Return policy"
               placeholder="Example: Returns accepted within 3 days for unopened items."
               value={settings.returnPolicy ?? ""}
               onChange={(event) => setSettings((current) => ({ ...current, returnPolicy: event.target.value }))}
-              className="rounded-2xl bg-white dark:bg-white/5"
+              className="rounded-lg bg-white dark:bg-white/5"
             />
           </div>
         </VendorSoftPanel>
 
         <VendorSoftPanel title="Kwikseller delivery" description="Platform-managed pickup, rates, riders, and live tracking.">
-          <div className="rounded-[22px] bg-surface p-4">
+          <div className="rounded-lg bg-[#F7F8FA] p-4 dark:bg-white/5">
             <AppSwitch
               isSelected={false}
               onChange={() => undefined}
@@ -129,7 +129,7 @@ export default function VendorDeliveryPage() {
               description="Disabled until operations rollout."
             />
           </div>
-          <button disabled className="mt-5 h-12 w-full cursor-not-allowed rounded-2xl bg-muted/20 text-sm font-semibold text-muted-foreground">
+          <button disabled className="mt-5 h-12 w-full cursor-not-allowed rounded-lg bg-muted/20 text-sm font-medium text-muted-foreground">
             Not available yet
           </button>
         </VendorSoftPanel>

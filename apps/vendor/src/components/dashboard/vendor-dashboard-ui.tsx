@@ -47,18 +47,18 @@ export function VendorPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <section className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+        <h1 className="mt-1 text-[22px] font-semibold leading-tight text-foreground md:text-2xl">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          <p className="mt-2 max-w-2xl text-sm font-normal leading-6 text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -82,26 +82,24 @@ export function VendorSolidCard({
   secondaryAction?: React.ReactNode;
 }) {
   return (
-    <article className="relative min-h-48 overflow-hidden rounded-[24px] bg-[#071a2f] p-6 text-white">
-      <div className="pointer-events-none absolute -right-14 bottom-2 h-52 w-52 rounded-full border-[28px] border-white/12" />
-      <div className="pointer-events-none absolute left-12 top-24 h-36 w-36 rounded-full border-[22px] border-white/10" />
+    <article className="relative min-h-40 overflow-hidden rounded-xl bg-[#111827] p-5 text-white">
       <div className="relative z-10">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-white/85">{title}</p>
+            <p className="text-sm font-medium text-white/78">{title}</p>
             <div className="mt-3 flex flex-wrap items-end gap-2">
-              <p className="font-heading text-4xl font-semibold tracking-tight md:text-5xl">
+              <p className="text-3xl font-semibold leading-tight md:text-4xl">
                 {value}
               </p>
-              {suffix ? <span className="pb-1 text-sm font-semibold text-white/80">{suffix}</span> : null}
+              {suffix ? <span className="pb-1 text-sm font-medium text-white/78">{suffix}</span> : null}
             </div>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#071a2f]">
-            <ArrowUpRight className="h-5 w-5" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white">
+            <ArrowUpRight className="h-5 w-5" strokeWidth={1.5} />
           </div>
         </div>
         {(primaryAction || secondaryAction) ? (
-          <div className="mt-8 grid grid-cols-2 gap-3">
+          <div className="mt-6 grid grid-cols-2 gap-3">
             {primaryAction}
             {secondaryAction}
           </div>
@@ -125,24 +123,24 @@ export function VendorMetricCard({
   tone?: "default" | "accent" | "success" | "warning";
 }) {
   const toneClass = {
-    default: "bg-white text-[#071a2f] dark:bg-white/5 dark:text-white",
-    accent: "bg-accent-soft text-accent-soft-foreground dark:bg-accent/15 dark:text-accent",
+    default: "bg-[#f7f8fa] text-[#111827] dark:bg-white/5 dark:text-white",
+    accent: "bg-orange-50 text-orange-700 dark:bg-orange-400/10 dark:text-orange-200",
     success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200",
     warning: "bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200",
   }[tone];
 
   return (
-    <article className="rounded-[20px] border border-border bg-background p-4">
+    <article className="premium-card p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-2 font-heading text-xl font-semibold tracking-tight text-foreground">
+          <p className="text-sm font-normal text-muted-foreground">{label}</p>
+          <p className="mt-2 text-xl font-semibold leading-tight text-foreground">
             {value}
           </p>
           {note ? <p className="mt-1 text-xs font-medium text-muted-foreground">{note}</p> : null}
         </div>
-        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", toneClass)}>
-          <Icon className="h-5 w-5" />
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", toneClass)}>
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
         </div>
       </div>
     </article>
@@ -163,11 +161,11 @@ export function VendorSoftPanel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-[22px] border border-border bg-background p-5", className)}>
+    <section className={cn("premium-card p-4 md:p-5", className)}>
       {(title || description || action) ? (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            {title ? <h2 className="font-heading text-base font-semibold text-foreground">{title}</h2> : null}
+            {title ? <h2 className="text-lg font-semibold leading-snug text-foreground">{title}</h2> : null}
             {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p> : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
@@ -182,8 +180,8 @@ export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/96 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl lg:hidden">
-      <div className="grid grid-cols-4 gap-1">
+    <nav className="fixed inset-x-0 bottom-0 z-40 max-w-[100vw] overflow-hidden border-t border-[#E5E7EB] bg-white px-2 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1 dark:border-white/10 dark:bg-[#0f1115] lg:hidden">
+      <div className="grid h-14 grid-cols-4 gap-0">
         {vendorBottomTabs.map((item) => {
           const active = isVendorTabActive(pathname, item.href);
           const badge = item.label === "Orders" ? orderCount : item.badge;
@@ -192,16 +190,16 @@ export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex h-[52px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-semibold transition",
+                "relative flex min-w-0 flex-col items-center justify-center gap-0.5 text-[10px] transition",
                 active
-                  ? "bg-accent-soft text-accent"
-                  : "text-muted-foreground hover:bg-surface hover:text-foreground",
+                  ? "font-medium text-[#111827] dark:text-white"
+                  : "font-normal text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white",
               )}
             >
               <span className="relative">
-                <item.icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.35 : 2} />
+                <item.icon className="h-[22px] w-[22px]" strokeWidth={active ? 2 : 1.5} />
                 {badge ? (
-                  <span className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-danger-foreground">
+                  <span className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-medium leading-none text-danger-foreground">
                     {badge > 99 ? "99+" : badge}
                   </span>
                 ) : null}
@@ -253,7 +251,7 @@ export function VendorDesktopNav({
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-semibold transition",
+                "relative flex h-12 items-center gap-3 rounded-lg px-4 text-sm font-medium transition",
                 active
                   ? "bg-white text-kwik-blue"
                   : "text-white/78 hover:bg-white/12 hover:text-white",
@@ -262,7 +260,7 @@ export function VendorDesktopNav({
               <item.icon className="h-4 w-4" />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {badge ? (
-                <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold text-danger-foreground">
+                <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-medium text-danger-foreground">
                   {badge > 99 ? "99+" : badge}
                 </span>
               ) : null}
@@ -275,7 +273,7 @@ export function VendorDesktopNav({
         <button
           type="button"
           onClick={onLogout}
-          className="flex h-11 w-full items-center justify-center rounded-2xl bg-danger text-sm font-semibold text-danger-foreground transition hover:brightness-110"
+          className="flex h-11 w-full items-center justify-center rounded-lg bg-danger text-sm font-medium text-danger-foreground transition hover:brightness-110"
         >
           Sign out
         </button>

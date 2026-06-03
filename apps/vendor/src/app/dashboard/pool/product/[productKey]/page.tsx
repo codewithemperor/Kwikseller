@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
+  ChevronLeft,
   CheckCircle2,
   PackageSearch,
   Store,
@@ -51,9 +51,9 @@ function sanitizeDescriptionHtml(value: string) {
 
 function ReceiptRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border py-3 last:border-b-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="max-w-[58%] text-right text-sm font-semibold text-foreground">{value}</span>
+    <div className="flex items-start justify-between gap-4 border-b border-[#F0F0F0] py-3 last:border-b-0 dark:border-white/10">
+      <span className="text-sm font-normal text-[#6B7280] dark:text-white/62">{label}</span>
+      <span className="max-w-[58%] text-right text-sm font-medium text-[#111827] dark:text-white">{value}</span>
     </div>
   );
 }
@@ -62,7 +62,7 @@ function DescriptionBlock({ item }: { item: PoolCatalogItem }) {
   const description = item.description?.trim();
   if (!description) {
     return (
-      <p className="text-sm leading-7 text-muted-foreground">
+      <p className="text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62">
         This product is available for vendor sourcing with source-vendor fulfillment.
       </p>
     );
@@ -70,12 +70,12 @@ function DescriptionBlock({ item }: { item: PoolCatalogItem }) {
   if (hasHtml(description)) {
     return (
       <div
-        className="pool-description-html text-sm leading-7 text-muted-foreground"
+        className="pool-description-html text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62"
         dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(description) }}
       />
     );
   }
-  return <p className="whitespace-pre-line text-sm leading-7 text-muted-foreground">{description}</p>;
+  return <p className="whitespace-pre-line text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62">{description}</p>;
 }
 
 export default function VendorPoolProductPage() {
@@ -177,7 +177,7 @@ export default function VendorPoolProductPage() {
           action={
             <Link
               href="/dashboard/pool"
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-accent px-5 text-sm font-semibold text-accent-foreground"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-[#111827] px-5 text-sm font-medium text-white"
             >
               Back to Pool
             </Link>
@@ -195,12 +195,12 @@ export default function VendorPoolProductPage() {
   const margin = Math.max(0, Number(salePrice) - basePrice);
 
   return (
-    <div className="space-y-5">
+    <div className="safe-container space-y-5">
       <Link
         href="/dashboard/pool"
-        className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-2 text-sm font-medium text-[#6B7280] hover:text-[#111827] dark:hover:text-white"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
         Back to Pool
       </Link>
 
@@ -209,14 +209,14 @@ export default function VendorPoolProductPage() {
         description="Review source details and price rules before adding this product to your storefront."
       />
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-5">
-          <div className="overflow-hidden rounded-[22px] border border-border bg-surface">
+          <div className="overflow-hidden bg-[#F7F8FA]">
             {image ? (
-              <img src={image} alt={item.name} className="aspect-[16/8] h-full w-full object-cover md:aspect-[16/6]" />
+              <img src={image} alt={item.name} className="h-[48vh] min-h-[280px] w-full object-cover md:h-[420px]" />
             ) : (
-              <div className="flex aspect-[16/8] items-center justify-center text-muted-foreground md:aspect-[16/6]">
-                <PackageSearch className="h-12 w-12" />
+              <div className="flex h-[48vh] min-h-[280px] items-center justify-center text-muted-foreground md:h-[420px]">
+                <PackageSearch className="h-12 w-12" strokeWidth={1.2} />
               </div>
             )}
           </div>
@@ -245,13 +245,13 @@ export default function VendorPoolProductPage() {
         >
           <div className="space-y-4">
             {item.alreadySelected ? (
-              <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                <CheckCircle2 className="h-4 w-4" />
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
                 Already in your storefront
               </div>
             ) : null}
 
-            <div className="rounded-2xl border border-border bg-white p-4 dark:bg-white/5">
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 dark:border-white/10 dark:bg-white/5">
               <ReceiptRow label="Source price" value={formatCurrency(basePrice)} />
               <ReceiptRow label="Suggested" value={formatCurrency(poolSuggestedPrice(item))} />
               <ReceiptRow label="Minimum" value={formatCurrency(minimumSalePrice)} />
@@ -264,7 +264,7 @@ export default function VendorPoolProductPage() {
               label="Your sale price"
               value={salePrice}
               onChange={(event) => setSalePrice(Number(event.target.value))}
-              className="h-12 rounded-2xl bg-white dark:bg-white/5"
+              className="h-12 rounded-lg bg-white dark:bg-white/5"
             />
             <AppButton
               type="button"

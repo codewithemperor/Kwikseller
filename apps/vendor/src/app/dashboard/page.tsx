@@ -123,13 +123,13 @@ function SalesTrendChart({
     <div className="overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sales trend</p>
-          <p className="mt-1 font-heading text-2xl font-semibold text-foreground">{formatCurrency(total)}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sales trend</p>
+          <p className="mt-1 font-heading text-xl font-semibold text-foreground">{formatCurrency(total)}</p>
         </div>
         <select
           value={period}
           onChange={(event) => onPeriodChange(event.target.value as SalesPeriod)}
-          className="h-9 rounded-full bg-white px-3 text-xs font-semibold text-foreground outline-none ring-1 ring-border transition focus:ring-accent dark:bg-white/5"
+          className="h-9 rounded-full bg-white px-3 text-xs font-medium text-foreground outline-none ring-1 ring-border transition focus:ring-[#111827] dark:bg-white/5"
           aria-label="Sales trend period"
         >
           {salesPeriodOptions.map((option) => (
@@ -242,7 +242,7 @@ export default function VendorDashboardPage() {
         action={
           <button
             onClick={() => window.location.reload()}
-            className="h-11 rounded-2xl bg-accent px-5 text-sm font-semibold text-accent-foreground"
+            className="h-11 rounded-lg bg-[#111827] px-5 text-sm font-medium text-white"
           >
             Reload
           </button>
@@ -256,7 +256,7 @@ export default function VendorDashboardPage() {
   const fulfillmentTasks = data?.fulfillmentTasks ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.6fr)]">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
           <VendorSolidCard
@@ -265,7 +265,7 @@ export default function VendorDashboardPage() {
             primaryAction={
               <Link
                 href="/dashboard/orders"
-                className="inline-flex h-12 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#071a2f]"
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-medium text-[#111827]"
               >
                 Orders
               </Link>
@@ -273,7 +273,7 @@ export default function VendorDashboardPage() {
             secondaryAction={
               <Link
                 href="/dashboard/pool"
-                className="inline-flex h-12 items-center justify-center rounded-full bg-white/14 px-4 text-sm font-semibold text-white ring-1 ring-white/20"
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-white/12 px-4 text-sm font-medium text-white ring-1 ring-white/20"
               >
                 Pool
               </Link>
@@ -327,13 +327,13 @@ export default function VendorDashboardPage() {
         <VendorSoftPanel title="Finance score">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Store quality</p>
-              <p className="mt-2 font-heading text-2xl font-semibold text-foreground">Good</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Store quality</p>
+              <p className="mt-2 font-heading text-xl font-semibold text-foreground">Good</p>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
                 Score considers products, order activity, stock health, and escrow readiness.
               </p>
             </div>
-            <p className="font-heading text-3xl font-semibold text-foreground">
+            <p className="font-heading text-2xl font-semibold text-foreground">
               {Math.min(92, 60 + (data?.productsCount ?? 0) * 4)}%
             </p>
           </div>
@@ -344,9 +344,9 @@ export default function VendorDashboardPage() {
             />
           </div>
           <div className="mt-5 grid gap-2 text-xs">
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Escrow protection</span><span className="font-semibold text-foreground">Active</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Catalog health</span><span className="font-semibold text-foreground">{data?.productsCount ?? 0} products</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Fulfillment queue</span><span className="font-semibold text-foreground">{fulfillmentTasks.length} pending</span></div>
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Escrow protection</span><span className="font-medium text-foreground">Active</span></div>
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Catalog health</span><span className="font-medium text-foreground">{data?.productsCount ?? 0} products</span></div>
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Fulfillment queue</span><span className="font-medium text-foreground">{fulfillmentTasks.length} pending</span></div>
           </div>
         </VendorSoftPanel>
       </section>
@@ -356,7 +356,7 @@ export default function VendorDashboardPage() {
           title="Recent orders"
           description="Latest buyer activity and fulfillment queue."
           action={
-            <Link href="/dashboard/orders" className="text-sm font-semibold text-accent">
+            <Link href="/dashboard/orders" className="text-sm font-medium text-[#111827] dark:text-white">
               View all
             </Link>
           }
@@ -369,17 +369,17 @@ export default function VendorDashboardPage() {
                   className="grid gap-3 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto] sm:items-center"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
+                    <p className="truncate font-mono text-xs font-medium text-muted-foreground">
                       {order.checkoutReference ?? order.id}
                     </p>
-                    <h3 className="mt-1 font-heading text-base font-semibold text-foreground">
+                    <h3 className="mt-1 font-heading text-base font-medium text-foreground">
                       {order.status}
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {order.items?.length ?? 0} item{order.items?.length === 1 ? "" : "s"} - {formatDate(order.createdAt)}
                     </p>
                   </div>
-                  <p className="font-heading text-lg font-semibold text-foreground">
+                  <p className="font-heading text-base font-semibold text-foreground">
                     {formatCurrency(order.totalAmount)}
                   </p>
                 </article>
@@ -395,33 +395,33 @@ export default function VendorDashboardPage() {
             <div className="space-y-3">
               <Link
                 href="/dashboard/inventory"
-                className="grid grid-cols-[44px_1fr_auto] items-center gap-3 rounded-2xl bg-surface p-3"
+                className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
-                  <AlertTriangle className="h-5 w-5" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
+                  <AlertTriangle className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-semibold text-foreground">Inventory alerts</span>
+                  <span className="block font-medium text-foreground">Inventory alerts</span>
                   <span className="block text-sm text-muted-foreground">
                     {inventoryAlerts.length} item{inventoryAlerts.length === 1 ? "" : "s"} need attention
                   </span>
                 </span>
-                <span className="font-heading text-xl font-semibold text-foreground">{inventoryAlerts.length}</span>
+                <span className="font-heading text-lg font-semibold text-foreground">{inventoryAlerts.length}</span>
               </Link>
               <Link
                 href="/dashboard/orders"
-                className="grid grid-cols-[44px_1fr_auto] items-center gap-3 rounded-2xl bg-surface p-3"
+                className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                  <PackageCheck className="h-5 w-5" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                  <PackageCheck className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-semibold text-foreground">Fulfillment</span>
+                  <span className="block font-medium text-foreground">Fulfillment</span>
                   <span className="block text-sm text-muted-foreground">
                     {fulfillmentTasks.length} paid order{fulfillmentTasks.length === 1 ? "" : "s"} waiting
                   </span>
                 </span>
-                <span className="font-heading text-xl font-semibold text-foreground">{fulfillmentTasks.length}</span>
+                <span className="font-heading text-lg font-semibold text-foreground">{fulfillmentTasks.length}</span>
               </Link>
             </div>
           </VendorSoftPanel>
@@ -429,9 +429,9 @@ export default function VendorDashboardPage() {
           <VendorSoftPanel title="Pool opportunity" description="Source catalog items and sell at your own margin.">
             <Link
               href="/dashboard/pool"
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#071a2f] text-sm font-semibold text-white transition hover:brightness-110"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#111827] text-sm font-medium text-white transition hover:bg-[#1F2937]"
             >
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               Explore Pool
             </Link>
           </VendorSoftPanel>

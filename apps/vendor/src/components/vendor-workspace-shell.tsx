@@ -93,7 +93,7 @@ function VendorSearchOverlay({
         onClick={onClose}
       />
       <section className="fixed inset-x-0 top-0 z-[100] mx-auto w-full max-w-2xl px-4 pt-4 sm:top-8 sm:pt-0">
-        <div className="overflow-hidden rounded-2xl border border-border bg-background/95 backdrop-blur-xl">
+        <div className="overflow-hidden rounded-lg border border-border bg-background/95 backdrop-blur-xl">
           <div className="flex items-center gap-3 px-5 py-4">
             <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
             <input
@@ -123,7 +123,7 @@ function VendorSearchOverlay({
           </div>
         </div>
 
-        <div className="mt-2 max-h-[62vh] overflow-y-auto rounded-2xl border border-border bg-background/95 backdrop-blur-xl">
+        <div className="mt-2 max-h-[62vh] overflow-y-auto rounded-lg border border-border bg-background/95 backdrop-blur-xl">
           {recents.length ? (
             <div className="p-4">
               <div className="mb-3 flex items-center justify-between px-1">
@@ -162,10 +162,10 @@ function VendorSearchOverlay({
                   onClick={() => submit(item.label)}
                   className="grid grid-cols-[40px_1fr] items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground">
-                    <item.icon className="h-4 w-4" />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F3F4F6] text-[#6B7280] dark:bg-white/8 dark:text-white/72">
+                    <item.icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                   </span>
-                  <span className="font-semibold text-foreground">{item.label}</span>
+                  <span className="font-medium text-foreground">{item.label}</span>
                 </button>
               ))}
             </div>
@@ -234,22 +234,22 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
           onLogout={handleLogout}
         />
 
-        <div className="min-h-screen pb-24 lg:pl-72">
-          <header className="sticky top-0 z-30 border-b border-border bg-white/72 backdrop-blur-xl dark:bg-[#10131a]/76">
-            <div className="flex h-16 items-center justify-between gap-3 px-3 lg:px-5">
+        <div className="min-h-screen pb-20 lg:pl-72">
+          <header className="sticky top-0 z-30 max-w-[100vw] overflow-hidden border-b border-[#F0F0F0] bg-white dark:border-white/10 dark:bg-[#0f1115]">
+            <div className="flex h-12 items-center justify-between gap-3 px-4 md:h-14 md:px-6 lg:h-16 lg:px-7">
               <div className="flex min-w-0 items-center gap-3">
                 <Link
                   href="/dashboard"
-                  className="flex min-w-0 items-center gap-2 px-0 py-1.5 lg:hidden"
+                  className="flex min-w-0 items-center gap-2 px-0 py-1 lg:hidden"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
                     <img src="/icon.png" alt="" className="h-full w-full object-contain" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate font-heading text-sm font-semibold text-foreground">
+                    <span className="block truncate text-base font-semibold leading-tight text-[#111827] dark:text-white">
                       {vendorName}
                     </span>
-                    <span className="block truncate text-[11px] font-medium text-muted-foreground">
+                    <span className="block truncate text-[11px] font-normal leading-tight text-[#6B7280] dark:text-white/62">
                       Vendor workspace
                     </span>
                   </span>
@@ -257,11 +257,11 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
-                  className="hidden h-10 w-[min(380px,42vw)] items-center gap-3 rounded-2xl border border-border bg-white px-4 text-left text-sm text-muted-foreground transition hover:border-accent dark:bg-white/5 md:flex"
+                  className="hidden h-10 w-[min(380px,42vw)] items-center gap-3 rounded-full bg-[#F3F4F6] px-4 text-left text-sm text-[#9CA3AF] transition focus-within:bg-white hover:bg-white hover:ring-1 hover:ring-[#E5E7EB] dark:bg-white/8 md:flex"
                 >
-                  <Search className="h-4 w-4" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">Search anything</span>
-                  <span className="text-xs font-semibold text-accent">
+                  <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-normal">Search anything</span>
+                  <span className="text-xs font-medium text-[#111827] dark:text-white">
                     Search
                   </span>
                 </button>
@@ -271,18 +271,18 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
                   aria-label="Search"
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition hover:bg-surface md:hidden"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-[#111827] transition hover:bg-[#F3F4F6] dark:text-white md:hidden"
                 >
-                  <Search className="h-5 w-5" strokeWidth={2.1} />
+                  <Search className="h-5 w-5" strokeWidth={1.5} />
                 </button>
                 <Link
                   href="/dashboard/orders"
                   aria-label="Orders"
-                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-foreground transition hover:bg-surface"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full text-[#111827] transition hover:bg-[#F3F4F6] dark:text-white"
                 >
-                  <Bell className="h-5 w-5" strokeWidth={2.1} />
+                  <Bell className="h-5 w-5" strokeWidth={1.5} />
                   {orderCount ? (
-                    <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-danger-foreground">
+                    <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#111827] px-1 text-[10px] font-medium text-white">
                       {orderCount > 99 ? "99+" : orderCount}
                     </span>
                   ) : null}
@@ -290,19 +290,19 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                 <Link
                   href="/dashboard/profile"
                   aria-label="Profile"
-                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent-soft-foreground transition hover:brightness-95"
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#FFE1C7] text-[#7C2D12] transition hover:brightness-95"
                 >
                   {storeLogoUrl ? (
                     <img src={storeLogoUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <UserRound className="h-5 w-5" />
+                    <UserRound className="h-5 w-5" strokeWidth={1.5} />
                   )}
                 </Link>
               </div>
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-[1500px] px-4 py-5 lg:px-7 lg:py-6">
+          <main className="safe-container mx-auto w-full max-w-[1500px] px-4 py-5 md:px-6 lg:px-7 lg:py-6">
             {children}
           </main>
         </div>

@@ -68,7 +68,7 @@ export default function VendorInventoryPage() {
   const reserved = physicalProducts.reduce((total, product) => total + Number(product.inventoryItems?.[0]?.reserved ?? 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Inventory"
         description="Track stock availability, reservations, safety thresholds, and manual adjustments."
@@ -80,7 +80,7 @@ export default function VendorInventoryPage() {
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-3 md:gap-4">
         <VendorMetricCard label="Tracked products" value={String(physicalProducts.length)} note="Physical catalog" icon={Boxes} />
         <VendorMetricCard label="Reserved" value={String(reserved)} note="Checkout holds" icon={PackageCheck} tone="accent" />
         <VendorMetricCard label="Low stock" value={String(lowStockProducts.length)} note="Needs attention" icon={AlertTriangle} tone="warning" />
@@ -97,12 +97,12 @@ export default function VendorInventoryPage() {
               const threshold = inventory?.lowStockThreshold ?? product.lowStock ?? 5;
               const isLow = available <= threshold;
               return (
-                <article key={product.id} className="grid gap-3 rounded-[22px] border border-border bg-background p-4 md:grid-cols-[1fr_auto] md:items-center">
+                <article key={product.id} className="premium-card grid gap-3 p-4 md:grid-cols-[1fr_auto] md:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="line-clamp-1 font-heading text-lg font-semibold text-foreground">{product.name}</h3>
+                      <h3 className="product-title-clamp font-heading text-base font-medium text-foreground">{product.name}</h3>
                       {isLow ? (
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
+                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
                           Low stock
                         </span>
                       ) : null}
@@ -112,15 +112,15 @@ export default function VendorInventoryPage() {
                   <div className="grid grid-cols-3 gap-3 text-right">
                     <div>
                       <p className="text-xs text-muted-foreground">Available</p>
-                      <p className="font-heading text-lg font-semibold text-foreground">{available}</p>
+                      <p className="font-heading text-base font-semibold text-foreground">{available}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Reserved</p>
-                      <p className="font-heading text-lg font-semibold text-foreground">{inventory?.reserved ?? 0}</p>
+                      <p className="font-heading text-base font-semibold text-foreground">{inventory?.reserved ?? 0}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Threshold</p>
-                      <p className="font-heading text-lg font-semibold text-foreground">{threshold}</p>
+                      <p className="font-heading text-base font-semibold text-foreground">{threshold}</p>
                     </div>
                   </div>
                 </article>

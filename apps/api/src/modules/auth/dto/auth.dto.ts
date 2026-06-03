@@ -49,7 +49,7 @@ export class RegisterDto {
   @IsString()
   storeName?: string;
 
-  @ValidateIf((o) => o.role === UserRole.VENDOR)
+  @IsOptional()
   @IsString()
   storeSlug?: string;
 

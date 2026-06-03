@@ -129,7 +129,7 @@ export function ForgotPasswordPage({
 
         <Link
           href={loginPath}
-          className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center justify-center gap-2 text-center text-sm font-medium text-accent transition-colors hover:text-accent/80"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to login

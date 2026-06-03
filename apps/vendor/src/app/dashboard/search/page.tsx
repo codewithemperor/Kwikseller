@@ -20,7 +20,7 @@ import { PoolCatalogItem, poolItemRouteKey, poolSourceName } from "@/lib/pool";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Order, Product } from "@kwikseller/types";
-import { AppButton, FieldInput } from "@kwikseller/ui";
+import { FieldInput } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 
 type SearchResults = {
@@ -117,14 +117,14 @@ export default function VendorSearchPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Search"
         description="Search your products, order queue, and Pool catalog when you need a specific item."
       />
 
       <VendorSoftPanel>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <div className="grid grid-cols-[minmax(0,1fr)_40px] items-center gap-2 sm:grid-cols-[1fr_auto]">
           <FieldInput
             aria-label="Search"
             value={query}
@@ -133,12 +133,17 @@ export default function VendorSearchPage() {
               if (event.key === "Enter") runSearch();
             }}
             placeholder="Search products, Pool, or orders"
-            className="h-14 rounded-2xl bg-white text-base dark:bg-white/5"
+            className="premium-search px-4 text-sm dark:bg-white/8"
           />
-          <AppButton type="button" size="lg" onClick={() => runSearch()} disabled={isLoading}>
-            <Search className="h-4 w-4" />
-            Search
-          </AppButton>
+          <button
+            type="button"
+            onClick={() => runSearch()}
+            disabled={isLoading}
+            aria-label="Search"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111827] text-white transition hover:bg-[#1F2937] disabled:opacity-60"
+          >
+            <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </button>
         </div>
       </VendorSoftPanel>
 
@@ -149,7 +154,7 @@ export default function VendorSearchPage() {
           title="Recents"
           action={
             recents.length ? (
-              <button type="button" onClick={clearRecents} className="text-sm font-semibold text-accent">
+              <button type="button" onClick={clearRecents} className="text-sm font-medium text-[#111827] dark:text-white">
                 Delete all
               </button>
             ) : null
@@ -162,13 +167,13 @@ export default function VendorSearchPage() {
                   key={item}
                   type="button"
                   onClick={() => runSearch(item)}
-                  className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl bg-surface p-3 text-left"
+                  className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 text-left dark:bg-white/5"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-accent">
-                    <Clock className="h-4 w-4" />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#111827] dark:bg-white/8 dark:text-white">
+                    <Clock className="h-4 w-4" strokeWidth={1.5} />
                   </span>
-                  <span className="font-semibold text-foreground">{item}</span>
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground">{item}</span>
+                  <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                 </button>
               ))}
             </div>
@@ -181,15 +186,15 @@ export default function VendorSearchPage() {
           <VendorSoftPanel title="Products">
             <div className="space-y-3">
               {results.products.slice(0, 6).map((product) => (
-                <Link key={product.id} href="/dashboard/products" className="grid grid-cols-[54px_1fr_auto] items-center gap-3 rounded-2xl bg-surface p-3">
-                  <span className="h-14 w-14 overflow-hidden rounded-2xl bg-background">
+                <Link key={product.id} href="/dashboard/products" className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5">
+                  <span className="h-[52px] w-[52px] overflow-hidden rounded-lg bg-white dark:bg-white/8">
                     {productImage(product) ? <img src={productImage(product)} alt="" className="h-full w-full object-cover" /> : null}
                   </span>
                   <span className="min-w-0">
-                    <span className="line-clamp-1 font-semibold text-foreground">{product.name}</span>
+                    <span className="product-title-clamp text-sm font-normal text-foreground">{product.name}</span>
                     <span className="text-sm text-muted-foreground">{formatCurrency(product.price)}</span>
                   </span>
-                  <Store className="h-4 w-4 text-muted-foreground" />
+                  <Store className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                 </Link>
               ))}
             </div>
@@ -198,15 +203,15 @@ export default function VendorSearchPage() {
           <VendorSoftPanel title="Pool">
             <div className="space-y-3">
               {results.pool.slice(0, 6).map((item) => (
-                <Link key={`${item.sourceType}-${item.id}`} href={`/dashboard/pool/product/${poolItemRouteKey(item)}`} className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl bg-surface p-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-accent">
-                    <PackageSearch className="h-4 w-4" />
+                <Link key={`${item.sourceType}-${item.id}`} href={`/dashboard/pool/product/${poolItemRouteKey(item)}`} className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#111827] dark:bg-white/8 dark:text-white">
+                    <PackageSearch className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="min-w-0">
-                    <span className="line-clamp-1 font-semibold text-foreground">{item.name}</span>
+                    <span className="product-title-clamp text-sm font-normal text-foreground">{item.name}</span>
                     <span className="text-sm text-muted-foreground">{poolSourceName(item)}</span>
                   </span>
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                 </Link>
               ))}
             </div>
@@ -215,12 +220,12 @@ export default function VendorSearchPage() {
           <VendorSoftPanel title="Orders">
             <div className="space-y-3">
               {results.orders.slice(0, 6).map((order) => (
-                <Link key={order.id} href="/dashboard/orders" className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl bg-surface p-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-accent">
-                    <ShoppingBag className="h-4 w-4" />
+                <Link key={order.id} href="/dashboard/orders" className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#111827] dark:bg-white/8 dark:text-white">
+                    <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="min-w-0">
-                    <span className="line-clamp-1 font-semibold text-foreground">{order.checkoutReference ?? order.id}</span>
+                    <span className="line-clamp-1 font-medium text-foreground">{order.checkoutReference ?? order.id}</span>
                     <span className="text-sm text-muted-foreground">{order.status}</span>
                   </span>
                   <span className="font-semibold text-foreground">{formatCurrency(order.totalAmount)}</span>

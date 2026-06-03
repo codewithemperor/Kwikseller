@@ -25,6 +25,12 @@
   --font-text: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   --kwik-blue: #2563eb;
+  --premium-primary: #111827;
+  --premium-secondary: #6b7280;
+  --premium-tertiary: #9ca3af;
+  --premium-surface: #f7f8fa;
+  --premium-field: #f3f4f6;
+  --premium-border: #e5e7eb;
 
   /* ── Surfaces ─────────────────────────────────────────── */
   --background: oklch(1 0 0);
@@ -65,7 +71,7 @@
   --focus: oklch(0.7 0.17 48); /* orange focus ring */
   --link: oklch(0.22 0.12 264); /* navy links */
   --scrollbar: oklch(0.88 0.01 264);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
@@ -193,6 +199,7 @@
   * {
     @apply border-border;
     outline-color: oklch(from var(--focus) l c h / 50%);
+    box-sizing: border-box;
   }
 
   body {
@@ -201,7 +208,8 @@
 
   html,
   body {
-    max-width: 100%;
+    width: 100%;
+    max-width: 100vw;
     overflow-x: hidden;
   }
 
@@ -213,11 +221,19 @@
   h5,
   h6 {
     font-family: var(--font-heading), system-ui, sans-serif;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
   }
 
-  /* Inter for body text */
+  /* Figtree for body text */
   p {
+    font-family: var(--font-text), system-ui, sans-serif;
+  }
+
+  a,
+  button,
+  input,
+  select,
+  textarea {
     font-family: var(--font-text), system-ui, sans-serif;
   }
 }
@@ -286,7 +302,69 @@
 
   .pool-description-html :where(strong, b) {
     color: var(--foreground);
-    font-weight: 700;
+    font-weight: 600;
+  }
+
+  .safe-container {
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .product-title-clamp {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+  }
+
+  .premium-card {
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid var(--premium-border);
+    background: var(--background);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .premium-search {
+    height: 2.5rem;
+    max-width: 100%;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--premium-field);
+    color: var(--premium-primary);
+  }
+
+  .filter-tab {
+    height: 2rem;
+    white-space: nowrap;
+    border-radius: 9999px;
+    padding-inline: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--premium-secondary);
+    transition: color 160ms ease, background-color 160ms ease;
+  }
+
+  .filter-tab:hover {
+    background: #f3f4f6;
+  }
+
+  .filter-tab-active {
+    background: var(--premium-primary);
+    color: white;
+    font-weight: 500;
   }
 }
 

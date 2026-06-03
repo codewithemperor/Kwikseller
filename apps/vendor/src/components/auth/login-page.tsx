@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, AlertCircle, ShieldCheck } from "lucide-react";
+import { Mail, Lock, AlertCircle } from "lucide-react";
 import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { loginSchema, type LoginFormData } from "@kwikseller/types";
@@ -192,7 +192,7 @@ export function LoginPage({ portal, className }: LoginPageProps) {
           <div className="flex justify-end">
             <Link
               href="/forgot-password"
-              className="text-xs font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+              className="text-xs font-medium text-accent underline-offset-4 transition-colors hover:text-accent/80 hover:underline"
             >
               Forgot password?
             </Link>
@@ -210,17 +210,12 @@ export function LoginPage({ portal, className }: LoginPageProps) {
           Sign in to {portal.name}
         </AppButton>
 
-        <div className="flex items-start gap-2 border border-border bg-background p-3 text-xs leading-5 text-muted-foreground">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          Access your dashboard, orders, inventory, digital assets, and Pool offers from one verified vendor session.
-        </div>
-
         {portal.showRegisterLink && portal.registerPath && (
           <p className="pt-1 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link
               href={portal.registerPath}
-              className="font-medium text-primary underline-offset-4 hover:underline"
+              className="font-medium text-accent underline-offset-4 hover:underline"
             >
               Create one
             </Link>

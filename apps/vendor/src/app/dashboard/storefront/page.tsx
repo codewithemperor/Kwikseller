@@ -100,10 +100,10 @@ export default function StorefrontDesignerPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="safe-container space-y-5">
       <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Storefront</h1>
+          <h1 className="font-heading text-[22px] font-semibold leading-tight text-foreground">Storefront</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Set your vendor logo, banner, brand colors, and font pair. These only affect your public store pages.
           </p>
@@ -114,8 +114,8 @@ export default function StorefrontDesignerPage() {
         </AppButton>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <div className="space-y-5 border border-border bg-background p-5">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="premium-card space-y-5 p-4 md:p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <FieldInput
               label="Store name"
@@ -137,10 +137,10 @@ export default function StorefrontDesignerPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)} />
             <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={(event) => setBannerFile(event.target.files?.[0] ?? null)} />
-            <div className="flex min-h-24 items-center gap-3 border border-border px-4 py-3">
-              <ImageIcon className="h-5 w-5 shrink-0 text-accent" />
+            <div className="flex min-h-20 items-center gap-3 rounded-lg border border-[#E5E7EB] px-4 py-3 dark:border-white/10">
+              <ImageIcon className="h-[18px] w-[18px] shrink-0 text-[#111827] dark:text-white" strokeWidth={1.5} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Logo</p>
+                <p className="text-sm font-medium text-foreground">Logo</p>
                 <p className="line-clamp-1 text-xs text-muted-foreground">
                   {logoFile ? logoFile.name : store?.logoUrl ? "Logo uploaded" : "No logo uploaded"}
                 </p>
@@ -151,25 +151,25 @@ export default function StorefrontDesignerPage() {
                     href={store.logoUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground transition hover:border-accent hover:text-accent"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#111827] transition hover:border-[#111827] dark:border-white/10 dark:text-white"
                     aria-label="View logo"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-4 w-4" strokeWidth={1.5} />
                   </a>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
-                  className="h-9 rounded-full bg-surface px-4 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+                  className="h-9 rounded-full bg-[#111827] px-4 text-xs font-medium text-white transition hover:bg-[#1F2937]"
                 >
                   Update
                 </button>
               </div>
             </div>
-            <div className="flex min-h-24 items-center gap-3 border border-border px-4 py-3">
-              <ImageIcon className="h-5 w-5 shrink-0 text-accent" />
+            <div className="flex min-h-20 items-center gap-3 rounded-lg border border-[#E5E7EB] px-4 py-3 dark:border-white/10">
+              <ImageIcon className="h-[18px] w-[18px] shrink-0 text-[#111827] dark:text-white" strokeWidth={1.5} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Banner</p>
+                <p className="text-sm font-medium text-foreground">Banner</p>
                 <p className="line-clamp-1 text-xs text-muted-foreground">
                   {bannerFile ? bannerFile.name : store?.bannerUrl ? "Banner uploaded" : "No banner uploaded"}
                 </p>
@@ -180,16 +180,16 @@ export default function StorefrontDesignerPage() {
                     href={store.bannerUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground transition hover:border-accent hover:text-accent"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#111827] transition hover:border-[#111827] dark:border-white/10 dark:text-white"
                     aria-label="View banner"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-4 w-4" strokeWidth={1.5} />
                   </a>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => bannerInputRef.current?.click()}
-                  className="h-9 rounded-full bg-surface px-4 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+                  className="h-9 rounded-full bg-[#111827] px-4 text-xs font-medium text-white transition hover:bg-[#1F2937]"
                 >
                   Update
                 </button>
@@ -233,7 +233,7 @@ export default function StorefrontDesignerPage() {
           />
         </div>
 
-        <div className="overflow-hidden border border-border bg-background">
+        <div className="premium-card">
           <div
             className="relative min-h-96 bg-[var(--preview-primary)] p-6 text-white"
             style={{
@@ -245,15 +245,15 @@ export default function StorefrontDesignerPage() {
             }}
           >
             <div className="flex h-16 w-16 items-center justify-center bg-white/95 text-[var(--preview-primary)]">
-              {store?.logoUrl ? <img src={store.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store className="h-8 w-8" />}
+              {store?.logoUrl ? <img src={store.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store className="h-8 w-8" strokeWidth={1.5} />}
             </div>
             <div className="absolute inset-x-6 bottom-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">Public preview</p>
-              <h2 className="mt-3 font-heading text-4xl font-semibold">{design.heroTitle || store?.name || "Your store"}</h2>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-white/70">Public preview</p>
+              <h2 className="mt-3 font-heading text-3xl font-semibold">{design.heroTitle || store?.name || "Your store"}</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-white/75">
                 {design.heroSubtitle || store?.description || "Shop verified products from this independent Kwikseller-powered storefront."}
               </p>
-              <div className="mt-5 inline-flex bg-[var(--preview-accent)] px-5 py-3 text-sm font-semibold text-white">
+              <div className="mt-5 inline-flex rounded-lg bg-[var(--preview-accent)] px-5 py-3 text-sm font-medium text-white">
                 Shop products
               </div>
             </div>
