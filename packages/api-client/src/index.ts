@@ -90,6 +90,25 @@ const STORAGE_KEYS = {
   AUTH_STORE: 'kwikseller_auth',
 }
 
+// ==================== Token Refresh Mutex ====================
+// Prevents concurrent 401 responses from triggering multiple refresh calls.
+// Only one refresh request is in-flight at a time; other requests queue and
+// resolve once the refresh completes.
+
+let isRefreshing = false
+let refreshQueue: Array<{
+  resolve: (token: string) => void
+  reject: (error: unknown) => void
+}> = []
+
+function processRefreshQueue(error: unknown, token: string | null = null): void {
+  refreshQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error)
+    else if (token) resolve(token)
+  })
+  refreshQueue = []
+}
+
 // ==================== Token Management ====================
 
 export const tokenManager = {
@@ -136,11 +155,17 @@ const createApiClient = (): AxiosInstance => {
 
   const redirectToLogin = () => {
     if (typeof window === 'undefined') return
+    tokenManager.clearTokens()
     const currentPath = window.location.pathname
     const currentHost = window.location.hostname
     const isAdminApp = currentHost.includes('admin') || currentPath.startsWith('/admin')
     const isRiderApp = currentHost.includes('rider') || currentPath.startsWith('/rider')
-    const loginPath = isAdminApp ? '/admin/login' : isRiderApp ? '/rider/login' : '/login'
+    const isVendorApp = currentHost.includes('vendor') || currentPath.startsWith('/dashboard')
+    let loginPath = '/login'
+    if (isAdminApp) loginPath = '/admin/login'
+    else if (isRiderApp) loginPath = '/rider/login'
+    // Vendor app login is at /login (same as default), but we preserve
+    // the dashboard redirect so the user lands back where they were
     window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`
   }
 
@@ -161,7 +186,7 @@ const createApiClient = (): AxiosInstance => {
     (error) => Promise.reject(error)
   )
 
-  // Response interceptor - Handle errors and token refresh
+  // Response interceptor - Handle errors and token refresh with mutex
   instance.interceptors.response.use(
     (response: AxiosResponse) => response,
     async (error: AxiosError<ApiError>) => {
@@ -170,9 +195,25 @@ const createApiClient = (): AxiosInstance => {
       }
       const isAuthEndpoint = originalRequest?.url?.includes('/auth/')
 
-      // Handle 401 Unauthorized - Try to refresh token
+      // Handle 401 Unauthorized - Try to refresh token (with mutex to prevent race conditions)
       if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+        if (isRefreshing) {
+          // Another refresh is already in-flight — queue this request
+          return new Promise((resolve, reject) => {
+            refreshQueue.push({
+              resolve: (newToken: string) => {
+                if (originalRequest.headers) {
+                  originalRequest.headers.Authorization = `Bearer ${newToken}`
+                }
+                resolve(instance(originalRequest))
+              },
+              reject: (err: unknown) => reject(err),
+            })
+          })
+        }
+
         originalRequest._retry = true
+        isRefreshing = true
 
         try {
           const refreshToken = tokenManager.getRefreshToken()
@@ -184,18 +225,26 @@ const createApiClient = (): AxiosInstance => {
             const { accessToken, refreshToken: newRefreshToken } = response.data.data || response.data
             tokenManager.setTokens(accessToken, newRefreshToken)
 
+            // Notify queued requests
+            processRefreshQueue(null, accessToken)
+
             // Retry original request with new token
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${accessToken}`
             }
             return instance(originalRequest)
           }
+          // No refresh token available
+          processRefreshQueue(new Error('No refresh token available'), null)
           tokenManager.clearTokens()
           redirectToLogin()
-        } catch {
-          // Refresh failed - Clear tokens
+        } catch (refreshError) {
+          // Refresh failed
+          processRefreshQueue(refreshError, null)
           tokenManager.clearTokens()
           redirectToLogin()
+        } finally {
+          isRefreshing = false
         }
       }
 
@@ -288,6 +337,9 @@ export const authApi = {
 
   resendVerification: (email: string) =>
     api.post('/auth/resend-verification', { email }),
+
+  changeEmail: (data: { newEmail: string; password: string }) =>
+    api.post('/auth/change-email', data),
 }
 
 // ==================== Users API ====================
@@ -654,6 +706,69 @@ export const vendorCommerceApi = {
 
   updateStorefrontDesign: (data: Partial<StorefrontDesignConfig>) =>
     api.patch<StorefrontDesignConfig>('/vendor/storefront-design', data),
+
+  // Vendor order detail & actions
+  getOrderDetail: (orderId: string) => api.get(`/vendor/orders/${orderId}`),
+
+  acceptOrder: (orderId: string, note?: string) =>
+    api.patch(`/vendor/orders/${orderId}/accept`, { note }),
+
+  rejectOrder: (orderId: string, reason: string) =>
+    api.patch(`/vendor/orders/${orderId}/reject`, { reason }),
+
+  prepareOrder: (orderId: string) =>
+    api.patch(`/vendor/orders/${orderId}/prepare`),
+
+  readyOrder: (orderId: string) =>
+    api.patch(`/vendor/orders/${orderId}/ready`),
+
+  cancelOrder: (orderId: string, reason: string) =>
+    api.patch(`/vendor/orders/${orderId}/cancel`, { reason }),
+}
+
+// ==================== Analytics API ====================
+
+export const analyticsApi = {
+  getOverview: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+    api.get('/vendor/analytics/overview', { params }),
+
+  getRevenue: (params?: { startDate?: string; endDate?: string; period?: string; groupBy?: string }) =>
+    api.get('/vendor/analytics/revenue', { params }),
+
+  getTopProducts: (params?: { startDate?: string; endDate?: string; limit?: number }) =>
+    api.get('/vendor/analytics/top-products', { params }),
+
+  getCategories: (params?: { startDate?: string; endDate?: string }) =>
+    api.get('/vendor/analytics/categories', { params }),
+
+  getProducts: (params?: { startDate?: string; endDate?: string; period?: string; limit?: number }) =>
+    api.get('/vendor/analytics/products', { params }),
+
+  getOrders: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+    api.get('/vendor/analytics/orders', { params }),
+
+  getCustomers: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+    api.get('/vendor/analytics/customers', { params }),
+}
+
+// ==================== Order Operations API ====================
+
+export const orderOperationsApi = {
+  addNote: (orderId: string, note: string) =>
+    api.post(`/vendor/orders/${orderId}/note`, { note }),
+}
+
+// ==================== Vendor Profile API ====================
+
+export const vendorProfileApi = {
+  update: (data: {
+    storeName?: string
+    storeSlug?: string
+    storeDescription?: string
+    phone?: string
+    firstName?: string
+    lastName?: string
+  }) => api.patch('/vendor/profile', data),
 }
 
 // ==================== Orders API ====================
@@ -868,6 +983,89 @@ export const deliveryApi = {
   // Earnings
   getEarnings: (period?: 'today' | 'week' | 'month') =>
     api.get('/deliveries/earnings', { params: { period } }),
+}
+
+// ==================== KYC API ====================
+
+export const kycApi = {
+  getStatus: () => api.get('/vendor/kyc/status'),
+
+  submitKyc: (data: {
+    businessType: 'INDIVIDUAL' | 'SOLE_PROPRIETORSHIP' | 'REGISTERED_BUSINESS';
+    fullName: string;
+    dateOfBirth: string;
+    phone: string;
+    idType: 'NIN' | 'PASSPORT' | 'DRIVERS_LICENSE';
+    idFrontUrl: string;
+    idBackUrl?: string;
+    businessRegistrationUrl?: string;
+    utilityBillUrl?: string;
+    taxId?: string;
+    selfieUrl?: string;
+  }) => api.post('/vendor/kyc/submit', data),
+
+  getSubmissions: () => api.get('/vendor/kyc/submissions'),
+}
+
+// ==================== Onboarding API ====================
+
+export const onboardingApi = {
+  getStatus: () => api.get('/vendor/onboarding/status'),
+
+  completeStep: (step: string, data: Record<string, unknown>) =>
+    api.post('/vendor/onboarding/step', { step, data }),
+
+  complete: () => api.post('/vendor/onboarding/complete'),
+}
+
+// ==================== Vendor Deliveries API ====================
+
+export const vendorDeliveriesApi = {
+  // List vendor's deliveries
+  list: (params?: {
+    status?: string
+    page?: number
+    limit?: number
+  }) => api.get('/vendor/deliveries', { params }),
+
+  // Mark delivery as preparing (ACCEPTED → PREPARING)
+  markPreparing: (deliveryId: string) =>
+    api.post(`/vendor/deliveries/${deliveryId}/preparing`),
+
+  // Mark as ready for pickup (PREPARING → READY_FOR_PICKUP)
+  markReady: (deliveryId: string) =>
+    api.post(`/vendor/deliveries/${deliveryId}/ready`),
+
+  // Vendor confirms handoff to rider (alternative pickup confirmation)
+  confirmPickup: (deliveryId: string) =>
+    api.post(`/vendor/deliveries/${deliveryId}/pickup-confirm`),
+
+  // Get tracking info for a specific delivery
+  getTracking: (deliveryId: string) =>
+    api.get(`/vendor/deliveries/${deliveryId}/tracking`),
+}
+
+// ==================== Escrow API ====================
+
+export const escrowApi = {
+  // Get vendor's escrow holdings
+  getHoldings: () => api.get('/vendor/wallet/escrow-holdings'),
+
+  // Admin: manual escrow release
+  manualRelease: (deliveryId: string) =>
+    api.post(`/admin/escrow/${deliveryId}/manual-release`),
+
+  // Admin: refund escrow
+  refund: (deliveryId: string) =>
+    api.post(`/admin/escrow/${deliveryId}/refund`),
+
+  // Get escrow detail for a specific delivery
+  getEscrowDetail: (deliveryId: string) =>
+    api.get(`/vendor/escrow/${deliveryId}`),
+
+  // Open a dispute on an escrow holding
+  openDispute: (orderId: string, reason: string, evidence?: string) =>
+    api.post(`/vendor/escrow/${orderId}/dispute`, { reason, evidence }),
 }
 
 // ==================== Admin API ====================

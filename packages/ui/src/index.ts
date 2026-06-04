@@ -101,6 +101,18 @@ export type { AppShellProps } from "./layout/app-shell";
 export { PageHeader } from "./layout/page-header";
 export type { PageHeaderProps } from "./layout/page-header";
 
+// Page Container
+export { PageContainer } from "./layout/page-container";
+export type { PageContainerProps } from "./layout/page-container";
+
+// Section Header
+export { SectionHeader } from "./layout/section-header";
+export type { SectionHeaderProps } from "./layout/section-header";
+
+// Divider
+export { Divider } from "./layout/divider";
+export type { DividerProps } from "./layout/divider";
+
 // ==================== Custom Feedback Components ====================
 
 // Empty State
@@ -117,6 +129,32 @@ export type { LoadingOverlayProps } from "./feedback/loading-overlay";
 // Offline Banner
 export { OfflineBanner, ConnectionStatus } from "./feedback/offline-banner";
 export type { OfflineBannerProps } from "./feedback/offline-banner";
+
+// Spinner
+export { Spinner } from "./feedback/spinner";
+export type { SpinnerProps } from "./feedback/spinner";
+
+// Skeleton components
+export {
+  Skeleton,
+  SkeletonText,
+  SkeletonCard,
+  SkeletonTable,
+  SkeletonAvatar,
+  SkeletonImage,
+} from "./feedback/skeleton";
+export type { SkeletonProps } from "./feedback/skeleton";
+
+// Error Boundary & Fallback
+export { ErrorBoundary, ErrorFallback } from "./feedback/error-boundary";
+export type {
+  ErrorBoundaryProps,
+  ErrorFallbackProps,
+} from "./feedback/error-boundary";
+
+// Sanitized HTML (XSS-safe rendering)
+export { SanitizedHTML } from "./feedback/sanitized-html";
+export type { SanitizedHTMLProps } from "./feedback/sanitized-html";
 
 export { OTPVerification } from "./components/otp-verification";
 export type { OTPVerificationProps } from "./components/otp-verification";

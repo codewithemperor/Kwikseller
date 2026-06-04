@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Patch,
   Optional,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,8 +19,12 @@ import {
   ApiBearerAuth,
   ApiHeader,
 } from '@nestjs/swagger';
+import * as bcrypt from 'bcryptjs';
 
 import { AuthService } from './auth.service';
+import { PrismaService } from '../../database/prisma.service';
+import { EmailService } from '../../common/services/email.service';
+import { CacheService } from '../../common/services/cache.service';
 import {
   RegisterDto,
   LoginDto,
@@ -37,7 +42,12 @@ import { CurrentUser } from './decorators/current-user.decorator';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   /**
    * Register new user
@@ -200,6 +210,94 @@ export class AuthController {
     @Ip() ipAddress: string,
   ) {
     return this.authService.changePassword(userId, dto, ipAddress);
+  }
+
+  /**
+   * Change email — sends verification OTP to new email
+   * Does NOT change email until OTP is verified via /auth/verify-email
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('change-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Request email change — OTP sent to new email' })
+  @ApiResponse({ status: 200, description: 'Verification OTP sent to new email' })
+  @ApiResponse({ status: 401, description: 'Current password is incorrect' })
+  @ApiResponse({ status: 409, description: 'New email already in use' })
+  async changeEmail(
+    @CurrentUser('id') userId: string,
+    @Body() dto: { newEmail: string; password: string },
+    @Ip() _ipAddress: string,
+  ) {
+    if (!dto.newEmail || !dto.password) {
+      throw new BadRequestException('newEmail and password are required.');
+    }
+
+    // Get user with password hash
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    // Verify current password
+    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordValid) {
+      throw new BadRequestException('Current password is incorrect.');
+    }
+
+    // Check new email isn't the same as current
+    if (dto.newEmail.toLowerCase() === user.email.toLowerCase()) {
+      throw new BadRequestException('New email must be different from current email.');
+    }
+
+    // Check new email isn't already taken
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        email: dto.newEmail.toLowerCase(),
+        role: user.role,
+      },
+    });
+    if (existingUser) {
+      throw new BadRequestException(
+        'This email is already registered. Please use a different email address.',
+      );
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store pending email change in cache (10 min expiry)
+    const cacheKey = `email-change:${userId}`;
+    await this.cacheService.set(
+      cacheKey,
+      {
+        userId,
+        oldEmail: user.email,
+        newEmail: dto.newEmail.toLowerCase(),
+        otp,
+      },
+      10 * 60, // 10 minutes
+    );
+
+    // Send verification OTP to new email
+    await this.emailService.sendEmail(
+      dto.newEmail,
+      'Verify Your New Email - KWIKSELLER',
+      'email-verify',
+      {
+        name: user.profile?.firstName || 'User',
+        otp,
+      },
+    );
+
+    return {
+      success: true,
+      message: `Verification OTP sent to ${dto.newEmail}. Please verify to complete the email change.`,
+    };
   }
 
   /**

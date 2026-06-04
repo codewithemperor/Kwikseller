@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -91,6 +91,7 @@ model User {
   reviews       Review[]
   productQuestions ProductQuestion[] @relation("ProductQuestionUser")
   productAnswers   ProductQuestion[] @relation("ProductQuestionAnswerer")
+  riderDeliveries Delivery[]          @relation("RiderDeliveries")
 
   @@unique([email, role])
   @@index([email])
@@ -1165,11 +1166,17 @@ model Order {
   address     Address?    @relation(fields: [addressId], references: [id])
   items       OrderItem[]
   payment     Payment?
-  escrow      Escrow?
-  delivery    Delivery?
-  commission  Commission?
-  fulfillments Fulfillment[]
-  reviews     Review[]
+  escrow              Escrow?
+  delivery            Delivery?
+  commission          Commission?
+  fulfillments       Fulfillment[]
+  reviews            Review[]
+  disputeStatus      DisputeStatus  @default(NONE)
+  disputeReason      String?
+  disputeEvidence    String?
+  disputeResolvedAt  DateTime?
+  disputeResolvedBy  String?
+  disputeResolution  String?
 
   @@index([buyerId])
   @@index([storeId])
@@ -1322,11 +1329,93 @@ model Fulfillment {
   @@index([type])
 }
 
+// ==================== DELIVERY SYSTEM ====================
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  PREPARING
+  READY_FOR_PICKUP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  RETURNED
+}
+
+enum DisputeStatus {
+  NONE
+  OPENED
+  UNDER_REVIEW
+  RESOLVED
+}
+
+model Delivery {
+  id                String          @id @default(cuid())
+  orderId           String          @unique
+  order             Order           @relation(fields: [orderId], references: [id])
+
+  status            DeliveryStatus  @default(PENDING)
+
+  // Assignment
+  riderId           String?
+  rider             User?           @relation("RiderDeliveries", fields: [riderId], references: [id])
+  assignedAt        DateTime?
+  assignedBy        String?
+  acceptedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectReason      String?
+
+  // Vendor Side
+  vendorPreparingAt     DateTime?
+  vendorReadyAt         DateTime?
+  pickupConfirmedAt      DateTime?
+  pickupConfirmedBy      String?
+
+  // Transit
+  pickedUpAt            DateTime?
+  inTransitAt           DateTime?
+  arrivedAt             DateTime?
+
+  // Completion
+  deliveredAt           DateTime?
+  deliveryPhoto         String?
+  deliveryNotes         String?
+
+  // Customer Confirmation
+  customerConfirmed     Boolean    @default(false)
+  customerConfirmedAt   DateTime?
+  customerRejected      Boolean    @default(false)
+  customerRejectReason  String?
+
+  // Locations
+  pickupAddress         String
+  deliveryAddress       String
+  deliveryContactName   String?
+  deliveryContactPhone  String?
+  currentLocation       String?
+
+  // Metadata
+  estimatedMinutes      Int?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([orderId])
+  @@index([riderId])
+  @@index([status])
+  @@map("deliveries")
+}
+
 // ==================== ESCROW ====================
 
 enum EscrowStatus {
   HELD
+  PENDING_RELEASE
   RELEASED
+  REFUNDED
   DISPUTED
   PARTIAL
 }
@@ -1634,40 +1723,9 @@ model Rider {
   updatedAt               DateTime           @updatedAt
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deliveries Delivery[]
 
   @@index([isAvailable])
   @@index([verificationStatus])
-}
-
-enum DeliveryStatus {
-  ASSIGNED
-  ACCEPTED
-  PICKED_UP
-  IN_TRANSIT
-  DELIVERED
-  FAILED
-}
-
-model Delivery {
-  id               String         @id @default(cuid())
-  orderId          String         @unique
-  riderId          String
-  status           DeliveryStatus @default(ASSIGNED)
-  pickupPhotoUrl   String?
-  deliveryPhotoUrl String?
-  otp              String?
-  assignedAt       DateTime       @default(now())
-  pickedUpAt       DateTime?
-  deliveredAt      DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  order Order @relation(fields: [orderId], references: [id])
-  rider Rider @relation(fields: [riderId], references: [id], onDelete: Cascade)
-
-  @@index([riderId])
-  @@index([status])
 }
 
 // ==================== NOTIFICATIONS ====================

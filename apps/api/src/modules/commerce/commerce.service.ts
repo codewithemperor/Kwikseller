@@ -1348,6 +1348,43 @@ export class CommerceService {
       where: { id: productId, storeId },
       include: { images: true, inventoryItems: true },
     });
+    if (product?.productSource === 'POOL_RESALE') {
+      const changedFields = Object.keys(dto).filter((key) => (dto as any)[key] !== undefined);
+      const invalidFields = changedFields.filter((key) => key !== 'price');
+      if (invalidFields.length) {
+        throw new BadRequestException('Pool-sourced products can only update the selling price');
+      }
+      if (Number(dto.price ?? 0) <= 0) {
+        throw new BadRequestException('Selling price must be greater than zero');
+      }
+      return this.db().$transaction(async (tx: any) => {
+        const offer = await tx.vendorPoolOffer.findFirst({
+          where: { productId, storeId },
+          select: { id: true, sourceBasePrice: true },
+        });
+        const nextPrice = Number(dto.price);
+        const sourceBasePrice = Number(offer?.sourceBasePrice ?? product.poolSourceBasePrice ?? 0);
+        const poolMargin = Math.max(0, nextPrice - sourceBasePrice);
+        const updated = await tx.product.update({
+          where: { id: productId },
+          data: {
+            price: nextPrice,
+            poolMargin,
+          },
+          include: { images: true, inventoryItems: true },
+        });
+        if (offer) {
+          await tx.vendorPoolOffer.update({
+            where: { id: offer.id },
+            data: {
+              retailPrice: nextPrice,
+              markup: poolMargin,
+            },
+          });
+        }
+        return updated;
+      });
+    }
     const next = { ...product, ...dto, images: dto.images ?? product?.images?.map((image: any) => image.url) ?? [] };
     const nextPoolEnabled = dto.poolEnabled ?? product?.poolEnabled ?? false;
     const nextProductType = dto.productType ?? product?.productType;

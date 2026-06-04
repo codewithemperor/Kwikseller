@@ -78,10 +78,10 @@ export default function VendorDeliveryPage() {
         }
       />
 
-      <section className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-3 md:gap-4">
-        <VendorMetricCard label="Manual delivery" value={settings.manualDeliveryEnabled ? "Live" : "Off"} note="Vendor controlled" icon={Truck} tone="success" />
-        <VendorMetricCard label="Processing" value={`${settings.processingDays || 1} day${Number(settings.processingDays || 1) === 1 ? "" : "s"}`} note="Before dispatch" icon={Clock} tone="accent" />
-        <VendorMetricCard label="Kwikseller delivery" value="Soon" note="Not enabled yet" icon={PackageCheck} />
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <VendorMetricCard label="Manual delivery" value={settings.manualDeliveryEnabled ? "Live" : "Off"} note="Your own delivery rules for checkout." icon={Truck} tone="success" />
+        <VendorMetricCard label="Processing" value={`${settings.processingDays || 1} day${Number(settings.processingDays || 1) === 1 ? "" : "s"}`} note="Time before an order is dispatched." icon={Clock} tone="accent" />
+        <VendorMetricCard label="Kwikseller delivery" value="Soon" note="Platform delivery option not enabled yet." icon={PackageCheck} />
       </section>
 
       <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">

@@ -6,9 +6,31 @@ import Link from "next/link";
 import { type FieldErrors, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, Phone, Building2, AlertCircle } from "lucide-react";
-import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
+import {
+  cn,
+  TextInput,
+  PasswordInput,
+  OTPVerification,
+  AppButton,
+  BrandedAuthHeader,
+} from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
+
+const STORE_CATEGORIES = [
+  { value: 'fashion', label: 'Fashion & Apparel' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'food', label: 'Food & Beverages' },
+  { value: 'health', label: 'Health & Beauty' },
+  { value: 'home', label: 'Home & Garden' },
+  { value: 'sports', label: 'Sports & Outdoors' },
+  { value: 'books', label: 'Books & Media' },
+  { value: 'automotive', label: 'Automotive' },
+  { value: 'baby', label: 'Baby & Kids' },
+  { value: 'agriculture', label: 'Agriculture' },
+  { value: 'services', label: 'Services' },
+  { value: 'other', label: 'Other' },
+];
 
 export interface VendorRegisterConfig {
   name: string;
@@ -62,7 +84,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
   const [showOTP, setShowOTP] = useState(false);
   const [userEmail, setUserEmail] = useState("");
 
-  const { control, handleSubmit } = useForm<RegisterFormData>({
+  const { control, handleSubmit, watch, setValue } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
@@ -73,6 +95,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
       phone: "",
       role: "VENDOR",
       storeName: "",
+      storeCategory: "other",
     },
   });
 
@@ -95,7 +118,7 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
         phone: data.phone,
         role: "VENDOR",
         storeName: data.storeName,
-        storeCategory: "other",
+        storeCategory: data.storeCategory || "other",
       });
 
       setUserEmail(data.email);
@@ -239,6 +262,28 @@ export function RegisterPage({ config, className }: RegisterPageProps) {
           isRequired
           isDisabled={busy}
         />
+
+        <div className="space-y-1.5">
+          <label
+            htmlFor="storeCategory"
+            className="block text-sm font-medium text-foreground"
+          >
+            Store category <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="storeCategory"
+            value={watch("storeCategory") || "other"}
+            onChange={(e) => setValue("storeCategory", e.target.value)}
+            disabled={busy}
+            className="flex h-10 w-full rounded-lg border-[1px] border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {STORE_CATEGORIES.map((cat) => (
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <PasswordInput
           name="password"

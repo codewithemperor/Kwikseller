@@ -40,6 +40,7 @@ export const registerSchema = z
     role: z.enum(["BUYER", "VENDOR", "RIDER"]),
     storeName: z.string().optional(),
     storeSlug: z.string().optional(),
+    storeCategory: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",

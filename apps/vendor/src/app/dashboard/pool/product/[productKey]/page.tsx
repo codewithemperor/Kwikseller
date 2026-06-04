@@ -25,7 +25,7 @@ import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorPoolStore } from "@/stores/vendor-pool-store";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { VendorPoolOffer } from "@kwikseller/types";
-import { AppButton, FieldInput } from "@kwikseller/ui";
+import { AppButton, FieldInput, SanitizedHTML } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -41,13 +41,7 @@ function hasHtml(value?: string | null) {
   return Boolean(value && /<\/?[a-z][\s\S]*>/i.test(value));
 }
 
-function sanitizeDescriptionHtml(value: string) {
-  return value
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-    .replace(/\son\w+=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/javascript:/gi, "");
-}
+// SanitizedHTML is used in the DescriptionBlock component below for safe markup rendering.
 
 function ReceiptRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -69,9 +63,9 @@ function DescriptionBlock({ item }: { item: PoolCatalogItem }) {
   }
   if (hasHtml(description)) {
     return (
-      <div
+      <SanitizedHTML
+        html={description}
         className="pool-description-html text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62"
-        dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(description) }}
       />
     );
   }

@@ -58,7 +58,9 @@ export default function VendorInventoryPage() {
     }
   };
 
-  const physicalProducts = products.filter((product) => product.productType !== "DIGITAL");
+  const physicalProducts = products.filter(
+    (product) => product.productType !== "DIGITAL" && product.productSource !== "POOL_RESALE",
+  );
   const lowStockProducts = physicalProducts.filter((product) => {
     const inventory = product.inventoryItems?.[0];
     const available = inventory?.available ?? product.stock ?? 0;
@@ -71,7 +73,7 @@ export default function VendorInventoryPage() {
     <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Inventory"
-        description="Track stock availability, reservations, safety thresholds, and manual adjustments."
+        description="Owned stock, reservations, and low-stock alerts."
         action={
           <AppButton type="button" size="lg" onClick={() => setIsAdjustOpen(true)} disabled={!physicalProducts.length}>
             <PlusCircle className="h-4 w-4" />
@@ -80,10 +82,10 @@ export default function VendorInventoryPage() {
         }
       />
 
-      <section className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-3 md:gap-4">
-        <VendorMetricCard label="Tracked products" value={String(physicalProducts.length)} note="Physical catalog" icon={Boxes} />
-        <VendorMetricCard label="Reserved" value={String(reserved)} note="Checkout holds" icon={PackageCheck} tone="accent" />
-        <VendorMetricCard label="Low stock" value={String(lowStockProducts.length)} note="Needs attention" icon={AlertTriangle} tone="warning" />
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <VendorMetricCard label="Tracked products" value={String(physicalProducts.length)} note="Owned physical products with stock tracking." icon={Boxes} />
+        <VendorMetricCard label="Reserved" value={String(reserved)} note="Stock units currently held by checkout." icon={PackageCheck} tone="accent" />
+        <VendorMetricCard label="Low stock" value={String(lowStockProducts.length)} note="Owned products below the safety threshold." icon={AlertTriangle} tone="warning" />
       </section>
 
       <VendorSoftPanel title="Stock ledger" description="Available, reserved, and low-stock thresholds.">
@@ -128,7 +130,7 @@ export default function VendorInventoryPage() {
             })}
           </div>
         ) : (
-          <VendorEmptyState title="No physical products" text="Create a physical product before managing stock." />
+          <VendorEmptyState title="No owned stock" text="Create a physical product before managing inventory." />
         )}
       </VendorSoftPanel>
 

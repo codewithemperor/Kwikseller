@@ -1,5 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Figtree, Sora } from "next/font/google";
+import {
+  JetBrains_Mono,
+  Figtree,
+  Sora,
+  Inter,
+  Poppins,
+  DM_Sans,
+  Lato,
+  Montserrat,
+  Playfair_Display,
+  Merriweather,
+} from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
@@ -24,6 +35,70 @@ const fontMono = JetBrains_Mono({
   variable: "--font-mono",
   display: "swap",
 });
+
+// ─── Storefront Designer Fonts ──────────────────────────────────────
+// These fonts are loaded so the storefront designer preview uses real fonts
+// instead of falling back to system-ui. Each maps to a CSS variable
+// --font-{slug} used by the storefront preview component.
+
+const fontInter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const fontPoppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-poppins",
+  display: "swap",
+});
+
+const fontDmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const fontLato = Lato({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-lato",
+  display: "swap",
+});
+
+const fontMontserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-montserrat",
+  display: "swap",
+});
+
+const fontPlayfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-playfair-display",
+  display: "swap",
+});
+
+const fontMerriweather = Merriweather({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-merriweather",
+  display: "swap",
+});
+
+// Collect all storefront font variables for the <html> element
+const storefrontFontVariables = [
+  fontInter.variable,
+  fontPoppins.variable,
+  fontDmSans.variable,
+  fontLato.variable,
+  fontMontserrat.variable,
+  fontPlayfairDisplay.variable,
+  fontMerriweather.variable,
+].join(' ');
 
 export const metadata: Metadata = {
   title: {
@@ -54,7 +129,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fontHeading.variable} ${fontText.variable} ${fontMono.variable}`}
+      className={`${fontHeading.variable} ${fontText.variable} ${fontMono.variable} ${storefrontFontVariables}`}
       suppressHydrationWarning
     >
       <body className="font-text antialiased bg-background text-foreground">

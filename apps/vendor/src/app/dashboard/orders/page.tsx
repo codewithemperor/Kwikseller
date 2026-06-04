@@ -82,7 +82,7 @@ export default function VendorOrdersPage() {
     <div className="safe-container space-y-5">
       <VendorPageHeader
         title="Orders"
-        description="Review checkout activity, confirm fulfillment, and keep each customer order moving."
+        description="Checkout activity and fulfillment."
         action={
           <AppButton type="button" variant="secondary" onClick={loadOrders} disabled={isLoading}>
             <RefreshCw className="h-4 w-4" />
@@ -117,7 +117,7 @@ export default function VendorOrdersPage() {
       </div>
 
       {waitingCount ? (
-        <div className="flex items-center gap-3 rounded-lg bg-amber-50 p-4 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+        <div className="flex items-center gap-3 border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
           <AlertTriangle className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
           <p className="text-sm font-medium">
             {waitingCount} order{waitingCount === 1 ? "" : "s"} waiting for your approval.
@@ -129,17 +129,17 @@ export default function VendorOrdersPage() {
         {isLoading ? (
           <KwiksellerLoader />
         ) : filteredOrders.length ? (
-          <div className="grid gap-4">
+          <div className="divide-y divide-gray-200 border-t border-gray-200">
             {filteredOrders.map((order) => (
-              <article key={order.id} className="premium-card p-4">
-                <div className="grid gap-4 lg:grid-cols-[1fr_180px_220px] lg:items-center">
+              <article key={order.id} className="py-4 first:pt-0">
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-white/5">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[#F3F4F6] px-3 py-1 font-mono text-xs font-medium text-muted-foreground dark:bg-white/8">
+                      <span className="rounded-md bg-gray-100 px-2.5 py-1 font-mono text-xs font-medium text-muted-foreground dark:bg-white/8">
                         {order.checkoutReference ?? order.id}
                       </span>
                       {order.parentCheckout?.checkoutReference ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
                           <CreditCard className="h-3 w-3" strokeWidth={1.5} />
                           Parent {order.parentCheckout.checkoutReference}
                         </span>
@@ -158,24 +158,32 @@ export default function VendorOrdersPage() {
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {order.items?.slice(0, 3).map((item) => (
-                        <span key={item.id} className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
+                        <span key={item.id} className="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
                           {item.product?.name ?? item.productId} x{item.quantity}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total</p>
-                    <p className="mt-1 font-heading text-lg font-semibold text-foreground">{formatCurrency(order.totalAmount)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{order.paymentStatus}</p>
-                    <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                      <Truck className="h-3.5 w-3.5 text-[#111827] dark:text-white" strokeWidth={1.5} />
-                      Delivery {formatCurrency(order.shippingFee ?? 0)}
-                    </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-white p-3 dark:bg-black/20">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total</p>
+                      <p className="mt-1 font-heading text-lg font-semibold text-foreground">{formatCurrency(order.totalAmount)}</p>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 dark:bg-black/20">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Payment</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">{order.paymentStatus}</p>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 dark:bg-black/20">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Delivery</p>
+                      <p className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-foreground">
+                        <Truck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        {formatCurrency(order.shippingFee ?? 0)}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center">
                     <select
                       disabled={updatingId === order.id}
                       defaultValue=""
@@ -183,7 +191,7 @@ export default function VendorOrdersPage() {
                         const status = event.target.value as OrderStatus;
                         if (status) updateStatus(order.id, status);
                       }}
-                      className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm font-medium text-foreground outline-none dark:bg-white/5"
+                      className="h-11 w-full rounded-md border border-border bg-white px-3 text-sm font-medium text-foreground outline-none dark:bg-white/5"
                     >
                       <option value="">Update status</option>
                       {nextStatuses.map((status) => (

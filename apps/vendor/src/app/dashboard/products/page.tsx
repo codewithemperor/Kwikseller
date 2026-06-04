@@ -5,26 +5,55 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Eye,
   ImageIcon,
   Package,
   PackagePlus,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
+  Trash2,
+  Upload,
   X,
 } from "lucide-react";
-import {
-  VendorPageHeader,
-  VendorSoftPanel,
-} from "@/components/dashboard/vendor-dashboard-ui";
+import { DashboardMetricCard } from "@/components/dashboard/vendor-dashboard-ui";
 import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
-import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
+import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorProductsStore } from "@/stores/vendor-products-store";
 import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product, ProductType } from "@kwikseller/types";
 import { AppButton, AppModal, AppSwitch, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
+import Link from "next/link";
+
+/* ─── Constants ─── */
+
+const ITEMS_PER_PAGE = 20;
+
+const CATEGORIES = [
+  "Electronics",
+  "Fashion",
+  "Home & Garden",
+  "Health & Beauty",
+  "Sports",
+  "Food & Drinks",
+  "Books",
+  "Toys & Games",
+  "Automotive",
+  "Computers",
+  "Phones",
+  "Accessories",
+  "Other",
+];
+
+const STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "ARCHIVED", label: "Archived" },
+];
 
 const blankForm = {
   name: "",
@@ -42,87 +71,228 @@ const blankForm = {
   poolMaxSelectableQuantity: 0,
 };
 
-const steps = [
-  "Basic Information",
-  "Pricing & Inventory",
-  "Optional Details",
-  "Review & Confirm",
+const wizardSteps = [
+  "Basic Info",
+  "Pricing & Stock",
+  "Details",
+  "Review",
 ];
+
+/* ─── Helpers ─── */
 
 function uploadedUrl(response: any) {
   const data = unwrapApiData<any>(response.data);
   return data?.secureUrl || data?.url || data?.data?.secureUrl || data?.data?.url || "";
 }
 
-function productImage(product: Product) {
+function productImageSrc(product: Product): string {
   const first = product.images?.[0];
   if (!first) return "";
   return typeof first === "string" ? first : first.url;
 }
 
-function ProductStatCard({
-  label,
-  value,
-  note,
-  icon: Icon,
-  tone,
+function isPoolResaleProduct(product: Product) {
+  return product.productSource === "POOL_RESALE";
+}
+
+function statusColor(status: string) {
+  if (status === "ACTIVE") return "text-emerald-600";
+  if (status === "DRAFT") return "text-amber-600";
+  if (status === "ARCHIVED") return "text-gray-400";
+  return "text-gray-500";
+}
+
+/* ─── Skeleton Card ─── */
+
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse">
+      <div className="aspect-square bg-gray-100" />
+      <div className="border-t border-gray-200 p-4">
+        <div className="h-4 w-3/4 rounded bg-gray-200" />
+        <div className="mt-3 flex items-center justify-between">
+          <div className="h-5 w-24 rounded bg-gray-200" />
+          <div className="h-4 w-16 rounded bg-gray-100" />
+        </div>
+        <div className="mt-2 h-3 w-1/2 rounded bg-gray-100" />
+        <div className="mt-4 flex gap-2">
+          <div className="h-8 w-16 rounded bg-gray-100" />
+          <div className="h-8 w-16 rounded bg-gray-100" />
+          <div className="h-8 w-16 rounded bg-gray-100" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Product Card ─── */
+
+function ProductCard({
+  product,
+  selected,
+  onToggleSelect,
+  onEdit,
+  onView,
+  onDelete,
 }: {
-  label: string;
-  value: string;
-  note: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  tone: "blue" | "orange" | "green";
+  product: Product;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onEdit: () => void;
+  onView: () => void;
+  onDelete: () => void;
 }) {
-  const toneClass = {
-    blue: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-400/12 dark:text-blue-200 dark:border-blue-400/20",
-    orange: "bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-400/12 dark:text-orange-200 dark:border-orange-400/20",
-    green: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-400/12 dark:text-emerald-200 dark:border-emerald-400/20",
-  }[tone];
+  const image = productImageSrc(product);
+  const inventory = product.inventoryItems?.[0];
+  const stock = inventory?.available ?? product.stock ?? 0;
+  const poolResale = isPoolResaleProduct(product);
 
   return (
-    <article className={`min-w-[220px] rounded-xl border p-4 md:min-w-0 ${toneClass}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-medium opacity-85">{label}</p>
-          <p className="mt-3 text-3xl font-semibold leading-tight">{value}</p>
-          <p className="mt-2 text-sm font-normal opacity-80">{note}</p>
-        </div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/75 text-current dark:bg-white/10">
-          <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+    <article className="relative">
+      {/* Image area */}
+      <div className="relative aspect-square bg-gray-100">
+        {image ? (
+          <img src={image} alt={product.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center text-gray-300">
+            <ImageIcon className="h-10 w-10" strokeWidth={1.2} />
+          </div>
+        )}
+        {/* Checkbox overlay */}
+        {!poolResale ? (
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded border bg-white text-white transition"
+            aria-label={selected ? "Deselect" : "Select"}
+          >
+            {selected ? (
+              <span className="flex h-6 w-6 items-center justify-center rounded bg-gray-900">
+                <Check className="h-3.5 w-3.5 text-white" />
+              </span>
+            ) : (
+              <span className="h-6 w-6 rounded border border-gray-300 bg-white" />
+            )}
+          </button>
+        ) : null}
+        {/* Status badge */}
+        <span className={`absolute right-2 top-2 text-xs font-medium ${statusColor(product.status)}`}>
+          {product.status}
         </span>
+      </div>
+
+      {/* Info area */}
+      <div className="border-t border-gray-200 p-4">
+        <h3 className="text-base font-semibold text-gray-900 line-clamp-1">{product.name}</h3>
+
+        <div className="mt-1 flex items-center justify-between">
+          <span className="text-lg font-bold text-gray-900">{formatCurrency(product.price)}</span>
+          <span className="text-sm text-gray-500">Stock: {stock}</span>
+        </div>
+
+        <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+          <span>{product.productType ?? "PHYSICAL"}</span>
+          <span>•</span>
+          <span>{product.sku ?? product.id.slice(0, 8)}</span>
+          {(product.poolEnabled || poolResale) && (
+            <>
+              <span>•</span>
+              <span className={poolResale ? "text-orange-600" : "text-emerald-600"}>
+                {poolResale ? "Pool sourced" : "Pool"}
+              </span>
+            </>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <Link
+            href={`/dashboard/products/${product.id}/edit`}
+            className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {poolResale ? "Edit price" : "Edit"}
+          </Link>
+          <button
+            type="button"
+            onClick={onView}
+            className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </button>
+          {!poolResale ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-gray-600 transition hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          ) : null}
+        </div>
       </div>
     </article>
   );
 }
 
-export default function VendorProductsPage() {
-  const { products, isLoading, fetchProducts, refreshProducts } = useVendorProductsStore();
+/* ─── Delete Confirmation Modal ─── */
+
+function DeleteConfirmModal({
+  isOpen,
+  product,
+  onClose,
+  onConfirm,
+  isDeleting,
+}: {
+  isOpen: boolean;
+  product: Product | null;
+  onClose: () => void;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}) {
+  if (!product) return null;
+  return (
+    <AppModal isOpen={isOpen} onClose={onClose} title="Delete Product?" className="sm:max-w-md">
+      <div>
+        <p className="text-sm text-gray-600">
+          Are you sure you want to archive <strong className="text-gray-900">{product.name}</strong>?
+          This will set the product status to Archived. You can restore it later by changing its status back.
+        </p>
+      </div>
+      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+        <AppButton type="button" variant="secondary" onClick={onClose}>
+          Cancel
+        </AppButton>
+        <AppButton type="button" variant="danger" onClick={onConfirm} isLoading={isDeleting}>
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </AppButton>
+      </div>
+    </AppModal>
+  );
+}
+
+/* ─── Create Product Wizard Modal ─── */
+
+function CreateProductModal({
+  isOpen,
+  onClose,
+  onCreated,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const [form, setForm] = React.useState(blankForm);
-  const [query, setQuery] = React.useState("");
-  const [showSearch, setShowSearch] = React.useState(false);
   const [step, setStep] = React.useState(0);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
-  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    fetchProducts().catch((error) => {
-      kwikToast.error(error instanceof Error ? error.message : "Could not load vendor products");
-    });
-  }, [fetchProducts]);
-
-  const filteredProducts = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((product) => [product.name, product.description, product.sku]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(q)));
-  }, [products, query]);
-
-  const openCreate = () => {
+  const resetAndClose = () => {
     setForm(blankForm);
     setStep(0);
-    setIsCreateOpen(true);
+    onClose();
   };
 
   const validateStep = (nextStep: number) => {
@@ -138,21 +308,8 @@ export default function VendorProductsPage() {
   };
 
   const createProduct = async () => {
-    if (!form.name.trim()) {
-      kwikToast.error("Product name is required");
-      setStep(0);
-      return;
-    }
-    if (Number(form.price) <= 0) {
-      kwikToast.error("Product price must be greater than zero");
-      setStep(1);
-      return;
-    }
-    if (form.poolEnabled && Number(form.poolMinSalePrice || form.poolBasePrice || form.price) < Number(form.poolBasePrice || form.price)) {
-      kwikToast.error("Pool minimum sale price cannot be below source price");
-      setStep(1);
-      return;
-    }
+    if (!form.name.trim()) { kwikToast.error("Product name is required"); setStep(0); return; }
+    if (Number(form.price) <= 0) { kwikToast.error("Price must be greater than zero"); setStep(1); return; }
 
     setIsSaving(true);
     try {
@@ -174,10 +331,8 @@ export default function VendorProductsPage() {
         poolMaxSelectableQuantity: form.poolEnabled && form.poolMaxSelectableQuantity ? Number(form.poolMaxSelectableQuantity) : undefined,
       });
       kwikToast.success("Product created");
-      setForm(blankForm);
-      setIsCreateOpen(false);
-      setStep(0);
-      refreshProducts().catch(() => undefined);
+      resetAndClose();
+      onCreated();
     } catch (error) {
       kwikToast.error(error instanceof Error ? error.message : "Product creation failed");
     } finally {
@@ -189,9 +344,9 @@ export default function VendorProductsPage() {
     if (!files?.length) return;
     setIsUploading(true);
     try {
-      const uploads = await Promise.all(Array.from(files).slice(0, 5).map((file) => uploadApi.productImage(file)));
+      const uploads = await Promise.all(Array.from(files).slice(0, 5).map((f) => uploadApi.productImage(f)));
       const urls = uploads.map(uploadedUrl).filter(Boolean);
-      setForm((current) => ({ ...current, images: [...current.images, ...urls].slice(0, 5) }));
+      setForm((c) => ({ ...c, images: [...c.images, ...urls].slice(0, 5) }));
       kwikToast.success(`${urls.length} image${urls.length === 1 ? "" : "s"} uploaded`);
     } catch (error) {
       kwikToast.error(error instanceof Error ? error.message : "Image upload failed");
@@ -200,304 +355,561 @@ export default function VendorProductsPage() {
     }
   };
 
-  const physicalProducts = products.filter((product) => product.productType !== "DIGITAL");
-  const poolProducts = products.filter((product) => product.poolEnabled || product.productSource === "POOL_RESALE");
-
   return (
-    <div className="safe-container space-y-5">
-      <VendorPageHeader
-        title="Products"
-        description="Create, review, and manage store products. Product creation now follows a focused step flow."
-        action={
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSearch((value) => !value)}
-              aria-label={showSearch ? "Hide product search" : "Search products"}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6] text-[#111827] transition hover:bg-white hover:ring-1 hover:ring-[#E5E7EB] dark:bg-white/8 dark:text-white"
-            >
-              {showSearch ? <X className="h-[18px] w-[18px]" strokeWidth={1.5} /> : <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />}
-            </button>
-            <AppButton
-              type="button"
-              variant="secondary"
-              size="lg"
-              onClick={() => refreshProducts().catch((error) => kwikToast.error(error instanceof Error ? error.message : "Could not load vendor products"))}
-              disabled={isLoading}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </AppButton>
-            <AppButton type="button" size="lg" onClick={openCreate}>
-              <PackagePlus className="h-4 w-4" />
-              Add product
-            </AppButton>
+    <AppModal isOpen={isOpen} onClose={resetAndClose} title="Add Product" description="Complete the required steps, then confirm." className="sm:max-w-3xl">
+      <div className="space-y-6">
+        {/* Step indicator */}
+        <div className="grid grid-cols-4 gap-2">
+          {wizardSteps.map((label, i) => {
+            const done = i < step;
+            const active = i === step;
+            return (
+              <button key={label} type="button" onClick={() => i <= step && setStep(i)} className="flex flex-col items-center gap-2 text-center">
+                <span className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${done ? "border-gray-900 bg-gray-900 text-white" : active ? "border-gray-900 bg-white text-gray-900" : "border-gray-300 bg-white text-gray-400"}`}>
+                  {done ? <Check className="h-4 w-4" /> : i + 1}
+                </span>
+                <span className="hidden text-xs font-medium text-gray-500 sm:block">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Step 0 — Basic Info */}
+        {step === 0 && (
+          <div className="space-y-4">
+            <FieldInput required label="Product name" value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} />
+            <FieldSelect label="Product type" value={form.productType} onChange={(e) => setForm((v) => ({ ...v, productType: e.target.value as ProductType }))}>
+              <option value="PHYSICAL">Physical</option>
+              <option value="DIGITAL">Digital</option>
+            </FieldSelect>
+            <FieldTextarea label="Description" value={form.description} onChange={(e) => setForm((v) => ({ ...v, description: e.target.value }))} />
           </div>
-        }
-      />
-
-      {showSearch ? (
-        <VendorSoftPanel>
-          <form
-            className="grid grid-cols-[minmax(0,1fr)_40px] items-center gap-2"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <FieldInput
-              aria-label="Search products"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search products, SKU, description"
-              className="premium-search px-4 dark:bg-white/8"
-            />
-            <button
-              type="submit"
-              aria-label="Search"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111827] text-white transition hover:bg-[#1F2937]"
-            >
-              <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            </button>
-          </form>
-        </VendorSoftPanel>
-      ) : null}
-
-      <section className="scrollbar-hide -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0">
-        <ProductStatCard label="Catalog" value={String(products.length)} note="Total products" icon={Package} tone="blue" />
-        <ProductStatCard label="Physical stock" value={String(physicalProducts.length)} note="Inventory tracked" icon={PackagePlus} tone="orange" />
-        <ProductStatCard label="Pool items" value={String(poolProducts.length)} note="Available or sourced" icon={Check} tone="green" />
-      </section>
-
-      <VendorSoftPanel title="Catalog" description={`${filteredProducts.length} product${filteredProducts.length === 1 ? "" : "s"} shown`}>
-        {isLoading ? (
-          <KwiksellerLoader />
-        ) : filteredProducts.length ? (
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-3">
-            {filteredProducts.map((product) => {
-              const inventory = product.inventoryItems?.[0];
-              const image = productImage(product);
-              return (
-                <article key={product.id} className="premium-card grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 p-2 md:block md:p-0">
-                  <div className="h-[76px] w-[76px] overflow-hidden rounded-lg bg-[#F7F8FA] md:aspect-[3/4] md:h-auto md:w-full md:rounded-none">
-                    {image ? (
-                      <img src={image} alt={product.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <ImageIcon className="h-8 w-8" strokeWidth={1.2} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 md:p-4">
-                    <div className="hidden flex-wrap gap-2 md:flex">
-                      <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-[#6B7280] dark:bg-white/8 dark:text-white/72">
-                        {product.productType ?? "PHYSICAL"}
-                      </span>
-                      {product.poolEnabled ? (
-                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                          Available in Pool
-                        </span>
-                      ) : null}
-                      {product.productSource === "POOL_RESALE" ? (
-                        <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-medium text-[#6B7280] dark:bg-white/8 dark:text-white/72">
-                          Pool sourced
-                        </span>
-                      ) : null}
-                    </div>
-                    <h3 className="product-title-clamp text-sm font-normal text-[#111827] dark:text-white md:mt-3">{product.name}</h3>
-                    <p className="mt-1 line-clamp-1 text-xs font-normal text-[#6B7280] md:mt-2 md:line-clamp-2 md:text-sm md:leading-6">{product.description || product.productType || "No description yet."}</p>
-                    <div className="mt-2 flex items-center gap-3 md:mt-4 md:items-end md:justify-between">
-                      <div>
-                        <p className="hidden text-[11px] font-medium uppercase tracking-wide text-[#6B7280] md:block">Price</p>
-                        <p className="text-base font-semibold leading-tight text-[#111827] dark:text-white md:text-base">{formatCurrency(product.price)}</p>
-                      </div>
-                      <div className="text-left md:text-right">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6B7280]">Available</p>
-                        <p className="text-base font-semibold leading-tight text-[#111827] dark:text-white md:text-base">{inventory?.available ?? product.stock ?? 0}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full text-[#111827] md:hidden">
-                    <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
-                  </span>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <VendorEmptyState
-            title={query ? "No matching products" : "No products yet"}
-            text={query ? "Try another search term." : "Create your first vendor stock or digital product to start testing checkout."}
-            action={!query ? <AppButton type="button" onClick={openCreate}>Add product</AppButton> : undefined}
-          />
         )}
-      </VendorSoftPanel>
 
-      <AppModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Add Product"
-        description="Complete the required steps, then confirm."
-        className="sm:max-w-3xl"
-      >
-        <div className="space-y-6">
-          <div className="grid grid-cols-4 gap-2">
-            {steps.map((label, index) => {
-              const complete = index < step;
-              const active = index === step;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => index <= step && setStep(index)}
-                  className="flex flex-col items-center gap-2 text-center"
-                >
-                  <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${
-                      complete
-                        ? "border-[#071a2f] bg-[#071a2f] text-white"
-                        : active
-                          ? "border-[#071a2f] bg-background text-[#071a2f] dark:border-accent dark:text-accent"
-                          : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    {complete ? <Check className="h-4 w-4" /> : index + 1}
-                  </span>
-                  <span className="hidden text-xs font-semibold text-muted-foreground sm:block">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {step === 0 ? (
-            <div className="space-y-4">
-              <FieldInput required label="Product name" value={form.name} onChange={(event) => setForm((v) => ({ ...v, name: event.target.value }))} />
-              <FieldSelect label="Product type" value={form.productType} onChange={(event) => setForm((v) => ({ ...v, productType: event.target.value as ProductType }))}>
-                <option value="PHYSICAL">Physical</option>
-                <option value="DIGITAL">Digital</option>
-              </FieldSelect>
-              <FieldTextarea label="Short description" value={form.description} onChange={(event) => setForm((v) => ({ ...v, description: event.target.value }))} />
+        {/* Step 1 — Pricing & Stock */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FieldInput required type="number" min={0} label="Price" value={form.price} onChange={(e) => setForm((v) => ({ ...v, price: Number(e.target.value) }))} />
+              <FieldInput type="number" min={0} label="Compare price" value={form.comparePrice} onChange={(e) => setForm((v) => ({ ...v, comparePrice: Number(e.target.value) }))} />
             </div>
-          ) : null}
-
-          {step === 1 ? (
-            <div className="space-y-4">
+            {form.productType === "PHYSICAL" ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <FieldInput required type="number" min={0} label="Price" value={form.price} onChange={(event) => setForm((v) => ({ ...v, price: Number(event.target.value) }))} />
-                <FieldInput type="number" min={0} label="Compare price" value={form.comparePrice} onChange={(event) => setForm((v) => ({ ...v, comparePrice: Number(event.target.value) }))} />
+                <FieldInput type="number" min={0} label="Initial stock" value={form.initialStock} onChange={(e) => setForm((v) => ({ ...v, initialStock: Number(e.target.value) }))} />
+                <FieldInput type="number" min={0} label="Low stock alert" value={form.lowStock} onChange={(e) => setForm((v) => ({ ...v, lowStock: Number(e.target.value) }))} />
               </div>
-              {form.productType === "PHYSICAL" ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FieldInput type="number" min={0} label="Initial stock" value={form.initialStock} onChange={(event) => setForm((v) => ({ ...v, initialStock: Number(event.target.value) }))} />
-                  <FieldInput type="number" min={0} label="Low stock alert" value={form.lowStock} onChange={(event) => setForm((v) => ({ ...v, lowStock: Number(event.target.value) }))} />
-                </div>
-              ) : (
-                <div className="rounded-lg bg-surface p-4 text-sm text-muted-foreground">
-                  Digital products default to unlimited delivery unless you later attach license-limited assets.
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          {step === 2 ? (
-            <div className="space-y-4">
-              <FieldInput label="SKU" value={form.sku} onChange={(event) => setForm((v) => ({ ...v, sku: event.target.value }))} />
-              <label className="block">
-                <span className="text-xs font-semibold text-muted-foreground">Product images</span>
-                <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface p-6 text-center">
-                  <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                  <p className="mt-3 text-sm font-semibold text-foreground">
-                    <span className="text-accent underline">Click to upload</span> or drag and drop
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {`${form.images.length}/5 images added`}
-                  </p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(event) => uploadImages(event.target.files)}
-                    className="sr-only"
-                  />
-                </div>
-              </label>
-              {form.images.length ? (
-                <div className="grid grid-cols-5 gap-2">
-                  {form.images.map((url) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => setForm((current) => ({ ...current, images: current.images.filter((image) => image !== url) }))}
-                      className="aspect-square overflow-hidden rounded-lg border border-border bg-surface"
-                      title="Remove image"
-                    >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              {form.productType === "PHYSICAL" ? (
-                <div className="rounded-lg border border-border bg-surface p-4">
-                  <AppSwitch
-                    isSelected={form.poolEnabled}
-                    onChange={(selected) => setForm((v) => ({
-                      ...v,
-                      poolEnabled: selected,
-                      poolBasePrice: selected && !v.poolBasePrice ? Number(v.price) : v.poolBasePrice,
-                      poolMinSalePrice: selected && !v.poolMinSalePrice ? Number(v.price) : v.poolMinSalePrice,
-                    }))}
-                    label="Make available in Pool"
-                    description="Other vendors can select this product and sell it from their own storefront."
-                  />
-                  {form.poolEnabled ? (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <FieldInput type="number" min={0} label="Source price" value={form.poolBasePrice || form.price} onChange={(event) => setForm((v) => ({ ...v, poolBasePrice: Number(event.target.value) }))} />
-                      <FieldInput type="number" min={form.poolBasePrice || form.price} label="Minimum sale price" value={form.poolMinSalePrice || form.poolBasePrice || form.price} onChange={(event) => setForm((v) => ({ ...v, poolMinSalePrice: Number(event.target.value) }))} />
-                      <FieldInput type="number" min={0} label="Pool quantity" placeholder="Use stock" value={form.poolMaxSelectableQuantity || ""} onChange={(event) => setForm((v) => ({ ...v, poolMaxSelectableQuantity: Number(event.target.value) }))} />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {step === 3 ? (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-surface p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review</p>
-                <h3 className="mt-2 font-heading text-2xl font-semibold text-foreground">{form.name || "Untitled product"}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{form.description || "No description added."}</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div><p className="text-xs text-muted-foreground">Type</p><p className="font-semibold text-foreground">{form.productType}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Price</p><p className="font-semibold text-foreground">{formatCurrency(form.price)}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Images</p><p className="font-semibold text-foreground">{form.images.length}</p></div>
-                </div>
-              </div>
-              {form.poolEnabled ? (
-                <div className="rounded-lg bg-emerald-50 p-4 text-sm font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                  This product will be available in Pool at source price {formatCurrency(form.poolBasePrice || form.price)}.
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-            <AppButton type="button" variant="secondary" disabled={step === 0 || isSaving} onClick={() => setStep((current) => Math.max(0, current - 1))}>
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </AppButton>
-            {step < steps.length - 1 ? (
-              <AppButton type="button" onClick={() => validateStep(step + 1)}>
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </AppButton>
             ) : (
-              <AppButton type="button" disabled={isSaving || isUploading} onClick={createProduct}>
-                <Plus className="h-4 w-4" />
-                Create product
-              </AppButton>
+              <p className="text-sm text-gray-500">Digital products default to unlimited delivery.</p>
             )}
           </div>
+        )}
+
+        {/* Step 2 — Details */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <FieldInput label="SKU" value={form.sku} onChange={(e) => setForm((v) => ({ ...v, sku: e.target.value }))} />
+            <label className="block">
+              <span className="text-xs font-semibold text-gray-500">Product images</span>
+              <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                <Upload className="h-8 w-8 text-gray-400" />
+                <p className="mt-2 text-sm font-medium text-gray-700">
+                  <span className="text-blue-600 underline">Click to upload</span> or drag and drop
+                </p>
+                <p className="mt-1 text-xs text-gray-400">{`${form.images.length}/5 images added`}</p>
+                <input type="file" accept="image/*" multiple onChange={(e) => uploadImages(e.target.files)} className="sr-only" />
+              </div>
+            </label>
+            {form.images.length > 0 && (
+              <div className="grid grid-cols-5 gap-2">
+                {form.images.map((url) => (
+                  <button key={url} type="button" onClick={() => setForm((c) => ({ ...c, images: c.images.filter((img) => img !== url) }))} className="aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50" title="Remove image">
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {form.productType === "PHYSICAL" && (
+              <div className="border border-gray-200 p-4">
+                <AppSwitch
+                  isSelected={form.poolEnabled}
+                  onChange={(sel) => setForm((v) => ({
+                    ...v,
+                    poolEnabled: sel,
+                    poolBasePrice: sel && !v.poolBasePrice ? Number(v.price) : v.poolBasePrice,
+                    poolMinSalePrice: sel && !v.poolMinSalePrice ? Number(v.price) : v.poolMinSalePrice,
+                  }))}
+                  label="Make available in Pool"
+                  description="Other vendors can select and sell this product."
+                />
+                {form.poolEnabled && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <FieldInput type="number" min={0} label="Source price" value={form.poolBasePrice || form.price} onChange={(e) => setForm((v) => ({ ...v, poolBasePrice: Number(e.target.value) }))} />
+                    <FieldInput type="number" min={form.poolBasePrice || form.price} label="Min sale price" value={form.poolMinSalePrice || form.poolBasePrice || form.price} onChange={(e) => setForm((v) => ({ ...v, poolMinSalePrice: Number(e.target.value) }))} />
+                    <FieldInput type="number" min={0} label="Pool quantity" placeholder="Use stock" value={form.poolMaxSelectableQuantity || ""} onChange={(e) => setForm((v) => ({ ...v, poolMaxSelectableQuantity: Number(e.target.value) }))} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3 — Review */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <div className="border border-gray-200 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Review</p>
+              <h3 className="mt-2 text-xl font-semibold text-gray-900">{form.name || "Untitled product"}</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-500">{form.description || "No description added."}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div><p className="text-xs text-gray-400">Type</p><p className="font-semibold text-gray-900">{form.productType}</p></div>
+                <div><p className="text-xs text-gray-400">Price</p><p className="font-semibold text-gray-900">{formatCurrency(form.price)}</p></div>
+                <div><p className="text-xs text-gray-400">Images</p><p className="font-semibold text-gray-900">{form.images.length}</p></div>
+              </div>
+            </div>
+            {form.poolEnabled && (
+              <p className="text-sm font-medium text-emerald-600">
+                This product will be available in Pool at source price {formatCurrency(form.poolBasePrice || form.price)}.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+          <AppButton type="button" variant="secondary" disabled={step === 0 || isSaving} onClick={() => setStep((c) => Math.max(0, c - 1))}>
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </AppButton>
+          {step < wizardSteps.length - 1 ? (
+            <AppButton type="button" onClick={() => validateStep(step + 1)}>
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </AppButton>
+          ) : (
+            <AppButton type="button" disabled={isSaving || isUploading} onClick={createProduct}>
+              <Plus className="h-4 w-4" />
+              Create product
+            </AppButton>
+          )}
         </div>
-      </AppModal>
-      {isSaving || isUploading ? <KwiksellerLoader overlay /> : null}
+      </div>
+    </AppModal>
+  );
+}
+
+/* ─── Pagination ─── */
+
+function Pagination({
+  total,
+  page,
+  onPageChange,
+}: {
+  total: number;
+  page: number;
+  onPageChange: (p: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+  const start = (page - 1) * ITEMS_PER_PAGE + 1;
+  const end = Math.min(page * ITEMS_PER_PAGE, total);
+
+  const pages: (number | "...")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (page > 3) pages.push("...");
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+    if (page < totalPages - 2) pages.push("...");
+    pages.push(totalPages);
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+      <p className="text-sm text-gray-500">
+        Showing {total > 0 ? start : 0}–{end} of {total} products
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Prev
+        </button>
+        {pages.map((p, i) =>
+          p === "..." ? (
+            <span key={`dots-${i}`} className="px-1 text-sm text-gray-400">...</span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPageChange(p as number)}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded text-sm font-medium transition ${p === page ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Page ─── */
+
+export default function VendorProductsPage() {
+  const { products, isLoading, fetchProducts, refreshProducts } = useVendorProductsStore();
+
+  // Filters
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("");
+
+  // Pagination
+  const [page, setPage] = React.useState(1);
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+
+  // Delete
+  const [deleteTarget, setDeleteTarget] = React.useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  // Create
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+
+  // Bulk actions
+  const [bulkStatus, setBulkStatus] = React.useState("");
+  const [bulkCategory, setBulkCategory] = React.useState("");
+  const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
+
+  React.useEffect(() => {
+    fetchProducts().catch((err) => {
+      kwikToast.error(err instanceof Error ? err.message : "Could not load vendor products");
+    });
+  }, [fetchProducts]);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setPage(1);
+    setSelectedIds(new Set());
+  }, [searchQuery, statusFilter, categoryFilter]);
+
+  // Derived data
+  const filteredProducts = React.useMemo(() => {
+    let result = products;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((p) =>
+        [p.name, p.sku, p.description].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+      );
+    }
+    if (statusFilter) {
+      result = result.filter((p) => p.status === statusFilter);
+    }
+    if (categoryFilter) {
+      result = result.filter((p) => p.category?.name === categoryFilter);
+    }
+    return result;
+  }, [products, searchQuery, statusFilter, categoryFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const selectableProducts = paginatedProducts.filter((product) => !isPoolResaleProduct(product));
+
+  const allSelected = selectableProducts.length > 0 && selectableProducts.every((p) => selectedIds.has(p.id));
+  const noneSelected = selectableProducts.every((p) => !selectedIds.has(p.id));
+
+  const stats = React.useMemo(() => ({
+    total: products.length,
+    physical: products.filter((p) => p.productType !== "DIGITAL").length,
+    pool: products.filter((p) => p.poolEnabled || p.productSource === "POOL_RESALE").length,
+  }), [products]);
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableProducts.map((p) => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const product = products.find((item) => item.id === id);
+    if (product && isPoolResaleProduct(product)) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    if (isPoolResaleProduct(deleteTarget)) {
+      kwikToast.error("Pool-sourced products can only have their selling price changed");
+      setDeleteTarget(null);
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await vendorCommerceApi.updateProduct(deleteTarget.id, { status: "ARCHIVED" });
+      kwikToast.success("Product archived");
+      setDeleteTarget(null);
+      refreshProducts().catch(() => undefined);
+    } catch (error) {
+      kwikToast.error(error instanceof Error ? error.message : "Failed to archive product");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkAction = async (action: "delete" | "status" | "category") => {
+    if (selectedIds.size === 0) return;
+    const ownedSelectedIds = Array.from(selectedIds).filter((id) => {
+      const product = products.find((item) => item.id === id);
+      return product && !isPoolResaleProduct(product);
+    });
+    if (ownedSelectedIds.length === 0) {
+      kwikToast.error("Pool-sourced products can only have their selling price changed");
+      setSelectedIds(new Set());
+      return;
+    }
+    setIsBulkProcessing(true);
+    try {
+      if (action === "delete") {
+        await Promise.all(
+          ownedSelectedIds.map((id) => vendorCommerceApi.updateProduct(id, { status: "ARCHIVED" }))
+        );
+        kwikToast.success(`${ownedSelectedIds.length} products archived`);
+      } else if (action === "status" && bulkStatus) {
+        await Promise.all(
+          ownedSelectedIds.map((id) => vendorCommerceApi.updateProduct(id, { status: bulkStatus as any }))
+        );
+        kwikToast.success(`Status updated for ${ownedSelectedIds.length} products`);
+      }
+      setSelectedIds(new Set());
+      refreshProducts().catch(() => undefined);
+    } catch (error) {
+      kwikToast.error(error instanceof Error ? error.message : "Bulk action failed");
+    } finally {
+      setIsBulkProcessing(false);
+      setBulkStatus("");
+      setBulkCategory("");
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("");
+    setCategoryFilter("");
+  };
+
+  const hasActiveFilters = searchQuery || statusFilter || categoryFilter;
+
+  return (
+    <div className="safe-container space-y-6">
+      {/* Page Header */}
+      <section className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
+          <p className="mt-1 text-sm text-gray-500">Create, review, and manage your store products.</p>
+        </div>
+        <div className="flex gap-2">
+          <AppButton
+            type="button"
+            variant="secondary"
+            onClick={() => refreshProducts().catch((e) => kwikToast.error(e instanceof Error ? e.message : "Could not refresh"))}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </AppButton>
+          <AppButton type="button" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Product
+          </AppButton>
+        </div>
+      </section>
+
+      {/* Stats Row */}
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <DashboardMetricCard
+          title="Total Catalog"
+          value={String(stats.total)}
+          description="All owned and Pool-sourced products in your store."
+          tone="accent"
+          icon={<Package className="h-5 w-5" strokeWidth={1.5} />}
+        />
+        <DashboardMetricCard
+          title="Physical Stock"
+          value={String(stats.physical)}
+          description="Owned products that require stock and shipping."
+          tone="success"
+          icon={<PackagePlus className="h-5 w-5" strokeWidth={1.5} />}
+        />
+        <DashboardMetricCard
+          title="Pool Items"
+          value={String(stats.pool)}
+          description="Products sourced from Pool with price-only control."
+          tone="brand"
+          icon={<Check className="h-5 w-5" strokeWidth={1.5} />}
+        />
+      </section>
+
+      {/* Filters / Search Bar */}
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <FieldInput
+            placeholder="Search by name or SKU..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="!mt-0"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-[1fr_1fr_auto]">
+          <FieldSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="!mt-0">
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </FieldSelect>
+          <FieldSelect value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="!mt-0">
+            <option value="">All Categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </FieldSelect>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <section className="flex flex-col gap-3 border border-gray-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">{selectedIds.size} selected</span>
+            <button type="button" onClick={() => setSelectedIds(new Set())} className="text-sm text-gray-500 hover:text-gray-700">
+              Clear selection
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleBulkAction("delete")}
+              disabled={isBulkProcessing}
+              className="inline-flex h-8 items-center gap-1 rounded px-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Selected
+            </button>
+            <select
+              value={bulkStatus}
+              onChange={(e) => {
+                setBulkStatus(e.target.value);
+                if (e.target.value) handleBulkAction("status");
+              }}
+              disabled={isBulkProcessing}
+              className="h-8 rounded border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-gray-500 disabled:opacity-50"
+            >
+              <option value="">Set Status...</option>
+              {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </section>
+      )}
+
+      {/* Product Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : paginatedProducts.length > 0 ? (
+        <>
+          <div className="flex items-center gap-3 px-1">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="flex h-6 w-6 items-center justify-center rounded border bg-white text-white transition"
+              aria-label={allSelected ? "Deselect all" : "Select all"}
+            >
+              {allSelected ? (
+                <span className="flex h-6 w-6 items-center justify-center rounded bg-gray-900">
+                  <Check className="h-3.5 w-3.5 text-white" />
+                </span>
+              ) : (
+                <span className="h-6 w-6 rounded border border-gray-300 bg-white" />
+              )}
+            </button>
+            <span className="text-xs text-gray-500">Select all on page</span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {paginatedProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                selected={selectedIds.has(product.id)}
+                onToggleSelect={() => toggleSelect(product.id)}
+                onEdit={() => {}}
+                onView={() => {
+                  kwikToast.info(`Viewing ${product.name}`);
+                }}
+                onDelete={() => setDeleteTarget(product)}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <VendorEmptyState
+          title={searchQuery || statusFilter || categoryFilter ? "No matching products" : "No products yet"}
+          text={searchQuery || statusFilter || categoryFilter ? "Try adjusting your filters." : "Create your first product to get started."}
+          action={!searchQuery && !statusFilter && !categoryFilter ? (
+            <AppButton type="button" onClick={() => setIsCreateOpen(true)}>Add Product</AppButton>
+          ) : undefined}
+        />
+      )}
+
+      {/* Pagination */}
+      {filteredProducts.length > ITEMS_PER_PAGE && (
+        <Pagination total={filteredProducts.length} page={page} onPageChange={setPage} />
+      )}
+
+      {/* Modals */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        product={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+      />
+      <CreateProductModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={() => refreshProducts().catch(() => undefined)}
+      />
     </div>
   );
 }

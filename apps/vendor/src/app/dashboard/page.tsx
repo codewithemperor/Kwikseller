@@ -3,33 +3,27 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  AlertTriangle,
-  Boxes,
-  PackageCheck,
+  ExternalLink,
+  Package,
   ShoppingBag,
-  Sparkles,
-  Users,
+  DollarSign,
+  Truck,
+  Plus,
+  PackageCheck,
+  Store,
+  MessageSquare,
+  ArrowRight,
+  Clock,
+  ChevronRight,
+  PackageSearch,
+  RefreshCw,
 } from "lucide-react";
-import {
-  VendorMetricCard,
-  VendorSoftPanel,
-  VendorSolidCard,
-} from "@/components/dashboard/vendor-dashboard-ui";
-import { StorePublicUrlCard } from "@/components/dashboard/store-public-url-card";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
+import { DashboardMetricCard } from "@/components/dashboard/vendor-dashboard-ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { InventoryItem, Order, VendorPoolOffer } from "@kwikseller/types";
+import { useAuthStore } from "@kwikseller/utils";
+import { cn } from "@/lib/utils";
 
 type VendorDashboardResponse = {
   revenue: number;
@@ -42,150 +36,126 @@ type VendorDashboardResponse = {
   poolOffers: VendorPoolOffer[];
 };
 
-type SalesPeriod = "week" | "month" | "last3" | "last6" | "year" | "lastYear";
-
-const salesPeriodOptions: Array<{ value: SalesPeriod; label: string }> = [
-  { value: "week", label: "This week" },
-  { value: "month", label: "This month" },
-  { value: "last3", label: "Last 3 months" },
-  { value: "last6", label: "Last 6 months" },
-  { value: "year", label: "This year" },
-  { value: "lastYear", label: "Last year" },
-];
-
-const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function startOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
-function buildSalesTrend(orders: Order[], period: SalesPeriod) {
-  const now = new Date();
-  const buckets: Array<{ label: string; value: number; startsAt: Date; endsAt: Date }> = [];
-
-  if (period === "week") {
-    const day = now.getDay() || 7;
-    const weekStart = startOfDay(now);
-    weekStart.setDate(now.getDate() - day + 1);
-    for (let index = 0; index < 7; index += 1) {
-      const startsAt = new Date(weekStart);
-      startsAt.setDate(weekStart.getDate() + index);
-      const endsAt = new Date(startsAt);
-      endsAt.setDate(startsAt.getDate() + 1);
-      buckets.push({ label: dayLabels[index], value: 0, startsAt, endsAt });
-    }
-  } else if (period === "month") {
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const startsAt = new Date(now.getFullYear(), now.getMonth(), day);
-      const endsAt = new Date(now.getFullYear(), now.getMonth(), day + 1);
-      buckets.push({ label: String(day), value: 0, startsAt, endsAt });
-    }
-  } else {
-    const count = period === "last3" ? 3 : period === "last6" ? 6 : 12;
-    const baseYear = period === "lastYear" ? now.getFullYear() - 1 : now.getFullYear();
-    const startMonth = period === "last3" || period === "last6" ? now.getMonth() - count + 1 : 0;
-    for (let index = 0; index < count; index += 1) {
-      const startsAt = new Date(baseYear, startMonth + index, 1);
-      const endsAt = new Date(startsAt.getFullYear(), startsAt.getMonth() + 1, 1);
-      buckets.push({ label: monthLabels[startsAt.getMonth()], value: 0, startsAt, endsAt });
-    }
-  }
-
-  orders.forEach((order) => {
-    const createdAt = new Date(order.createdAt);
-    if (Number.isNaN(createdAt.getTime())) return;
-    const bucket = buckets.find((item) => createdAt >= item.startsAt && createdAt < item.endsAt);
-    if (bucket) bucket.value += Number(order.totalAmount ?? 0);
-  });
-
-  return buckets.map(({ label, value }) => ({ label, value }));
-}
-
-function SalesTrendChart({
-  orders,
-  period,
-  isLoading,
-  onPeriodChange,
-}: {
-  orders: Order[];
-  period: SalesPeriod;
-  isLoading: boolean;
-  onPeriodChange: (period: SalesPeriod) => void;
-}) {
-  const sales = React.useMemo(() => buildSalesTrend(orders, period), [orders, period]);
-  const total = sales.reduce((sum, point) => sum + point.value, 0);
-
+function isToday(dateStr: string) {
+  const date = new Date(dateStr);
+  const today = new Date();
   return (
-    <div className="overflow-hidden">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sales trend</p>
-          <p className="mt-1 font-heading text-xl font-semibold text-foreground">{formatCurrency(total)}</p>
-        </div>
-        <select
-          value={period}
-          onChange={(event) => onPeriodChange(event.target.value as SalesPeriod)}
-          className="h-9 rounded-full bg-white px-3 text-xs font-medium text-foreground outline-none ring-1 ring-border transition focus:ring-[#111827] dark:bg-white/5"
-          aria-label="Sales trend period"
-        >
-          {salesPeriodOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+}
+
+function storeSlug(name?: string, slug?: string) {
+  if (slug?.trim()) return slug.trim();
+  return (name || "store")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function marketplaceBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_MARKETPLACE_URL ||
+    "https://kwikseller-marketplace.vercel.app/"
+  ).replace(/\/+$/, "");
+}
+
+function formatRelativeTime(dateStr: string) {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return formatDate(dateStr);
+}
+
+function statusColor(status: string) {
+  const map: Record<string, string> = {
+    PAID: "text-emerald-600 dark:text-emerald-400",
+    CONFIRMED: "text-emerald-600 dark:text-emerald-400",
+    PROCESSING: "text-amber-600 dark:text-amber-400",
+    FULFILLED: "text-blue-600 dark:text-blue-400",
+    SHIPPED: "text-blue-600 dark:text-blue-400",
+    DELIVERED: "text-emerald-600 dark:text-emerald-400",
+    CANCELLED: "text-red-500 dark:text-red-400",
+    REFUNDED: "text-red-500 dark:text-red-400",
+    PENDING: "text-gray-500 dark:text-gray-400",
+    DRAFT: "text-gray-500 dark:text-gray-400",
+    PENDING_PAYMENT: "text-amber-600 dark:text-amber-400",
+  };
+  return map[status] ?? "text-gray-500 dark:text-gray-400";
+}
+
+function formatStatus(status: string) {
+  return status
+    .split("_")
+    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/* ── Loading Skeleton ──────────────────────────────── */
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      {/* Welcome bar */}
+      <div className="space-y-2">
+        <div className="h-7 w-48 animate-pulse rounded bg-gray-100" />
+        <div className="h-4 w-72 animate-pulse rounded bg-gray-100" />
       </div>
-      <div className="mt-4 h-52">
-        {isLoading ? (
-          <KwiksellerLoader className="min-h-full" />
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sales} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="salesTrendFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F97316" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="#F97316" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="currentColor" className="text-border" vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "currentColor" }} className="text-muted-foreground" />
-              <YAxis hide domain={[0, "auto"]} />
-              <Tooltip
-                formatter={(value) => formatCurrency(Number(value))}
-                labelClassName="text-xs font-semibold text-muted-foreground"
-                contentStyle={{
-                  borderRadius: 14,
-                  border: "1px solid var(--border)",
-                  background: "var(--background)",
-                  color: "var(--foreground)",
-                  boxShadow: "none",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#071a2f"
-                strokeWidth={3}
-                fill="url(#salesTrendFill)"
-                dot={{ r: 4, fill: "#F97316", stroke: "#F97316" }}
-                activeDot={{ r: 6, fill: "#F97316", stroke: "#fff", strokeWidth: 2 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
+
+      {/* Metrics row */}
+      <div className="grid grid-cols-1 gap-6 border-b border-gray-100 pb-6 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-5 w-5 animate-pulse rounded bg-gray-100" />
+            <div className="h-8 w-24 animate-pulse rounded bg-gray-100" />
+            <div className="h-4 w-32 animate-pulse rounded bg-gray-100" />
+          </div>
+        ))}
+      </div>
+
+      {/* Two-column */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[3fr_2fr]">
+        <div className="space-y-3">
+          <div className="h-6 w-32 animate-pulse rounded bg-gray-100" />
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-12 animate-pulse rounded bg-gray-100" />
+          ))}
+        </div>
+        <div className="space-y-6">
+          <div className="h-40 animate-pulse rounded bg-gray-100" />
+          <div className="grid grid-cols-2 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded bg-gray-100" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+/* ── Main Dashboard Page ──────────────────────────── */
+
 export default function VendorDashboardPage() {
+  const { user } = useAuthStore();
   const [data, setData] = React.useState<VendorDashboardResponse | null>(null);
-  const [chartOrders, setChartOrders] = React.useState<Order[]>([]);
-  const [chartPeriod, setChartPeriod] = React.useState<SalesPeriod>("year");
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isChartLoading, setIsChartLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
@@ -196,10 +166,9 @@ export default function VendorDashboardPage() {
         if (!active) return;
         const dashboard = unwrapApiData<VendorDashboardResponse>(response.data);
         setData(dashboard);
-        setChartOrders(dashboard?.recentOrders ?? []);
       })
       .catch(() => {
-        if (active) setError("Could not load vendor dashboard.");
+        if (active) setError("Could not load dashboard data.");
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -209,234 +178,405 @@ export default function VendorDashboardPage() {
     };
   }, []);
 
-  React.useEffect(() => {
-    let active = true;
-    setIsChartLoading(true);
-    vendorCommerceApi
-      .listOrders({ limit: 500 })
-      .then((response) => {
-        if (!active) return;
-        const orders = unwrapApiData<Order[]>(response.data);
-        setChartOrders(Array.isArray(orders) ? orders : data?.recentOrders ?? []);
-      })
-      .catch(() => {
-        if (active) setChartOrders(data?.recentOrders ?? []);
-      })
-      .finally(() => {
-        if (active) setIsChartLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [chartPeriod, data?.recentOrders]);
-
-  if (isLoading) {
-    return <KwiksellerLoader />;
-  }
-
-  if (error) {
-    return (
-      <VendorEmptyState
-        title="Dashboard unavailable"
-        text={error}
-        action={
-          <button
-            onClick={() => window.location.reload()}
-            className="h-11 rounded-lg bg-[#111827] px-5 text-sm font-medium text-white"
-          >
-            Reload
-          </button>
-        }
-      />
-    );
-  }
+  /* ── Derived data ────────────────────────────────── */
 
   const recentOrders = data?.recentOrders ?? [];
   const inventoryAlerts = data?.inventoryAlerts ?? [];
   const fulfillmentTasks = data?.fulfillmentTasks ?? [];
+  const todaysOrders = recentOrders.filter((o) => isToday(o.createdAt));
+  const lowStockItems = inventoryAlerts.filter(
+    (item) => item.available <= item.lowStockThreshold
+  );
+
+  const store = user?.store;
+  const vendorName =
+    user?.profile?.firstName ||
+    store?.name ||
+    user?.email?.split("@")[0] ||
+    "Vendor";
+  const storeName = store?.name || "My Store";
+  const storeStatus = store?.isVerified ? "Verified" : "Unverified";
+  const slug = storeSlug(store?.name, store?.slug);
+  const storeUrl = `${marketplaceBaseUrl()}/vendor/${slug}`;
+
+  const avgOrderAmount =
+    recentOrders.length > 0
+      ? recentOrders.reduce((sum, o) => sum + Number(o.totalAmount ?? 0), 0) /
+        recentOrders.length
+      : 0;
+
+  /* ── Activity feed from recent orders ─────────────── */
+  const activityItems = recentOrders.slice(0, 6).map((order) => ({
+    id: order.id,
+    timestamp: order.createdAt,
+    description: `Order ${order.checkoutReference ?? order.id.slice(0, 8)} — ${formatStatus(order.status)}`,
+    icon:
+      order.status === "DELIVERED"
+        ? PackageCheck
+        : order.status === "CANCELLED"
+          ? PackageSearch
+          : ShoppingBag,
+  }));
+
+  /* ── Loading state ─────────────────────────────────── */
+
+  if (isLoading) return <DashboardSkeleton />;
+
+  /* ── Error state ──────────────────────────────────── */
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Overview of your store performance and activity.
+          </p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-20">
+          <PackageSearch
+            className="h-12 w-12 text-gray-300"
+            strokeWidth={1.5}
+          />
+          <h2 className="mt-4 text-lg font-medium text-foreground">
+            Dashboard unavailable
+          </h2>
+          <p className="mt-2 max-w-md text-center text-sm text-gray-500">
+            {error}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 inline-flex h-10 items-center rounded-md bg-gray-900 px-5 text-sm font-medium text-white transition hover:bg-gray-800"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" strokeWidth={1.5} />
+            Reload
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Render ───────────────────────────────────────── */
 
   return (
-    <div className="safe-container space-y-5">
-      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.6fr)]">
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-          <VendorSolidCard
-            title="Total revenue"
-            value={formatCurrency(data?.revenue ?? 0)}
-            primaryAction={
+    <div className="space-y-8">
+      {/* ─── Section 1: Welcome Bar ─────────────────── */}
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {getGreeting()}, {vendorName}
+          </h1>
+          <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+            <span>{storeName}</span>
+            <span
+              className={cn(
+                "rounded px-1.5 py-0.5 text-xs font-medium",
+                store?.isVerified
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+              )}
+            >
+              {storeStatus}
+            </span>
+          </div>
+        </div>
+        <a
+          href={storeUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        >
+          View Public Store
+          <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
+        </a>
+      </section>
+
+      {/* ─── Section 2: Metrics Row ──────────────────── */}
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <DashboardMetricCard
+          title="Today's Orders"
+          value={String(todaysOrders.length)}
+          description="Orders created today from buyer checkout activity."
+          href="/dashboard/orders"
+          tone="accent"
+          icon={<ShoppingBag className="h-5 w-5" strokeWidth={1.5} />}
+        />
+        <DashboardMetricCard
+          title="Revenue"
+          value={formatCurrency(data?.revenue ?? 0)}
+          description="Live paid order value for your current month."
+          href="/dashboard/wallet"
+          tone="success"
+          icon={<DollarSign className="h-5 w-5" strokeWidth={1.5} />}
+        />
+        <DashboardMetricCard
+          title="Active Products"
+          value={String(data?.productsCount ?? 0)}
+          description={lowStockItems.length > 0 ? `${lowStockItems.length} products need stock attention.` : "Products currently visible in your catalog."}
+          href="/dashboard/products"
+          tone="neutral"
+          icon={<Package className="h-5 w-5" strokeWidth={1.5} />}
+        />
+        <DashboardMetricCard
+          title="Pending Deliveries"
+          value={String(fulfillmentTasks.length)}
+          description="Paid orders waiting for fulfillment action."
+          href="/dashboard/deliveries"
+          tone="brand"
+          icon={<Truck className="h-5 w-5" strokeWidth={1.5} />}
+        />
+      </section>
+
+      {/* ─── Section 3: Two-Column Layout ────────────── */}
+      <section className="grid grid-cols-1 gap-8 lg:grid-cols-[3fr_2fr]">
+        {/* ─── Left Column ──────────────────────────── */}
+        <div className="space-y-8">
+          {/* Recent Orders */}
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Recent Orders
+              </h2>
               <Link
                 href="/dashboard/orders"
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-medium text-[#111827]"
+                className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 transition hover:text-gray-900 dark:hover:text-white"
               >
-                Orders
+                View all
+                <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
               </Link>
-            }
-            secondaryAction={
-              <Link
-                href="/dashboard/pool"
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-white/12 px-4 text-sm font-medium text-white ring-1 ring-white/20"
-              >
-                Pool
-              </Link>
-            }
-          />
-          <StorePublicUrlCard />
+            </div>
+
+            {recentOrders.length > 0 ? (
+              <div className="mt-4 divide-y divide-gray-100">
+                {recentOrders.slice(0, 8).map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between gap-4 py-3 first:pt-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-xs text-gray-500">
+                        {order.checkoutReference ?? order.id.slice(0, 12)}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-3">
+                        <p className="text-sm font-medium text-foreground">
+                          {formatCurrency(order.totalAmount)}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-xs font-medium",
+                            statusColor(order.status)
+                          )}
+                        >
+                          {formatStatus(order.status)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="text-xs text-gray-400">
+                        {formatDate(order.createdAt)}
+                      </span>
+                      <Link
+                        href={`/dashboard/orders/${order.id}`}
+                        className="text-xs font-medium text-gray-400 transition hover:text-gray-900 dark:hover:text-white"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 py-8 text-center">
+                <ShoppingBag
+                  className="mx-auto h-10 w-10 text-gray-200"
+                  strokeWidth={1.5}
+                />
+                <p className="mt-3 text-sm text-gray-500">
+                  No orders yet. Orders will appear here after buyers checkout.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Low Stock Alerts */}
+          {lowStockItems.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Low Stock Alerts
+              </h2>
+              <div className="mt-4 divide-y divide-gray-100">
+                {lowStockItems.slice(0, 5).map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-4 py-3 first:pt-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        SKU: {item.sku ?? item.productId.slice(0, 8)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                        {item.available} left
+                      </p>
+                    </div>
+                    <Link
+                      href="/dashboard/inventory"
+                      className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-white"
+                    >
+                      Restock
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <VendorSoftPanel
-          title="Store activity"
-          description="Live API metrics from products, fulfillment, and Pool sourcing."
-        >
-          <div className="-mx-5 grid auto-cols-[230px] grid-flow-col gap-3 overflow-x-auto px-5 pb-1 sm:mx-0 sm:grid-flow-row sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
-            <VendorMetricCard
-              label="Products"
-              value={String(data?.productsCount ?? 0)}
-              note="Active catalog"
-              icon={Boxes}
-              tone="accent"
-            />
-            <VendorMetricCard
-              label="Orders"
-              value={String(data?.ordersCount ?? 0)}
-              note="All time"
-              icon={ShoppingBag}
-            />
-            <VendorMetricCard
-              label="Pool earnings"
-              value={formatCurrency(data?.poolEarnings ?? 0)}
-              note="Margin earned"
-              icon={Users}
-              tone="success"
-            />
-          </div>
-        </VendorSoftPanel>
-      </section>
-
-      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <VendorSoftPanel
-          title="Sales performance"
-          description="Monthly sales movement from completed and recent checkout activity."
-        >
-          <SalesTrendChart
-            orders={chartOrders}
-            period={chartPeriod}
-            isLoading={isChartLoading}
-            onPeriodChange={setChartPeriod}
-          />
-        </VendorSoftPanel>
-
-        <VendorSoftPanel title="Finance score">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Store quality</p>
-              <p className="mt-2 font-heading text-xl font-semibold text-foreground">Good</p>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Score considers products, order activity, stock health, and escrow readiness.
-              </p>
-            </div>
-            <p className="font-heading text-2xl font-semibold text-foreground">
-              {Math.min(92, 60 + (data?.productsCount ?? 0) * 4)}%
-            </p>
-          </div>
-          <div className="mt-5 h-3 overflow-hidden rounded-full bg-surface">
-            <div
-              className="h-full rounded-full bg-[#071a2f] dark:bg-accent"
-              style={{ width: `${Math.min(92, 60 + (data?.productsCount ?? 0) * 4)}%` }}
-            />
-          </div>
-          <div className="mt-5 grid gap-2 text-xs">
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Escrow protection</span><span className="font-medium text-foreground">Active</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Catalog health</span><span className="font-medium text-foreground">{data?.productsCount ?? 0} products</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Fulfillment queue</span><span className="font-medium text-foreground">{fulfillmentTasks.length} pending</span></div>
-          </div>
-        </VendorSoftPanel>
-      </section>
-
-      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <VendorSoftPanel
-          title="Recent orders"
-          description="Latest buyer activity and fulfillment queue."
-          action={
-            <Link href="/dashboard/orders" className="text-sm font-medium text-[#111827] dark:text-white">
-              View all
-            </Link>
-          }
-        >
-          {recentOrders.length ? (
-            <div className="divide-y divide-border">
-              {recentOrders.slice(0, 6).map((order) => (
-                <article
-                  key={order.id}
-                  className="grid gap-3 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto] sm:items-center"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-mono text-xs font-medium text-muted-foreground">
-                      {order.checkoutReference ?? order.id}
+        {/* ─── Right Column ─────────────────────────── */}
+        <div className="space-y-8">
+          {/* Escrow / Wallet Summary */}
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              Wallet Summary
+            </h2>
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Total Revenue
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {formatCurrency(data?.revenue ?? 0)}
+                </p>
+              </div>
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                      Pool Earnings
                     </p>
-                    <h3 className="mt-1 font-heading text-base font-medium text-foreground">
-                      {order.status}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {order.items?.length ?? 0} item{order.items?.length === 1 ? "" : "s"} - {formatDate(order.createdAt)}
+                    <p className="mt-1 text-base font-semibold text-foreground">
+                      {formatCurrency(data?.poolEarnings ?? 0)}
                     </p>
                   </div>
-                  <p className="font-heading text-base font-semibold text-foreground">
-                    {formatCurrency(order.totalAmount)}
-                  </p>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <VendorEmptyState title="No orders yet" text="Orders will appear here after buyers checkout." />
-          )}
-        </VendorSoftPanel>
-
-        <div className="grid gap-5">
-          <VendorSoftPanel title="Action queue">
-            <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                      Pending Orders
+                    </p>
+                    <p className="mt-1 text-base font-semibold text-foreground">
+                      {fulfillmentTasks.length}
+                      {fulfillmentTasks.length > 0 && (
+                        <span className="ml-1 text-xs font-normal text-gray-400">
+                          (~{formatCurrency(fulfillmentTasks.length * avgOrderAmount)})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
               <Link
-                href="/dashboard/inventory"
-                className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5"
+                href="/dashboard/wallet"
+                className="inline-flex w-full items-center justify-center rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
-                  <AlertTriangle className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                Go to Wallet
+                <ChevronRight className="ml-1 h-4 w-4" strokeWidth={1.5} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick Actions Grid */}
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              Quick Actions
+            </h2>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Link
+                href="/dashboard/products?action=add"
+                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+              >
+                <Plus
+                  className="h-5 w-5 text-gray-500"
+                  strokeWidth={1.5}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  Add Product
                 </span>
-                <span className="min-w-0">
-                  <span className="block font-medium text-foreground">Inventory alerts</span>
-                  <span className="block text-sm text-muted-foreground">
-                    {inventoryAlerts.length} item{inventoryAlerts.length === 1 ? "" : "s"} need attention
-                  </span>
-                </span>
-                <span className="font-heading text-lg font-semibold text-foreground">{inventoryAlerts.length}</span>
               </Link>
               <Link
                 href="/dashboard/orders"
-                className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5"
+                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                  <PackageCheck className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <ShoppingBag
+                  className="h-5 w-5 text-gray-500"
+                  strokeWidth={1.5}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  View Orders
                 </span>
-                <span className="min-w-0">
-                  <span className="block font-medium text-foreground">Fulfillment</span>
-                  <span className="block text-sm text-muted-foreground">
-                    {fulfillmentTasks.length} paid order{fulfillmentTasks.length === 1 ? "" : "s"} waiting
-                  </span>
+              </Link>
+              <Link
+                href="/dashboard/storefront"
+                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+              >
+                <Store
+                  className="h-5 w-5 text-gray-500"
+                  strokeWidth={1.5}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  Edit Store
                 </span>
-                <span className="font-heading text-lg font-semibold text-foreground">{fulfillmentTasks.length}</span>
+              </Link>
+              <Link
+                href="/dashboard/messages"
+                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+              >
+                <MessageSquare
+                  className="h-5 w-5 text-gray-500"
+                  strokeWidth={1.5}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  Messages
+                </span>
               </Link>
             </div>
-          </VendorSoftPanel>
-
-          <VendorSoftPanel title="Pool opportunity" description="Source catalog items and sell at your own margin.">
-            <Link
-              href="/dashboard/pool"
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#111827] text-sm font-medium text-white transition hover:bg-[#1F2937]"
-            >
-              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-              Explore Pool
-            </Link>
-          </VendorSoftPanel>
+          </div>
         </div>
       </section>
+
+      {/* ─── Section 4: Activity Feed ───────────────── */}
+      {activityItems.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold text-foreground">
+            Recent Activity
+          </h2>
+          <div className="mt-4 space-y-0">
+            {activityItems.map((item, index) => (
+              <div
+                key={item.id}
+                className="relative flex gap-4 pb-6 last:pb-0"
+              >
+                {/* Vertical line */}
+                {index < activityItems.length - 1 && (
+                  <div className="absolute bottom-0 left-[11px] top-6 w-px bg-gray-200" />
+                )}
+                {/* Icon dot */}
+                <div className="relative mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
+                  <item.icon
+                    className="h-4 w-4 text-gray-400"
+                    strokeWidth={1.5}
+                  />
+                </div>
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">{item.description}</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                    <Clock className="h-3 w-3" strokeWidth={1.5} />
+                    {formatRelativeTime(item.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

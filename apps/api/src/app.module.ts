@@ -25,6 +25,14 @@ import { AdminModule } from './modules/admin/admin.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { CommerceModule } from './modules/commerce/commerce.module';
 import { StoreModule } from './modules/store/store.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { KycModule } from './modules/kyc/kyc.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { VendorProfileModule } from './modules/vendor-profile/vendor-profile.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
+import { OrderOperationsModule } from './modules/order-operations/order-operations.module';
 
 @Module({
   imports: [
@@ -151,6 +159,30 @@ import { StoreModule } from './modules/store/store.module';
 
     // Commerce module (cart, checkout, orders, payments, pool, vendor/admin ops)
     CommerceModule,
+
+    // Notifications module (vendor notifications)
+    NotificationsModule,
+
+    // Subscriptions module (vendor subscription management)
+    SubscriptionsModule,
+
+    // KYC module (vendor KYC verification)
+    KycModule,
+
+    // Analytics module (vendor analytics)
+    AnalyticsModule,
+
+    // Orders module (vendor order actions)
+    OrdersModule,
+
+    // Vendor profile module (vendor profile update)
+    VendorProfileModule,
+
+    // Delivery module (vendor delivery management + admin escrow)
+    DeliveryModule,
+
+    // Order operations module (vendor order notes + operations)
+    OrderOperationsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -192,5 +224,11 @@ export class AppModule implements OnModuleInit {
     console.log('🔧 AdminModule loaded');
     console.log('🏪 SellersModule loaded');
     console.log('🔗 EventEmitter2 ready for events');
+    console.log('🪪 KycModule loaded');
+    console.log('📈 AnalyticsModule loaded');
+    console.log('📦 OrdersModule loaded');
+    console.log('👤 VendorProfileModule loaded');
+    console.log('🚚 DeliveryModule loaded');
+    console.log('📋 OrderOperationsModule loaded');
   }
 }
