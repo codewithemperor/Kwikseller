@@ -455,7 +455,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="flex min-h-screen flex-col bg-white dark:bg-[#07111f]">
-        <PageLoader isLoading={isPageLoading} />
+        {!isVendorStorefrontRoute && <PageLoader isLoading={isPageLoading} />}
         <OfflineBanner />
         {!isSearchPage && !isVendorStorefrontRoute && (
           <EnhancedSearchOverlay
@@ -666,11 +666,11 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 onClick={closeDrawer}
               />
               <motion.div
-                initial={{ x: "100%" }}
+                initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
-                exit={{ x: "100%" }}
+                exit={{ x: "-100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 320 }}
-                className="fixed bottom-0 right-0 top-0 z-[120] w-[300px] max-w-[85vw] overflow-hidden border-l border-kwik-border bg-background shadow-2xl md:hidden"
+                className="fixed bottom-0 left-0 top-0 z-[120] w-[300px] max-w-[85vw] overflow-hidden border-r border-kwik-border bg-background shadow-2xl md:hidden"
               >
                 <MobileDrawerContent
                   onClose={closeDrawer}

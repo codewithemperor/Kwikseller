@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  ImageIcon,
   Package,
   PackagePlus,
   Pencil,
@@ -17,16 +16,19 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { DashboardMetricCard } from "@/components/dashboard/vendor-dashboard-ui";
+import { DashboardMetricCard, VendorPageHeader, VendorToolbar } from "@/components/dashboard/vendor-dashboard-ui";
 import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorProductsStore } from "@/stores/vendor-products-store";
 import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product, ProductType } from "@kwikseller/types";
-import { AppButton, AppModal, AppSwitch, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/ui";
+import { AppButton, AppModal, AppSwitch, FieldInput, FieldSelect, FieldTextarea, ProductCard as SharedProductCard } from "@kwikseller/ui";
+import type { Product as SharedProduct } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { VendorProductCard as VendorMarketplaceProductCard } from "@/components/vendor-product-card";
 
 /* ─── Constants ─── */
 
@@ -127,18 +129,16 @@ function SkeletonCard() {
 
 /* ─── Product Card ─── */
 
-function ProductCard({
+function VendorProductCard({
   product,
   selected,
   onToggleSelect,
-  onEdit,
   onView,
   onDelete,
 }: {
   product: Product;
   selected: boolean;
   onToggleSelect: () => void;
-  onEdit: () => void;
   onView: () => void;
   onDelete: () => void;
 }) {
@@ -146,51 +146,62 @@ function ProductCard({
   const inventory = product.inventoryItems?.[0];
   const stock = inventory?.available ?? product.stock ?? 0;
   const poolResale = isPoolResaleProduct(product);
+  const sharedProduct: SharedProduct = {
+    id: product.id,
+    name: product.name,
+    description: product.description ?? undefined,
+    price: Number(product.price ?? 0),
+    comparePrice: product.comparePrice ?? undefined,
+    images: image ? [image] : [],
+    stock,
+    store: product.store ? { name: product.store.name, slug: product.store.slug ?? "" } : undefined,
+    isPoolProduct: product.poolEnabled || poolResale,
+  };
 
   return (
-    <article className="relative">
+    <article className="relative overflow-hidden border border-border bg-background dark:bg-white/5">
       {/* Image area */}
-      <div className="relative aspect-square bg-gray-100">
-        {image ? (
-          <img src={image} alt={product.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-gray-300">
-            <ImageIcon className="h-10 w-10" strokeWidth={1.2} />
-          </div>
-        )}
+      <div className="relative">
+        <SharedProductCard
+          product={sharedProduct}
+          variant="compact"
+          showStore={false}
+          showRating={false}
+          showQuickActions={false}
+          onClick={onView}
+          className="w-full border-0 shadow-none"
+        />
         {/* Checkbox overlay */}
         {!poolResale ? (
           <button
             type="button"
             onClick={onToggleSelect}
-            className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded border bg-white text-white transition"
+            className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-white transition dark:bg-[#0f1115]"
             aria-label={selected ? "Deselect" : "Select"}
           >
             {selected ? (
-              <span className="flex h-6 w-6 items-center justify-center rounded bg-gray-900">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground">
                 <Check className="h-3.5 w-3.5 text-white" />
               </span>
             ) : (
-              <span className="h-6 w-6 rounded border border-gray-300 bg-white" />
+              <span className="h-4 w-4 rounded-sm border border-muted bg-background" />
             )}
           </button>
         ) : null}
         {/* Status badge */}
-        <span className={`absolute right-2 top-2 text-xs font-medium ${statusColor(product.status)}`}>
+        <span className={`absolute right-2 top-2 z-10 rounded-full bg-background/90 px-2 py-1 text-[11px] font-semibold shadow-sm dark:bg-[#0f1115]/90 ${statusColor(product.status)}`}>
           {product.status}
         </span>
       </div>
 
       {/* Info area */}
-      <div className="border-t border-gray-200 p-4">
-        <h3 className="text-base font-semibold text-gray-900 line-clamp-1">{product.name}</h3>
-
-        <div className="mt-1 flex items-center justify-between">
-          <span className="text-lg font-bold text-gray-900">{formatCurrency(product.price)}</span>
-          <span className="text-sm text-gray-500">Stock: {stock}</span>
+      <div className="border-t border-border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-muted">Stock: {stock}</span>
+          <span className="text-xs font-semibold text-foreground">{formatCurrency(product.price)}</span>
         </div>
 
-        <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted">
           <span>{product.productType ?? "PHYSICAL"}</span>
           <span>•</span>
           <span>{product.sku ?? product.id.slice(0, 8)}</span>
@@ -204,31 +215,35 @@ function ProductCard({
           )}
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2">
           <Link
             href={`/dashboard/products/${product.id}/edit`}
-            className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-foreground transition hover:border-accent hover:text-accent"
           >
             <Pencil className="h-3.5 w-3.5" />
             {poolResale ? "Edit price" : "Edit"}
           </Link>
-          <button
+          <AppButton
             type="button"
+            size="sm"
+            variant="secondary"
             onClick={onView}
-            className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            className="h-9 px-2"
           >
             <Eye className="h-3.5 w-3.5" />
             View
-          </button>
+          </AppButton>
           {!poolResale ? (
-            <button
+            <AppButton
               type="button"
+              size="sm"
+              variant="secondary"
               onClick={onDelete}
-              className="inline-flex h-8 items-center gap-1 rounded px-2 text-xs font-medium text-gray-600 transition hover:bg-red-50 hover:text-red-600"
+              className="h-9 px-2 hover:border-danger hover:text-danger"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete
-            </button>
+            </AppButton>
           ) : null}
         </div>
       </div>
@@ -569,6 +584,7 @@ function Pagination({
 /* ─── Main Page ─── */
 
 export default function VendorProductsPage() {
+  const router = useRouter();
   const { products, isLoading, fetchProducts, refreshProducts } = useVendorProductsStore();
 
   // Filters
@@ -720,14 +736,13 @@ export default function VendorProductsPage() {
   const hasActiveFilters = searchQuery || statusFilter || categoryFilter;
 
   return (
-    <div className="safe-container space-y-6">
+    <div className="safe-container space-y-5">
       {/* Page Header */}
-      <section className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
-          <p className="mt-1 text-sm text-gray-500">Create, review, and manage your store products.</p>
-        </div>
-        <div className="flex gap-2">
+      <VendorPageHeader
+        title="Products"
+        description="Create, review, and manage your store products."
+        action={
+          <div className="flex gap-2">
           <AppButton
             type="button"
             variant="secondary"
@@ -741,8 +756,9 @@ export default function VendorProductsPage() {
             <Plus className="h-4 w-4" />
             Add Product
           </AppButton>
-        </div>
-      </section>
+          </div>
+        }
+      />
 
       {/* Stats Row */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -770,7 +786,7 @@ export default function VendorProductsPage() {
       </section>
 
       {/* Filters / Search Bar */}
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <VendorToolbar>
         <div className="flex-1">
           <FieldInput
             placeholder="Search by name or SKU..."
@@ -792,37 +808,40 @@ export default function VendorProductsPage() {
             ))}
           </FieldSelect>
           {hasActiveFilters && (
-            <button
+            <AppButton
               type="button"
+              variant="ghost"
+              size="md"
               onClick={clearFilters}
-              className="inline-flex h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+              className="h-11"
             >
               <X className="h-3.5 w-3.5" />
               Clear
-            </button>
+            </AppButton>
           )}
         </div>
-      </section>
+      </VendorToolbar>
 
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
-        <section className="flex flex-col gap-3 border border-gray-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-3 border border-border bg-background p-3 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-700">{selectedIds.size} selected</span>
-            <button type="button" onClick={() => setSelectedIds(new Set())} className="text-sm text-gray-500 hover:text-gray-700">
+            <span className="text-sm font-medium text-foreground">{selectedIds.size} selected</span>
+            <button type="button" onClick={() => setSelectedIds(new Set())} className="text-sm text-muted hover:text-foreground">
               Clear selection
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <AppButton
               type="button"
+              variant="danger"
+              size="sm"
               onClick={() => handleBulkAction("delete")}
               disabled={isBulkProcessing}
-              className="inline-flex h-8 items-center gap-1 rounded px-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete Selected
-            </button>
+            </AppButton>
             <select
               value={bulkStatus}
               onChange={(e) => {
@@ -843,7 +862,7 @@ export default function VendorProductsPage() {
 
       {/* Product Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : paginatedProducts.length > 0 ? (
@@ -856,7 +875,7 @@ export default function VendorProductsPage() {
               aria-label={allSelected ? "Deselect all" : "Select all"}
             >
               {allSelected ? (
-                <span className="flex h-6 w-6 items-center justify-center rounded bg-gray-900">
+                <span className="flex h-6 w-6 items-center justify-center rounded bg-foreground">
                   <Check className="h-3.5 w-3.5 text-white" />
                 </span>
               ) : (
@@ -866,17 +885,23 @@ export default function VendorProductsPage() {
             <span className="text-xs text-gray-500">Select all on page</span>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
             {paginatedProducts.map((product) => (
-              <ProductCard
+              <VendorMarketplaceProductCard
                 key={product.id}
-                product={product}
+                name={product.name}
+                image={productImageSrc(product)}
+                store={product.store?.name ?? "Vendor product"}
+                category={product.category?.name ?? product.productType ?? "Product"}
+                price={Number(product.price ?? 0)}
+                comparePrice={product.comparePrice ?? undefined}
+                statusLabel={product.status}
+                stockLabel={`Stock: ${product.inventoryItems?.[0]?.available ?? product.stock ?? 0}`}
                 selected={selectedIds.has(product.id)}
-                onToggleSelect={() => toggleSelect(product.id)}
-                onEdit={() => {}}
-                onView={() => {
-                  kwikToast.info(`Viewing ${product.name}`);
-                }}
+                canDelete={!isPoolResaleProduct(product)}
+                onSelect={!isPoolResaleProduct(product) ? () => toggleSelect(product.id) : undefined}
+                onOpen={() => router.push(`/dashboard/products/${product.id}/edit`)}
+                onEdit={() => router.push(`/dashboard/products/${product.id}/edit`)}
                 onDelete={() => setDeleteTarget(product)}
               />
             ))}

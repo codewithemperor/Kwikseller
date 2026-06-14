@@ -20,15 +20,30 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@heroui/react";
-import { AppButton, FieldInput, FieldSelect, FieldTextarea } from "@kwikseller/ui";
-import { cartApi, checkoutApi, deliveryRatesApi, tokenManager } from "@kwikseller/api-client";
-import { getLgasForState, kwikToast, NIGERIA_STATES } from "@kwikseller/utils";
+import { AppButton, FieldAutocomplete, FieldInput, FieldTextarea } from "@kwikseller/ui";
+import { cartApi, checkoutApi, deliveryRatesApi, tokenManager, usersApi } from "@kwikseller/api-client";
+import { getLgasForState, kwikToast, NIGERIA_STATES, useAuth } from "@kwikseller/utils";
 import type { CartValidationIssue, CartVendorGroup, CouponValidationResponse, DeliveryRate } from "@kwikseller/types";
 import { EscrowSafetyDialog } from "@/components/checkout/escrow-safety-dialog";
 import { AppImage } from "@/components/ui/app-image";
 import { useCartStore } from "@/stores";
 
 type CheckoutStep = "cart" | "delivery" | "payment";
+
+type SavedAddress = {
+  id: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  stateId?: string;
+  localGovernment?: string;
+  lgaId?: string;
+  country: string;
+  postalCode?: string;
+  isDefault: boolean;
+  type: "SHIPPING" | "BILLING" | "BOTH";
+};
 
 const defaultShipping = {
   fullName: "",
@@ -55,6 +70,30 @@ function unwrapApiData<T>(value: unknown): T {
     return (value as { data: T }).data;
   }
   return value as T;
+}
+
+function unwrapNestedApiData<T>(value: unknown): T {
+  const payload = value as { data?: unknown };
+  const nested = payload?.data as { data?: unknown } | undefined;
+  return (nested?.data ?? payload?.data ?? value) as T;
+}
+
+function splitAddressLabel(line2?: string) {
+  if (!line2) return { label: "Saved address", landmark: "" };
+  const [label, ...rest] = line2.split(" - ");
+  return { label: label || "Saved address", landmark: rest.join(" - ") };
+}
+
+function splitStateAndLocalGovernment(value?: string) {
+  const [state = "", ...rest] = (value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return { state, localGovernment: rest.join(", ") };
+}
+
+function formatAddressParts(parts: Array<string | undefined>) {
+  return parts.map((part) => part?.trim()).filter(Boolean).join(", ");
 }
 
 function extractValidationIssues(error: unknown): CartValidationIssue[] {
@@ -139,6 +178,7 @@ function groupCartItems(items: ReturnType<typeof useCartStore.getState>["items"]
 
 export default function CartPage() {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const { items, removeItem, updateQuantity, clearCart } = useCartStore();
   const [shipping, setShipping] = React.useState(defaultShipping);
   const [step, setStep] = React.useState<CheckoutStep>("cart");
@@ -154,6 +194,11 @@ export default function CartPage() {
   const [couponError, setCouponError] = React.useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = React.useState(false);
   const [isEscrowDialogOpen, setIsEscrowDialogOpen] = React.useState(false);
+  const [savedAddresses, setSavedAddresses] = React.useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = React.useState("");
+  const [isLoadingAddresses, setIsLoadingAddresses] = React.useState(false);
+  const [saveAddressForNextShopping, setSaveAddressForNextShopping] = React.useState(false);
+  const hasAppliedDefaultAddressRef = React.useRef(false);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const savings = items.reduce(
@@ -172,6 +217,94 @@ export default function CartPage() {
   const couponDiscount = appliedCoupon?.discount ?? 0;
   const payableTotal = Math.max(0, subtotal + deliveryFee - couponDiscount);
   const hasUnvalidatedCoupon = Boolean(couponCode.trim()) && !appliedCoupon;
+  const selectedSavedAddress = React.useMemo(
+    () => savedAddresses.find((address) => address.id === selectedAddressId),
+    [savedAddresses, selectedAddressId],
+  );
+
+  const applySavedAddress = React.useCallback((address: SavedAddress) => {
+    const meta = splitAddressLabel(address.line2);
+    const location = splitStateAndLocalGovernment(address.state);
+
+    setShipping((current) => ({
+      ...current,
+      addressLine1: address.line1 || current.addressLine1,
+      addressLine2: meta.landmark || current.addressLine2,
+      city: address.city || current.city,
+      state: location.state || address.state || current.state,
+      localGovernment: address.localGovernment || location.localGovernment || current.localGovernment,
+      country: address.country || current.country,
+    }));
+  }, []);
+
+  React.useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const fullName = [user.profile?.firstName, user.profile?.lastName].filter(Boolean).join(" ");
+    const fallbackName = user.email?.split("@")[0] ?? "";
+    const phone = user.phone ?? "";
+
+    setShipping((current) => ({
+      ...current,
+      fullName: current.fullName || fullName || fallbackName,
+      phone: current.phone || phone,
+    }));
+  }, [isAuthenticated, user]);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      setSavedAddresses([]);
+      setSelectedAddressId("");
+      setIsLoadingAddresses(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadAddresses = async () => {
+      setIsLoadingAddresses(true);
+      try {
+        const response = await usersApi.getAddresses();
+        const payload = unwrapNestedApiData<SavedAddress[]>(response);
+        const addresses = (Array.isArray(payload) ? payload : []).filter((address) =>
+          ["SHIPPING", "BOTH"].includes(address.type),
+        );
+
+        if (cancelled) return;
+
+        setSavedAddresses(addresses);
+
+        const defaultAddress = addresses.find((address) => address.isDefault);
+        if (defaultAddress && !hasAppliedDefaultAddressRef.current) {
+          setSelectedAddressId(defaultAddress.id);
+          const meta = splitAddressLabel(defaultAddress.line2);
+          const location = splitStateAndLocalGovernment(defaultAddress.state);
+          setShipping((current) => {
+            if (current.addressLine1 || current.city || current.state) return current;
+            hasAppliedDefaultAddressRef.current = true;
+            return {
+              ...current,
+              addressLine1: defaultAddress.line1 || current.addressLine1,
+              addressLine2: meta.landmark || current.addressLine2,
+              city: defaultAddress.city || current.city,
+              state: location.state || defaultAddress.state || current.state,
+              localGovernment: defaultAddress.localGovernment || location.localGovernment || current.localGovernment,
+              country: defaultAddress.country || current.country,
+            };
+          });
+        }
+      } catch {
+        if (!cancelled) setSavedAddresses([]);
+      } finally {
+        if (!cancelled) setIsLoadingAddresses(false);
+      }
+    };
+
+    loadAddresses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   React.useEffect(() => {
     setAppliedCoupon(null);
@@ -322,11 +455,32 @@ export default function CartPage() {
     }
   };
 
+  const saveCheckoutAddressIfNeeded = async () => {
+    if (!requiresShipping || !saveAddressForNextShopping || !isAuthenticated || selectedAddressId) return;
+
+    try {
+      await usersApi.addAddress({
+        line1: shipping.addressLine1,
+        line2: ["Checkout address", shipping.addressLine2.trim()].filter(Boolean).join(" - "),
+        city: shipping.city,
+        state: shipping.state,
+        localGovernment: shipping.localGovernment || undefined,
+        country: shipping.country,
+        type: "SHIPPING",
+        isDefault: savedAddresses.length === 0,
+      });
+      kwikToast.success("Delivery address saved for next shopping");
+    } catch {
+      kwikToast.error("Could not save delivery address, but checkout can continue.");
+    }
+  };
+
   const processCheckout = async () => {
     setIsCheckingOut(true);
     setValidationIssues([]);
     try {
       await syncLocalCartToApi();
+      await saveCheckoutAddressIfNeeded();
       const response = await checkoutApi.create({
         idempotencyKey: `marketplace-${Date.now()}`,
         shippingAddress: requiresShipping ? shipping : undefined,
@@ -630,11 +784,54 @@ export default function CartPage() {
               </p>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {(isLoadingAddresses || savedAddresses.length > 0) && (
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-semibold text-muted dark:text-white/60">
+                      Saved delivery address
+                    </span>
+                    <select
+                      value={selectedAddressId}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setSelectedAddressId(value);
+                        setSaveAddressForNextShopping(false);
+
+                        if (!value) {
+                          setShipping((current) => ({
+                            ...current,
+                            addressLine1: "",
+                            addressLine2: "",
+                            city: "",
+                            localGovernment: "",
+                            state: "",
+                            country: current.country || "Nigeria",
+                          }));
+                          return;
+                        }
+
+                        const address = savedAddresses.find((item) => item.id === value);
+                        if (address) applySavedAddress(address);
+                      }}
+                      disabled={isLoadingAddresses}
+                      className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-border focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    >
+                      <option value="">
+                        {isLoadingAddresses ? "Loading saved addresses..." : "Enter a new address"}
+                      </option>
+                      {savedAddresses.map((address) => {
+                        const meta = splitAddressLabel(address.line2);
+                        return (
+                          <option key={address.id} value={address.id}>
+                            {meta.label} - {address.line1}, {address.city}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                )}
                 {[
                   ["fullName", "Full name"],
                   ["phone", "Phone number"],
-                  ["city", "City"],
-                  ["country", "Country"],
                 ].map(([field, label]) => (
                   <FieldInput
                     key={field}
@@ -643,43 +840,62 @@ export default function CartPage() {
                     onChange={(event) => updateShipping(field as keyof typeof shipping, event.target.value)}
                   />
                 ))}
-                <FieldSelect
-                  label="State"
-                  value={shipping.state}
-                  onChange={(event) => updateShipping("state", event.target.value)}
-                >
-                    <option value="">Select state</option>
-                    {NIGERIA_STATES.map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                </FieldSelect>
-                <FieldSelect
-                  label="Local government"
-                  value={shipping.localGovernment}
-                  onChange={(event) => updateShipping("localGovernment", event.target.value)}
-                  disabled={!shipping.state}
-                >
-                  <option value="">Select local government</option>
-                  {getLgasForState(shipping.state).map((lga) => (
-                    <option key={lga} value={lga}>
-                      {lga}
-                    </option>
-                  ))}
-                </FieldSelect>
-                <FieldInput
-                  wrapperClassName="sm:col-span-2"
-                  label="Street address"
-                  value={shipping.addressLine1}
-                  onChange={(event) => updateShipping("addressLine1", event.target.value)}
-                />
-                <FieldInput
-                  wrapperClassName="sm:col-span-2"
-                  label="Apartment, landmark, or nearest bus stop"
-                  value={shipping.addressLine2}
-                  onChange={(event) => updateShipping("addressLine2", event.target.value)}
-                />
+                {selectedSavedAddress ? (
+                  <div className="rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-sm leading-6 text-kwik-muted dark:border-kwik-orange/30 dark:bg-kwik-orange/10 dark:text-white/70 sm:col-span-2">
+                    <p className="font-semibold text-kwik-dark dark:text-white">
+                      {splitAddressLabel(selectedSavedAddress.line2).label}
+                    </p>
+                    <p className="mt-1">
+                      {formatAddressParts([
+                        shipping.addressLine1,
+                        shipping.addressLine2,
+                        shipping.city,
+                        shipping.localGovernment,
+                        shipping.state,
+                        shipping.country,
+                      ])}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <FieldInput
+                      label="City"
+                      value={shipping.city}
+                      onChange={(event) => updateShipping("city", event.target.value)}
+                    />
+                    <FieldInput
+                      label="Country"
+                      value={shipping.country}
+                      onChange={(event) => updateShipping("country", event.target.value)}
+                    />
+                    <FieldAutocomplete
+                      label="State"
+                      value={shipping.state}
+                      options={NIGERIA_STATES.map((state) => ({ value: state, label: state }))}
+                      onValueChange={(nextValue) => updateShipping("state", nextValue)}
+                      placeholder="Type or select state"
+                    />
+                    <FieldAutocomplete
+                      label="Local government"
+                      value={shipping.localGovernment}
+                      options={getLgasForState(shipping.state).map((lga) => ({ value: lga, label: lga }))}
+                      onValueChange={(nextValue) => updateShipping("localGovernment", nextValue)}
+                      placeholder="Type or select local government"
+                    />
+                    <FieldInput
+                      wrapperClassName="sm:col-span-2"
+                      label="Street address"
+                      value={shipping.addressLine1}
+                      onChange={(event) => updateShipping("addressLine1", event.target.value)}
+                    />
+                    <FieldInput
+                      wrapperClassName="sm:col-span-2"
+                      label="Apartment, landmark, or nearest bus stop"
+                      value={shipping.addressLine2}
+                      onChange={(event) => updateShipping("addressLine2", event.target.value)}
+                    />
+                  </>
+                )}
                 <FieldTextarea
                   wrapperClassName="sm:col-span-2"
                   label="Delivery instructions"
@@ -687,6 +903,24 @@ export default function CartPage() {
                   onChange={(event) => updateShipping("deliveryInstructions", event.target.value)}
                   rows={3}
                 />
+                {!selectedSavedAddress && (
+                  <label className="flex items-start gap-3 rounded-xl border border-neutral-200 p-3 text-sm text-kwik-muted dark:border-white/10 dark:text-white/60 sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={saveAddressForNextShopping}
+                      onChange={(event) => setSaveAddressForNextShopping(event.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-neutral-300 text-kwik-orange focus:ring-kwik-orange"
+                    />
+                    <span>
+                      <span className="block font-semibold text-kwik-dark dark:text-white">
+                        Save this address for next shopping
+                      </span>
+                      <span className="block text-xs">
+                        We will add it to your delivery addresses after checkout starts.
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
 
               <div className="mt-5 border border-neutral-200 p-4 dark:border-white/10">
@@ -699,12 +933,14 @@ export default function CartPage() {
                   <div>
                     <p className="text-sm font-semibold text-kwik-dark dark:text-white">Delivery pricing</p>
                     {!shipping.state || !shipping.localGovernment ? (
-                      <p className="mt-1 text-sm leading-6 text-kwik-muted dark:text-white/60">
-                        Select state and local government to calculate delivery fee and estimate for each physical vendor group.
+                      <p className="mt-1 text-sm leading-6 text-red-600 dark:text-red-200">
+                        {selectedSavedAddress
+                          ? "This saved address is missing state or local government. Choose Enter a new address or update the saved address."
+                          : "Select state and local government to calculate delivery fee and estimate for each physical vendor group."}
                       </p>
                     ) : deliveryRate ? (
                       <p className="mt-1 text-sm leading-6 text-kwik-muted dark:text-white/60">
-                        {formatCurrency(deliveryRate.fee)} per physical vendor group x {physicalVendorGroups}. Total delivery {formatCurrency(deliveryFee)}. Estimated {deliveryDate}. Admin/manual dispatch assignment after payment.
+                        {shipping.localGovernment}, {shipping.state}: {formatCurrency(deliveryRate.fee)} per physical vendor group x {physicalVendorGroups}. Total delivery {formatCurrency(deliveryFee)}. Estimated {deliveryDate}. Admin/manual dispatch assignment after payment.
                       </p>
                     ) : (
                       <p className="mt-1 text-sm leading-6 text-red-600 dark:text-red-200">

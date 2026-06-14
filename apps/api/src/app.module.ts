@@ -39,7 +39,7 @@ import { OrderOperationsModule } from './modules/order-operations/order-operatio
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: ['apps/api/.env.local', 'apps/api/.env', '.env.local', '.env'],
       load: [
         () => ({
           port: parseInt(process.env.PORT || '4000', 10),

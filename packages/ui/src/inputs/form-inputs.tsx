@@ -28,7 +28,8 @@ import {
 import { Eye, EyeOff } from "lucide-react";
 const formInputGroupClass =
   "min-h-[52px] rounded-2xl border border-border bg-background text-[15px] shadow-sm outline-none ring-0 transition focus-within:border-border focus-within:outline-none focus-within:ring-0 focus-within:ring-transparent focus-within:shadow-sm data-[focus-visible=true]:outline-none data-[focus-visible=true]:ring-0 dark:border-white/10 dark:bg-background";
-const formInputClass = "h-[52px] text-[15px] text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 dark:text-white";
+const formInputClass =
+  "h-[52px] text-[15px] text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 dark:text-white";
 
 // ==================== BASE TYPES ====================
 
@@ -99,7 +100,9 @@ export function TextInput<T extends FieldValues>({
                 type={type}
                 placeholder={placeholder}
                 value={formattedValue}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onChange(e.target.value)
+                }
                 className={formInputClass}
               />
               {endContent && (
@@ -166,7 +169,11 @@ export function PasswordInput<T extends FieldValues>({
                 className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:bg-surface hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </InputGroup.Suffix>
           </InputGroup>
@@ -374,7 +381,9 @@ export function DatePickerInput<T extends FieldValues>({
               </Calendar.Header>
               <Calendar.Grid>
                 <Calendar.GridHeader>
-                  {(day: React.ReactNode) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                  {(day: React.ReactNode) => (
+                    <Calendar.HeaderCell>{day}</Calendar.HeaderCell>
+                  )}
                 </Calendar.GridHeader>
                 <Calendar.GridBody>
                   {(date: DateValue) => <Calendar.Cell date={date} />}
@@ -626,7 +635,9 @@ export function SelectInput<T extends FieldValues>({
                 {sections
                   ? sections.map((section) => (
                       <ListBox.Section key={section.id}>
-                        <div className="px-2 py-1 text-xs font-semibold text-default-400 uppercase">{section.heading}</div>
+                        <div className="px-2 py-1 text-xs font-semibold text-default-400 uppercase">
+                          {section.heading}
+                        </div>
                         {section.options.map((opt) => (
                           <ListBox.Item
                             key={opt.id}

@@ -114,7 +114,7 @@ export class CheckoutDto {
   idempotencyKey?: string;
 }
 
-export class ValidateCouponDto {
+export class ValidateCartCouponDto {
   @IsString()
   code!: string;
 }

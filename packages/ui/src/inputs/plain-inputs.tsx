@@ -1,5 +1,14 @@
 "use client";
 
+import type { Key } from "@heroui/react";
+import {
+  Autocomplete,
+  EmptyState,
+  Label,
+  ListBox,
+  SearchField,
+  useFilter,
+} from "@heroui/react";
 import React from "react";
 import { cn } from "../lib/utils";
 
@@ -29,6 +38,122 @@ export function FieldInput({
       <input {...props} className={cn(baseControl, className)} />
       {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
     </label>
+  );
+}
+
+export type FieldAutocompleteOption = {
+  value: string;
+  label: string;
+};
+
+export type FieldAutocompleteProps = {
+  label?: string;
+  error?: string;
+  wrapperClassName?: string;
+  className?: string;
+  value: string;
+  options: FieldAutocompleteOption[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  disabled?: boolean;
+  allowCustomValue?: boolean;
+  onValueChange: (value: string) => void;
+};
+
+export function FieldAutocomplete({
+  label,
+  error,
+  wrapperClassName,
+  className,
+  value,
+  options,
+  placeholder = "Select an option",
+  searchPlaceholder = "Search...",
+  emptyText = "No results found",
+  disabled,
+  allowCustomValue = true,
+  onValueChange,
+}: FieldAutocompleteProps) {
+  const { contains } = useFilter({ sensitivity: "base" });
+  const selectedKey = value ? value : null;
+  const hasSelectedOption = options.some((option) => option.value === value);
+  const items =
+    value && allowCustomValue && !hasSelectedOption
+      ? [{ value, label: value }, ...options]
+      : options;
+
+  const handleChange = (key: Key | Key[] | null) => {
+    if (Array.isArray(key)) {
+      onValueChange(String(key[0] ?? ""));
+      return;
+    }
+    onValueChange(key == null ? "" : String(key));
+  };
+
+  return (
+    <div className={cn("block", wrapperClassName)}>
+      <Autocomplete
+        className="w-full"
+        value={selectedKey}
+        inputValue={value}
+        isDisabled={disabled}
+        onChange={handleChange}
+        onInputChange={(nextValue: string) => {
+          if (allowCustomValue) onValueChange(nextValue);
+        }}
+      >
+        {label && (
+          <Label className="text-xs font-semibold text-muted dark:text-white/60">
+            {label}
+          </Label>
+        )}
+        <Autocomplete.Trigger
+          className={cn(
+            baseControl,
+            "flex items-center gap-2 py-0",
+            className,
+          )}
+        >
+          <Autocomplete.Value className="min-w-0 flex-1 text-sm truncate">
+            {value || placeholder}
+          </Autocomplete.Value >
+          <Autocomplete.ClearButton className="text-muted hover:text-foreground" />
+          <Autocomplete.Indicator className="text-muted" />
+        </Autocomplete.Trigger>
+        <Autocomplete.Popover className="rounded-lg border border-border bg-background p-2 shadow-lg dark:border-white/10 dark:bg-[#07111f]">
+          <Autocomplete.Filter filter={contains}>
+            <SearchField autoFocus name="search" variant="secondary">
+              <SearchField.Group className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 dark:border-white/10 dark:bg-white/5">
+                <SearchField.SearchIcon className="h-4 w-4 text-muted" />
+                <SearchField.Input
+                  placeholder={searchPlaceholder}
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                />
+                <SearchField.ClearButton className="text-muted hover:text-foreground" />
+              </SearchField.Group>
+            </SearchField>
+            <ListBox
+              className="mt-2 max-h-56 overflow-y-auto"
+              renderEmptyState={() => <EmptyState>{emptyText}</EmptyState>}
+            >
+              {items.map((item) => (
+                <ListBox.Item
+                  key={item.value}
+                  id={item.value}
+                  textValue={item.label}
+                  className="rounded-md px-3 py-2 text-sm hover:bg-muted/40"
+                >
+                  {item.label}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Autocomplete.Filter>
+        </Autocomplete.Popover>
+      </Autocomplete>
+      {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
+    </div>
   );
 }
 

@@ -4,6 +4,8 @@ import React from "react";
 import { Menu, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@kwikseller/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { AppButton } from "@kwikseller/ui";
 
 export interface VendorHeaderProps {
   onMenuToggle: () => void;
@@ -39,25 +41,27 @@ export function VendorHeader({
     (user?.store as { logoUrl?: string } | undefined)?.logoUrl;
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 dark:border-white/10 dark:bg-[#0f1115] md:px-6 lg:px-7">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur dark:bg-[#0f1115]/95 md:px-5 lg:px-6">
       {/* Left section: hamburger + brand */}
       <div className="flex items-center gap-3">
         {/* Hamburger - hidden on desktop (lg) */}
-        <button
+        <AppButton
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onMenuToggle}
           aria-label="Open menu"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-gray-700 transition-colors hover:bg-gray-100 dark:text-white dark:hover:bg-white/8 lg:hidden"
+          className="h-9 w-9 p-0 text-foreground hover:bg-surface dark:text-white dark:hover:bg-white/8 lg:hidden"
         >
           <Menu className="h-6 w-6" strokeWidth={2} />
-        </button>
+        </AppButton>
 
         {/* Brand */}
         <div className="flex items-center gap-1.5">
-          <span className="text-base font-bold tracking-tight text-gray-900 dark:text-white">
+          <span className="text-base font-bold tracking-tight text-foreground dark:text-white">
             KWIKSELLER
           </span>
-          <span className="hidden text-xs font-medium text-gray-500 dark:text-white/50 sm:inline">
+          <span className="hidden text-xs font-medium text-muted dark:text-white/50 sm:inline">
             VENDOR
           </span>
         </div>
@@ -69,10 +73,12 @@ export function VendorHeader({
       {/* Right section: notifications + avatar */}
       <div className="flex items-center gap-2">
         {/* Notification bell */}
-        <button
+        <AppButton
           type="button"
+          variant="ghost"
+          size="sm"
           aria-label="Notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-md text-gray-700 transition-colors hover:bg-gray-100 dark:text-white dark:hover:bg-white/8"
+          className="relative h-9 w-9 p-0 text-foreground hover:bg-surface dark:text-white dark:hover:bg-white/8"
         >
           <Bell className="h-5 w-5" strokeWidth={1.5} />
           {notificationCount > 0 ? (
@@ -80,13 +86,17 @@ export function VendorHeader({
               {notificationCount > 99 ? "99+" : notificationCount}
             </span>
           ) : null}
-        </button>
+        </AppButton>
+
+        <ThemeToggle className="h-9 min-w-9 rounded-md text-foreground hover:bg-surface dark:text-white dark:hover:bg-white/8" />
 
         {/* User avatar */}
-        <button
+        <AppButton
           type="button"
+          variant="ghost"
+          size="sm"
           aria-label="User profile"
-          className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 sm:h-8 sm:w-8"
+          className="h-8 w-8 overflow-hidden rounded-full bg-gray-100 p-0 text-gray-700 hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
         >
           {storeLogo ? (
             <img
@@ -99,7 +109,7 @@ export function VendorHeader({
               {getInitials(userName)}
             </span>
           )}
-        </button>
+        </AppButton>
       </div>
     </header>
   );

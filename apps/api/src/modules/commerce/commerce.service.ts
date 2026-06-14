@@ -29,7 +29,7 @@ import {
   UpdateStorefrontDesignDto,
   UpdateVendorProductDto,
   UpsertDeliveryRateDto,
-  ValidateCouponDto,
+  ValidateCartCouponDto,
 } from './commerce.dto';
 
 type AuthContext = {
@@ -571,7 +571,7 @@ export class CommerceService {
     };
   }
 
-  async validateCouponForCart(user: AuthContext, dto: ValidateCouponDto) {
+  async validateCouponForCart(user: AuthContext, dto: ValidateCartCouponDto) {
     this.getUserId(user);
     const cart = await this.getCart(user);
     return this.resolveCouponDiscount(this.db(), dto.code, cart.subtotal);

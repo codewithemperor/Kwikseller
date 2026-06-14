@@ -82,23 +82,42 @@ export function VendorPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <section className="flex min-w-0 flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 text-[22px] font-semibold leading-tight text-foreground md:text-2xl">
+        <h1 className="mt-1 text-xl font-semibold leading-tight text-foreground md:text-[22px]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-sm font-normal leading-6 text-muted-foreground">
+          <p className="mt-1 max-w-2xl text-sm font-normal leading-5 text-muted">
             {description}
           </p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
+    </section>
+  );
+}
+
+export function VendorToolbar({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "flex min-w-0 flex-col gap-3 border border-border bg-background p-3 dark:bg-white/5 sm:flex-row sm:items-end",
+        className,
+      )}
+    >
+      {children}
     </section>
   );
 }

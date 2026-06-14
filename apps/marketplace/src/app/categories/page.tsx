@@ -191,25 +191,57 @@ const withTimeout = async <T,>(promise: Promise<T>, ms = 8000): Promise<T> => {
 
 /* ─── Convert for QuickViewModal ──────────────────────────── */
 
-function toMarketplaceProduct(p: SearchableProduct): MarketplaceProduct {
+function getProductImage(p: SearchableProduct & { images?: Array<{ url?: string } | string>; featuredImage?: { url?: string } | string }): string {
+  const firstImage = Array.isArray(p.images) ? p.images[0] : null;
+  if (typeof p.image === "string") return p.image;
+  if (typeof firstImage === "string") return firstImage;
+  return firstImage?.url || (typeof p.featuredImage === "string" ? p.featuredImage : p.featuredImage?.url) || "";
+}
+
+function getProductTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((tag) => {
+      if (typeof tag === "string") return tag;
+      if (tag && typeof tag === "object") {
+        const record = tag as { tag?: { name?: string }; name?: string };
+        return record.tag?.name || record.name || "";
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function getEntityName(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") return (value as { name?: string; slug?: string }).name || (value as { slug?: string }).slug || "";
+  return "";
+}
+
+function toMarketplaceProduct(p: SearchableProduct & { images?: Array<{ url?: string } | string>; store?: unknown; category?: unknown; storeName?: string; categoryName?: string; tags?: Array<string | { tag?: { name?: string }; name?: string }> }): MarketplaceProduct {
+  const image = getProductImage(p);
+  const tags = getProductTags(p.tags);
+  const store = getEntityName(p.store) || p.storeName || "";
+  const category = p.categorySlug || p.categoryName || getEntityName(p.category);
   return {
     id: p.id,
     slug: p.slug,
     name: p.name,
     price: p.price,
     comparePrice: p.comparePrice,
-    image: p.image,
-    rating: p.rating,
-    reviewCount: p.reviewCount,
-    store: p.store,
+    image,
+    rating: p.rating || 0,
+    reviewCount: p.reviewCount || 0,
+    store,
     storeId: p.storeId,
     storeSlug: p.storeSlug,
-    category: p.categorySlug,
+    category,
     isNew: p.isNew,
-    tag: p.category,
+    tag: p.categoryName || getEntityName(p.category),
     description: p.description,
-    images: [p.image],
-    features: p.tags.slice(0, 4),
+    images: image ? [image] : [],
+    features: tags.slice(0, 4),
     specifications: [],
     reviews: [],
   };

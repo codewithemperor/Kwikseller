@@ -101,7 +101,7 @@ export function MarketplaceProductCard({
       className="group relative flex w-full cursor-pointer flex-col border-b border-neutral-200 pb-4 dark:border-white/10"
       onClick={() => onQuickView?.(product)}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 dark:bg-white/5">
+      <div className="relative aspect-[3/4] min-h-[148px] overflow-hidden bg-neutral-100 dark:bg-white/5 sm:min-h-[190px] md:aspect-[4/5]">
         <AppImage
           src={product.image}
           alt={product.name}

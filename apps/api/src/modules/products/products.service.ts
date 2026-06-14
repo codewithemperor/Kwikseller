@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { SearchProductsDto } from './dto';
 import {
@@ -10,12 +11,6 @@ import {
   AddProductImageDto,
   QueryProductAdminDto,
 } from './dto/product-admin.dto';
-import {
-  allProducts,
-  SearchableProduct,
-  categoriesMetadata,
-  CategoryMetadata,
-} from './products.data';
 
 @Injectable()
 export class ProductsService {
@@ -30,6 +25,36 @@ export class ProductsService {
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
+  }
+
+  private readonly publicProductInclude = {
+    images: { orderBy: { position: 'asc' as const } },
+    variants: { orderBy: { createdAt: 'asc' as const } },
+    category: { select: { id: true, name: true, slug: true } },
+    store: { select: { id: true, name: true, slug: true } },
+    inventoryItems: { select: { available: true, reserved: true, lowStockThreshold: true } },
+  };
+
+  private getPublicProductOrderBy(
+    sortBy?: string,
+    sortOrder: 'asc' | 'desc' = 'desc',
+  ): Prisma.ProductOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'price':
+      case 'price-low':
+        return [{ price: sortBy === 'price-low' ? 'asc' : sortOrder }];
+      case 'price-high':
+        return [{ price: 'desc' }];
+      case 'rating':
+        return [{ rating: sortOrder }, { reviewCount: 'desc' }];
+      case 'newest':
+      case 'createdAt':
+        return [{ createdAt: sortOrder }];
+      case 'updatedAt':
+        return [{ updatedAt: sortOrder }];
+      default:
+        return [{ isFeatured: 'desc' }, { updatedAt: 'desc' }];
+    }
   }
 
   async getHomeFeed() {
@@ -147,182 +172,247 @@ export class ProductsService {
     };
   }
 
-  /**
-   * Search products by query string (public - uses static data for backward compat)
-   */
-  search(dto: SearchProductsDto) {
-    const { q, category, limit = 20 } = dto;
+  async search(dto: SearchProductsDto) {
+    const query = (dto.q || (dto as SearchProductsDto & { search?: string }).search || '').trim();
+    const category = dto.category?.trim();
+    const limit = Math.min(Math.max(Number(dto.limit ?? 20), 1), 50);
+    const sortOrder = dto.sortOrder === 'asc' ? 'asc' : 'desc';
 
-    if (category && !q?.trim()) {
-      const filtered = allProducts
-        .filter((p) => p.categorySlug === category)
-        .slice(0, limit);
+    const where: Prisma.ProductWhereInput = {
+      status: ProductStatus.ACTIVE,
+    };
 
-      return {
-        data: filtered,
-        meta: {
-          query: '',
-          category,
-          total: filtered.length,
-          categories: this.getCategories(),
-        },
+    if (category) {
+      where.category = {
+        OR: [{ slug: category }, { id: category }],
       };
     }
 
-    if (q?.trim()) {
-      const terms = q
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((t) => t.length > 0);
-
-      const scored = allProducts
-        .map((product) => {
-          let score = 0;
-          const name = product.name.toLowerCase();
-          const desc = product.description.toLowerCase();
-          const cat = product.category.toLowerCase();
-          const catSlug = product.categorySlug.toLowerCase();
-          const store = product.store.toLowerCase();
-          const tags = product.tags.map((t) => t.toLowerCase());
-
-          for (const term of terms) {
-            if (name === term) score += 100;
-            else if (name.startsWith(term)) score += 80;
-            else if (name.includes(term)) score += 60;
-
-            if (tags.some((t) => t === term)) score += 50;
-            else if (tags.some((t) => t.includes(term))) score += 30;
-
-            if (cat === term || catSlug === term) score += 40;
-            else if (cat.includes(term) || catSlug.includes(term)) score += 25;
-
-            if (store.includes(term)) score += 15;
-            if (desc.includes(term)) score += 10;
-
-            if (product.isFeatured) score += 5;
-            if (product.isNew) score += 3;
-          }
-
-          if (category && product.categorySlug !== category) {
-            score = 0;
-          }
-
-          return { product, score };
-        })
-        .filter((item) => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map((item) => item.product);
-
-      return {
-        data: scored,
-        meta: {
-          query: q,
-          category: category || '',
-          total: scored.length,
-          categories: this.getCategories(),
-        },
-      };
+    if (query) {
+      where.OR = [
+        { id: query },
+        { slug: { contains: query, mode: 'insensitive' } },
+        { name: { contains: query, mode: 'insensitive' } },
+        { shortDescription: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } },
+        { store: { name: { contains: query, mode: 'insensitive' } } },
+        { category: { name: { contains: query, mode: 'insensitive' } } },
+        { category: { slug: { contains: query, mode: 'insensitive' } } },
+        { tags: { some: { tag: { name: { contains: query, mode: 'insensitive' } } } } },
+      ];
     }
+
+    const [products, total, categories] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: this.publicProductInclude,
+        orderBy: this.getPublicProductOrderBy(dto.sortBy, sortOrder),
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+      this.getCategories(),
+    ]);
 
     return {
-      data: [],
+      data: products.map((product) => this.mapPublicProduct(product)),
       meta: {
-        query: '',
-        category: '',
-        total: 0,
-        categories: this.getCategories(),
+        query,
+        category: category || '',
+        total,
+        categories,
       },
     };
   }
 
-  private getCategories(): { slug: string; name: string; count: number }[] {
-    const catMap = new Map<string, { name: string; count: number }>();
-    for (const p of allProducts) {
-      const existing = catMap.get(p.categorySlug);
-      if (existing) {
-        existing.count++;
-      } else {
-        catMap.set(p.categorySlug, { name: p.category, count: 1 });
-      }
-    }
-    return Array.from(catMap.entries()).map(([slug, { name, count }]) => ({
-      slug,
-      name,
-      count,
+  private async getCategories(): Promise<{ slug: string; name: string; count: number }[]> {
+    const categories = await this.prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: [{ position: 'asc' }, { name: 'asc' }],
+      include: {
+        _count: {
+          select: {
+            products: { where: { status: ProductStatus.ACTIVE } },
+          },
+        },
+      },
+    });
+
+    return categories.map((category) => ({
+      slug: category.slug,
+      name: category.name,
+      count: category._count.products,
     }));
   }
 
-  getById(id: string): SearchableProduct | null {
-    return allProducts.find((p) => p.id === id) || null;
+  private mapPublicProduct(product: any) {
+    return {
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      comparePrice: product.comparePrice ?? undefined,
+      image: product.images?.[0]?.url ?? null,
+      images: product.images ?? [],
+      rating: product.rating ?? 0,
+      averageRating: product.rating ?? 0,
+      reviewCount: product.reviewCount ?? 0,
+      reviewsCount: product.reviewCount ?? 0,
+      store: product.store,
+      storeId: product.storeId,
+      storeName: product.store?.name,
+      storeSlug: product.store?.slug,
+      category: product.category,
+      categoryName: product.category?.name,
+      categorySlug: product.category?.slug,
+      productType: product.productType,
+      productSource: product.productSource,
+      requiresShipping: product.requiresShipping,
+      trackInventory: product.trackInventory,
+      poolProductId: product.poolProductId,
+      stock:
+        product.inventoryItems?.reduce(
+          (sum: number, item: { available?: number }) => sum + (item.available ?? 0),
+          0,
+        ) || product.stock,
+      lowStock:
+        product.inventoryItems?.[0]?.lowStockThreshold ?? product.lowStock,
+      isNew:
+        Date.now() - new Date(product.createdAt).getTime() <
+        1000 * 60 * 60 * 24 * 21,
+      totalSales: product.totalSales ?? 0,
+      isFeatured: product.isFeatured,
+      variants: product.variants ?? [],
+      specifications: [],
+      features: [],
+      reviews: [],
+    };
   }
 
-  getFeatured(limit = 8): SearchableProduct[] {
-    return allProducts.filter((p) => p.isFeatured).slice(0, limit);
+  async getById(id: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, status: 'ACTIVE' },
+      include: {
+        images: { orderBy: { position: 'asc' } },
+        variants: { orderBy: { createdAt: 'asc' } },
+        category: { select: { id: true, name: true, slug: true } },
+        store: { select: { id: true, name: true, slug: true } },
+        inventoryItems: { select: { available: true, reserved: true, lowStockThreshold: true } },
+      },
+    });
+
+    return product ? this.mapPublicProduct(product) : null;
   }
 
-  getTrending(limit = 10): SearchableProduct[] {
-    return allProducts
-      .slice()
-      .sort((a, b) => {
-        if (a.isFeatured && !b.isFeatured) return -1;
-        if (!a.isFeatured && b.isFeatured) return 1;
-        return b.rating - a.rating;
-      })
-      .slice(0, limit);
+  async getBySlug(slug: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { slug, status: 'ACTIVE' },
+      include: {
+        images: { orderBy: { position: 'asc' } },
+        variants: { orderBy: { createdAt: 'asc' } },
+        category: { select: { id: true, name: true, slug: true } },
+        store: { select: { id: true, name: true, slug: true } },
+        inventoryItems: { select: { available: true, reserved: true, lowStockThreshold: true } },
+      },
+    });
+
+    return product ? this.mapPublicProduct(product) : null;
   }
 
-  getTop(limit = 10): SearchableProduct[] {
-    return allProducts
-      .slice()
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, limit);
+  async getFeatured(limit = 8) {
+    const products = await this.prisma.product.findMany({
+      where: { status: ProductStatus.ACTIVE, isFeatured: true },
+      include: this.publicProductInclude,
+      orderBy: [{ updatedAt: 'desc' }],
+      take: limit,
+    });
+
+    return products.map((product) => this.mapPublicProduct(product));
   }
 
-  getDeals(limit = 10): (SearchableProduct & { discountPercent: number })[] {
-    return allProducts
-      .filter((p) => p.comparePrice && p.comparePrice > p.price)
-      .map((p) => {
-        const discountPercent =
-          ((p.comparePrice! - p.price) / p.comparePrice!) * 100;
-        return { product: p, discountPercent };
-      })
+  async getTrending(limit = 10) {
+    const products = await this.prisma.product.findMany({
+      where: { status: ProductStatus.ACTIVE },
+      include: this.publicProductInclude,
+      orderBy: [{ totalSales: 'desc' }, { rating: 'desc' }, { updatedAt: 'desc' }],
+      take: limit,
+    });
+
+    return products.map((product) => this.mapPublicProduct(product));
+  }
+
+  async getTop(limit = 10) {
+    const products = await this.prisma.product.findMany({
+      where: { status: ProductStatus.ACTIVE },
+      include: this.publicProductInclude,
+      orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { updatedAt: 'desc' }],
+      take: limit,
+    });
+
+    return products.map((product) => this.mapPublicProduct(product));
+  }
+
+  async getDeals(limit = 10) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        status: ProductStatus.ACTIVE,
+        comparePrice: { not: null },
+      },
+      include: this.publicProductInclude,
+      orderBy: [{ updatedAt: 'desc' }],
+      take: Math.max(limit * 3, limit),
+    });
+
+    return products
+      .filter((product) => product.comparePrice && product.comparePrice > product.price)
+      .map((product) => ({
+        ...this.mapPublicProduct(product),
+        discountPercent: Math.round(
+          (((product.comparePrice ?? product.price) - product.price) /
+            (product.comparePrice ?? product.price)) *
+            100,
+        ),
+      }))
       .sort((a, b) => b.discountPercent - a.discountPercent)
-      .slice(0, limit)
-      .map((item) => ({
-        ...item.product,
-        discountPercent: Math.round(item.discountPercent),
-      })) as (SearchableProduct & { discountPercent: number })[];
+      .slice(0, limit);
   }
 
-  getCategoryDetail(slug: string, limit = 20) {
-    const categoryMeta = categoriesMetadata.find((c) => c.slug === slug);
+  async getCategoryDetail(slug: string, limit = 20) {
+    const category = await this.prisma.category.findFirst({
+      where: {
+        isActive: true,
+        OR: [{ slug }, { id: slug }],
+      },
+    });
 
-    const products = allProducts.filter((p) => p.categorySlug === slug);
-    const productCount = products.length;
-
-    let category: CategoryMetadata & { productCount: number };
-
-    if (categoryMeta) {
-      category = {
-        ...categoryMeta,
-        productCount,
-      };
-    } else if (products.length > 0) {
-      category = {
-        slug,
-        name: products[0].category,
-        description: '',
-        image: products[0].image,
-        productCount,
-      };
-    } else {
+    if (!category) {
       throw new NotFoundException(`Category "${slug}" not found`);
     }
 
+    const where: Prisma.ProductWhereInput = {
+      status: ProductStatus.ACTIVE,
+      categoryId: category.id,
+    };
+
+    const [products, productCount] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: this.publicProductInclude,
+        orderBy: this.getPublicProductOrderBy('updatedAt', 'desc'),
+        take: Math.min(Math.max(Number(limit ?? 20), 1), 50),
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
     return {
-      category,
-      products: products.slice(0, limit),
+      category: {
+        slug: category.slug,
+        name: category.name,
+        description: '',
+        image: category.imageUrl,
+        productCount,
+      },
+      products: products.map((product) => this.mapPublicProduct(product)),
       total: productCount,
     };
   }

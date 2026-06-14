@@ -89,7 +89,7 @@ export class ProductsController {
     @Query() dto: LimitQueryDto,
   ) {
     try {
-      return this.productsService.getCategoryDetail(slug, dto.limit);
+      return await this.productsService.getCategoryDetail(slug, dto.limit);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -108,7 +108,7 @@ export class ProductsController {
     @Query() dto: LimitQueryDto,
   ) {
     try {
-      return this.productsService.getCategoryDetail(slug, dto.limit);
+      return await this.productsService.getCategoryDetail(slug, dto.limit);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -134,12 +134,25 @@ export class ProductsController {
   }
 
   @Public()
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get a product by slug' })
+  @ApiResponse({ status: 200, description: 'Product found' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async getBySlug(@Param('slug') slug: string) {
+    const product = await this.productsService.getBySlug(slug);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+    return product;
+  }
+
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiResponse({ status: 200, description: 'Product found' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async getById(@Param('id') id: string) {
-    const product = this.productsService.getById(id);
+    const product = await this.productsService.getById(id);
     if (!product) {
       throw new NotFoundException('Product not found');
     }

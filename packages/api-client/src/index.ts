@@ -345,47 +345,55 @@ export const authApi = {
 // ==================== Users API ====================
 
 export const usersApi = {
-  getProfile: () => api.get('/users/profile'),
+  getProfile: () => api.get('/users/me'),
 
   updateProfile: (data: {
     firstName?: string
     lastName?: string
     phone?: string
     bio?: string
-  }) => api.patch('/users/profile', data),
+  }) => api.patch('/users/me/profile', data),
 
   uploadAvatar: (file: File) => {
     const formData = new FormData()
     formData.append('avatar', file)
-    return api.post('/users/avatar', formData, {
+    return api.post('/users/me/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
 
-  getAddresses: () => api.get('/users/addresses'),
+  getAddresses: () => api.get('/users/me/addresses'),
 
   addAddress: (data: {
     line1: string
     line2?: string
     city: string
     state: string
+    localGovernment?: string
+    stateId?: string
+    lgaId?: string
     country: string
     postalCode?: string
     type: 'SHIPPING' | 'BILLING'
     isDefault?: boolean
-  }) => api.post('/users/addresses', data),
+  }) => api.post('/users/me/addresses', data),
 
   updateAddress: (id: string, data: Partial<{
     line1: string
     line2: string
     city: string
     state: string
+    localGovernment: string
+    stateId: string
+    lgaId: string
     country: string
     postalCode: string
     isDefault: boolean
-  }>) => api.patch(`/users/addresses/${id}`, data),
+  }>) => api.patch(`/users/me/addresses/${id}`, data),
 
-  deleteAddress: (id: string) => api.delete(`/users/addresses/${id}`),
+  deleteAddress: (id: string) => api.delete(`/users/me/addresses/${id}`),
+
+  setDefaultAddress: (id: string) => api.patch(`/users/me/addresses/${id}/default`),
 
   // KYC
   getKycStatus: () => api.get('/users/kyc'),

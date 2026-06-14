@@ -8,6 +8,7 @@ import {
   Heart, 
   Star, 
   Eye,
+  ImageIcon,
 } from 'lucide-react'
 
 export interface Product {
@@ -61,6 +62,7 @@ export function ProductCard({
     : 0
 
   const isOutOfStock = product.stock !== undefined && product.stock <= 0
+  const imageSrc = product.images[0]
 
   const handleClick = () => {
     onClick?.(product)
@@ -83,11 +85,17 @@ export function ProductCard({
         onClick={handleClick}
       >
         <div className="relative w-32 h-32 flex-shrink-0">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-full object-cover rounded-l-lg"
-          />
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={product.name}
+              className="w-full h-full object-cover rounded-l-lg"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center rounded-l-lg bg-default text-default-foreground/40">
+              <ImageIcon className="h-8 w-8" />
+            </div>
+          )}
           {discount > 0 && (
             <Chip
               size="sm"
@@ -136,11 +144,17 @@ export function ProductCard({
         onClick={handleClick}
       >
         <div className="relative aspect-square">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-full object-cover rounded-t-lg"
-          />
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={product.name}
+              className="w-full h-full object-cover rounded-t-lg"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center rounded-t-lg bg-default text-default-foreground/40">
+              <ImageIcon className="h-8 w-8" />
+            </div>
+          )}
           {discount > 0 && (
             <Chip
               size="sm"
@@ -171,11 +185,17 @@ export function ProductCard({
       onClick={handleClick}
     >
       <div className="relative aspect-square overflow-hidden">
-        <img
-          src={product.images[0]}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-default text-default-foreground/40">
+            <ImageIcon className="h-10 w-10" />
+          </div>
+        )}
         
         {/* Badges */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">

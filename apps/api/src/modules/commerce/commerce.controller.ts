@@ -34,7 +34,7 @@ import {
   UpdateStorefrontDesignDto,
   UpdateVendorProductDto,
   UpsertDeliveryRateDto,
-  ValidateCouponDto,
+  ValidateCartCouponDto,
 } from './commerce.dto';
 
 @Controller('stores')
@@ -87,7 +87,7 @@ export class CartController {
   }
 
   @Post('coupon')
-  validateCoupon(@CurrentUser() user: any, @Body() dto: ValidateCouponDto) {
+  validateCoupon(@CurrentUser() user: any, @Body() dto: ValidateCartCouponDto) {
     return this.commerce.validateCouponForCart(user, dto);
   }
 

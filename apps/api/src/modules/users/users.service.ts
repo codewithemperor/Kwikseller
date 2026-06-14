@@ -182,6 +182,49 @@ export class UsersService {
 
   // ==================== ADDRESS CRUD ====================
 
+  private splitLocationInput(state?: string, localGovernment?: string) {
+    const [stateName = '', ...rest] = (state ?? '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    return {
+      stateName,
+      localGovernmentName: localGovernment?.trim() || rest.join(', '),
+    };
+  }
+
+  private async resolveAddressLocation(dto: {
+    state?: string;
+    localGovernment?: string;
+    stateId?: string;
+    lgaId?: string;
+  }) {
+    if (dto.stateId || dto.lgaId) {
+      return { stateId: dto.stateId, lgaId: dto.lgaId };
+    }
+
+    const { stateName, localGovernmentName } = this.splitLocationInput(dto.state, dto.localGovernment);
+    if (!stateName) return { stateId: undefined, lgaId: undefined };
+
+    const state = await this.prisma.state.findFirst({
+      where: { name: { equals: stateName, mode: 'insensitive' } },
+    });
+
+    if (!state) return { stateId: undefined, lgaId: undefined };
+
+    const lga = localGovernmentName
+      ? await this.prisma.localGovernment.findFirst({
+          where: {
+            stateId: state.id,
+            name: { equals: localGovernmentName, mode: 'insensitive' },
+          },
+        })
+      : null;
+
+    return { stateId: state.id, lgaId: lga?.id };
+  }
+
   async getAddresses(userId: string): Promise<AddressResponseDto[]> {
     const addresses = await this.prisma.address.findMany({
       where: { userId },
@@ -217,14 +260,15 @@ export class UsersService {
       });
     }
 
+    const location = await this.resolveAddressLocation(dto);
     const address = await this.prisma.address.create({
       data: {
         userId,
         line1: dto.line1,
         line2: dto.line2,
         city: dto.city,
-        stateId: dto.stateId,
-        lgaId: dto.lgaId,
+        stateId: location.stateId,
+        lgaId: location.lgaId,
         country: dto.country ?? 'Nigeria',
         postalCode: dto.postalCode,
         isDefault: dto.isDefault ?? false,
@@ -267,14 +311,15 @@ export class UsersService {
       });
     }
 
+    const location = await this.resolveAddressLocation(dto);
     const address = await this.prisma.address.update({
       where: { id: addressId },
       data: {
         line1: dto.line1,
         line2: dto.line2,
         city: dto.city,
-        stateId: dto.stateId,
-        lgaId: dto.lgaId,
+        stateId: location.stateId,
+        lgaId: location.lgaId,
         country: dto.country,
         postalCode: dto.postalCode,
         isDefault: dto.isDefault,
@@ -361,6 +406,9 @@ export class UsersService {
       line2: address.line2 ?? undefined,
       city: address.city,
       state: address.state?.name ?? '',
+      stateId: address.stateId ?? undefined,
+      localGovernment: address.lga?.name ?? undefined,
+      lgaId: address.lgaId ?? undefined,
       country: address.country,
       postalCode: address.postalCode ?? undefined,
       isDefault: address.isDefault,

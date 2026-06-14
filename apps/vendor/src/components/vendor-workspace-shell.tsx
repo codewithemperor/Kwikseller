@@ -114,8 +114,8 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
         )}
 
         {/* Main content area - offset by sidebar on desktop */}
-        <div className="min-h-screen pb-20 pt-16 lg:pl-72">
-          <main className="safe-container mx-auto w-full max-w-[1500px] px-4 py-5 md:px-6 lg:px-7 lg:py-6">
+        <div className="min-h-screen pb-20 pt-14 lg:pl-72">
+          <main className="safe-container mx-auto w-full max-w-[1320px] px-4 py-4 md:px-5 lg:px-6 lg:py-5">
             {children}
           </main>
         </div>

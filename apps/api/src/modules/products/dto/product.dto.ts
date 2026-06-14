@@ -8,6 +8,11 @@ export class SearchProductsDto {
   @IsString()
   q?: string;
 
+  @ApiPropertyOptional({ description: 'Search query alias used by product list clients' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({ description: 'Filter by category slug' })
   @IsOptional()
   @IsString()

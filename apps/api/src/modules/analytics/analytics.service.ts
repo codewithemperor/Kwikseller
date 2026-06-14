@@ -1,16 +1,17 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 type DateRange = { start: Date; end: Date };
 
-interface TopProductInfo {
+export interface TopProductInfo {
   productId: string;
   name: string;
   revenue: number;
   unitsSold: number;
 }
 
-interface TopCustomerInfo {
+export interface TopCustomerInfo {
   buyerId: string;
   orderCount: number;
   totalSpent: number;
@@ -95,7 +96,7 @@ export class AnalyticsService {
   async getOverview(storeId: string, dateRange: DateRange) {
     const { start, end } = dateRange;
 
-    const excludedStatuses = ['DRAFT', 'CANCELLED'];
+    const excludedStatuses: OrderStatus[] = [OrderStatus.DRAFT, OrderStatus.CANCELLED];
 
     const [orders, statusGroups, topProducts] = await Promise.all([
       this.prisma.order.findMany({
@@ -154,17 +155,18 @@ export class AnalyticsService {
 
     // Top product
     let topProduct: TopProductInfo | null = null;
-    if (topProducts.length > 0) {
+    const topProductAgg = topProducts[0];
+    if (topProductAgg) {
       const product = await this.prisma.product.findUnique({
-        where: { id: topProducts[0].productId },
+        where: { id: topProductAgg.productId },
         select: { id: true, name: true },
       });
       if (product) {
         topProduct = {
           productId: product.id,
           name: product.name,
-          revenue: topProducts[0]._sum.totalPrice || 0,
-          unitsSold: topProducts[0]._sum.quantity || 0,
+          revenue: topProductAgg._sum.totalPrice || 0,
+          unitsSold: topProductAgg._sum.quantity || 0,
         };
       }
     }
@@ -172,7 +174,7 @@ export class AnalyticsService {
     // Status distribution
     const statusDistribution = statusGroups.map((g) => ({
       status: g.status,
-      count: g._count.id,
+      count: Number((g._count as { id?: number } | undefined)?.id ?? 0),
     }));
 
     return {
@@ -253,6 +255,7 @@ export class AnalyticsService {
     limit: number = 20,
   ) {
     const { start, end } = dateRange;
+    const excludedStatuses: OrderStatus[] = [OrderStatus.DRAFT, OrderStatus.CANCELLED];
 
     const products = await this.prisma.orderItem.groupBy({
       by: ['productId'],
@@ -260,7 +263,7 @@ export class AnalyticsService {
         order: {
           storeId,
           createdAt: { gte: start, lte: end },
-          status: { notIn: ['DRAFT', 'CANCELLED'] },
+          status: { notIn: excludedStatuses },
         },
       },
       _sum: { totalPrice: true, quantity: true },
@@ -308,7 +311,7 @@ export class AnalyticsService {
         order: {
           storeId,
           createdAt: { gte: start, lte: end },
-          status: { notIn: ['DRAFT', 'CANCELLED'] },
+          status: { notIn: excludedStatuses },
         },
       },
     });
@@ -419,7 +422,7 @@ export class AnalyticsService {
   async getCustomerAnalytics(storeId: string, dateRange: DateRange) {
     const { start, end } = dateRange;
 
-    const excludedStatuses = ['DRAFT', 'CANCELLED'];
+    const excludedStatuses: OrderStatus[] = [OrderStatus.DRAFT, OrderStatus.CANCELLED];
 
     const orders = await this.prisma.order.findMany({
       where: { storeId, createdAt: { gte: start, lte: end }, status: { notIn: excludedStatuses } },

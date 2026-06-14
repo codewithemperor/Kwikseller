@@ -46,6 +46,36 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function extractProductImage(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value.url ?? "";
+}
+
+function categoryToParam(category: string): string {
+  return category
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function hasHtmlMarkup(value: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+function ProductDescription({ description }: { description: string }) {
+  const contentClassName =
+    "mt-3 text-sm leading-7 text-kwik-gray [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:text-kwik-dark [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-kwik-dark [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-kwik-dark [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_strong]:text-kwik-dark";
+
+  if (hasHtmlMarkup(description)) {
+    return <div className={contentClassName} dangerouslySetInnerHTML={{ __html: description }} />;
+  }
+
+  return <p className={contentClassName}>{description}</p>;
+}
+
 /* ─── Entrance animation wrapper ─────────────────────────── */
 function FadeInUp({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = React.useRef(null);
@@ -191,9 +221,12 @@ export function ProductDetailPage({
 }: {
   product: MarketplaceProduct;
 }) {
-  const [activeImage, setActiveImage] = React.useState(
-    product.images?.[0] ?? product.image,
+  const gallery = React.useMemo(
+    () => (product.images?.length ? product.images : [product.image]),
+    [product.images, product.image],
   );
+  const [activeImageIndex, setActiveImageIndex] = React.useState(0);
+  const activeImage = gallery[activeImageIndex] ?? product.image;
   const [relatedProducts, setRelatedProducts] = React.useState<
     MarketplaceProduct[]
   >([]);
@@ -216,32 +249,36 @@ export function ProductDetailPage({
     setShowStickyBar(isPast);
   });
 
-  const gallery = product.images?.length ? product.images : [product.image];
   const [isTransitioning, setIsTransitioning] = React.useState(false);
 
+  React.useEffect(() => {
+    if (activeImageIndex > gallery.length - 1) {
+      setActiveImageIndex(0);
+    }
+  }, [activeImageIndex, gallery.length]);
+
   // Smooth image transition
-  const setActiveImageWithTransition = React.useCallback((image: string) => {
-    if (image === activeImage || isTransitioning) return;
+  const setActiveImageWithTransition = React.useCallback((index: number) => {
+    if (index === activeImageIndex || isTransitioning) return;
     setIsTransitioning(true);
     // Fade out
     setTimeout(() => {
-      setActiveImage(image);
+      setActiveImageIndex(index);
       // Fade in
       setTimeout(() => setIsTransitioning(false), 50);
     }, 150);
-  }, [activeImage, isTransitioning]);
+  }, [activeImageIndex, isTransitioning]);
 
   // Navigate images
   const goToImage = React.useCallback((direction: 'prev' | 'next') => {
-    const currentIdx = gallery.indexOf(activeImage);
     let nextIdx: number;
     if (direction === 'prev') {
-      nextIdx = currentIdx <= 0 ? gallery.length - 1 : currentIdx - 1;
+      nextIdx = activeImageIndex <= 0 ? gallery.length - 1 : activeImageIndex - 1;
     } else {
-      nextIdx = currentIdx >= gallery.length - 1 ? 0 : currentIdx + 1;
+      nextIdx = activeImageIndex >= gallery.length - 1 ? 0 : activeImageIndex + 1;
     }
-    setActiveImageWithTransition(gallery[nextIdx]);
-  }, [activeImage, gallery, setActiveImageWithTransition]);
+    setActiveImageWithTransition(nextIdx);
+  }, [activeImageIndex, gallery.length, setActiveImageWithTransition]);
 
   // Touch/swipe support
   const touchStartRef = React.useRef<number | null>(null);
@@ -265,6 +302,11 @@ export function ProductDetailPage({
   const checkPriceDrop = usePriceDropStore((s) => s.checkPriceDrop);
 
   const isWishlisted = isInWishlist(product.id);
+  const hasSavings = Boolean(product.comparePrice && product.comparePrice > variantPrice);
+  const savingsAmount = hasSavings ? Number(product.comparePrice) - variantPrice : 0;
+  const savingsPercent = hasSavings && product.comparePrice
+    ? Math.round((savingsAmount / Number(product.comparePrice)) * 100)
+    : 0;
 
   // Track recently viewed on mount
   React.useEffect(() => {
@@ -315,7 +357,7 @@ export function ProductDetailPage({
                 price: p.price,
                 comparePrice: p.comparePrice,
                 image:
-                  p.image || p.images?.[0] || p.featuredImage || null,
+                  extractProductImage(p.image) || extractProductImage(p.images?.[0]) || extractProductImage(p.featuredImage),
                 rating: p.averageRating || p.rating || 0,
                 reviewCount: p.reviewCount || 0,
                 store: p.store?.name || p.storeName || "",
@@ -433,7 +475,7 @@ export function ProductDetailPage({
   ];
 
   return (
-    <div className="bg-white py-1 dark:bg-[#07111f]">
+    <div className="bg-white pt-4 pb-1 dark:bg-[#07111f] sm:pt-6">
       <div className="container mx-auto space-y-5 px-4">
 
         {/* Breadcrumb */}
@@ -445,7 +487,7 @@ export function ProductDetailPage({
             <ChevronRight className="h-3.5 w-3.5 text-kwik-muted" />
             {product.category && (
               <>
-                <Link href={`/search?category=${encodeURIComponent(product.category)}`} className="hover:text-kwik-orange transition-colors duration-200">
+                <Link href={`/categories?name=${encodeURIComponent(categoryToParam(product.category))}`} className="hover:text-kwik-orange transition-colors duration-200">
                   {product.category}
                 </Link>
                 <ChevronRight className="h-3.5 w-3.5 text-kwik-muted" />
@@ -456,7 +498,7 @@ export function ProductDetailPage({
         </FadeInUp>
 
         {/* Main product card */}
-        <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
+        <div className="bg-white dark:bg-white/5">
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
 
             {/* Left column: Gallery with gradient shadow */}
@@ -503,9 +545,9 @@ export function ProductDetailPage({
                       </button>
 
                       {/* Image counter indicator */}
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-background/80 backdrop-blur-sm px-3 py-1 shadow-sm border border-kwik-border/50">
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-background/80 backdrop-blur-sm px-3 py-1 shadow-sm border border-kwik-border/50">
                         <span className="text-xs font-semibold text-kwik-dark">
-                          {gallery.indexOf(activeImage) + 1}/{gallery.length}
+                          {activeImageIndex + 1}/{gallery.length}
                         </span>
                       </div>
                     </>
@@ -513,14 +555,14 @@ export function ProductDetailPage({
                 </div>
 
                 {gallery.length > 1 && (
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {gallery.map((image, idx) => (
                       <button
-                        key={image}
+                        key={`${image}-${idx}`}
                         type="button"
-                        onClick={() => setActiveImageWithTransition(image)}
-                        className={`relative aspect-square overflow-hidden rounded-[18px] transition-all duration-300 ease-out ${
-                          activeImage === image
+                        onClick={() => setActiveImageWithTransition(idx)}
+                        className={`relative h-16 w-16 flex-none overflow-hidden rounded-[14px] transition-all duration-300 ease-out sm:h-20 sm:w-20 ${
+                          activeImageIndex === idx
                             ? "ring-2 ring-kwik-orange ring-offset-2 ring-offset-kwik-bg-page dark:ring-offset-kwik-bg-light scale-[1.03] shadow-md shadow-kwik-orange/20"
                             : "border border-kwik-border hover:border-kwik-orange/50 hover:shadow-sm"
                         } bg-kwik-bg-surface`}
@@ -531,8 +573,8 @@ export function ProductDetailPage({
                           className="w-full h-full"
                           objectFit="contain"
                         />
-                        {activeImage === image && (
-                          <div className="absolute inset-0 rounded-[18px] ring-1 ring-inset ring-kwik-orange/30" />
+                        {activeImageIndex === idx && (
+                          <div className="absolute inset-0 rounded-[14px] ring-1 ring-inset ring-kwik-orange/30" />
                         )}
                       </button>
                     ))}
@@ -563,36 +605,53 @@ export function ProductDetailPage({
                 </div>
               </FadeInUp>
 
-              {/* Price + Actions card with enhanced background */}
+              {/* Price + Actions card */}
               <FadeInUp delay={0.2}>
-                    <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
-                  {product.comparePrice && (
-                    <p className="text-lg text-kwik-muted line-through">
-                      {formatCurrency(product.comparePrice)}
-                    </p>
-                  )}
-                  <p className="text-4xl font-bold text-kwik-dark">
-                    {formatCurrency(variantPrice)}
-                  </p>
-                  {product.comparePrice && (
-                    <span className="mt-1 inline-block rounded-lg bg-kwik-green/10 px-2 py-0.5 text-xs font-semibold text-kwik-green">
-                      Save {formatCurrency(product.comparePrice - variantPrice)}
-                    </span>
-                  )}
-                  {product.dimensions && (
-                    <p className="mt-3 text-sm text-kwik-gray-light">
-                      Dimensions: {product.dimensions}
-                    </p>
-                  )}
-                  {product.tag && (
-                    <p className="mt-1 text-sm text-kwik-gray-light">
-                      Material: {product.tag}
-                    </p>
-                  )}
+                <div className="overflow-hidden bg-white dark:bg-white/5">
+                  <div className="border-b border-kwik-border/70 py-4 dark:border-white/10 sm:py-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-kwik-muted">Amount</p>
+                        <div className="mt-2">
+                          <p className="text-3xl font-bold leading-none text-kwik-dark sm:text-4xl">
+                            {formatCurrency(variantPrice)}
+                          </p>
+                          {product.comparePrice && (
+                            <p className="mt-1 text-sm font-medium text-kwik-muted line-through">
+                              {formatCurrency(product.comparePrice)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {hasSavings && (
+                        <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-right">
+                          <p className="text-sm font-bold text-emerald-600">{savingsPercent}% off</p>
+                          <p className="text-[11px] font-medium text-emerald-700/80">Save {formatCurrency(savingsAmount)}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {(product.dimensions || product.tag) && (
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        {product.dimensions && (
+                            <div className="rounded-lg bg-kwik-bg-surface px-3 py-2 dark:bg-white/5">
+                            <p className="text-[11px] uppercase tracking-[0.14em] text-kwik-muted">Dimensions</p>
+                            <p className="mt-1 text-sm font-medium text-kwik-dark">{product.dimensions}</p>
+                          </div>
+                        )}
+                        {product.tag && (
+                            <div className="rounded-lg bg-kwik-bg-surface px-3 py-2 dark:bg-white/5">
+                            <p className="text-[11px] uppercase tracking-[0.14em] text-kwik-muted">Material</p>
+                            <p className="mt-1 text-sm font-medium text-kwik-dark">{product.tag}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Variant selector */}
                   {product.variants && product.variants.length > 0 && (
-                    <div className="mt-4 border-t border-kwik-border/50 pt-4">
+                    <div className="border-b border-kwik-border/70 py-4 dark:border-white/10 sm:py-5">
                       <ProductVariantSelector
                         variants={product.variants}
                         onVariantSelect={handleVariantSelect}
@@ -602,92 +661,91 @@ export function ProductDetailPage({
                   )}
 
                   {/* Quantity selector */}
-                  <div className="mt-5 flex items-center gap-3">
-                    <span className="text-sm font-semibold text-kwik-dark">
-                      Quantity
-                    </span>
-                    <div className="flex items-center gap-1 rounded-xl border border-kwik-border bg-kwik-bg-surface px-1.5 py-1 shadow-sm">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="h-8 min-w-8 rounded-lg hover:bg-kwik-orange-tint transition-colors duration-200"
-                        onPress={() =>
-                          setQuantity((v) => Math.max(1, v - 1))
-                        }
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-8 text-center font-semibold text-kwik-dark tabular-nums">
-                        {quantity}
+                  <div className="py-4 sm:py-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-kwik-dark">
+                        Quantity
                       </span>
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="h-8 min-w-8 rounded-lg hover:bg-kwik-orange-tint transition-colors duration-200"
-                        onPress={() => setQuantity((v) => v + 1)}
-                        aria-label="Increase quantity"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 rounded-xl border border-kwik-border bg-kwik-bg-surface px-1.5 py-1 shadow-sm">
+                        <Button
+                          isIconOnly
+                          variant="ghost"
+                          className="h-8 min-w-8 rounded-lg hover:bg-kwik-orange-tint transition-colors duration-200"
+                          onPress={() =>
+                            setQuantity((v) => Math.max(1, v - 1))
+                          }
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="w-8 text-center font-semibold text-kwik-dark tabular-nums">
+                          {quantity}
+                        </span>
+                        <Button
+                          isIconOnly
+                          variant="ghost"
+                          className="h-8 min-w-8 rounded-lg hover:bg-kwik-orange-tint transition-colors duration-200"
+                          onPress={() => setQuantity((v) => v + 1)}
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Action buttons */}
-                  <div ref={addToCartRef} className="mt-4 grid grid-cols-[1fr_auto_auto] gap-3">
-                    {/* Add to Cart - prominent gradient button */}
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleAddToCart}
-                      className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-[#d97706] px-5 font-semibold text-white shadow-lg shadow-kwik-orange/25 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
-                    >
-                      <ShoppingCart className="h-4 w-4" />
-                      Add to cart
-                    </motion.button>
+                    {/* Action buttons */}
+                    <div ref={addToCartRef} className="mt-4 grid grid-cols-[1fr_auto_auto] gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleAddToCart}
+                        className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-[#d97706] px-5 font-semibold text-white shadow-lg shadow-kwik-orange/25 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        Add to cart
+                      </motion.button>
 
-                    {/* Wishlist button with pulse animation when active */}
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={handleWishlistToggle}
-                      className={`relative flex h-12 min-w-12 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
-                        isWishlisted
-                          ? "border-kwik-orange bg-kwik-orange-tint"
-                          : "border-kwik-border hover:border-kwik-orange/50"
-                      }`}
-                      aria-label={
-                        isWishlisted
-                          ? "Remove from wishlist"
-                          : "Add to wishlist"
-                      }
-                    >
-                      {isWishlisted && (
-                        <motion.span
-                          className="absolute inset-0 rounded-xl bg-kwik-orange/20"
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0] }}
-                          transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
-                        />
-                      )}
-                      <Heart
-                        className={`h-5 w-5 transition-all duration-300 ${
+                      <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleWishlistToggle}
+                        className={`relative flex h-12 min-w-12 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
                           isWishlisted
-                            ? "fill-current text-kwik-orange scale-110"
-                            : "text-kwik-dark-medium"
+                            ? "border-kwik-orange bg-kwik-orange-tint"
+                            : "border-kwik-border hover:border-kwik-orange/50"
                         }`}
-                      />
-                    </motion.button>
+                        aria-label={
+                          isWishlisted
+                            ? "Remove from wishlist"
+                            : "Add to wishlist"
+                        }
+                      >
+                        {isWishlisted && (
+                          <motion.span
+                            className="absolute inset-0 rounded-xl bg-kwik-orange/20"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
+                          />
+                        )}
+                        <Heart
+                          className={`h-5 w-5 transition-all duration-300 ${
+                            isWishlisted
+                              ? "fill-current text-kwik-orange scale-110"
+                              : "text-kwik-dark-medium"
+                          }`}
+                        />
+                      </motion.button>
 
-                    {/* Share button */}
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleShare}
-                      className="flex h-12 min-w-12 items-center justify-center rounded-xl border-2 border-kwik-border transition-all duration-300 hover:border-kwik-orange/50 hover:bg-kwik-orange-tint"
-                      aria-label="Share product"
-                    >
-                      <Share2 className="h-5 w-5 text-kwik-dark-medium transition-colors duration-200 group-hover:text-kwik-orange" />
-                    </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleShare}
+                        className="flex h-12 min-w-12 items-center justify-center rounded-xl border-2 border-kwik-border transition-all duration-300 hover:border-kwik-orange/50 hover:bg-kwik-orange-tint"
+                        aria-label="Share product"
+                      >
+                        <Share2 className="h-5 w-5 text-kwik-dark-medium transition-colors duration-200 group-hover:text-kwik-orange" />
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
               </FadeInUp>
@@ -721,13 +779,11 @@ export function ProductDetailPage({
               {/* Product description */}
               {product.description && (
                 <FadeInUp delay={0.3}>
-                  <div className="border border-kwik-border p-5 dark:border-white/10">
+                  <div className="py-5">
                     <h2 className="text-lg font-semibold text-kwik-dark">
                       Product description
                     </h2>
-                    <p className="mt-3 text-sm leading-7 text-kwik-gray">
-                      {product.description}
-                    </p>
+                    <ProductDescription description={product.description} />
                   </div>
                 </FadeInUp>
               )}

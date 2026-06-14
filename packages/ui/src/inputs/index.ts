@@ -17,8 +17,14 @@ export {
   Time,
   Select,
 } from "./form-inputs";
-export { FieldInput, FieldTextarea, FieldSelect } from "./plain-inputs";
-export type { FieldInputProps, FieldTextareaProps, FieldSelectProps } from "./plain-inputs";
+export { FieldInput, FieldAutocomplete, FieldTextarea, FieldSelect } from "./plain-inputs";
+export type {
+  FieldInputProps,
+  FieldAutocompleteOption,
+  FieldAutocompleteProps,
+  FieldTextareaProps,
+  FieldSelectProps,
+} from "./plain-inputs";
 
 export type {
   BaseInputProps,

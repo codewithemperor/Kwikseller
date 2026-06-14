@@ -238,7 +238,7 @@ function PoolOfferCard({ offer }: { offer: PoolOffer }) {
 
   return (
     <article className="group border-b border-neutral-200 pb-4 dark:border-white/10">
-      <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
+      <div className="relative aspect-[3/4] min-h-[148px] overflow-hidden bg-neutral-100 sm:min-h-[190px] md:aspect-[4/5]">
         <AppImage src={image} alt={name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" fallbackVariant="product" />
       </div>
       <div className="mt-3 space-y-3">

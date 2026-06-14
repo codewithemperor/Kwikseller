@@ -32,6 +32,12 @@ export class CreateAddressDto {
   @MaxLength(100)
   state?: string;
 
+  @ApiPropertyOptional({ example: 'Ikeja' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  localGovernment?: string;
+
   @ApiPropertyOptional({ example: 'clw...' })
   @IsOptional()
   @IsString()
@@ -90,6 +96,12 @@ export class UpdateAddressDto {
   @MaxLength(100)
   state?: string;
 
+  @ApiPropertyOptional({ example: 'Ikeja' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  localGovernment?: string;
+
   @ApiPropertyOptional({ example: 'clw...' })
   @IsOptional()
   @IsString()
@@ -141,6 +153,15 @@ export class AddressResponseDto {
 
   @ApiProperty()
   state: string;
+
+  @ApiPropertyOptional()
+  stateId?: string;
+
+  @ApiPropertyOptional()
+  localGovernment?: string;
+
+  @ApiPropertyOptional()
+  lgaId?: string;
 
   @ApiProperty()
   country: string;

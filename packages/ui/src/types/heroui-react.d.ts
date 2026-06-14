@@ -21,6 +21,15 @@ declare module "@heroui/react" {
     Image: AnyComponent;
   }
 
+  interface AutocompleteComponent extends AnyComponent {
+    ClearButton: AnyComponent;
+    Filter: AnyComponent;
+    Indicator: AnyComponent;
+    Popover: AnyComponent;
+    Trigger: AnyComponent;
+    Value: AnyComponent;
+  }
+
   interface BreadcrumbsComponent extends AnyComponent {
     Item: AnyComponent;
   }
@@ -89,6 +98,13 @@ declare module "@heroui/react" {
     Value: AnyComponent;
   }
 
+  interface SearchFieldComponent extends AnyComponent {
+    ClearButton: AnyComponent;
+    Group: AnyComponent;
+    Input: AnyComponent;
+    SearchIcon: AnyComponent;
+  }
+
   interface TableComponent extends AnyComponent {
     Body: AnyComponent;
     Cell: AnyComponent;
@@ -140,6 +156,7 @@ declare module "@heroui/react" {
   };
 
   export const Avatar: AvatarComponent;
+  export const Autocomplete: AutocompleteComponent;
   export const Breadcrumbs: BreadcrumbsComponent;
   export const Button: React.FC<any>;
   export const Calendar: CalendarComponent;
@@ -153,6 +170,7 @@ declare module "@heroui/react" {
   export const DateRangePicker: DateRangePickerComponent;
   export const Description: React.FC<any>;
   export const Dropdown: DropdownComponent;
+  export const EmptyState: React.FC<any>;
   export const FieldError: React.FC<any>;
   export const Form: React.FC<any>;
   export const Input: React.FC<any>;
@@ -162,6 +180,7 @@ declare module "@heroui/react" {
   export const ListBox: ListBoxComponent;
   export const NumberField: NumberFieldComponent;
   export const RangeCalendar: RangeCalendarComponent;
+  export const SearchField: SearchFieldComponent;
   export const Separator: React.FC<any>;
   export const Select: SelectComponent;
   export const Skeleton: React.FC<any>;
@@ -178,6 +197,7 @@ declare module "@heroui/react" {
   export const TimeField: TimeFieldComponent;
   export const Toast: ToastComponent;
   export const toast: ToastApi;
+  export const useFilter: (options?: any) => { contains: any };
 
   export const Modal: React.FC<any>;
   export const ModalBackdrop: React.FC<any>;

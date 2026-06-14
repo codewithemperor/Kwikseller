@@ -399,21 +399,23 @@ export function StorefrontLoading({ storeName, logoUrl, slug }: { storeName?: st
   const name = storeName ?? (slug ? titleFromSlug(slug) : "Vendor store");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 text-center text-kwik-dark dark:bg-[#07111f] dark:text-white" aria-busy="true" aria-label={`Loading ${name}`}>
-      <div className="w-full max-w-xs">
-        {logoUrl ? (
-          <img src={logoUrl} alt="" className="mx-auto h-14 w-14 object-cover" />
-        ) : (
-          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-[#071A2F] text-white">
-            <Store className="h-7 w-7" />
-          </div>
-        )}
-        <p className="mt-4 font-heading text-lg font-semibold">{name}</p>
-        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-kwik-muted dark:text-white/55">Powered by Kwikseller</p>
-        <div className="mx-auto mt-5 h-1 w-36 overflow-hidden bg-neutral-100 dark:bg-white/10">
-          <div className="h-full w-1/2 animate-pulse bg-[var(--loader-accent,#f97316)]" />
+    <main className="relative flex min-h-screen items-center justify-center bg-white px-6 text-center text-kwik-dark dark:bg-[#07111f] dark:text-white" aria-busy="true" aria-label={`Loading ${name}`}>
+      <div className="flex w-full max-w-xs flex-col items-center">
+        <div className="relative">
+          <div className="absolute inset-[-10px] rounded-full border-2 border-[var(--loader-accent,#f97316)]/20" />
+          <div className="absolute inset-[-10px] animate-spin rounded-full border-2 border-transparent border-t-[var(--loader-accent,#f97316)]" />
+          {logoUrl ? (
+            <img src={logoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10" />
+          ) : (
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--loader-primary,#071A2F)] text-white ring-1 ring-black/10 dark:ring-white/10">
+              <Store className="h-7 w-7" />
+            </div>
+          )}
         </div>
+        <p className="mt-5 font-heading text-xl font-semibold">{name}</p>
+        <p className="mt-2 text-sm text-kwik-muted dark:text-white/55">Loading store</p>
       </div>
+      <p className="absolute inset-x-0 bottom-8 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-kwik-muted dark:text-white/45">Powered by Kwikseller</p>
     </main>
   );
 }
