@@ -583,52 +583,53 @@ export class CommerceService {
     const buyerEmail = await this.resolveBuyerEmail(userId, user);
     const cartWhere = dto.cartId ? { id: dto.cartId, userId } : { userId };
 
-    const result = await db.$transaction(async (tx: any) => {
-      if (dto.idempotencyKey) {
-        const existingCheckout = await tx.parentCheckout.findFirst({
-          where: { buyerId: userId, idempotencyKey: dto.idempotencyKey },
-          include: {
-            payment: true,
-            orders: {
-              include: { items: true, store: true },
-              orderBy: { createdAt: 'asc' },
+    const result = await db.$transaction(
+      async (tx: any) => {
+        if (dto.idempotencyKey) {
+          const existingCheckout = await tx.parentCheckout.findFirst({
+            where: { buyerId: userId, idempotencyKey: dto.idempotencyKey },
+            include: {
+              payment: true,
+              orders: {
+                include: { items: true, store: true },
+                orderBy: { createdAt: 'asc' },
+              },
             },
-          },
-        });
+          });
 
-        if (existingCheckout?.payment) {
-          return {
-            parentCheckout: existingCheckout,
-            orders: existingCheckout.orders,
-            order: existingCheckout.orders[0],
-            payment: existingCheckout.payment,
-            authorizationUrl: existingCheckout.payment.authorizationUrl,
-            reference: existingCheckout.payment.reference,
-            requiresShipping: existingCheckout.orders.some((order: any) => Number(order.shippingFee ?? 0) > 0),
-          };
+          if (existingCheckout?.payment) {
+            return {
+              parentCheckout: existingCheckout,
+              orders: existingCheckout.orders,
+              order: existingCheckout.orders[0],
+              payment: existingCheckout.payment,
+              authorizationUrl: existingCheckout.payment.authorizationUrl,
+              reference: existingCheckout.payment.reference,
+              requiresShipping: existingCheckout.orders.some((order: any) => Number(order.shippingFee ?? 0) > 0),
+            };
+          }
+
+          const existingOrder = await tx.order.findFirst({
+            where: { buyerId: userId, idempotencyKey: dto.idempotencyKey },
+            include: { payment: true, items: true },
+          });
+
+          if (existingOrder?.payment) {
+            return {
+              order: existingOrder,
+              payment: existingOrder.payment,
+              authorizationUrl: existingOrder.payment.authorizationUrl,
+              reference: existingOrder.payment.reference,
+              requiresShipping: this.withCartTotals({ items: existingOrder.items }).requiresShipping,
+            };
+          }
         }
 
-        const existingOrder = await tx.order.findFirst({
-          where: { buyerId: userId, idempotencyKey: dto.idempotencyKey },
-          include: { payment: true, items: true },
+        const cart = await tx.cart.findFirst({
+          where: cartWhere,
+          include: this.cartValidationInclude(),
+          orderBy: { updatedAt: 'desc' },
         });
-
-        if (existingOrder?.payment) {
-          return {
-            order: existingOrder,
-            payment: existingOrder.payment,
-            authorizationUrl: existingOrder.payment.authorizationUrl,
-            reference: existingOrder.payment.reference,
-            requiresShipping: this.withCartTotals({ items: existingOrder.items }).requiresShipping,
-          };
-        }
-      }
-
-      const cart = await tx.cart.findFirst({
-        where: cartWhere,
-        include: this.cartValidationInclude(),
-        orderBy: { updatedAt: 'desc' },
-      });
 
       if (dto.storeSlug) {
         const store = await tx.store.findUnique({
@@ -814,16 +815,18 @@ export class CommerceService {
         },
       });
 
-      return {
-        parentCheckout,
-        orders,
-        order: orders[0],
-        payment,
-        authorizationUrl: payment.authorizationUrl,
-        reference,
-        requiresShipping: totals.requiresShipping,
-      };
-    });
+        return {
+          parentCheckout,
+          orders,
+          order: orders[0],
+          payment,
+          authorizationUrl: payment.authorizationUrl,
+          reference,
+          requiresShipping: totals.requiresShipping,
+        };
+      },
+      { maxWait: 15_000, timeout: 30_000 },
+    );
 
     try {
       const callbackUrl = this.defaultPaymentCallbackUrl(result.reference);
@@ -942,13 +945,11 @@ export class CommerceService {
       const gatewayStatus = verification?.data?.status;
 
       if (gatewayStatus === 'success') {
-        return this.processSuccessfulPayment(reference, {
+        await this.processSuccessfulPayment(reference, {
           source: 'payment.verify',
           payload: verification.data,
         });
-      }
-
-      if (['failed', 'abandoned'].includes(gatewayStatus)) {
+      } else if (['failed', 'abandoned'].includes(gatewayStatus)) {
         await this.failPaymentReference(reference, verification.data);
       }
     }
@@ -1045,19 +1046,54 @@ export class CommerceService {
     return order;
   }
 
-  async getVendorDashboard(user: AuthContext) {
+  async getVendorDashboard(user: AuthContext, options: { query?: string } = {}) {
     const storeId = await this.resolveStoreId(user);
+    const vendorId = this.getUserId(user);
     const db = this.db();
-    const [orders, products, alerts, poolOffers] = await Promise.all([
+    const paidStatuses = ['PAID', 'PROCESSING', 'FULFILLED', 'SHIPPED', 'DELIVERED'];
+    const pendingStatuses = ['PAID', 'CONFIRMED', 'PROCESSING'];
+    const orderWhere = {
+      OR: [{ storeId }, { items: { some: { product: { storeId } } } }],
+    };
+    const now = new Date();
+    const currentPeriodStart = new Date(now);
+    currentPeriodStart.setDate(now.getDate() - 30);
+    const previousPeriodStart = new Date(now);
+    previousPeriodStart.setDate(now.getDate() - 60);
+    const chartStart = new Date(now.getFullYear(), now.getMonth() - 7, 1);
+    const monthBuckets = Array.from({ length: 8 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (7 - index), 1);
+      return {
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        label: date.toLocaleString('en', { month: 'short' }),
+        start: date,
+        end: new Date(date.getFullYear(), date.getMonth() + 1, 1),
+      };
+    });
+
+    const [
+      recentOrders,
+      ordersCount,
+      activeProductsCount,
+      allProductsCount,
+      alerts,
+      poolOffers,
+      wallet,
+      revenueAggregate,
+      analyticsOrders,
+    ] = await Promise.all([
       db.order?.findMany({
-        where: { items: { some: { product: { storeId } } } },
-        include: { items: true, payment: true },
+        where: orderWhere,
+        include: { items: { include: { product: true } }, payment: true },
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
+      db.order?.count({ where: orderWhere }),
+      db.product?.count({ where: { storeId, status: 'ACTIVE' } }),
       db.product?.count({ where: { storeId } }),
       db.inventoryItem?.findMany({
-        where: { product: { storeId }, available: { lte: 5 } },
+        where: { product: { is: { storeId } }, available: { lte: 5 } },
+        include: { product: true },
         take: 10,
       }),
       db.vendorPoolOffer?.findMany({
@@ -1065,24 +1101,207 @@ export class CommerceService {
         include: { poolProduct: true },
         take: 10,
       }),
+      db.wallet?.findUnique({ where: { vendorId } }),
+      db.order?.aggregate({
+        where: { ...orderWhere, status: { in: paidStatuses } },
+        _sum: { totalAmount: true },
+      }),
+      db.order?.findMany({
+        where: { ...orderWhere, createdAt: { gte: chartStart } },
+        include: { items: true, payment: true },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
 
-    const revenue = (orders ?? [])
-      .filter((order: any) => ['PAID', 'PROCESSING', 'FULFILLED', 'DELIVERED'].includes(order.status))
-      .reduce((sum: number, order: any) => sum + Number(order.totalAmount ?? 0), 0);
+    const orders = recentOrders ?? [];
+    const analytics = analyticsOrders ?? [];
+    const paidOrders = analytics.filter((order: any) => paidStatuses.includes(order.status));
+    const pendingOrders = orders.filter((order: any) => pendingStatuses.includes(order.status));
+    const revenue = Number(revenueAggregate?._sum?.totalAmount ?? 0);
+    const walletAvailable = Number(wallet?.availableBalance ?? 0);
+    const walletPending = Number(wallet?.pendingBalance ?? 0);
+    const walletEarned = Number(wallet?.totalEarned ?? revenue);
+    const walletWithdrawn = Number(wallet?.totalWithdrawn ?? 0);
+    const poolEarnings = (poolOffers ?? []).reduce(
+      (sum: number, offer: any) => sum + Number(offer.markup ?? 0),
+      0,
+    );
+    const sumOrders = (list: any[]) =>
+      list.reduce((sum, order) => sum + Number(order.totalAmount ?? 0), 0);
+    const currentOrders = analytics.filter((order: any) => new Date(order.createdAt) >= currentPeriodStart);
+    const previousOrders = analytics.filter((order: any) => {
+      const created = new Date(order.createdAt);
+      return created >= previousPeriodStart && created < currentPeriodStart;
+    });
+    const percentChange = (current: number, previous: number) => {
+      if (!previous) return current > 0 ? 100 : 0;
+      return Number((((current - previous) / previous) * 100).toFixed(1));
+    };
+    const seriesFor = (selector: (order: any) => number, filter: (order: any) => boolean = () => true) =>
+      monthBuckets.map((bucket) => ({
+        label: bucket.label,
+        value: analytics
+          .filter((order: any) => {
+            const created = new Date(order.createdAt);
+            return created >= bucket.start && created < bucket.end && filter(order);
+          })
+          .reduce((sum: number, order: any) => sum + selector(order), 0),
+      }));
+
+    const searchQuery = options.query?.trim();
+    let searchSuggestions: Array<{ id: string; type: string; text: string; subtext?: string; href: string }> = [];
+    if (searchQuery) {
+      const [matchedProducts, matchedOrders, matchedPoolOffers] = await Promise.all([
+        db.product?.findMany({
+          where: {
+            storeId,
+            OR: [
+              { name: { contains: searchQuery } },
+              { sku: { contains: searchQuery } },
+              { description: { contains: searchQuery } },
+            ],
+          },
+          select: { id: true, name: true, sku: true, status: true },
+          take: 4,
+        }),
+        db.order?.findMany({
+          where: {
+            AND: [
+              orderWhere,
+              {
+                OR: [
+                  { checkoutReference: { contains: searchQuery } },
+                  { id: { contains: searchQuery } },
+                ],
+              },
+            ],
+          },
+          select: { id: true, checkoutReference: true, status: true, totalAmount: true },
+          take: 4,
+        }),
+        db.vendorPoolOffer?.findMany({
+          where: {
+            storeId,
+            poolProduct: { is: { name: { contains: searchQuery } } },
+          },
+          include: { poolProduct: true },
+          take: 3,
+        }),
+      ]);
+
+      const productSuggestions = (matchedProducts ?? []).map((product: any) => ({
+        id: product.id,
+        type: 'product',
+        text: product.name,
+        subtext: `Product${product.sku ? ` · ${product.sku}` : ''} · ${product.status}`,
+        href: `/dashboard/products/${product.id}/edit`,
+      }));
+      const orderSuggestions = (matchedOrders ?? []).map((order: any) => ({
+        id: order.id,
+        type: 'order',
+        text: order.checkoutReference ?? order.id,
+        subtext: `Order · ${order.status} · ₦${Number(order.totalAmount ?? 0).toLocaleString()}`,
+        href: `/dashboard/orders/${order.id}`,
+      }));
+      const inventorySuggestions = (alerts ?? [])
+        .filter((item: any) => {
+          const productName = item.product?.name ?? '';
+          const sku = item.sku ?? '';
+          return `${productName} ${sku}`.toLowerCase().includes(searchQuery.toLowerCase());
+        })
+        .slice(0, 3)
+        .map((item: any) => ({
+          id: item.id,
+          type: 'inventory',
+          text: item.product?.name ?? item.sku ?? item.productId,
+          subtext: `Inventory · ${Number(item.available ?? 0)} left`,
+          href: '/dashboard/inventory',
+        }));
+      const poolSuggestions = (matchedPoolOffers ?? []).map((offer: any) => ({
+        id: offer.id,
+        type: 'pool',
+        text: offer.poolProduct?.name ?? 'Pool offer',
+        subtext: `Pool · ₦${Number(offer.retailPrice ?? 0).toLocaleString()}`,
+        href: '/dashboard/pool',
+      }));
+
+      searchSuggestions = [
+        ...productSuggestions,
+        ...orderSuggestions,
+        ...inventorySuggestions,
+        ...poolSuggestions,
+      ].slice(0, 8);
+    }
 
     return {
       revenue,
-      ordersCount: orders?.length ?? 0,
-      productsCount: products ?? 0,
+      ordersCount: ordersCount ?? 0,
+      productsCount: activeProductsCount ?? 0,
       inventoryAlerts: alerts ?? [],
-      fulfillmentTasks: (orders ?? []).filter((order: any) => order.status === 'PAID'),
-      poolEarnings: (poolOffers ?? []).reduce(
-        (sum: number, offer: any) => sum + Number(offer.markup ?? 0),
-        0,
-      ),
-      recentOrders: orders ?? [],
+      fulfillmentTasks: pendingOrders,
+      poolEarnings,
+      recentOrders: orders,
       poolOffers: poolOffers ?? [],
+      wallet: {
+        currentBalance: walletAvailable + walletPending,
+        availableBalance: walletAvailable,
+        pendingBalance: walletPending,
+        totalEarned: walletEarned,
+        totalWithdrawn: walletWithdrawn,
+      },
+      kpis: {
+        walletBalance: {
+          value: walletAvailable + walletPending,
+          trend: 0,
+          period: 'this month',
+        },
+        availableBalance: {
+          value: walletAvailable,
+          trend: 0,
+          period: 'this week',
+        },
+        pendingSettlement: {
+          value: walletPending,
+          trend: 0,
+          period: 'today',
+        },
+        totalRevenue: {
+          value: revenue,
+          trend: percentChange(
+            sumOrders(currentOrders.filter((order: any) => paidStatuses.includes(order.status))),
+            sumOrders(previousOrders.filter((order: any) => paidStatuses.includes(order.status))),
+          ),
+          period: 'this month',
+        },
+        totalOrders: {
+          value: ordersCount ?? 0,
+          trend: percentChange(currentOrders.length, previousOrders.length),
+          period: 'this month',
+        },
+        activeProducts: {
+          value: activeProductsCount ?? 0,
+          trend: 0,
+          period: 'this month',
+        },
+      },
+      analytics: {
+        revenueTrend: seriesFor((order: any) => Number(order.totalAmount ?? 0), (order: any) =>
+          paidStatuses.includes(order.status),
+        ),
+        orderVolume: seriesFor(() => 1),
+        settlementHistory: seriesFor((order: any) => Number(order.totalAmount ?? 0), (order: any) =>
+          pendingStatuses.includes(order.status),
+        ),
+        cashFlow: seriesFor((order: any) => Number(order.totalAmount ?? 0), (order: any) =>
+          paidStatuses.includes(order.status),
+        ),
+      },
+      totals: {
+        allProducts: allProductsCount ?? 0,
+        lowStockItems: alerts?.length ?? 0,
+        pendingOrders: pendingOrders.length,
+      },
+      searchSuggestions,
     };
   }
 
@@ -1532,24 +1751,108 @@ export class CommerceService {
     });
   }
 
-  async listVendorOrders(user: AuthContext) {
+  private vendorOrderWhere(storeId: string) {
+    return {
+      OR: [{ storeId }, { items: { some: { product: { storeId } } } }],
+    };
+  }
+
+  async listVendorOrders(
+    user: AuthContext,
+    options: { page?: string | number; limit?: string | number; status?: string; search?: string } = {},
+  ) {
     const storeId = await this.resolveStoreId(user);
-    return this.db().order?.findMany({
-      where: { storeId },
+    const page = Math.max(1, Number(options.page ?? 1) || 1);
+    const limit = Math.min(100, Math.max(1, Number(options.limit ?? 25) || 25));
+    const status = options.status?.trim();
+    const search = options.search?.trim();
+    const where: any = this.vendorOrderWhere(storeId);
+
+    if (status && status !== 'ALL') {
+      if (status === 'ACTIVE') {
+        where.status = { in: ['PENDING', 'PAID', 'CONFIRMED', 'PROCESSING', 'FULFILLED', 'SHIPPED'] };
+      } else {
+        where.status = status;
+      }
+    }
+
+    if (search) {
+      where.AND = [
+        this.vendorOrderWhere(storeId),
+        {
+          OR: [
+            { id: { contains: search } },
+            { checkoutReference: { contains: search } },
+            { buyer: { email: { contains: search } } },
+            { buyer: { profile: { is: { firstName: { contains: search } } } } },
+            { buyer: { profile: { is: { lastName: { contains: search } } } } },
+          ],
+        },
+      ];
+      delete where.OR;
+    }
+
+    const db = this.db();
+    const [items, total] = await Promise.all([
+      db.order?.findMany({
+        where,
+        include: {
+          buyer: { include: { profile: true } },
+          address: true,
+          items: { include: { product: { include: { images: true } }, variant: true } },
+          payment: true,
+          parentCheckout: { include: { payment: true } },
+          fulfillments: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.order?.count({ where }),
+    ]);
+
+    return {
+      items: items ?? [],
+      total: total ?? 0,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil((total ?? 0) / limit)),
+    };
+  }
+
+  async getVendorOrder(user: AuthContext, orderId: string) {
+    const storeId = await this.resolveStoreId(user);
+    const order = await this.db().order?.findFirst({
+      where: {
+        id: orderId,
+        ...this.vendorOrderWhere(storeId),
+      },
       include: {
-        items: { include: { product: true, variant: true } },
+        buyer: { include: { profile: true } },
+        address: true,
+        items: { include: { product: { include: { images: true } }, variant: true } },
         payment: true,
         parentCheckout: { include: { payment: true } },
+        escrow: true,
+        delivery: { include: { rider: true } },
         fulfillments: true,
       },
-      orderBy: { createdAt: 'desc' },
     });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return order;
   }
 
   async updateVendorOrderStatus(user: AuthContext, orderId: string, dto: UpdateOrderStatusDto) {
     const storeId = await this.resolveStoreId(user);
     const order = await this.db().order?.findFirst({
-      where: { id: orderId, storeId },
+      where: {
+        id: orderId,
+        ...this.vendorOrderWhere(storeId),
+      },
     });
 
     if (!order) {

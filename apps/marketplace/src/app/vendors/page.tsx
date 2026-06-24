@@ -869,7 +869,7 @@ export default function VendorsPage() {
                 Sort
               </button>
               {isSortOpen && (
-                <div className="absolute right-0 top-11 z-[110] w-40 overflow-hidden rounded-md border border-kwik-border bg-white shadow-xl dark:border-white/10 dark:bg-[#07111f]">
+                <div className="absolute right-0 top-11 z-[110] w-40 overflow-hidden rounded-md border border-kwik-border bg-background shadow-xl">
                   {VENDOR_SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}

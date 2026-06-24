@@ -454,7 +454,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         setShowFilters,
       }}
     >
-      <div className="flex min-h-screen flex-col bg-white dark:bg-[#07111f]">
+      <div className="flex min-h-screen flex-col bg-background">
         {!isVendorStorefrontRoute && <PageLoader isLoading={isPageLoading} />}
         <OfflineBanner />
         {!isSearchPage && !isVendorStorefrontRoute && (
@@ -467,7 +467,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         {!hideTopNav && (
           <>
             <header
-              className={`fixed inset-x-0 top-0 z-[80] bg-background/95 backdrop-blur-md transition-shadow duration-300 dark:bg-[#07111f]/95 ${
+              className={`fixed inset-x-0 top-0 z-[80] bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
                 isScrolled
                   ? "shadow-md border-b border-kwik-orange/10"
                   : "border-b border-kwik-border"
@@ -575,10 +575,18 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                     <div className="hidden items-center gap-3 md:flex">
                       {!isClientMounted || isAuthLoading ? null : isAuthenticated && user ? (
                         <>
-                          <span className="hidden items-center gap-2 text-sm text-kwik-gray lg:inline-flex">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              startNavigationLoading();
+                              router.push("/profile");
+                            }}
+                            className="hidden items-center gap-2 rounded-full px-2 py-1 text-sm text-kwik-gray transition hover:bg-default hover:text-foreground lg:inline-flex"
+                            aria-label="Go to profile"
+                          >
                             <User className="h-4 w-4" />
                             {user.profile?.firstName || user.email.split("@")[0]}
-                          </span>
+                          </button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -689,7 +697,13 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         <main className={isVendorStorefrontRoute ? "flex-1" : "flex-1 pb-20 md:pb-0"}>
           {!isVendorStorefrontRoute && <PriceDropAlert />}
           {!isVendorStorefrontRoute && <NotificationToastStack />}
-          {children}
+          {isVendorStorefrontRoute ? (
+            children
+          ) : (
+            <div className="mx-auto w-full max-w-[1440px] px-4 md:px-6 lg:px-8">
+              {children}
+            </div>
+          )}
         </main>
 
         {!isVendorStorefrontRoute && <ScrollProgress />}

@@ -475,7 +475,7 @@ export function ProductDetailPage({
   ];
 
   return (
-    <div className="bg-white pt-4 pb-1 dark:bg-[#07111f] sm:pt-6">
+    <div className="bg-background pt-4 pb-1 sm:pt-6">
       <div className="container mx-auto space-y-5 px-4">
 
         {/* Breadcrumb */}
@@ -699,7 +699,7 @@ export function ProductDetailPage({
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleAddToCart}
-                        className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-[#d97706] px-5 font-semibold text-white shadow-lg shadow-kwik-orange/25 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
+                        className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-kwik-amber px-5 font-semibold text-white shadow-lg shadow-kwik-orange/25 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
                       >
                         <ShoppingCart className="h-4 w-4" />
                         Add to cart
@@ -894,7 +894,7 @@ export function ProductDetailPage({
                           <Star className="h-3.5 w-3.5 fill-kwik-star text-kwik-star" />
                           <div className="flex-1 h-2 overflow-hidden rounded-full bg-kwik-border-light">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-kwik-star to-[#fbbf24] transition-all duration-500"
+                              className="h-full rounded-full bg-gradient-to-r from-kwik-star to-kwik-star transition-all duration-500"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
@@ -951,7 +951,7 @@ export function ProductDetailPage({
             {/* Decorative section header */}
             <div className="mb-5 flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-kwik-orange to-[#d97706] shadow-sm shadow-kwik-orange/20">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-kwik-orange to-kwik-amber shadow-sm shadow-kwik-orange/20">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 <div>

@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, Package, Store } from "lucide-react";
 import { ordersApi } from "@kwikseller/api-client";
 import type { Order } from "@kwikseller/types";
-import { EmptyState, OrderCard, Skeleton } from "@kwikseller/ui";
+import { EmptyState, OrderStatusBadge, Skeleton } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 
 /* ─── Helpers ─── */
@@ -82,7 +82,8 @@ function getItemCount(order: Order): number {
 }
 
 function getDeliveryAddress(order: Order): string | undefined {
-  if (order.delivery?.deliveryAddress) return order.delivery.deliveryAddress;
+  const delivery = order.delivery as { deliveryAddress?: string } | undefined;
+  if (delivery?.deliveryAddress) return delivery.deliveryAddress;
   const address = order.address;
   if (address) {
     return [address.line1, address.city, address.state]
@@ -93,6 +94,67 @@ function getDeliveryAddress(order: Order): string | undefined {
     return `${order.deliveryLocalGovernment}, ${order.deliveryState}`;
   }
   return undefined;
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatDate(value: string | Date) {
+  return new Intl.DateTimeFormat("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function BuyerOrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
+  const itemNames = getItemNames(order);
+  const deliveryAddress = getDeliveryAddress(order);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-2xl border border-kwik-border bg-surface p-4 text-left transition hover:border-accent/50 hover:shadow-md"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Order {getOrderRef(order)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+        </div>
+        <OrderStatusBadge status={order.status} size="sm" />
+      </div>
+
+      <div className="mt-4 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-soft-foreground">
+          <Store className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">{getStoreName(order) ?? "Vendor store"}</p>
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+            {itemNames.length ? itemNames.join(", ") : `${getItemCount(order)} item${getItemCount(order) === 1 ? "" : "s"}`}
+          </p>
+          {deliveryAddress ? (
+            <p className="mt-1 truncate text-xs text-muted-foreground">{deliveryAddress}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between border-t border-kwik-border pt-3">
+        <div>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(Number(order.totalAmount ?? 0))}</p>
+          <p className="text-xs text-muted-foreground">Payment: {order.paymentStatus}</p>
+        </div>
+        <span className="text-sm font-semibold text-accent">View details</span>
+      </div>
+    </button>
+  );
 }
 
 function getStoreName(order: Order): string | undefined {
@@ -283,17 +345,9 @@ export default function BuyerOrdersPage() {
       ) : (
         <div className="space-y-4">
           {filteredOrders.map((order) => (
-            <OrderCard
+            <BuyerOrderCard
               key={order.id}
-              orderRef={getOrderRef(order)}
-              status={order.status}
-              paymentStatus={order.paymentStatus}
-              storeName={getStoreName(order)}
-              itemNames={getItemNames(order)}
-              itemCount={getItemCount(order)}
-              totalAmount={Number(order.totalAmount ?? 0)}
-              date={order.createdAt}
-              deliveryAddress={getDeliveryAddress(order)}
+              order={order}
               onClick={() => router.push(`/orders/${order.id}`)}
             />
           ))}

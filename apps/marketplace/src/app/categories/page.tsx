@@ -327,9 +327,9 @@ function CategoryDetailView({ slug }: { slug: string }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#07111f]">
+    <div className="min-h-screen bg-background">
       {/* Category Header */}
-      <div className="border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
+      <div className="border-b border-border bg-background">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
@@ -567,9 +567,9 @@ function AllCategoriesView() {
   }, [categories, searchQuery, sortBy]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#07111f]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
+      <div className="border-b border-border bg-background">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
@@ -602,7 +602,7 @@ function AllCategoriesView() {
                 Sort
               </button>
               {isSortOpen && (
-                <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-md border border-kwik-border bg-white shadow-xl dark:border-white/10 dark:bg-[#07111f]">
+                <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-md border border-kwik-border bg-background shadow-xl">
                   {CATEGORY_SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -630,7 +630,7 @@ function AllCategoriesView() {
       {false && (
       <>
       {/* Search & Sort Bar */}
-      <div className="hidden border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f]">
+      <div className="hidden border-b border-border bg-background">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Search input */}

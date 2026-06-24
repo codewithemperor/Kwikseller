@@ -33,6 +33,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { VendorProfileModule } from './modules/vendor-profile/vendor-profile.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { OrderOperationsModule } from './modules/order-operations/order-operations.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -159,6 +160,9 @@ import { OrderOperationsModule } from './modules/order-operations/order-operatio
 
     // Commerce module (cart, checkout, orders, payments, pool, vendor/admin ops)
     CommerceModule,
+
+    // Payments module (vendor wallet and escrow holdings)
+    PaymentsModule,
 
     // Notifications module (vendor notifications)
     NotificationsModule,

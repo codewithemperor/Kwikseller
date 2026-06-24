@@ -635,7 +635,7 @@ export default function WalletPage() {
                 className={`h-10 rounded-full px-4 text-sm font-medium transition ${
                   active
                     ? "bg-white text-gray-950 dark:bg-white dark:text-gray-950"
-                    : "text-muted-foreground hover:text-foreground dark:text-white/60 dark:hover:text-white"
+                    : "text-muted-foreground hover:text-foreground/60 dark:hover:text-white"
                 }`}
               >
                 {item.label}

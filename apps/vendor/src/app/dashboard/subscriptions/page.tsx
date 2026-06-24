@@ -349,7 +349,7 @@ export default function SubscriptionsPage() {
                         <div className="hidden h-2 sm:block" />
                       )}
                     </div>
-                    <span className="text-sm font-medium text-foreground dark:text-white/80">
+                    <span className="text-sm font-medium text-foreground/80">
                       {feature.value}
                     </span>
                   </div>

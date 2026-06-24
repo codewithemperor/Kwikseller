@@ -157,7 +157,7 @@ export default function ProductPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-[#07111f]">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
       </div>
     );
@@ -165,7 +165,7 @@ export default function ProductPage() {
 
   if (notFound || !product) {
     return (
-      <div className="min-h-screen bg-white px-4 py-10 dark:bg-[#07111f]">
+      <div className="min-h-screen bg-background px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <EmptyState
             title="Product not found"

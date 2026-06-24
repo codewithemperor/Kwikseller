@@ -16,6 +16,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DeliveryService } from './delivery.service';
 import { DeliveryFilterDto, AssignRiderDto, ReassignRiderDto } from './dto/delivery.dto';
 
+function getUserId(user: any) {
+  return user?.id ?? user?.sub ?? user?.userId;
+}
+
 // ─── Vendor Delivery Controller ────────────────────────────────────────────────
 
 @ApiTags('Vendor Deliveries')
@@ -34,7 +38,7 @@ export class VendorDeliveryController {
     @CurrentUser() user: any,
     @Query() filters: DeliveryFilterDto,
   ) {
-    return this.deliveryService.findVendorDeliveries(user.sub, filters);
+    return this.deliveryService.findVendorDeliveries(getUserId(user), filters);
   }
 
   @Post(':id/preparing')
@@ -43,7 +47,7 @@ export class VendorDeliveryController {
     @CurrentUser() user: any,
     @Param('id') deliveryId: string,
   ) {
-    return this.deliveryService.markPreparing(deliveryId, user.sub);
+    return this.deliveryService.markPreparing(deliveryId, getUserId(user));
   }
 
   @Post(':id/ready')
@@ -52,7 +56,7 @@ export class VendorDeliveryController {
     @CurrentUser() user: any,
     @Param('id') deliveryId: string,
   ) {
-    return this.deliveryService.markReady(deliveryId, user.sub);
+    return this.deliveryService.markReady(deliveryId, getUserId(user));
   }
 
   @Post(':id/pickup-confirm')
@@ -61,7 +65,7 @@ export class VendorDeliveryController {
     @CurrentUser() user: any,
     @Param('id') deliveryId: string,
   ) {
-    return this.deliveryService.confirmPickup(deliveryId, user.sub);
+    return this.deliveryService.confirmPickup(deliveryId, getUserId(user));
   }
 
   @Get(':id/tracking')
@@ -70,7 +74,7 @@ export class VendorDeliveryController {
     @CurrentUser() user: any,
     @Param('id') deliveryId: string,
   ) {
-    return this.deliveryService.getDeliveryTracking(deliveryId, user.sub);
+    return this.deliveryService.getDeliveryTracking(deliveryId, getUserId(user));
   }
 }
 
@@ -86,7 +90,7 @@ export class VendorEscrowController {
   @Get('escrow-holdings')
   @ApiOperation({ summary: 'Get vendor escrow holdings' })
   async getEscrowHoldings(@CurrentUser() user: any) {
-    return this.deliveryService.getEscrowHoldings(user.sub);
+    return this.deliveryService.getEscrowHoldings(getUserId(user));
   }
 }
 
@@ -119,7 +123,7 @@ export class AdminDeliveryController {
     @Body() dto: AssignRiderDto,
   ) {
     this.verifyAdmin(user);
-    return this.deliveryService.assignRider(orderId, dto.riderId, user.sub, dto.estimatedMinutes);
+    return this.deliveryService.assignRider(orderId, dto.riderId, getUserId(user), dto.estimatedMinutes);
   }
 
   @Get()

@@ -45,6 +45,7 @@ export {
   AppSwitch,
   AppColorPicker,
   AppImage,
+  SearchAutoSuggest,
 } from "./inputs";
 export type {
   BaseInputProps,
@@ -62,6 +63,9 @@ export type {
   AppColorPickerProps,
   AppImageProps,
   AppImageFallbackVariant,
+  SearchAutoSuggestItem,
+  SearchAutoSuggestItemType,
+  SearchAutoSuggestProps,
 } from "./inputs";
 
 // OTP Components

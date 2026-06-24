@@ -16,7 +16,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="bg-white px-4 py-6 dark:bg-[#07111f]">
+      <main className="bg-background px-4 py-6">
         <div className="container mx-auto max-w-2xl">
           <div className="h-32 animate-pulse bg-neutral-100 dark:bg-white/10" />
         </div>
@@ -26,7 +26,7 @@ export default function ProfilePage() {
 
   if (!isAuthenticated || !user) {
     return (
-      <main className="bg-white px-4 py-6 dark:bg-[#07111f]">
+      <main className="bg-background px-4 py-6">
         <div className="container mx-auto max-w-2xl">
           <section className="border border-neutral-200 bg-background p-5 dark:border-white/10">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent-soft-foreground">
@@ -58,7 +58,7 @@ export default function ProfilePage() {
     {
       title: "Shopping",
       items: [
-        { icon: PackageCheck, label: "Orders", text: "Track checkout and delivery", href: "/cart" },
+        { icon: PackageCheck, label: "Orders", text: "Track checkout and delivery", href: "/orders" },
         { icon: MapPin, label: "Delivery addresses", text: "Home, office, and saved locations", href: "/profile/addresses" },
       ],
     },
@@ -72,7 +72,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <main className="bg-white px-4 py-6 dark:bg-[#07111f]">
+    <main className="bg-background px-4 py-6">
       <div className="container mx-auto max-w-2xl space-y-5">
         <section className="border border-neutral-200 bg-background p-4 dark:border-white/10">
           <div className="flex items-center gap-3">

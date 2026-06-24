@@ -41,9 +41,9 @@ function hasHtml(value?: string | null) {
 
 function ReceiptRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-[#F0F0F0] py-3 last:border-b-0 dark:border-white/10">
-      <span className="text-sm font-normal text-muted-foreground dark:text-white/62">{label}</span>
-      <span className="max-w-[58%] text-right text-sm font-medium text-foreground dark:text-white">{value}</span>
+    <div className="flex items-start justify-between gap-4 border-b border-border py-3 last:border-b-0">
+      <span className="text-sm font-normal text-muted-foreground">{label}</span>
+      <span className="max-w-[58%] text-right text-sm font-medium text-foreground">{value}</span>
     </div>
   );
 }
@@ -52,7 +52,7 @@ function DescriptionBlock({ item }: { item: PoolCatalogItem }) {
   const description = item.description?.trim();
   if (!description) {
     return (
-      <p className="text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62">
+      <p className="text-sm font-normal leading-7 text-muted">
         This product is available for vendor sourcing with source-vendor fulfillment.
       </p>
     );
@@ -61,11 +61,11 @@ function DescriptionBlock({ item }: { item: PoolCatalogItem }) {
     return (
       <SanitizedHTML
         html={description}
-        className="pool-description-html text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62"
+        className="pool-description-html text-sm font-normal leading-7 text-muted"
       />
     );
   }
-  return <p className="whitespace-pre-line text-sm font-normal leading-7 text-[#6B7280] dark:text-white/62">{description}</p>;
+  return <p className="whitespace-pre-line text-sm font-normal leading-7 text-muted">{description}</p>;
 }
 
 export default function VendorPoolProductPage() {

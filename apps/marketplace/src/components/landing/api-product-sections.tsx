@@ -126,7 +126,7 @@ export function ApiProductCard({
         />
         <div className="absolute left-2 top-2 flex max-w-[calc(100%-56px)] gap-1.5">
           {discount > 0 && (
-            <span className="rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-[#111827] shadow-sm dark:bg-[#111827]/90 dark:text-white">
+            <span className="rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-foreground shadow-sm">
               -{discount}%
             </span>
           )}
@@ -134,7 +134,7 @@ export function ApiProductCard({
         <button
           type="button"
           onClick={handleWishlistToggle}
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/95 shadow-sm backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-background dark:bg-[#111827]/90"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/95 shadow-sm backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-background"
           aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart

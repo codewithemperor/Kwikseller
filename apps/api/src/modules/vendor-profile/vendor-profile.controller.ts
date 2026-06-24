@@ -22,6 +22,10 @@ class UpdateVendorProfileDto {
   lastName?: string;
 }
 
+function getUserId(user: any) {
+  return user?.id ?? user?.sub ?? user?.userId;
+}
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 @ApiTags('Vendor Profile')
@@ -37,9 +41,10 @@ export class VendorProfileController {
     @CurrentUser() user: any,
     @Body() dto: UpdateVendorProfileDto,
   ) {
+    const userId = getUserId(user);
     // Find the store
     const store = await this.prisma.store.findUnique({
-      where: { vendorId: user.sub },
+      where: { vendorId: userId },
     });
 
     if (!store) {
@@ -70,7 +75,7 @@ export class VendorProfileController {
     const [updatedUser, updatedStore] = await this.prisma.$transaction([
       // Update User phone if provided
       this.prisma.user.update({
-        where: { id: user.sub },
+        where: { id: userId },
         data: {
           ...(dto.phone && { phone: dto.phone }),
           profile: {

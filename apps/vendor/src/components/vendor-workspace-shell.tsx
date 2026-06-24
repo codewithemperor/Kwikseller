@@ -9,12 +9,14 @@ import { VendorDrawer } from "@/components/layout/vendor-drawer";
 import { VendorMobileNav } from "@/components/layout/vendor-mobile-nav";
 import { OfflineBanner } from "@kwikseller/ui";
 import { useAuthStore } from "@kwikseller/utils";
+import { cn } from "@/lib/utils";
 
 export function VendorWorkspaceShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   const vendorName = user?.store?.name || user?.profile?.firstName || user?.email || "Vendor";
   const storeSlug = user?.store?.slug || "";
@@ -36,9 +38,14 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
 
   return (
     <ProtectedRoute requiredRole="VENDOR" loginPath="/login">
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-kwik-bg-page text-foreground">
         {/* Desktop sidebar */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-kwik-border bg-surface lg:block">
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-30 hidden border-r border-white/10 bg-kwik-blue transition-[width] duration-200 lg:block",
+            sidebarCollapsed ? "w-20" : "w-60",
+          )}
+        >
           <VendorDrawer
             isOpen
             onClose={() => undefined}
@@ -46,11 +53,18 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
             storeSlug={storeSlug}
             storeLogoUrl={storeLogoUrl}
             onLogout={handleLogout}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
           />
         </aside>
 
         {/* Header */}
-        <div className="fixed inset-x-0 top-0 z-40 lg:left-72">
+        <div
+          className={cn(
+            "fixed inset-x-0 top-0 z-40 transition-[left] duration-200",
+            sidebarCollapsed ? "lg:left-20" : "lg:left-60",
+          )}
+        >
           <VendorHeader
             onMenuToggle={() => setDrawerOpen((open) => !open)}
             vendorName={vendorName}
@@ -78,7 +92,7 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="fixed inset-y-0 left-0 z-50 w-[min(18rem,calc(100vw-3rem))] border-r border-kwik-border bg-surface shadow-2xl lg:hidden"
+                className="fixed inset-y-0 left-0 z-50 w-[min(17rem,calc(100vw-3rem))] border-r border-white/10 bg-kwik-blue lg:hidden"
               >
                 <VendorDrawer
                   isOpen={drawerOpen}
@@ -94,9 +108,14 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
         </AnimatePresence>
 
         {/* Main content area */}
-        <div className="min-h-screen pb-20 pt-14 lg:pl-72 lg:pb-0">
+        <div
+          className={cn(
+            "min-h-screen pb-20 pt-14 transition-[padding-left] duration-200 lg:pb-0",
+            sidebarCollapsed ? "lg:pl-20" : "lg:pl-60",
+          )}
+        >
           <OfflineBanner />
-          <main className="safe-container mx-auto w-full max-w-[1320px] px-4 py-4 md:px-5 lg:px-6 lg:py-5">
+          <main className="safe-container mx-auto w-full max-w-[1440px] px-3 pb-4 pt-5 sm:px-4 md:px-5 lg:px-6 lg:py-6">
             {children}
           </main>
         </div>

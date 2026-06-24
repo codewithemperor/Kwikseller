@@ -55,3 +55,9 @@ export type { AppColorPickerProps } from "./app-color-picker";
 // AppImage — shared resilient image with product placeholder fallback
 export { AppImage } from "./app-image";
 export type { AppImageProps, AppImageFallbackVariant } from "./app-image";
+export { SearchAutoSuggest } from "./search-auto-suggest";
+export type {
+  SearchAutoSuggestItem,
+  SearchAutoSuggestItemType,
+  SearchAutoSuggestProps,
+} from "./search-auto-suggest";

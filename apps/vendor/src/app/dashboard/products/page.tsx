@@ -184,7 +184,7 @@ function VendorProductCard({
           <button
             type="button"
             onClick={onToggleSelect}
-            className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-white transition dark:bg-[#0f1115]"
+            className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition"
             aria-label={selected ? "Deselect" : "Select"}
           >
             {selected ? (
@@ -197,7 +197,7 @@ function VendorProductCard({
           </button>
         ) : null}
         {/* Status badge */}
-        <span className={`absolute right-2 top-2 z-10 rounded-full bg-background/90 px-2 py-1 text-[11px] font-semibold shadow-sm dark:bg-[#0f1115]/90 ${statusColor(product.status)}`}>
+        <span className={`absolute right-2 top-2 z-10 rounded-full bg-background/90 px-2 py-1 text-[11px] font-semibold shadow-sm ${statusColor(product.status)}`}>
           {product.status}
         </span>
       </div>

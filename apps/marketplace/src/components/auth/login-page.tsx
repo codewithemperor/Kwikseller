@@ -149,7 +149,7 @@ export function LoginPage({ portal, className }: LoginPageProps) {
   return (
     <div className={cn("w-full", className)}>
       <div className="mb-8">
-        <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+        <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
           <ShoppingBag className="h-6 w-6" />
         </div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight text-kwik-dark dark:text-white">

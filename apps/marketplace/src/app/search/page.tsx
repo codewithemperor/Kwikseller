@@ -299,9 +299,9 @@ function SearchPageContent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#07111f]">
+    <div className="min-h-screen bg-background">
       {/* Category tabs - sticky below the header */}
-      <div className="sticky top-[53px] z-20 border-b border-kwik-border bg-white dark:border-white/10 dark:bg-[#07111f] md:top-[64px]">
+      <div className="sticky top-[53px] z-20 border-b border-border bg-background md:top-[64px]">
         <div className="container mx-auto px-4">
           <div className="flex gap-1.5 overflow-x-auto py-2.5 scrollbar-hide -mx-4 px-4">
             {ALL_CATEGORIES.map((cat) => {
@@ -314,7 +314,7 @@ function SearchPageContent() {
                   onClick={() => handleCategoryChange(cat.slug)}
                   className={`flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-gradient-to-r from-kwik-orange to-[#d97706] text-white shadow-md shadow-kwik-orange/20"
+                      ? "bg-gradient-to-r from-kwik-orange to-kwik-amber text-white shadow-md shadow-kwik-orange/20"
                       : "bg-white text-kwik-gray ring-1 ring-kwik-border/70 hover:bg-neutral-50 hover:text-kwik-dark dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white"
                   }`}
                 >
@@ -344,7 +344,7 @@ function SearchPageContent() {
                         onClick={() => setSortBy(opt.value)}
                         className={`rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 ${
                           isActive
-                            ? "bg-gradient-to-r from-kwik-orange to-[#d97706] text-white shadow-sm"
+                            ? "bg-gradient-to-r from-kwik-orange to-kwik-amber text-white shadow-sm"
                             : "text-kwik-gray hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
                         }`}
                       >

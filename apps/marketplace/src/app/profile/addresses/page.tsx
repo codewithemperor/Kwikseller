@@ -176,7 +176,7 @@ export default function DeliveryAddressesPage() {
 
   if (isLoading) {
     return (
-      <main className="bg-white px-4 py-6 dark:bg-[#07111f]">
+      <main className="bg-background px-4 py-6">
         <div className="container mx-auto max-w-3xl">
           <div className="h-32 animate-pulse bg-neutral-100 dark:bg-white/10" />
         </div>
@@ -186,7 +186,7 @@ export default function DeliveryAddressesPage() {
 
   if (!isAuthenticated) {
     return (
-      <main className="bg-white px-4 py-6 dark:bg-[#07111f]">
+      <main className="bg-background px-4 py-6">
         <div className="container mx-auto max-w-3xl">
           <section className="border border-neutral-200 p-5 dark:border-white/10">
             <h1 className="text-xl font-semibold text-kwik-dark dark:text-white">Delivery addresses</h1>
@@ -201,7 +201,7 @@ export default function DeliveryAddressesPage() {
   }
 
   return (
-    <main className="bg-white px-4 py-6 dark:bg-[#07111f]">
+    <main className="bg-background px-4 py-6">
       <div className="container mx-auto max-w-3xl space-y-5">
         <div className="flex items-center gap-3">
           <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 dark:border-white/10" aria-label="Back to profile">
@@ -285,7 +285,7 @@ export default function DeliveryAddressesPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[140] flex items-end bg-black/45 p-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-5 shadow-2xl dark:bg-[#07111f]">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto bg-background p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-kwik-dark dark:text-white">

@@ -3,7 +3,6 @@ import { SharedModule } from '../../common/shared.module';
 import { DeliveryService } from './delivery.service';
 import {
   VendorDeliveryController,
-  VendorEscrowController,
   AdminDeliveryController,
   AdminEscrowController,
 } from './delivery.controllers';
@@ -12,7 +11,6 @@ import {
   imports: [SharedModule],
   controllers: [
     VendorDeliveryController,
-    VendorEscrowController,
     AdminDeliveryController,
     AdminEscrowController,
   ],

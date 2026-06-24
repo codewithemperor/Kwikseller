@@ -112,7 +112,7 @@ export function MarketplaceProductCard({
 
         <div className="absolute left-2 top-2 flex max-w-[calc(100%-56px)] flex-wrap gap-1.5">
           {discount > 0 && (
-            <span className="rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-[#111827] shadow-sm dark:bg-[#111827]/90 dark:text-white">
+            <span className="rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-foreground shadow-sm">
               -{discount}%
             </span>
           )}
@@ -124,7 +124,7 @@ export function MarketplaceProductCard({
             e.stopPropagation();
             handleWishlistToggle();
           }}
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-sm transition-all duration-200 hover:scale-110 dark:bg-[#111827]/90"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/95 shadow-sm transition-all duration-200 hover:scale-110"
           aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
@@ -163,7 +163,7 @@ export function MarketplaceProductCard({
               className={`inline-flex h-8 w-8 items-center justify-center rounded-md border text-white transition ${
                 isCompared
                   ? "border-kwik-orange bg-kwik-orange"
-                  : "border-white/10 bg-[#0b4aa2] hover:bg-[#083879] dark:bg-white/10 dark:hover:bg-white/15"
+                  : "border-white/10 bg-kwik-blue hover:bg-kwik-blue/90 dark:bg-white/10 dark:hover:bg-white/15"
               }`}
               aria-label={isCompared ? "Open comparison" : "Compare price"}
             >

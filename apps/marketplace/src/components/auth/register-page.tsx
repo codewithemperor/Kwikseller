@@ -263,7 +263,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
             className="w-full border border-kwik-border bg-white p-5 text-left transition-colors hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+              <div className="flex h-12 w-12 items-center justify-center bg-foreground text-background">
                 <ShoppingBag className="h-6 w-6" />
               </div>
               <div className="flex-1">
@@ -318,7 +318,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   return (
     <div className={cn("w-full", className)}>
       <div className="mb-8">
-        <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+        <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
           {selectedRole === "VENDOR" ? <Store className="h-6 w-6" /> : <ShoppingBag className="h-6 w-6" />}
         </div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight text-kwik-dark dark:text-white">

@@ -23,6 +23,8 @@ import {
   HelpCircle,
   LogOut,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,6 +44,8 @@ export interface VendorDrawerProps {
     notifications?: number;
   };
   onLogout: () => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 interface NavItem {
@@ -124,6 +128,8 @@ export function VendorDrawer({
   storeLogoUrl,
   badgeCounts,
   onLogout,
+  collapsed = false,
+  onToggleCollapsed,
 }: VendorDrawerProps) {
   const pathname = usePathname();
 
@@ -138,12 +144,12 @@ export function VendorDrawer({
   }, [isOpen, onClose]);
 
   return (
-    <div className="flex h-full flex-col bg-surface">
+    <div className="flex h-full flex-col bg-kwik-blue text-white">
       {/* Scrollable nav area */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* Vendor info header */}
-        <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent/10 text-accent">
+        <div className={cn("flex items-center gap-3 px-4 py-5", collapsed && "justify-center px-3")}>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/15 text-white ring-1 ring-white/15">
             {storeLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -155,24 +161,44 @@ export function VendorDrawer({
               <span className="text-sm font-semibold">{getInitials(vendorName)}</span>
             )}
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{vendorName}</p>
+          <div className={cn("min-w-0", collapsed && "hidden")}>
+            <p className="truncate text-sm font-semibold text-white">{vendorName}</p>
             {storeSlug && (
-              <p className="truncate text-xs text-muted-foreground">{storeSlug}.kwik.com</p>
+              <p className="truncate text-xs text-white/70">{storeSlug}.kwik.com</p>
             )}
           </div>
+          {onToggleCollapsed ? (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className={cn(
+                "ml-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white lg:flex",
+                collapsed && "ml-0",
+              )}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-4 w-4" strokeWidth={1.75} />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" strokeWidth={1.75} />
+              )}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-default-100 hover:text-foreground lg:hidden"
+            className={cn(
+              "ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:hidden",
+              collapsed && "ml-0",
+            )}
           >
             <X className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Divider */}
-        <div className="mx-4 border-t border-kwik-border" />
+        <div className="mx-4 border-t border-white/10" />
 
         {/* Navigation */}
         <motion.nav
@@ -183,7 +209,7 @@ export function VendorDrawer({
         >
           {navGroups.map((group) => (
             <div key={group.heading} className="mb-2">
-              <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+              <p className={cn("px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-white/50", collapsed && "sr-only")}>
                 {group.heading}
               </p>
               <div className="grid gap-0.5">
@@ -196,30 +222,39 @@ export function VendorDrawer({
                       <Link
                         href={item.href}
                         onClick={() => onClose()}
+                        title={collapsed ? item.label : undefined}
                         className={cn(
-                          "flat-button relative flex h-11 items-center gap-3 rounded-lg pl-4 pr-3 text-sm font-medium transition-colors",
+                          "flat-button relative flex h-10 items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+                          collapsed ? "justify-center px-0" : "pl-3 pr-2",
                           active
-                            ? "bg-accent/10 text-accent"
-                            : "text-muted-foreground hover:bg-accent/5 hover:text-accent",
+                            ? "bg-white/15 text-white"
+                            : "text-white/70 hover:bg-white/10 hover:text-white",
                         )}
                       >
                         {active && (
                           <motion.span
                             layoutId="vendor-nav-active"
-                            className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-accent"
+                            className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-kwik-orange"
                             transition={{ type: "spring", stiffness: 350, damping: 30 }}
                           />
                         )}
                         <item.icon
                           className={cn(
                             "h-5 w-5 shrink-0",
-                            active ? "text-accent" : "text-muted-foreground",
+                            active ? "text-white" : "text-white/70",
                           )}
                           strokeWidth={active ? 2 : 1.5}
                         />
-                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <span className={cn("min-w-0 flex-1 truncate", collapsed && "sr-only")}>
+                          {item.label}
+                        </span>
                         {badge ? (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-medium leading-none text-white">
+                          <span
+                            className={cn(
+                              "flex h-5 min-w-5 items-center justify-center rounded-full bg-kwik-orange px-2 py-0.5 text-[11px] font-medium leading-none text-white",
+                              collapsed && "absolute right-1 top-1 h-2 min-w-2 overflow-hidden p-0 text-transparent",
+                            )}
+                          >
                             {badge > 99 ? "99+" : badge}
                           </span>
                         ) : null}
@@ -233,17 +268,21 @@ export function VendorDrawer({
         </motion.nav>
 
         {/* Divider */}
-        <div className="mx-4 border-t border-kwik-border" />
+        <div className="mx-4 border-t border-white/10" />
 
         {/* Logout */}
         <div className="px-2 pb-4 pt-2">
           <button
             type="button"
             onClick={onLogout}
-            className="flat-button flex h-11 w-full items-center gap-3 rounded-lg pl-4 pr-3 text-sm font-medium text-danger transition-colors hover:bg-danger/5"
+            title={collapsed ? "Logout" : undefined}
+            className={cn(
+              "flat-button flex h-10 w-full items-center gap-3 rounded-lg text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white",
+              collapsed ? "justify-center px-0" : "pl-3 pr-2",
+            )}
           >
             <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.5} />
-            <span>Logout</span>
+            <span className={cn(collapsed && "sr-only")}>Logout</span>
           </button>
         </div>
       </div>

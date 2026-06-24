@@ -65,7 +65,7 @@ export function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 right-0 top-0 z-[120] flex w-[420px] max-w-[92vw] flex-col overflow-hidden border-l border-kwik-border bg-white shadow-2xl dark:border-white/10 dark:bg-[#07111f]"
+            className="fixed bottom-0 right-0 top-0 z-[120] flex w-[420px] max-w-[92vw] flex-col overflow-hidden border-l border-border bg-background shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-kwik-border px-6 py-4 dark:border-white/10">
               <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ export function CartDrawer() {
             </div>
 
             {items.length > 0 && (
-              <div className="border-t border-kwik-border bg-white px-6 py-4 dark:border-white/10 dark:bg-[#07111f]">
+              <div className="border-t border-border bg-background px-6 py-4">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm text-kwik-muted dark:text-white/60">Quick total</span>
                   <span className="text-lg font-bold text-kwik-dark dark:text-white">

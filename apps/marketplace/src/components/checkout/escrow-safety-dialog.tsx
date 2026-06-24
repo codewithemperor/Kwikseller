@@ -20,7 +20,7 @@ export function EscrowSafetyDialog({
 
   return (
     <div className="fixed inset-0 z-[140] flex items-end bg-black/50 p-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-labelledby="escrow-safety-title">
-      <div className="w-full max-w-md bg-white p-5 shadow-2xl dark:bg-[#07111f]">
+      <div className="w-full max-w-md bg-background p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white" style={{ backgroundColor: accentColor }}>

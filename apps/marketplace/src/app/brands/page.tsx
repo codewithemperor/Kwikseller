@@ -34,12 +34,12 @@ export default function BrandsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-white dark:bg-[#07111f]">
-      <section className="border-b border-neutral-200 bg-white dark:border-white/10 dark:bg-[#07111f]">
+    <main className="min-h-screen bg-background">
+      <section className="border-b border-border bg-background">
         <div className="container mx-auto px-4 py-10">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div>
-              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-[#071a2f] text-white">
+              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
                 <Tags className="h-6 w-6" />
               </div>
               <h1 className="font-heading text-4xl font-semibold tracking-tight text-kwik-dark dark:text-white">

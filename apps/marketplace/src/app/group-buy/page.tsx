@@ -68,8 +68,8 @@ export default function GroupBuyPage() {
   }, []);
 
   return (
-    <div className="bg-white dark:bg-[#07111f]">
-      <section className="border-b border-neutral-200 bg-[#0b4aa2] px-4 py-12 text-white dark:border-white/10">
+    <div className="bg-background">
+      <section className="border-b border-neutral-200 bg-kwik-blue px-4 py-12 text-white dark:border-white/10">
         <div className="container mx-auto grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
           <div>
             <h1 className="text-3xl font-semibold md:text-5xl">Group-buy campaigns</h1>
@@ -80,7 +80,7 @@ export default function GroupBuyPage() {
           <button
             type="button"
             onClick={() => kwikToast.success("You will be notified when group-buy subscriptions open.")}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-[#0b4aa2]"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-kwik-blue"
           >
             <Bell className="h-4 w-4" />
             Subscribe for updates
@@ -113,11 +113,11 @@ export default function GroupBuyPage() {
                 <Link
                   key={campaign.id}
                   href={campaignHref(campaign)}
-                  className="border border-neutral-200 bg-white p-5 transition hover:border-[#0b4aa2] dark:border-white/10 dark:bg-white/5"
+                  className="border border-neutral-200 bg-background p-5 transition hover:border-kwik-blue"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-semibold uppercase text-[#0b4aa2] dark:text-cyan-200">{campaign.status}</p>
+                      <p className="text-xs font-semibold uppercase text-kwik-blue">{campaign.status}</p>
                       <h2 className="mt-2 line-clamp-2 text-lg font-semibold text-kwik-dark dark:text-white">{campaign.title}</h2>
                       <p className="mt-1 line-clamp-2 text-sm text-kwik-muted dark:text-white/60">
                         {campaign.poolProduct?.name ?? campaign.poolProduct?.description ?? "Pool-backed group-buy campaign"}
@@ -127,7 +127,7 @@ export default function GroupBuyPage() {
                   </div>
 
                   <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
-                    <div className="h-full rounded-full bg-[#0b4aa2]" style={{ width: `${progress}%` }} />
+                    <div className="h-full rounded-full bg-kwik-blue" style={{ width: `${progress}%` }} />
                   </div>
 
                   <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
@@ -150,7 +150,7 @@ export default function GroupBuyPage() {
           </div>
         ) : (
           <div className="mx-auto max-w-xl py-14 text-center">
-            <Clock3 className="mx-auto h-10 w-10 text-[#0b4aa2]" />
+            <Clock3 className="mx-auto h-10 w-10 text-kwik-blue" />
             <h2 className="mt-4 text-xl font-semibold text-kwik-dark dark:text-white">No campaigns yet</h2>
             <p className="mt-2 text-sm leading-6 text-kwik-muted dark:text-white/60">
               Admin-created group-buy campaigns will show here as soon as they are scheduled.
@@ -166,7 +166,7 @@ export default function GroupBuyPage() {
               { icon: Bell, title: "Subscribe", text: "Get notified when group-buy participation opens fully." },
             ].map((item) => (
               <div key={item.title} className="border-b border-neutral-200 pb-4 dark:border-white/10">
-                <item.icon className="h-5 w-5 text-[#0b4aa2] dark:text-cyan-200" />
+                <item.icon className="h-5 w-5 text-kwik-blue" />
                 <h3 className="mt-3 text-sm font-semibold text-kwik-dark dark:text-white">{item.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-kwik-muted dark:text-white/60">{item.text}</p>
               </div>

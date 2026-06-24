@@ -117,7 +117,7 @@ export default function VendorCartPage() {
       </section>
       {showMixedCartChoice && (
         <div className="fixed inset-0 z-[130] flex items-end bg-black/45 p-4 sm:items-center sm:justify-center">
-          <div className="w-full max-w-md bg-white p-5 shadow-2xl dark:bg-[#07111f]">
+          <div className="w-full max-w-md bg-background p-5 shadow-2xl">
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-[var(--store-accent)] text-white">
                 <ShoppingCart className="h-5 w-5" />

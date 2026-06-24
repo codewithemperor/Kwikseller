@@ -164,7 +164,7 @@ export default function VendorSearchPage() {
           title="Recents"
           action={
             recents.length ? (
-              <button type="button" onClick={clearRecents} className="text-sm font-medium text-foreground dark:text-white">
+              <button type="button" onClick={clearRecents} className="text-sm font-medium text-foreground">
                 Delete all
               </button>
             ) : null

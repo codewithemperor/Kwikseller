@@ -616,7 +616,8 @@ export const uploadApi = {
 // ==================== Vendor Commerce API ====================
 
 export const vendorCommerceApi = {
-  getDashboard: () => api.get<VendorDashboardMetrics>('/vendor/dashboard'),
+  getDashboard: (params?: { q?: string }) =>
+    api.get<VendorDashboardMetrics>('/vendor/dashboard', { params }),
 
   listProducts: (params?: { status?: string; type?: ProductType; search?: string; page?: number; limit?: number }) =>
     api.get('/vendor/products', { params }),
@@ -686,8 +687,11 @@ export const vendorCommerceApi = {
   addDigitalAsset: (productId: string, data: Partial<DigitalAsset>) =>
     api.post<DigitalAsset>('/vendor/digital-assets', { productId, ...data }),
 
-  listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
+  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number }) =>
     api.get('/vendor/orders', { params }),
+
+  getOrder: (orderId: string) =>
+    api.get(`/vendor/orders/${orderId}`),
 
   updateOrderStatus: (orderId: string, status: string) =>
     api.patch(`/vendor/orders/${orderId}/status`, { status }),

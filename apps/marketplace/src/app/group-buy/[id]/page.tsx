@@ -90,7 +90,7 @@ export default function GroupBuyDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="bg-white px-4 py-12 dark:bg-[#07111f]">
+      <div className="bg-background px-4 py-12">
         <div className="container mx-auto space-y-6">
           <div className="h-8 w-40 animate-pulse rounded-md bg-neutral-100 dark:bg-white/10" />
           <div className="h-96 animate-pulse rounded-md bg-neutral-100 dark:bg-white/10" />
@@ -101,14 +101,14 @@ export default function GroupBuyDetailPage() {
 
   if (error || !campaign) {
     return (
-      <div className="bg-white px-4 py-20 dark:bg-[#07111f]">
+      <div className="bg-background px-4 py-20">
         <div className="container mx-auto max-w-xl text-center">
           <PackageOpen className="mx-auto h-10 w-10 text-kwik-orange" />
           <h1 className="mt-4 text-2xl font-semibold text-kwik-dark dark:text-white">Group buy unavailable</h1>
           <p className="mt-2 text-sm leading-6 text-kwik-muted dark:text-white/60">{error}</p>
           <Link
             href="/group-buy"
-            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-kwik-dark px-5 text-sm font-semibold text-white dark:bg-white dark:text-[#07111f]"
+            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-foreground px-5 text-sm font-semibold text-background"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to group buys
@@ -124,7 +124,7 @@ export default function GroupBuyDetailPage() {
       : 0;
 
   return (
-    <div className="bg-white dark:bg-[#07111f]">
+    <div className="bg-background">
       <main className="container mx-auto px-4 py-10">
         <Link href="/group-buy" className="inline-flex items-center gap-2 text-sm font-semibold text-kwik-dark dark:text-white">
           <ArrowLeft className="h-4 w-4" />
@@ -133,7 +133,7 @@ export default function GroupBuyDetailPage() {
 
         <section className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div>
-            <p className="text-xs font-semibold uppercase text-[#0b4aa2] dark:text-cyan-200">{campaign.status}</p>
+            <p className="text-xs font-semibold uppercase text-kwik-blue">{campaign.status}</p>
             <h1 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-kwik-dark dark:text-white md:text-5xl">
               {campaign.title}
             </h1>
@@ -144,7 +144,7 @@ export default function GroupBuyDetailPage() {
             </p>
 
             <div className="mt-8 h-2 overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
-              <div className="h-full rounded-full bg-[#0b4aa2]" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-kwik-blue" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-3 flex justify-between text-sm text-kwik-muted dark:text-white/60">
               <span>{campaign.committedQuantity} committed</span>
@@ -158,7 +158,7 @@ export default function GroupBuyDetailPage() {
                 { icon: Clock3, label: "Progress", value: `${progress}%` },
               ].map((item) => (
                 <div key={item.label} className="border-b border-neutral-200 pb-4 dark:border-white/10">
-                  <item.icon className="h-5 w-5 text-[#0b4aa2] dark:text-cyan-200" />
+                  <item.icon className="h-5 w-5 text-kwik-blue" />
                   <p className="mt-3 text-2xl font-semibold text-kwik-dark dark:text-white">{item.value}</p>
                   <p className="text-xs text-kwik-muted dark:text-white/55">{item.label}</p>
                 </div>
@@ -166,7 +166,7 @@ export default function GroupBuyDetailPage() {
             </div>
           </div>
 
-          <aside className="bg-[#0b4aa2] p-6 text-white">
+          <aside className="bg-kwik-blue p-6 text-white">
             <p className="text-sm text-white/70">Campaign unit price</p>
             <p className="mt-2 text-3xl font-semibold">{formatCurrency(campaign.unitPrice)}</p>
 
@@ -190,7 +190,7 @@ export default function GroupBuyDetailPage() {
             <button
               type="button"
               onClick={() => kwikToast.success("You will be notified when buyer commitments open.")}
-              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-[#0b4aa2]"
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-kwik-blue"
             >
               <Bell className="h-4 w-4" />
               Subscribe to campaign

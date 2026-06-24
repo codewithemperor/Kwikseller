@@ -134,7 +134,7 @@ export function EnhancedFooter() {
   };
 
   return (
-    <footer className="mt-auto bg-[#071a3f] text-white">
+    <footer className="mt-auto bg-foreground text-background">
       <div className="h-px bg-kwik-orange" />
       <div className="container mx-auto px-4 py-12 md:py-14">
         <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">

@@ -27,6 +27,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest();
+    const method = request?.method ?? 'UNKNOWN';
+    const path = request?.originalUrl ?? request?.url ?? 'unknown';
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'An unexpected error occurred';
@@ -102,7 +104,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Log the error
     this.logger.error(
-      `Exception: ${exception instanceof Error ? exception.message : 'Unknown error'}`,
+      `Exception [${method} ${path}]: ${exception instanceof Error ? exception.message : 'Unknown error'}`,
       exception instanceof Error ? exception.stack : undefined,
     );
 
@@ -112,7 +114,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message,
       error,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path,
     };
 
     if (details) {

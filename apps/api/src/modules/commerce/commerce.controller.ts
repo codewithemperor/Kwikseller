@@ -225,8 +225,8 @@ export class VendorCommerceController {
   constructor(private readonly commerce: CommerceService) {}
 
   @Get('dashboard')
-  dashboard(@CurrentUser() user: any) {
-    return this.commerce.getVendorDashboard(user);
+  dashboard(@CurrentUser() user: any, @Query('q') query?: string) {
+    return this.commerce.getVendorDashboard(user, { query });
   }
 
   @Get('products')
@@ -269,8 +269,19 @@ export class VendorCommerceController {
   }
 
   @Get('orders')
-  listOrders(@CurrentUser() user: any) {
-    return this.commerce.listVendorOrders(user);
+  listOrders(
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.commerce.listVendorOrders(user, { page, limit, status, search });
+  }
+
+  @Get('orders/:orderId')
+  getOrder(@CurrentUser() user: any, @Param('orderId') orderId: string) {
+    return this.commerce.getVendorOrder(user, orderId);
   }
 
   @Patch('orders/:orderId/status')

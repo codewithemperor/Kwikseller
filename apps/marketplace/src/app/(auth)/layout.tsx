@@ -8,9 +8,9 @@ import { GuestRoute } from "@/components/auth/guest-route";
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <GuestRoute>
-      <main className="min-h-screen bg-white text-kwik-dark dark:bg-[#07111f] dark:text-white">
+      <main className="min-h-screen bg-background text-foreground">
         <div className="grid min-h-screen lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
-          <section className="hidden border-r border-neutral-200 bg-[#061a32] text-white dark:border-white/10 lg:flex lg:flex-col">
+          <section className="hidden border-r border-neutral-200 bg-foreground text-background dark:border-white/10 lg:flex lg:flex-col">
             <div className="flex items-center justify-between px-10 py-8">
               <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-white/75 hover:text-white">
                 <ArrowLeft className="h-4 w-4" />

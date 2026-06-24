@@ -208,7 +208,7 @@ export function OrderTrackingWidget() {
                   <div className="relative">
                     <div className="h-2.5 rounded-full bg-kwik-border-light overflow-hidden">
                       <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-kwik-orange to-[#d97706]"
+                        className="h-full rounded-full bg-gradient-to-r from-kwik-orange to-kwik-amber"
                         animate={{ width: `${progressPct}%` }}
                         transition={{ duration: 0.8, ease: 'easeOut' as const }}
                       />

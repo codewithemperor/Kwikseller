@@ -39,7 +39,7 @@ export default function CheckoutVerifyPage() {
           orders?: Order[];
           order?: Order;
           parentCheckout?: ParentCheckout;
-        }>(response.data);
+        }>(response);
         const paymentStatus = verification?.status;
         if (!mounted) return;
         setOrders(verification.orders ?? (verification.order ? [verification.order] : []));
@@ -72,7 +72,7 @@ export default function CheckoutVerifyPage() {
   const isSuccess = status === "success";
 
   return (
-    <main className="min-h-screen bg-[#f6f7f5] px-4 py-16">
+    <main className="min-h-screen bg-kwik-bg-page px-4 py-16">
       <section className="mx-auto max-w-xl rounded-lg border border-neutral-200 bg-white p-8 text-center shadow-sm">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg bg-neutral-100">
           {status === "loading" && <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />}
@@ -138,10 +138,10 @@ export default function CheckoutVerifyPage() {
             Continue shopping
           </Link>
           <Link
-            href="/cart"
+            href="/orders"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-neutral-300 px-5 text-sm font-semibold text-kwik-dark"
           >
-            Return to cart
+            View orders
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

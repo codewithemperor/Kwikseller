@@ -143,7 +143,7 @@ export default function VendorProductsPage() {
 
   return (
     <VendorStorefrontShell store={store} active="products">
-      <section className="sticky top-16 z-30 border-b border-black/10 bg-white/95 backdrop-blur dark:border-white/10 dark:bg-[#07111f]/95">
+      <section className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-3 lg:px-6">
           <form
             className="flex items-center gap-2"

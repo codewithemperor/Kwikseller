@@ -1121,11 +1121,22 @@ async function main() {
     { state: "Lagos", localGovernment: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
     { state: "Lagos", localGovernment: "Lekki", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
     { state: "Abuja", localGovernment: "Municipal", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
+    { state: "Kwara State", localGovernment: "Ilorin West", fee: 2000, minDeliveryDays: 2, maxDeliveryDays: 4 },
   ];
+  const kwaraDeliveryZoneSeedAreas = lgaRows
+    .filter((row) => row.state_code.toUpperCase() === "KW")
+    .map((row) => ({
+      stateCode: "KW",
+      lgaName: row.name,
+      fee: 2000,
+      minDeliveryDays: 2,
+      maxDeliveryDays: 4,
+    }));
   const deliveryZoneSeedAreas = [
     { stateCode: "LA", lgaName: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
     { stateCode: "LA", lgaName: "Eti Osa", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
     { stateCode: "FC", lgaName: "Abuja", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
+    ...kwaraDeliveryZoneSeedAreas,
   ];
   for (const seedStoreId of [storeId, secondStoreId]) {
     const deliverySetting = await db.storeDeliverySetting?.upsert({
@@ -1199,6 +1210,26 @@ async function main() {
     });
   }
   console.log("   ✅ Store delivery settings seeded for Pool source vendors\n");
+  const kwaraDeliveryRateSeedAreas = lgaRows
+    .filter((row) => row.state_code.toUpperCase() === "KW")
+    .flatMap((row) => [
+      { state: "Kwara State", localGovernment: row.name, fee: 2000, minDeliveryDays: 2, maxDeliveryDays: 4 },
+      { state: "Kwara", localGovernment: row.name, fee: 2000, minDeliveryDays: 2, maxDeliveryDays: 4 },
+    ]);
+
+  for (const area of kwaraDeliveryRateSeedAreas) {
+    await db.deliveryRate?.upsert({
+      where: {
+        state_localGovernment: {
+          state: area.state,
+          localGovernment: area.localGovernment,
+        },
+      },
+      update: { ...area, isActive: true },
+      create: { ...area, isActive: true },
+    });
+  }
+
   await db.storefrontDesign?.upsert({
     where: { storeId: secondStoreId },
     update: {

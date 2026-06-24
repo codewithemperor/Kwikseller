@@ -146,7 +146,7 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
+    <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
       <div>
         <h2 className="text-base font-semibold text-white md:text-xl">{title}</h2>
         <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">{description}</p>
@@ -299,7 +299,7 @@ function CampaignRow({ campaign }: { campaign: PoolCampaign }) {
         <button
           type="button"
           onClick={() => kwikToast.success(`Subscribed to ${campaign.title}`)}
-          className="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-white text-xs font-semibold text-[#0b4aa2]"
+          className="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-white text-xs font-semibold text-kwik-blue"
         >
           Subscribe
         </button>
@@ -445,7 +445,7 @@ export function MarketplaceHomeFeedPage() {
 
   if (error || !feed) {
     return (
-      <div className="bg-white px-4 py-20 dark:bg-[#07111f]">
+      <div className="bg-background px-4 py-20">
         <div className="container mx-auto max-w-2xl text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-neutral-200">
             <PackageOpen className="h-7 w-7 text-kwik-orange" />
@@ -493,8 +493,8 @@ export function MarketplaceHomeFeedPage() {
   );
 
   return (
-    <div className="bg-white pb-12 dark:bg-[#07111f]">
-      <section className="border-b border-neutral-200 bg-white dark:border-white/10 dark:bg-[#07111f]">
+    <div className="bg-background pb-12">
+      <section className="border-b border-border bg-background">
         <div className="container mx-auto px-4 py-5 md:py-7">
           <div className="lg:hidden">
             <Link href={banner.href || "/search"} className="block">
@@ -585,7 +585,7 @@ export function MarketplaceHomeFeedPage() {
 
       <div className="container mx-auto space-y-12 px-4 py-10">
         <section>
-          <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
+          <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
             <div>
               <h2 className="text-base font-semibold text-white md:text-xl">Partner-fulfilled shelf</h2>
               <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">
@@ -620,8 +620,8 @@ export function MarketplaceHomeFeedPage() {
             onQuickView={setQuickViewProduct}
           />
 
-          <aside className="bg-[#0b4aa2] p-5 text-white">
-            <div className="-mx-5 mb-4 flex items-center justify-between gap-3 bg-[#0b4aa2] px-5 py-3">
+          <aside className="bg-kwik-blue p-5 text-white">
+            <div className="-mx-5 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-5 py-3">
               <div>
                 <h2 className="text-base font-semibold md:text-xl">Group-buy desk</h2>
                 <p className="mt-0.5 text-xs leading-5 text-white/70 md:text-sm">Campaigns waiting for buyer commitments.</p>
@@ -663,7 +663,7 @@ export function MarketplaceHomeFeedPage() {
         />
 
         <section id="categories" className="scroll-mt-28">
-          <div className="-mx-4 mb-4 flex items-center justify-between bg-[#0b4aa2] px-4 py-3 text-white md:mx-0">
+          <div className="-mx-4 mb-4 flex items-center justify-between bg-kwik-blue px-4 py-3 text-white md:mx-0">
             <div>
               <h2 className="text-base font-semibold text-white md:text-xl">Browse by category</h2>
               <p className="mt-0.5 text-xs text-white/70 md:text-sm">Category shelves stay API-driven and ready for fulfillment filters.</p>
@@ -725,7 +725,7 @@ export function MarketplaceHomeFeedPage() {
           </div>
         </section>
 
-        <section className="bg-[#071a3f] px-5 py-6 text-white md:px-8">
+        <section className="bg-foreground px-5 py-6 text-background md:px-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
               <Store className="h-7 w-7 text-kwik-orange" />
@@ -736,7 +736,7 @@ export function MarketplaceHomeFeedPage() {
             </div>
             <Link
               href="/cart"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-[#071a3f]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-foreground"
             >
               Go to cart
               <ArrowRight className="h-4 w-4" />

@@ -670,12 +670,64 @@ export interface PoolCampaign {
   updatedAt: string
 }
 
+export interface VendorDashboardSeriesPoint {
+  label: string
+  value: number
+}
+
+export interface VendorDashboardKpi {
+  value: number
+  trend: number
+  period: string
+}
+
+export interface VendorDashboardSearchSuggestion {
+  id: string
+  type: 'product' | 'order' | 'inventory' | 'pool' | string
+  text: string
+  subtext?: string
+  href: string
+}
+
 export interface VendorDashboardMetrics {
   revenue: number
-  orders: number
-  pendingFulfillments: number
-  lowStockItems: number
+  orders?: number
+  ordersCount: number
+  productsCount: number
+  pendingFulfillments?: number
+  lowStockItems?: number
+  inventoryAlerts: InventoryItem[]
+  fulfillmentTasks: Order[]
   poolEarnings: number
+  recentOrders: Order[]
+  poolOffers: VendorPoolOffer[]
+  wallet: {
+    currentBalance: number
+    availableBalance: number
+    pendingBalance: number
+    totalEarned: number
+    totalWithdrawn: number
+  }
+  kpis: {
+    walletBalance: VendorDashboardKpi
+    availableBalance: VendorDashboardKpi
+    pendingSettlement: VendorDashboardKpi
+    totalRevenue: VendorDashboardKpi
+    totalOrders: VendorDashboardKpi
+    activeProducts: VendorDashboardKpi
+  }
+  analytics: {
+    revenueTrend: VendorDashboardSeriesPoint[]
+    orderVolume: VendorDashboardSeriesPoint[]
+    settlementHistory: VendorDashboardSeriesPoint[]
+    cashFlow: VendorDashboardSeriesPoint[]
+  }
+  totals: {
+    allProducts: number
+    lowStockItems: number
+    pendingOrders: number
+  }
+  searchSuggestions: VendorDashboardSearchSuggestion[]
 }
 
 // ==================== ESCROW ====================

@@ -578,8 +578,8 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#07111f]">
-      <div className="border-b border-neutral-200 bg-white dark:border-white/10 dark:bg-[#07111f]">
+    <div className="min-h-screen bg-background">
+      <div className="border-b border-border bg-background">
         <div className="container mx-auto flex items-center gap-3 px-4 py-3">
           <Link href="/">
             <Button isIconOnly variant="ghost" size="sm" aria-label="Go back">

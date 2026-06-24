@@ -1344,6 +1344,7 @@ enum DeliveryStatus {
   COMPLETED
   CANCELLED
   RETURNED
+  FAILED
 }
 
 enum DisputeStatus {
@@ -1406,7 +1407,6 @@ model Delivery {
   @@index([orderId])
   @@index([riderId])
   @@index([status])
-  @@map("deliveries")
 }
 
 // ==================== ESCROW ====================

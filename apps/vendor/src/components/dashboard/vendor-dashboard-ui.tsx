@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import React from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SummaryCardProps {
@@ -23,22 +23,73 @@ interface SummaryCardProps {
 type MetricTone = "brand" | "accent" | "success" | "warning" | "danger" | "neutral";
 
 const metricToneMap: Record<MetricTone, string> = {
-  brand: "bg-[var(--kwik-blue)] text-white dark:bg-[#1e40af] dark:text-white",
-  accent: "bg-[#fff7ed] text-[#9a3412] dark:bg-[#431407] dark:text-[#fed7aa]",
-  success: "bg-[#ecfdf5] text-[#065f46] dark:bg-[#052e16] dark:text-[#bbf7d0]",
-  warning: "bg-[#fffbeb] text-[#92400e] dark:bg-[#451a03] dark:text-[#fde68a]",
-  danger: "bg-[#fff1f0] text-[#b42318] dark:bg-[#7f1d1d] dark:text-[#fecaca]",
-  neutral: "bg-surface text-foreground dark:bg-white/5 dark:text-white",
+  brand: "bg-kwik-blue text-white",
+  accent: "bg-accent-soft text-accent-soft-foreground",
+  success: "bg-success text-success-foreground",
+  warning: "bg-warning text-warning-foreground",
+  danger: "bg-danger text-danger-foreground",
+  neutral: "bg-surface text-foreground",
 };
 
 const metricIconToneMap: Record<MetricTone, string> = {
   brand: "bg-white/15 text-white",
-  accent: "bg-[#fed7aa] text-[#9a3412] dark:bg-[#7c2d12] dark:text-[#ffedd5]",
-  success: "bg-[#d1fae5] text-[#047857] dark:bg-[#064e3b] dark:text-[#d1fae5]",
-  warning: "bg-[#fef3c7] text-[#92400e] dark:bg-[#78350f] dark:text-[#fef3c7]",
-  danger: "bg-[#fee4e2] text-[#b42318] dark:bg-[#991b1b] dark:text-[#fee2e2]",
-  neutral: "bg-[#f3f4f6] text-[#374151] dark:bg-white/8 dark:text-white/80",
+  accent: "bg-accent text-accent-foreground",
+  success: "bg-success text-success-foreground",
+  warning: "bg-warning text-warning-foreground",
+  danger: "bg-danger text-danger-foreground",
+  neutral: "bg-default text-default-foreground",
 };
+
+function useClickOutside<T extends HTMLElement>(onClose: () => void) {
+  const ref = React.useRef<T>(null);
+
+  React.useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  return ref;
+}
+
+function HeaderActionMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = useClickOutside<HTMLDivElement>(() => setOpen(false));
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        type="button"
+        aria-label="Page actions"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex h-9 w-9 items-center justify-center text-foreground transition hover:text-accent"
+      >
+        <MoreVertical className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-full z-30 mt-2 min-w-56 rounded-xl border border-border bg-background p-2 shadow-xl">
+          <div className="flex min-w-0 flex-col gap-2">
+            {children}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 // NOTE: The dead exports (VendorDesktopNav, VendorBottomTabs, VendorSolidCard,
 // vendorPrimaryTabs, isVendorTabActive, VendorTabItem) have been removed.
@@ -58,8 +109,8 @@ export function VendorPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3 border-b border-kwik-border pb-4 md:flex-row md:items-end md:justify-between">
-      <div className="min-w-0">
+    <section className="flex min-w-0 items-start justify-between gap-3 border-b border-kwik-border pb-4">
+      <div className="min-w-0 flex-1">
         {eyebrow ? (
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
             {eyebrow}
@@ -74,7 +125,7 @@ export function VendorPageHeader({
           </p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <HeaderActionMenu>{action}</HeaderActionMenu> : null}
     </section>
   );
 }
@@ -89,7 +140,7 @@ export function VendorToolbar({
   return (
     <section
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-2xl border border-kwik-border bg-surface p-3 sm:flex-row sm:items-end",
+        "flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:flex-row sm:items-end",
         className,
       )}
     >
@@ -107,7 +158,7 @@ export function SummaryCard({
   href,
   onCtaClick,
   icon,
-  gradient = "from-[#1f8f5c] via-[#169368] to-[#0f6f61]",
+  gradient = "from-kwik-green via-kwik-orange to-kwik-blue",
   className,
 }: SummaryCardProps) {
   const hasCta = Boolean(ctaLabel && (href || onCtaClick));
@@ -115,7 +166,7 @@ export function SummaryCard({
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-[28px] bg-gradient-to-br p-5 text-white",
+        "relative overflow-hidden rounded-xl bg-gradient-to-br p-5 text-white",
         gradient,
         className,
       )}
@@ -123,11 +174,11 @@ export function SummaryCard({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.34),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.14),transparent_32%)]" />
       <div className={cn("relative flex flex-col", hasCta ? "min-h-[12.5rem] justify-between" : "min-h-36 justify-start")}>
         <div className="flex items-start justify-between gap-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/72">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
             {title}
           </p>
           {icon ? (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/16 text-white backdrop-blur-sm">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-sm">
               {icon}
             </div>
           ) : null}
@@ -186,7 +237,7 @@ export function DashboardMetricCard({
   const content = (
     <>
       <div className="flex items-start justify-between gap-4">
-        <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", metricIconToneMap[tone])}>
+        <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", metricIconToneMap[tone])}>
           {icon}
         </div>
         {href ? (
@@ -195,7 +246,7 @@ export function DashboardMetricCard({
               "flex h-9 w-9 items-center justify-center rounded-full border transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
               isBrand
                 ? "border-white/30 text-white"
-                : "border-black/10 text-foreground dark:border-white/10 dark:text-white",
+                : "border-border text-foreground",
             )}
           >
             <ArrowUpRight className="h-4 w-4" strokeWidth={1.7} />
@@ -213,7 +264,7 @@ export function DashboardMetricCard({
   );
 
   const cardClass = cn(
-    "group block rounded-2xl border border-kwik-border bg-surface p-5 transition hover:-translate-y-0.5 hover:shadow-sm",
+    "group block rounded-xl border border-border bg-background p-5 transition hover:border-accent/40",
     metricToneMap[tone],
     className,
   );

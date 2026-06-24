@@ -3,11 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, Bell, User, Settings, HelpCircle, LogOut, ChevronDown } from "lucide-react";
+import { Menu, Bell, User, Settings, HelpCircle, LogOut, ChevronDown, Search } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuthStore } from "@kwikseller/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { AppButton } from "@kwikseller/ui";
+import {
+  AppButton,
+  SearchAutoSuggest,
+  type SearchAutoSuggestItem,
+} from "@kwikseller/ui";
+import { vendorCommerceApi } from "@kwikseller/api-client";
+import { useVendorPageContext } from "@/components/vendor-page-context";
 
 export interface VendorHeaderProps {
   onMenuToggle: () => void;
@@ -49,11 +55,17 @@ export function VendorHeader({
   vendorName: vendorNameProp,
   storeLogoUrl: storeLogoUrlProp,
   notificationCount = 0,
+  onSearchSubmit,
 }: VendorHeaderProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [activeSearchAnchor, setActiveSearchAnchor] = React.useState<"desktop" | "icon">("icon");
+  const desktopSearchRef = React.useRef<HTMLButtonElement>(null);
+  const iconSearchRef = React.useRef<HTMLButtonElement>(null);
+  const { searchProvider, searchSubmit } = useVendorPageContext();
 
   const userName =
     vendorNameProp ||
@@ -73,10 +85,46 @@ export function VendorHeader({
     window.location.href = "/";
   };
 
+  const handleSearch = React.useCallback(
+    (query: string) => {
+      if (searchSubmit) {
+        searchSubmit(query);
+        return;
+      }
+      onSearchSubmit?.(query);
+    },
+    [onSearchSubmit, searchSubmit],
+  );
+
+  const openSearch = React.useCallback((anchor: "desktop" | "icon") => {
+    setActiveSearchAnchor(anchor);
+    setSearchOpen(true);
+  }, []);
+
+  const loadGlobalSuggestions = React.useCallback(async (query: string): Promise<SearchAutoSuggestItem[]> => {
+    const response = await vendorCommerceApi.getDashboard({ q: query });
+    return (response.data.searchSuggestions ?? []).map((item) => ({
+      id: item.id,
+      type: item.type,
+      text: item.text,
+      subtext: item.subtext,
+      href: item.href,
+    }));
+  }, []);
+
+  const loadVendorSuggestions = React.useCallback(async (query: string): Promise<SearchAutoSuggestItem[]> => {
+    if (searchProvider) {
+      return searchProvider(query);
+    }
+    return loadGlobalSuggestions(query);
+  }, [loadGlobalSuggestions, searchProvider]);
+
+  const searchAnchorRef = activeSearchAnchor === "desktop" ? desktopSearchRef : iconSearchRef;
+
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b border-kwik-border bg-background/90 px-4 backdrop-blur-xl md:px-5 lg:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-border bg-background px-4 md:px-5 lg:px-6">
       {/* Left section: hamburger + brand */}
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <AppButton
           type="button"
           variant="ghost"
@@ -98,11 +146,66 @@ export function VendorHeader({
         </div>
       </div>
 
-      {/* Center spacer (search intentionally hidden for now) */}
-      <div className="flex-1" />
+      {/* Marketplace-style search */}
+      <div
+        className="mx-auto hidden w-full max-w-xl flex-1 md:block"
+      >
+        <button
+          ref={desktopSearchRef}
+          type="button"
+          aria-label="Search vendor workspace"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            openSearch("desktop");
+          }}
+          onClick={() => openSearch("desktop")}
+          className="relative block h-10 w-full rounded-xl border border-border bg-default px-10 text-left text-sm text-muted-foreground outline-none transition hover:border-accent/45 hover:bg-background"
+        >
+          <span className="sr-only">Search vendor workspace</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.75} />
+          <span className="block truncate">Search products, orders, customers...</span>
+          <span className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground lg:inline-flex">
+            Ctrl K
+          </span>
+        </button>
+      </div>
 
       {/* Right section: notifications + theme + avatar */}
-      <div className="flex items-center gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
+        <button
+          ref={iconSearchRef}
+          type="button"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            openSearch("icon");
+          }}
+          onClick={() => openSearch("icon")}
+          aria-label="Search"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground transition hover:bg-default md:hidden"
+        >
+          <Search className="h-5 w-5" strokeWidth={1.6} />
+        </button>
+
+        <SearchAutoSuggest
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          anchorRef={searchAnchorRef}
+          placeholder="Search products, orders, inventory..."
+          historyKey="kwikseller-vendor-search-history"
+          showTrending={false}
+          emptyLabel="No matching products, orders, or inventory."
+          footerLabel="Search your vendor workspace"
+          loadSuggestions={loadVendorSuggestions}
+          onSearch={handleSearch}
+          onSelect={(item) => {
+            if (item.href) {
+              router.push(item.href);
+              return;
+            }
+            handleSearch(item.text);
+          }}
+        />
+
         {/* Notification bell with dropdown */}
         <div className="relative" ref={notifRef}>
           <AppButton
@@ -111,7 +214,7 @@ export function VendorHeader({
             size="sm"
             onClick={() => setNotifOpen((v) => !v)}
             aria-label="Notifications"
-            className="relative h-9 w-9 p-0 text-foreground hover:bg-surface"
+            className="relative h-9 w-9 p-0 text-foreground hover:bg-default"
           >
             <Bell className="h-5 w-5" strokeWidth={1.5} />
             {notificationCount > 0 && (
@@ -127,9 +230,9 @@ export function VendorHeader({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-kwik-border bg-background shadow-xl"
+                className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-background"
               >
-                <div className="flex items-center justify-between border-b border-kwik-border px-4 py-3">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
                   <p className="text-sm font-semibold text-foreground">Notifications</p>
                   {notificationCount > 0 && (
                     <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
@@ -148,7 +251,7 @@ export function VendorHeader({
                     </p>
                   </div>
                 </div>
-                <div className="border-t border-kwik-border px-4 py-2">
+                <div className="border-t border-border px-4 py-2">
                   <Link
                     href="/dashboard/notifications"
                     onClick={() => setNotifOpen(false)}
@@ -162,7 +265,7 @@ export function VendorHeader({
           </AnimatePresence>
         </div>
 
-        <ThemeToggle className="h-9 min-w-9 rounded-md text-foreground hover:bg-surface" />
+        <ThemeToggle className="h-9 min-w-9 rounded-md text-foreground hover:bg-default" />
 
         {/* User avatar dropdown */}
         <div className="relative" ref={menuRef}>
@@ -170,7 +273,7 @@ export function VendorHeader({
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="User menu"
-            className="flex items-center gap-1 rounded-full p-0.5 transition-colors hover:bg-surface"
+            className="flex items-center gap-1 rounded-full p-0.5 transition-colors hover:bg-default"
           >
             <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-accent/10 text-accent">
               {storeLogo ? (
@@ -189,9 +292,9 @@ export function VendorHeader({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-2xl border border-kwik-border bg-background p-1 shadow-xl"
+                className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-border bg-background p-1"
               >
-                <div className="border-b border-kwik-border px-3 py-2.5">
+                <div className="border-b border-border px-3 py-2.5">
                   <p className="truncate text-sm font-semibold text-foreground">{userName}</p>
                   {user?.email && (
                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
@@ -204,7 +307,7 @@ export function VendorHeader({
                       setMenuOpen(false);
                       router.push("/dashboard/profile");
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface"
+                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-default"
                   >
                     <User className="h-4 w-4" />
                     Profile
@@ -215,7 +318,7 @@ export function VendorHeader({
                       setMenuOpen(false);
                       router.push("/dashboard/settings");
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface"
+                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-default"
                   >
                     <Settings className="h-4 w-4" />
                     Settings
@@ -226,12 +329,12 @@ export function VendorHeader({
                       setMenuOpen(false);
                       router.push("/dashboard/help");
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface"
+                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-default"
                   >
                     <HelpCircle className="h-4 w-4" />
                     Help
                   </button>
-                  <div className="my-1 border-t border-kwik-border" />
+                  <div className="my-1 border-t border-border" />
                   <button
                     type="button"
                     onClick={handleLogout}

@@ -2,46 +2,48 @@
 
 import React from "react";
 import Link from "next/link";
-import {
-  ExternalLink,
-  Package,
-  ShoppingBag,
-  DollarSign,
-  Truck,
-  Plus,
-  PackageCheck,
-  Store,
-  MessageSquare,
-  ArrowRight,
-  Clock,
-  ChevronRight,
-  PackageSearch,
-  RefreshCw,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  AppButton,
-  VendorMetricCard,
-  VendorPageHeader,
-  VendorStatusBadge,
-} from "@kwikseller/ui";
-import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
+  ChevronRight,
+  CreditCard,
+  ExternalLink,
+  Package,
+  PackageCheck,
+  PackageSearch,
+  RefreshCw,
+  ShoppingBag,
+  Truck,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { InventoryItem, Order, VendorPoolOffer } from "@kwikseller/types";
+import type { InventoryItem, VendorDashboardMetrics } from "@kwikseller/types";
 import { useAuthStore } from "@kwikseller/utils";
+import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { cn } from "@/lib/utils";
 
-type VendorDashboardResponse = {
-  revenue: number;
-  ordersCount: number;
-  productsCount: number;
-  inventoryAlerts: InventoryItem[];
-  fulfillmentTasks: Order[];
-  poolEarnings: number;
-  recentOrders: Order[];
-  poolOffers: VendorPoolOffer[];
-};
+type VendorDashboardResponse = VendorDashboardMetrics;
+
+type CardTone = "default" | "blue" | "orange";
+type ChartDatum = { label: string; value: number };
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -90,78 +92,273 @@ function formatRelativeTime(dateStr: string) {
   return formatDate(dateStr);
 }
 
-function statusColor(status: string) {
-  const map: Record<string, string> = {
-    PAID: "text-emerald-600 dark:text-emerald-400",
-    CONFIRMED: "text-emerald-600 dark:text-emerald-400",
-    PROCESSING: "text-amber-600 dark:text-amber-400",
-    FULFILLED: "text-blue-600 dark:text-blue-400",
-    SHIPPED: "text-blue-600 dark:text-blue-400",
-    DELIVERED: "text-emerald-600 dark:text-emerald-400",
-    CANCELLED: "text-red-500 dark:text-red-400",
-    REFUNDED: "text-red-500 dark:text-red-400",
-    PENDING: "text-gray-500 dark:text-gray-400",
-    DRAFT: "text-gray-500 dark:text-gray-400",
-    PENDING_PAYMENT: "text-amber-600 dark:text-amber-400",
-  };
-  return map[status] ?? "text-gray-500 dark:text-gray-400";
-}
-
 function formatStatus(status: string) {
   return status
     .split("_")
-    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
     .join(" ");
 }
 
-/* ── Loading Skeleton ──────────────────────────────── */
+function statusTone(status: string) {
+  const normalized = status.toUpperCase();
+  if (["PAID", "CONFIRMED", "DELIVERED", "FULFILLED"].includes(normalized)) {
+    return "text-success";
+  }
+  if (["PROCESSING", "PENDING", "PENDING_PAYMENT", "DRAFT"].includes(normalized)) {
+    return "text-warning";
+  }
+  if (["CANCELLED", "REFUNDED", "FAILED"].includes(normalized)) {
+    return "text-danger";
+  }
+  return "text-muted-foreground";
+}
+
+function productLabel(item: InventoryItem) {
+  const product = item as InventoryItem & { product?: { name?: string | null } };
+  return product.product?.name || item.sku || `Product ${item.productId.slice(0, 8)}`;
+}
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-8">
-      {/* Welcome bar */}
-      <div className="space-y-2">
-        <div className="h-7 w-48 animate-pulse rounded bg-default-100" />
-        <div className="h-4 w-72 animate-pulse rounded bg-default-100" />
-      </div>
-
-      {/* Metrics row */}
-      <div className="grid grid-cols-1 gap-6 border-b border-kwik-border pb-6 sm:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="space-y-2">
-            <div className="h-5 w-5 animate-pulse rounded bg-default-100" />
-            <div className="h-8 w-24 animate-pulse rounded bg-default-100" />
-            <div className="h-4 w-32 animate-pulse rounded bg-default-100" />
-          </div>
+    <div className="space-y-5">
+      <div className="h-28 animate-pulse rounded-xl border border-border bg-background" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="h-36 animate-pulse rounded-xl border border-border bg-background" />
         ))}
       </div>
-
-      {/* Two-column */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[3fr_2fr]">
-        <div className="space-y-3">
-          <div className="h-6 w-32 animate-pulse rounded bg-default-100" />
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-12 animate-pulse rounded bg-default-100" />
-          ))}
-        </div>
-        <div className="space-y-6">
-          <div className="h-40 animate-pulse rounded bg-default-100" />
-          <div className="grid grid-cols-2 gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-20 animate-pulse rounded bg-default-100" />
-            ))}
-          </div>
-        </div>
+      <div className="grid gap-4 xl:grid-cols-[1.7fr_1fr]">
+        <div className="h-96 animate-pulse rounded-xl border border-border bg-background" />
+        <div className="h-96 animate-pulse rounded-xl border border-border bg-background" />
       </div>
     </div>
   );
 }
 
-/* ── Main Dashboard Page ──────────────────────────── */
+function SurfaceCard({
+  title,
+  description,
+  action,
+  children,
+  className,
+}: {
+  title?: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("min-w-0 overflow-hidden rounded-xl border border-border bg-background p-4 md:p-5", className)}>
+      {(title || description || action) ? (
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            {title ? <h2 className="text-base font-semibold text-foreground">{title}</h2> : null}
+            {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          </div>
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
+function TrendPill({ trend, tone }: { trend: number; tone?: CardTone }) {
+  const isNegative = trend < 0;
+  const Icon = isNegative ? ArrowDownRight : ArrowUpRight;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
+        tone === "blue" || tone === "orange"
+          ? "bg-white/15 text-white"
+          : isNegative
+            ? "bg-danger/10 text-danger"
+            : "bg-success/10 text-success",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+      {Math.abs(trend).toFixed(1)}%
+    </span>
+  );
+}
+
+function KpiCard({
+  title,
+  value,
+  period,
+  trend,
+  icon: Icon,
+  href,
+  tone = "default",
+}: {
+  title: string;
+  value: string;
+  period: string;
+  trend: number;
+  icon: LucideIcon;
+  href: string;
+  tone?: CardTone;
+}) {
+  const branded = tone === "blue" || tone === "orange";
+  const content = (
+    <article
+      className={cn(
+        "h-full rounded-xl border p-4 transition hover:border-accent/45",
+        tone === "blue" && "border-kwik-blue bg-kwik-blue text-white",
+        tone === "orange" && "border-kwik-orange bg-kwik-orange text-white",
+        tone === "default" && "border-border bg-background text-foreground",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-xl",
+            branded ? "bg-white/15 text-white" : "bg-default text-muted-foreground",
+          )}
+        >
+          <Icon className="h-5 w-5" strokeWidth={1.65} />
+        </div>
+        <TrendPill trend={trend} tone={tone} />
+      </div>
+      <p className={cn("mt-4 text-sm font-medium", branded ? "text-white/75" : "text-muted-foreground")}>
+        {title}
+      </p>
+      <p className="mt-2 truncate text-2xl font-semibold leading-tight tracking-tight">{value}</p>
+      <p className={cn("mt-2 text-xs", branded ? "text-white/70" : "text-muted-foreground")}>
+        Compared with {period}
+      </p>
+    </article>
+  );
+
+  return (
+    <Link href={href} className="block h-full">
+      {content}
+    </Link>
+  );
+}
+
+function MetricChart({
+  data,
+  color,
+  variant = "bar",
+}: {
+  data: ChartDatum[];
+  color: string;
+  variant?: "bar" | "area";
+}) {
+  const gradientId = React.useId().replace(/:/g, "");
+
+  return (
+    <div className="h-56 pt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        {variant === "area" ? (
+          <AreaChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.24} />
+                <stop offset="95%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} width={44} allowDecimals={false} />
+            <Tooltip
+              cursor={{ stroke: color, strokeOpacity: 0.18 }}
+              contentStyle={{
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                color: "var(--foreground)",
+              }}
+            />
+            <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`} />
+          </AreaChart>
+        ) : (
+          <BarChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} width={44} allowDecimals={false} />
+            <Tooltip
+              cursor={{ fill: "var(--default)" }}
+              contentStyle={{
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                color: "var(--foreground)",
+              }}
+            />
+            <Bar dataKey="value" fill={color} radius={[8, 8, 0, 0]} maxBarSize={46} />
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartPanel({
+  title,
+  value,
+  caption,
+  data,
+  color,
+  variant,
+}: {
+  title: string;
+  value: string;
+  caption: string;
+  data: ChartDatum[];
+  color: string;
+  variant?: "bar" | "area";
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-transparent p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+        </div>
+        <p className="text-sm font-semibold text-foreground">{value}</p>
+      </div>
+      <MetricChart data={data} color={color} variant={variant} />
+    </div>
+  );
+}
+
+function QueueItem({
+  icon: Icon,
+  title,
+  detail,
+  meta,
+  href,
+}: {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+  meta?: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition hover:border-accent/45"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-transparent text-muted-foreground">
+        <Icon className="h-5 w-5" strokeWidth={1.6} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-foreground">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{detail}</span>
+      </span>
+      {meta ? <span className="text-sm font-semibold text-foreground">{meta}</span> : null}
+      <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} />
+    </Link>
+  );
+}
 
 export default function VendorDashboardPage() {
   const { user } = useAuthStore();
-  const router = useRouter();
   const [data, setData] = React.useState<VendorDashboardResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -172,8 +369,7 @@ export default function VendorDashboardPage() {
       .getDashboard()
       .then((response) => {
         if (!active) return;
-        const dashboard = unwrapApiData<VendorDashboardResponse>(response.data);
-        setData(dashboard);
+        setData(unwrapApiData<VendorDashboardResponse>(response.data));
       })
       .catch(() => {
         if (active) setError("Could not load dashboard data.");
@@ -186,446 +382,317 @@ export default function VendorDashboardPage() {
     };
   }, []);
 
-  /* ── Derived data ────────────────────────────────── */
+  if (isLoading) return <DashboardSkeleton />;
 
   const recentOrders = data?.recentOrders ?? [];
   const inventoryAlerts = data?.inventoryAlerts ?? [];
   const fulfillmentTasks = data?.fulfillmentTasks ?? [];
-  const todaysOrders = recentOrders.filter((o) => isToday(o.createdAt));
-  const lowStockItems = inventoryAlerts.filter(
-    (item) => item.available <= item.lowStockThreshold
-  );
+  const lowStockItems = inventoryAlerts.filter((item) => item.available <= item.lowStockThreshold);
+  const todaysOrders = recentOrders.filter((order) => isToday(order.createdAt));
+  const revenue = Number(data?.kpis?.totalRevenue?.value ?? data?.revenue ?? 0);
+  const ordersCount = Number(data?.kpis?.totalOrders?.value ?? data?.ordersCount ?? 0);
+  const productsCount = Number(data?.kpis?.activeProducts?.value ?? data?.productsCount ?? 0);
+  const walletBalance = Number(data?.wallet?.currentBalance ?? data?.kpis?.walletBalance?.value ?? 0);
+  const availableBalance = Number(data?.wallet?.availableBalance ?? data?.kpis?.availableBalance?.value ?? 0);
+  const pendingSettlement = Number(data?.wallet?.pendingBalance ?? data?.kpis?.pendingSettlement?.value ?? 0);
+  const withdrawnAmount = Number(data?.wallet?.totalWithdrawn ?? 0);
 
   const store = user?.store;
-  const vendorName =
-    user?.profile?.firstName ||
-    store?.name ||
-    user?.email?.split("@")[0] ||
-    "Vendor";
+  const vendorName = user?.profile?.firstName || store?.name || user?.email?.split("@")[0] || "Vendor";
   const storeName = store?.name || "My Store";
-  const storeStatus = store?.isVerified ? "Verified" : "Unverified";
+  const storeStatus = store?.isVerified ? "Verified" : "Pending verification";
   const slug = storeSlug(store?.name, store?.slug);
   const storeUrl = `${marketplaceBaseUrl()}/vendor/${slug}`;
 
-  const avgOrderAmount =
-    recentOrders.length > 0
-      ? recentOrders.reduce((sum, o) => sum + Number(o.totalAmount ?? 0), 0) /
-        recentOrders.length
-      : 0;
+  const revenueTrend = data?.analytics?.revenueTrend ?? [];
+  const orderVolume = data?.analytics?.orderVolume ?? [];
+  const settlementHistory = data?.analytics?.settlementHistory ?? [];
+  const cashFlow = data?.analytics?.cashFlow ?? [];
 
-  /* ── Activity feed from recent orders ─────────────── */
-  const activityItems = recentOrders.slice(0, 6).map((order) => ({
-    id: order.id,
-    ref: order.checkoutReference ?? order.id.slice(0, 8),
-    status: order.status,
-    timestamp: order.createdAt,
-    icon:
-      order.status === "DELIVERED"
-        ? PackageCheck
-        : order.status === "CANCELLED"
-          ? PackageSearch
-          : ShoppingBag,
-  }));
-
-  /* ── Loading state ─────────────────────────────────── */
-
-  if (isLoading) return <DashboardSkeleton />;
-
-  /* ── Error state ──────────────────────────────────── */
+  const latestTransactions = recentOrders.slice(0, 5);
+  const notifications = [
+    `${fulfillmentTasks.length} orders need fulfillment review`,
+    lowStockItems.length > 0
+      ? `${lowStockItems.length} products are below stock threshold`
+      : "Inventory health is stable",
+    todaysOrders.length > 0
+      ? `${todaysOrders.length} new orders came in today`
+      : "No new checkout activity yet today",
+  ];
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <VendorPageHeader
-          title="Dashboard"
-          description="Overview of your store performance and activity."
-        />
-        <div className="flex flex-col items-center justify-center py-20">
-          <PackageSearch
-            className="h-12 w-12 text-muted-foreground/50"
-            strokeWidth={1.5}
-          />
-          <h2 className="mt-4 text-lg font-medium text-foreground">
-            Dashboard unavailable
-          </h2>
-          <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
-            {error}
-          </p>
+      <SurfaceCard>
+        <div className="flex min-h-80 flex-col items-center justify-center text-center">
+          <PackageSearch className="h-12 w-12 text-muted-foreground" strokeWidth={1.5} />
+          <h1 className="mt-4 text-lg font-semibold text-foreground">Dashboard unavailable</h1>
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">{error}</p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            className="mt-4 inline-flex h-10 items-center rounded-md bg-foreground px-5 text-sm font-medium text-background transition hover:bg-foreground/90"
+            className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-kwik-blue px-4 text-sm font-semibold text-white"
           >
-            <RefreshCw className="mr-2 h-4 w-4" strokeWidth={1.5} />
-            Reload
+            <RefreshCw className="h-4 w-4" strokeWidth={1.6} />
+            Reload dashboard
           </button>
         </div>
-      </div>
+      </SurfaceCard>
     );
   }
 
-  /* ── Render ───────────────────────────────────────── */
-
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-8"
+      transition={{ duration: 0.22 }}
+      className="space-y-5"
     >
-      {/* ─── Section 1: Welcome Bar ─────────────────── */}
-      <VendorPageHeader
-        title={`${getGreeting()}, ${vendorName}`}
-        description={`${storeName} · ${storeStatus}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              aria-label="Refresh dashboard"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-kwik-border text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-            >
-              <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
-            </button>
-            <a
-              href={storeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
-            >
-              View Public Store
-              <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
-            </a>
-          </div>
-        }
-      />
-
-      {/* ─── Section 2: Metrics Row ──────────────────── */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link href="/dashboard/orders" className="block">
-          <VendorMetricCard
-            title="Today's Orders"
-            value={String(todaysOrders.length)}
-            icon={ShoppingBag}
-            description="Orders created today from buyer checkout activity."
-          />
-        </Link>
-        <Link href="/dashboard/wallet" className="block">
-          <VendorMetricCard
-            title="Revenue"
-            value={formatCurrency(data?.revenue ?? 0)}
-            icon={DollarSign}
-            description="Live paid order value for your current month."
-          />
-        </Link>
-        <Link href="/dashboard/products" className="block">
-          <VendorMetricCard
-            title="Active Products"
-            value={String(data?.productsCount ?? 0)}
-            icon={Package}
-            description={lowStockItems.length > 0 ? `${lowStockItems.length} products need stock attention.` : "Products currently visible in your catalog."}
-          />
-        </Link>
-        <Link href="/dashboard/deliveries" className="block">
-          <VendorMetricCard
-            title="Pending Deliveries"
-            value={String(fulfillmentTasks.length)}
-            icon={Truck}
-            description="Paid orders waiting for fulfillment action."
-          />
-        </Link>
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-background p-4 md:flex-row md:items-center md:justify-between md:p-5">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">
+            {getGreeting()}, {vendorName}
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            Vendor business overview
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {storeName} · {storeStatus} · Track finance, orders, settlements, and inventory from one control center.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:border-accent/45"
+          >
+            <RefreshCw className="h-4 w-4" strokeWidth={1.6} />
+            Refresh
+          </button>
+          <a
+            href={storeUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-kwik-blue px-3 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            View public store
+            <ExternalLink className="h-4 w-4" strokeWidth={1.6} />
+          </a>
+        </div>
       </section>
 
-      {/* ─── Section 2.5: Quick Actions ─────────────── */}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <KpiCard title="Wallet Balance" value={formatCurrency(walletBalance)} period={data?.kpis?.walletBalance?.period ?? "this month"} trend={data?.kpis?.walletBalance?.trend ?? 0} icon={Wallet} href="/dashboard/wallet" tone="blue" />
+        <KpiCard title="Available Balance" value={formatCurrency(availableBalance)} period={data?.kpis?.availableBalance?.period ?? "this week"} trend={data?.kpis?.availableBalance?.trend ?? 0} icon={CreditCard} href="/dashboard/wallet" />
+        <KpiCard title="Pending Settlement" value={formatCurrency(pendingSettlement)} period={data?.kpis?.pendingSettlement?.period ?? "today"} trend={data?.kpis?.pendingSettlement?.trend ?? 0} icon={CalendarDays} href="/dashboard/wallet" tone="orange" />
+        <KpiCard title="Total Revenue" value={formatCurrency(revenue)} period={data?.kpis?.totalRevenue?.period ?? "this month"} trend={data?.kpis?.totalRevenue?.trend ?? 0} icon={BarChart3} href="/dashboard/analytics" />
+        <KpiCard title="Total Orders" value={String(ordersCount)} period={data?.kpis?.totalOrders?.period ?? "this month"} trend={data?.kpis?.totalOrders?.trend ?? 0} icon={ShoppingBag} href="/dashboard/orders" />
+        <KpiCard title="Active Products" value={String(productsCount)} period={data?.kpis?.activeProducts?.period ?? "this month"} trend={data?.kpis?.activeProducts?.trend ?? 0} icon={Package} href="/dashboard/products" />
+      </section>
+
       <section>
-        <h2 className="text-lg font-semibold text-foreground">Quick Actions</h2>
-        <motion.div
-          variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-          initial="hidden"
-          animate="show"
-          className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        <SurfaceCard
+          title="Wallet Analytics"
+          description="Financial position, settlements, withdrawals, and monthly cash flow."
+          action={<Link href="/dashboard/wallet" className="text-sm font-semibold text-accent">Open wallet</Link>}
         >
-          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
-            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/products")}>
-              <Plus className="h-4 w-4" />
-              Add Product
-            </AppButton>
-          </motion.div>
-          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
-            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/orders")}>
-              <ShoppingBag className="h-4 w-4" />
-              View Orders
-            </AppButton>
-          </motion.div>
-          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
-            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/wallet")}>
-              <DollarSign className="h-4 w-4" />
-              Check Wallet
-            </AppButton>
-          </motion.div>
-          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
-            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/pool")}>
-              <Package className="h-4 w-4" />
-              Pool Sourcing
-            </AppButton>
-          </motion.div>
-        </motion.div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-border bg-transparent p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current Balance</p>
+              <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(walletBalance)}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-transparent p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pending Balance</p>
+              <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(pendingSettlement)}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-transparent p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Withdrawn Amount</p>
+              <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(withdrawnAmount)}</p>
+            </div>
+          </div>
+          <div className="mt-4 rounded-xl border border-border bg-transparent p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground">Monthly Cash Flow</p>
+              <TrendPill trend={9.6} />
+            </div>
+            <MetricChart data={cashFlow} color="var(--kwik-orange)" variant="area" />
+          </div>
+        </SurfaceCard>
       </section>
 
-      {/* ─── Section 3: Two-Column Layout ────────────── */}
-      <section className="grid grid-cols-1 gap-8 lg:grid-cols-[3fr_2fr]">
-        {/* ─── Left Column ──────────────────────────── */}
-        <div className="space-y-8">
-          {/* Recent Orders */}
-          <div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                Recent Orders
-              </h2>
-              <Link
-                href="/dashboard/orders"
-                className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 transition hover:text-gray-900 dark:hover:text-white"
-              >
-                View all
-                <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-              </Link>
+      <section className="grid min-w-0 max-w-full gap-4 overflow-hidden xl:grid-cols-[1.7fr_1fr]">
+        <SurfaceCard
+          title="Analytics"
+          description="Revenue, order volume, and settlement movement across the active period."
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartPanel title="Revenue Trend" value={formatCurrency(revenue)} caption="Monthly paid order value" data={revenueTrend} color="var(--kwik-blue)" />
+            <ChartPanel title="Order Volume" value={String(ordersCount)} caption="Completed checkout volume" data={orderVolume} color="var(--success)" />
+            <div className="lg:col-span-2">
+              <ChartPanel title="Settlement History" value={formatCurrency(pendingSettlement)} caption="Funds awaiting settlement release" data={settlementHistory} color="var(--kwik-orange)" variant="area" />
             </div>
-
-            {recentOrders.length > 0 ? (
-              <div className="mt-4 divide-y divide-kwik-border">
-                {recentOrders.slice(0, 8).map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between gap-4 py-3 first:pt-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {order.checkoutReference ?? order.id.slice(0, 12)}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-3">
-                        <p className="text-sm font-medium text-foreground">
-                          {formatCurrency(order.totalAmount)}
-                        </p>
-                        <p
-                          className={cn(
-                            "text-xs font-medium",
-                            statusColor(order.status)
-                          )}
-                        >
-                          {formatStatus(order.status)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(order.createdAt)}
-                      </span>
-                      <Link
-                        href={`/dashboard/orders/${order.id}`}
-                        className="text-xs font-medium text-gray-400 transition hover:text-gray-900 dark:hover:text-white"
-                      >
-                        View
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-6 py-8 text-center">
-                <ShoppingBag
-                  className="mx-auto h-10 w-10 text-muted-foreground/40"
-                  strokeWidth={1.5}
-                />
-                <p className="mt-3 text-sm text-muted-foreground">
-                  No orders yet. Orders will appear here after buyers checkout.
-                </p>
-              </div>
-            )}
           </div>
+        </SurfaceCard>
 
-          {/* Low Stock Alerts */}
-          {lowStockItems.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                Low Stock Alerts
-              </h2>
-              <div className="mt-4 divide-y divide-kwik-border">
-                {lowStockItems.slice(0, 5).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 py-3 first:pt-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        SKU: {item.sku ?? item.productId.slice(0, 8)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-                        {item.available} left
-                      </p>
-                    </div>
-                    <Link
-                      href="/dashboard/inventory"
-                      className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-white"
-                    >
-                      Restock
-                    </Link>
-                  </div>
-                ))}
-              </div>
+        <SurfaceCard
+          title="Operations Queue"
+          description="The work that most needs attention right now."
+        >
+          <div className="space-y-3">
+            <QueueItem
+              icon={CreditCard}
+              title="Recent Transactions"
+              detail={latestTransactions.length ? "Latest paid order activity" : "No transactions yet"}
+              meta={String(latestTransactions.length)}
+              href="/dashboard/wallet"
+            />
+            <QueueItem
+              icon={AlertTriangle}
+              title="Low Stock Products"
+              detail={lowStockItems.length ? "Products below threshold" : "No low stock alerts"}
+              meta={String(lowStockItems.length)}
+              href="/dashboard/inventory"
+            />
+            <QueueItem
+              icon={Truck}
+              title="Pending Orders"
+              detail="Paid orders awaiting fulfillment"
+              meta={String(fulfillmentTasks.length)}
+              href="/dashboard/orders"
+            />
+            <QueueItem
+              icon={Activity}
+              title="Customer Activity"
+              detail={todaysOrders.length ? "New buyer checkout activity today" : "No new buyer activity today"}
+              meta={String(todaysOrders.length)}
+              href="/dashboard/orders"
+            />
+          </div>
+        </SurfaceCard>
+      </section>
+
+      <section className="grid min-w-0 max-w-full gap-4 overflow-hidden xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <SurfaceCard
+          title="Recent Orders"
+          description="Newest buyer checkout activity and fulfillment state."
+          action={
+            <Link href="/dashboard/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
+              View all
+              <ArrowRight className="h-4 w-4" strokeWidth={1.6} />
+            </Link>
+          }
+        >
+          {recentOrders.length ? (
+            <div className="w-full min-w-0 overflow-hidden">
+              <table className="w-full table-fixed text-left">
+                <thead>
+                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="w-[58%] py-3 pr-3 font-semibold sm:w-[36%]">Order</th>
+                    <th className="w-[42%] py-3 text-right font-semibold sm:w-[18%] sm:pr-3">Amount</th>
+                    <th className="hidden py-3 pr-3 font-semibold sm:table-cell sm:w-[18%]">Status</th>
+                    <th className="hidden py-3 pr-3 font-semibold md:table-cell md:w-[18%]">Date</th>
+                    <th className="hidden py-3 text-right font-semibold md:table-cell md:w-[10%]">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {recentOrders.slice(0, 7).map((order) => (
+                    <tr key={order.id} className="text-sm">
+                      <td className="min-w-0 py-3 pr-3">
+                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                          {order.checkoutReference ?? order.id.slice(0, 12)}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right font-semibold text-foreground sm:pr-3">{formatCurrency(order.totalAmount)}</td>
+                      <td className="hidden py-3 pr-3 sm:table-cell">
+                        <span className={cn("font-medium", statusTone(order.status))}>{formatStatus(order.status)}</span>
+                      </td>
+                      <td className="hidden py-3 pr-3 text-muted-foreground md:table-cell">{formatDate(order.createdAt)}</td>
+                      <td className="hidden py-3 text-right md:table-cell">
+                        <Link href={`/dashboard/orders/${order.id}`} className="font-semibold text-accent">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border text-center">
+              <ShoppingBag className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
+              <p className="mt-3 text-sm text-muted-foreground">Orders will appear here after buyers checkout.</p>
             </div>
           )}
-        </div>
+        </SurfaceCard>
 
-        {/* ─── Right Column ─────────────────────────── */}
-        <div className="space-y-8">
-          {/* Escrow / Wallet Summary */}
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Wallet Summary
-            </h2>
-            <div className="mt-4 space-y-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Total Revenue
-                </p>
-                <p className="mt-1 text-2xl font-semibold text-foreground">
-                  {formatCurrency(data?.revenue ?? 0)}
-                </p>
-              </div>
-              <div className="border-t border-kwik-border pt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Pool Earnings
-                    </p>
-                    <p className="mt-1 text-base font-semibold text-foreground">
-                      {formatCurrency(data?.poolEarnings ?? 0)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Pending Orders
-                    </p>
-                    <p className="mt-1 text-base font-semibold text-foreground">
-                      {fulfillmentTasks.length}
-                      {fulfillmentTasks.length > 0 && (
-                        <span className="ml-1 text-xs font-normal text-muted-foreground">
-                          (~{formatCurrency(fulfillmentTasks.length * avgOrderAmount)})
+        <div className="min-w-0 max-w-full space-y-4 overflow-hidden">
+          <SurfaceCard title="Latest Transactions">
+            <div className="space-y-3">
+              {latestTransactions.length ? (
+                latestTransactions.map((order) => (
+                  <Link
+                    href={`/dashboard/orders/${order.id}`}
+                    key={order.id}
+                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-xl border border-border p-3 transition hover:border-accent/45"
+                  >
+                    <span className="flex min-w-0 items-center gap-3 overflow-hidden">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success">
+                        <PackageCheck className="h-4 w-4" strokeWidth={1.6} />
+                      </span>
+                      <span className="min-w-0 overflow-hidden">
+                        <span className="block truncate text-sm font-semibold text-foreground">
+                          {order.checkoutReference ?? order.id.slice(0, 10)}
                         </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Link
-                href="/dashboard/wallet"
-                className="inline-flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition hover:bg-foreground/90"
-              >
-                Go to Wallet
-                <ChevronRight className="ml-1 h-4 w-4" strokeWidth={1.5} />
-              </Link>
+                        <span className="text-xs text-muted-foreground">{formatRelativeTime(order.createdAt)}</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right text-sm font-semibold text-foreground">{formatCurrency(order.totalAmount)}</span>
+                  </Link>
+                ))
+              ) : (
+                <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  Transactions will appear when paid orders are confirmed.
+                </p>
+              )}
             </div>
-          </div>
+          </SurfaceCard>
 
-          {/* Quick Actions Grid */}
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Quick Actions
-            </h2>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <Link
-                href="/dashboard/products?action=add"
-                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
-              >
-                <Plus
-                  className="h-5 w-5 text-muted-foreground"
-                  strokeWidth={1.5}
-                />
-                <span className="text-sm font-medium text-foreground">
-                  Add Product
-                </span>
-              </Link>
-              <Link
-                href="/dashboard/orders"
-                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
-              >
-                <ShoppingBag
-                  className="h-5 w-5 text-muted-foreground"
-                  strokeWidth={1.5}
-                />
-                <span className="text-sm font-medium text-foreground">
-                  View Orders
-                </span>
-              </Link>
-              <Link
-                href="/dashboard/storefront"
-                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
-              >
-                <Store
-                  className="h-5 w-5 text-muted-foreground"
-                  strokeWidth={1.5}
-                />
-                <span className="text-sm font-medium text-foreground">
-                  Edit Store
-                </span>
-              </Link>
-              <Link
-                href="/dashboard/messages"
-                className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
-              >
-                <MessageSquare
-                  className="h-5 w-5 text-muted-foreground"
-                  strokeWidth={1.5}
-                />
-                <span className="text-sm font-medium text-foreground">
-                  Messages
-                </span>
-              </Link>
+          <SurfaceCard title="Vendor Notifications">
+            <div className="space-y-2">
+              {notifications.map((notification) => (
+                <div key={notification} className="flex min-w-0 items-start gap-3 overflow-hidden rounded-xl border border-border p-3">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-kwik-orange" />
+                  <p className="min-w-0 break-words text-sm text-muted-foreground">{notification}</p>
+                </div>
+              ))}
             </div>
-          </div>
+          </SurfaceCard>
+
+          <SurfaceCard
+            title="Inventory Alerts"
+            action={<Link href="/dashboard/inventory" className="text-sm font-semibold text-accent">Manage</Link>}
+          >
+            <div className="space-y-3">
+              {lowStockItems.length ? (
+                lowStockItems.slice(0, 4).map((item) => (
+                  <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border border-border p-3">
+                    <span className="min-w-0 overflow-hidden">
+                      <span className="block truncate text-sm font-semibold text-foreground">{productLabel(item)}</span>
+                      <span className="text-xs text-muted-foreground">Threshold: {item.lowStockThreshold}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-warning/10 px-2 py-1 text-xs font-semibold text-warning">
+                      {item.available} left
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  Inventory is healthy. Low stock products will be flagged here.
+                </p>
+              )}
+            </div>
+          </SurfaceCard>
         </div>
       </section>
-
-      {/* ─── Section 4: Activity Feed ───────────────── */}
-      {activityItems.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-foreground">
-            Recent Activity
-          </h2>
-          <div className="mt-4 space-y-0">
-            {activityItems.map((item, index) => (
-              <div
-                key={item.id}
-                className="relative flex gap-4 pb-6 last:pb-0"
-              >
-                {/* Vertical line */}
-                {index < activityItems.length - 1 && (
-                  <div className="absolute bottom-0 left-[11px] top-6 w-px bg-kwik-border" />
-                )}
-                {/* Icon dot */}
-                <div className="relative mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
-                  <item.icon
-                    className="h-4 w-4 text-muted-foreground"
-                    strokeWidth={1.5}
-                  />
-                </div>
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm text-foreground">
-                      Order <span className="font-mono">{item.ref}</span>
-                    </p>
-                    <VendorStatusBadge status={item.status} size="sm" />
-                  </div>
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" strokeWidth={1.5} />
-                    {formatRelativeTime(item.timestamp)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </motion.div>
   );
 }

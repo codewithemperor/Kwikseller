@@ -245,7 +245,7 @@ export default function WishlistPage() {
             >
               <Link
                 href="/"
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-kwik-orange to-[#d97706] text-white font-semibold shadow-lg shadow-kwik-orange/20 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-kwik-orange to-kwik-amber text-white font-semibold shadow-lg shadow-kwik-orange/20 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
               >
                 Start Shopping
                 <ArrowRight className="w-4 h-4" />

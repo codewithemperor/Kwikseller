@@ -119,14 +119,14 @@ function QuickViewContent({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 16, scale: 0.98 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="relative my-auto grid max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-lg bg-white shadow-2xl dark:bg-[#07111f] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-5xl md:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]"
+        className="relative my-auto grid max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-lg bg-background shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-5xl md:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]"
         onClick={(event) => event.stopPropagation()}
       >
         <Button
           isIconOnly
           variant="ghost"
           onPress={onClose}
-          className="absolute right-3 top-3 z-20 h-10 min-w-10 rounded-full bg-white/95 shadow-sm dark:bg-[#07111f]/95"
+          className="absolute right-3 top-3 z-20 h-10 min-w-10 rounded-full bg-background/95 shadow-sm"
           aria-label="Close quick view"
         >
           <X className="h-4 w-4" />

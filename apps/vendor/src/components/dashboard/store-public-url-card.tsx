@@ -50,7 +50,7 @@ export function StorePublicUrlCard() {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#111827] transition hover:border-[#111827] dark:bg-white/5 dark:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-foreground transition hover:border-foreground"
             aria-label="Open public store"
           >
             <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
@@ -58,7 +58,7 @@ export function StorePublicUrlCard() {
           <button
             type="button"
             onClick={copyUrl}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#111827] text-white transition hover:bg-[#1F2937]"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground text-background transition hover:bg-kwik-dark-medium"
             aria-label="Copy public store URL"
           >
             <Copy className="h-4 w-4" strokeWidth={1.5} />

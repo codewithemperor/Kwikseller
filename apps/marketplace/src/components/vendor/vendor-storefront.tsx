@@ -252,14 +252,14 @@ export function VendorStorefrontShell({
   ] as const;
 
   return (
-    <div className="storefront-themed min-h-screen bg-white text-kwik-dark dark:bg-[#07111f] dark:text-white" style={storefrontThemeStyle(design)}>
-      <header className="sticky top-0 z-[80] border-b border-black/10 bg-white/95 backdrop-blur dark:border-white/10 dark:bg-[#07111f]/95">
+    <div className="storefront-themed min-h-screen bg-background text-foreground" style={storefrontThemeStyle(design)}>
+      <header className="sticky top-0 z-[80] border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 lg:px-6">
           {canGoBack && (
             <button
               type="button"
               onClick={() => window.history.back()}
-              className="inline-flex h-10 w-10 items-center justify-center text-[var(--store-primary)] dark:text-white"
+              className="inline-flex h-10 w-10 items-center justify-center text-[var(--store-primary)]"
               aria-label="Go back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -269,7 +269,7 @@ export function VendorStorefrontShell({
             <StoreLogo store={store} />
             <div className="min-w-0">
               <p className="truncate text-base font-semibold leading-tight">{store.name}</p>
-              <p className="truncate text-xs text-kwik-muted dark:text-white/55">{store.category ?? "Vendor store"}</p>
+              <p className="truncate text-xs text-muted">{store.category ?? "Vendor store"}</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
@@ -293,7 +293,7 @@ export function VendorStorefrontShell({
       </main>
 
       {!isMinimalBottom && (
-        <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-black/10 bg-white/95 backdrop-blur dark:border-white/10 dark:bg-[#07111f]/95 md:hidden" aria-label={`${store.name} navigation`}>
+        <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-border bg-background/95 backdrop-blur md:hidden" aria-label={`${store.name} navigation`}>
           <div className="grid grid-cols-4">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -359,9 +359,9 @@ export function VendorProductCard({
 
   return (
     <article
-      className={`group flex min-w-0 flex-col border border-black/10 bg-white transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-white/5 ${compact ? "p-2" : "p-3"}`}
+      className={`group flex min-w-0 flex-col border border-border bg-background transition hover:-translate-y-0.5 hover:shadow-lg ${compact ? "p-2" : "p-3"}`}
     >
-      <Link href={`/vendor/${store.slug}/product/${productSlug}`} className="relative block aspect-[4/3] overflow-hidden bg-neutral-100 dark:bg-white/5">
+      <Link href={`/vendor/${store.slug}/product/${productSlug}`} className="relative block aspect-[4/3] overflow-hidden bg-surface">
         <AppImage src={product.image} alt={product.name} fallbackVariant="product" fallbackHint={product.category} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         {discount > 0 && (
           <span className="absolute left-2 top-2 bg-white px-2 py-1 text-[11px] font-semibold text-[var(--store-primary)] shadow-sm">
@@ -373,13 +373,13 @@ export function VendorProductCard({
         <Link href={`/vendor/${store.slug}/product/${productSlug}`} className="line-clamp-2 text-sm font-semibold leading-snug hover:text-[var(--store-primary)]">
           {product.name}
         </Link>
-        <p className="mt-1 line-clamp-1 text-xs text-kwik-muted dark:text-white/55">{product.category}</p>
+        <p className="mt-1 line-clamp-1 text-xs text-muted">{product.category}</p>
         <div className="mt-3 flex items-end justify-between gap-2">
           <div>
             {product.comparePrice && (
-              <p className="text-[10px] text-kwik-muted line-through dark:text-white/50">{formatStoreCurrency(product.comparePrice)}</p>
+              <p className="text-[10px] text-muted line-through">{formatStoreCurrency(product.comparePrice)}</p>
             )}
-            <p className="text-base font-bold text-kwik-dark dark:text-white">{formatStoreCurrency(product.price)}</p>
+            <p className="text-base font-bold text-foreground">{formatStoreCurrency(product.price)}</p>
           </div>
           <button
             type="button"
@@ -399,23 +399,23 @@ export function StorefrontLoading({ storeName, logoUrl, slug }: { storeName?: st
   const name = storeName ?? (slug ? titleFromSlug(slug) : "Vendor store");
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-white px-6 text-center text-kwik-dark dark:bg-[#07111f] dark:text-white" aria-busy="true" aria-label={`Loading ${name}`}>
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-6 text-center text-foreground" aria-busy="true" aria-label={`Loading ${name}`}>
       <div className="flex w-full max-w-xs flex-col items-center">
         <div className="relative">
-          <div className="absolute inset-[-10px] rounded-full border-2 border-[var(--loader-accent,#f97316)]/20" />
-          <div className="absolute inset-[-10px] animate-spin rounded-full border-2 border-transparent border-t-[var(--loader-accent,#f97316)]" />
+          <div className="absolute inset-[-10px] rounded-full border-2 border-[var(--loader-accent,var(--kwik-orange))]/20" />
+          <div className="absolute inset-[-10px] animate-spin rounded-full border-2 border-transparent border-t-[var(--loader-accent,var(--kwik-orange))]" />
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10" />
+            <img src={logoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-1 ring-border" />
           ) : (
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--loader-primary,#071A2F)] text-white ring-1 ring-black/10 dark:ring-white/10">
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--loader-primary,var(--foreground))] text-background ring-1 ring-border">
               <Store className="h-7 w-7" />
             </div>
           )}
         </div>
         <p className="mt-5 font-heading text-xl font-semibold">{name}</p>
-        <p className="mt-2 text-sm text-kwik-muted dark:text-white/55">Loading store</p>
+        <p className="mt-2 text-sm text-muted">Loading store</p>
       </div>
-      <p className="absolute inset-x-0 bottom-8 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-kwik-muted dark:text-white/45">Powered by Kwikseller</p>
+      <p className="absolute inset-x-0 bottom-8 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Powered by Kwikseller</p>
     </main>
   );
 }
@@ -430,7 +430,7 @@ export function QuantityStepper({
   onIncrease: () => void;
 }) {
   return (
-    <div className="inline-flex items-center border border-black/10 dark:border-white/10">
+    <div className="inline-flex items-center border border-border">
       <button type="button" onClick={onDecrease} className="flex h-9 w-9 items-center justify-center">
         <Minus className="h-4 w-4" />
       </button>
@@ -448,7 +448,7 @@ export function StorefrontLogoMark() {
 
 export function VendorEmptyProducts({ store }: { store: PublicStoreView }) {
   return (
-    <div className="col-span-full flex min-h-[45vh] items-center justify-center border border-black/10 p-6 text-center text-sm leading-6 text-kwik-muted dark:border-white/10 dark:text-white/60">
+    <div className="col-span-full flex min-h-[45vh] items-center justify-center border border-border p-6 text-center text-sm leading-6 text-muted">
       <p className="max-w-sm">{store.name} does not have live products loaded yet. Check back after this store publishes products.</p>
     </div>
   );
@@ -467,7 +467,7 @@ export function StorefrontSectionTitle({
     <div className="mb-5 flex items-end justify-between gap-4">
       <div>
         <h2 className="text-xl font-semibold md:text-2xl">{title}</h2>
-        {text && <p className="mt-1 text-sm text-kwik-muted dark:text-white/60">{text}</p>}
+        {text && <p className="mt-1 text-sm text-muted">{text}</p>}
       </div>
       {action}
     </div>

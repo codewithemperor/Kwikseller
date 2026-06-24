@@ -95,7 +95,7 @@
   --kwik-border: #e5e7eb;
   --kwik-border-light: #d1d5db;
   --kwik-bg-light: #f3f4f6;
-  --kwik-bg-page: #f5f5f5;
+  --kwik-bg-page: #f8fafc;
   --kwik-bg-surface: #f9fafb;
   --kwik-badge-dark: #1c1c1e;
   --kwik-star: #f59e0b;
@@ -110,17 +110,17 @@
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
-/* Dark theme uses NEARLY BLACK backgrounds (NO blue tint) */
+/* Dark theme uses a black page and raised gray card surfaces. */
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
 
   /* ── Surfaces ─────────────────────────────────────────── */
-  --background: oklch(0.1 0.005 0); /* #0a0a0a nearly black */
+  --background: oklch(0.22 0.012 264);
   --foreground: oklch(0.96 0 0); /* #f5f5f5 off-white */
-  --surface: oklch(0.14 0.005 0); /* #1a1a1a dark surface */
+  --surface: oklch(0.18 0.012 264);
   --surface-foreground: oklch(0.96 0 0);
-  --overlay: oklch(0.14 0.005 0);
+  --overlay: oklch(0.22 0.012 264);
   --overlay-foreground: oklch(0.96 0 0);
 
   /* ── HeroUI primary action = Orange (stays vivid in dark) */
@@ -134,7 +134,7 @@
   --primary-foreground: var(--accent-foreground);
 
   /* ── Default / neutral ────────────────────────────────── */
-  --default: oklch(0.18 0.005 0); /* #1e1e1e dark card */
+  --default: oklch(0.22 0.012 264);
   --default-foreground: oklch(0.96 0 0);
   --muted: oklch(0.6 0.005 0); /* #888 neutral muted */
 
@@ -147,7 +147,7 @@
   --danger-foreground: oklch(0.1 0 0);
 
   /* ── Form fields ──────────────────────────────────────── */
-  --field-background: oklch(0.16 0.005 0);
+  --field-background: oklch(0.22 0.012 264);
   --field-foreground: oklch(0.96 0 0);
   --field-placeholder: oklch(0.5 0.005 0);
   --field-border: oklch(1 0 0 / 12%);
@@ -170,14 +170,14 @@
   --kwik-muted-medium: #6b7280;
   --kwik-border: oklch(1 0 0 / 10%);
   --kwik-border-light: oklch(1 0 0 / 15%);
-  --kwik-bg-light: #181818;
-  --kwik-bg-page: #111111;
-  --kwik-bg-surface: #1a1a1a;
+  --kwik-bg-light: #20242c;
+  --kwik-bg-page: #080a0f;
+  --kwik-bg-surface: #20242c;
   --kwik-badge-dark: #e5e7eb;
   --kwik-star: #fbbf24;
   --kwik-green: #22c55e;
   --kwik-red: #ef4444;
-  --kwik-blue: #60a5fa;
+  --kwik-blue: #2563eb;
   --kwik-amber: #fbbf24;
   --kwik-whatsapp: #25d366;
   --kwik-bg-warm: #1c1815;
