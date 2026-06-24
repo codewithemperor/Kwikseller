@@ -27,7 +27,9 @@ import {
   FieldSelect,
   FieldTextarea,
   Skeleton,
+  VendorPageHeader,
 } from "@kwikseller/ui";
+import { motion } from "framer-motion";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { storeApi, authApi, usersApi } from "@kwikseller/api-client";
 import { kwikToast } from "@kwikseller/utils";
@@ -117,7 +119,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ComponentType<{ clas
 export default function SettingsPage() {
   // Active section
   const [activeSection, setActiveSection] = React.useState<SectionId>("account");
-  const [mobileExpanded, setMobileExpanded] = React.useState<SectionId | null>("account");
+  const [mobileExpanded, setMobileExpanded] = React.useState<SectionId | null>(null);
 
   // ---- Account Settings State ----
   const [storeName, setStoreName] = React.useState("");
@@ -393,19 +395,22 @@ export default function SettingsPage() {
   // ==================== Render ====================
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* Page Header */}
-      <section>
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your account, store preferences, and notifications.
-        </p>
-      </section>
+      <VendorPageHeader
+        title="Settings"
+        description="Manage your account, store preferences, and notifications."
+      />
 
       <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
         {/* Left Nav (Desktop) */}
         <nav className="hidden lg:block lg:w-56 lg:shrink-0">
-          <div className="space-y-0 divide-y divide-gray-100 border-t border-gray-200">
+          <div className="space-y-0 divide-y divide-kwik-border border-t border-kwik-border">
             {SECTIONS.map((section) => {
               const IconComp = section.icon;
               const isDanger = section.id === "danger";
@@ -416,14 +421,14 @@ export default function SettingsPage() {
                   onClick={() => setActiveSection(section.id)}
                   className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium transition ${
                     activeSection === section.id
-                      ? "bg-gray-50 text-gray-900"
+                      ? "bg-default-100 text-foreground"
                       : isDanger
                         ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        : "text-muted-foreground hover:bg-default-100 hover:text-foreground"
                   }`}
                 >
                   <IconComp
-                    className={`h-4 w-4 shrink-0 ${isDanger ? "text-red-500" : "text-gray-400"}`}
+                    className={`h-4 w-4 shrink-0 ${isDanger ? "text-red-500" : "text-muted-foreground"}`}
                     strokeWidth={1.5}
                   />
                   {section.label}
@@ -447,7 +452,7 @@ export default function SettingsPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-0 divide-y divide-gray-100 border-t border-gray-200">
+            <div className="space-y-0 divide-y divide-kwik-border border-t border-kwik-border">
               {/* ==================== Mobile Accordion Nav ==================== */}
               {SECTIONS.map((section) => {
                 const IconComp = section.icon;
@@ -459,20 +464,20 @@ export default function SettingsPage() {
                       type="button"
                       onClick={() => toggleMobileSection(section.id)}
                       className={`flex w-full items-center justify-between px-1 py-4 text-left text-sm font-medium transition ${
-                        isDanger ? "text-red-600" : "text-gray-900"
+                        isDanger ? "text-red-600" : "text-foreground"
                       }`}
                     >
                       <span className="flex items-center gap-3">
                         <IconComp
-                          className={`h-4 w-4 shrink-0 ${isDanger ? "text-red-500" : "text-gray-400"}`}
+                          className={`h-4 w-4 shrink-0 ${isDanger ? "text-red-500" : "text-muted-foreground"}`}
                           strokeWidth={1.5}
                         />
                         {section.label}
                       </span>
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                       )}
                     </button>
                     {isExpanded && (
@@ -530,10 +535,10 @@ export default function SettingsPage() {
           <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" strokeWidth={1.5} />
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-foreground">
                 This action will temporarily disable your store
               </p>
-              <p className="mt-1 text-xs text-gray-600">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Your products will be hidden from the marketplace and customers will not be able
                 to place new orders. You can reactivate your store at any time from settings.
               </p>
@@ -578,17 +583,17 @@ export default function SettingsPage() {
           <div className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" strokeWidth={1.5} />
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-foreground">
                 This action is permanent and cannot be undone
               </p>
-              <p className="mt-1 text-xs text-gray-600">
+              <p className="mt-1 text-xs text-muted-foreground">
                 All your products, orders, earnings history, and store data will be permanently
                 deleted. You will not be able to recover your account.
               </p>
             </div>
           </div>
           <div>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               Type <span className="font-mono font-semibold text-red-600">DELETE MY ACCOUNT</span> to confirm:
             </p>
             <FieldInput
@@ -601,7 +606,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </AppModal>
-    </div>
+    </motion.div>
   );
 
   // ==================== Section Renderer ====================
@@ -628,8 +633,8 @@ export default function SettingsPage() {
       <div className="space-y-8">
         {/* Store Info */}
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Store Information</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Store Information</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             Your store name and URL shown to customers.
           </p>
 
@@ -654,9 +659,9 @@ export default function SettingsPage() {
                 value={storeSlug}
                 onChange={(e) => setStoreSlug(slugify(e.target.value))}
               />
-              <p className="mt-1.5 text-xs text-gray-400">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 Preview:{" "}
-                <span className="font-mono text-gray-600">
+                <span className="font-mono text-muted-foreground">
                   kwikseller.com/store/{storeSlug || "your-store"}
                 </span>
               </p>
@@ -678,12 +683,12 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100" />
+        <div className="border-t border-kwik-border" />
 
         {/* Contact Info */}
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Contact Information</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Contact Information</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             How customers and Kwikseller can reach you.
           </p>
 
@@ -701,7 +706,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSendVerification}
                   disabled={isSendingVerification || !email}
-                  className="text-xs font-medium text-gray-500 transition hover:text-gray-700 disabled:text-gray-300"
+                  className="text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:text-muted-foreground/50"
                 >
                   {isSendingVerification ? "Sending..." : "Send verification email"}
                 </button>
@@ -715,7 +720,7 @@ export default function SettingsPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
-              <p className="mt-1.5 text-xs text-gray-400">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 OTP verification required when changed.
               </p>
             </div>
@@ -736,12 +741,12 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100" />
+        <div className="border-t border-kwik-border" />
 
         {/* Password Change */}
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Change Password</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Change Password</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             Update your account password. You will be logged out of other sessions.
           </p>
 
@@ -757,7 +762,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowCurrentPw(!showCurrentPw)}
-                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-[38px] text-muted-foreground hover:text-muted-foreground"
                 tabIndex={-1}
               >
                 {showCurrentPw ? (
@@ -778,7 +783,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowNewPw(!showNewPw)}
-                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-[38px] text-muted-foreground hover:text-muted-foreground"
                 tabIndex={-1}
               >
                 {showNewPw ? (
@@ -799,7 +804,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPw(!showConfirmPw)}
-                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-[38px] text-muted-foreground hover:text-muted-foreground"
                 tabIndex={-1}
               >
                 {showConfirmPw ? (
@@ -840,15 +845,15 @@ export default function SettingsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-base font-semibold text-foreground">
             Notification Preferences
           </h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Choose how you want to be notified about activity on your store.
           </p>
         </div>
 
-        <div className="space-y-0 divide-y divide-gray-100">
+        <div className="space-y-0 divide-y divide-kwik-border">
           {/* New order alerts */}
           <div className="flex items-center justify-between gap-4 py-5">
             <div className="flex items-start gap-3">
@@ -856,8 +861,8 @@ export default function SettingsPage() {
                 <ShoppingCart className="h-4 w-4 text-green-600" strokeWidth={1.5} />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">New order alerts</p>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="text-sm font-medium text-foreground">New order alerts</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Receive an email when a new order is placed
                 </p>
               </div>
@@ -876,8 +881,8 @@ export default function SettingsPage() {
                 <Smartphone className="h-4 w-4 text-green-600" strokeWidth={1.5} />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">Delivery updates</p>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="text-sm font-medium text-foreground">Delivery updates</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Get push/browser notifications for delivery status changes
                 </p>
               </div>
@@ -896,8 +901,8 @@ export default function SettingsPage() {
                 <Wallet className="h-4 w-4 text-green-600" strokeWidth={1.5} />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">Payment released</p>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="text-sm font-medium text-foreground">Payment released</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Receive an email when payment is released to your wallet
                 </p>
               </div>
@@ -916,19 +921,19 @@ export default function SettingsPage() {
                 <Package className="h-4 w-4 text-green-600" strokeWidth={1.5} />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">Low stock warnings</p>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="text-sm font-medium text-foreground">Low stock warnings</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Get email + push alerts when products are running low
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-gray-400">Email</span>
+              <span className="text-xs text-muted-foreground">Email</span>
               <AppSwitch
                 isSelected={prefs.lowStockEmail}
                 onChange={(val) => setPrefs((p) => ({ ...p, lowStockEmail: val }))}
               />
-              <span className="text-xs text-gray-400">Push</span>
+              <span className="text-xs text-muted-foreground">Push</span>
               <AppSwitch
                 isSelected={prefs.lowStockPush}
                 onChange={(val) => setPrefs((p) => ({ ...p, lowStockPush: val }))}
@@ -943,8 +948,8 @@ export default function SettingsPage() {
                 <Megaphone className="h-4 w-4 text-green-600" strokeWidth={1.5} />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">Marketing emails</p>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="text-sm font-medium text-foreground">Marketing emails</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Receive promotional emails and product updates from Kwikseller
                 </p>
               </div>
@@ -979,10 +984,10 @@ export default function SettingsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-base font-semibold text-foreground">
             Store Configuration
           </h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Configure currency, tax, and order settings for your store.
           </p>
         </div>
@@ -1036,14 +1041,14 @@ export default function SettingsPage() {
             value={minOrderAmount}
             onChange={(e) => setMinOrderAmount(e.target.value)}
           />
-          <p className="-mt-2 text-xs text-gray-400">
+          <p className="-mt-2 text-xs text-muted-foreground">
             Leave empty for no minimum order amount.
           </p>
 
           <div className="flex items-center justify-between gap-4 py-2">
             <div>
-              <p className="text-sm font-medium text-gray-900">Auto-accept orders</p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="text-sm font-medium text-foreground">Auto-accept orders</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 New orders will be automatically accepted without manual review.
                 You can still cancel orders within the processing window.
               </p>
@@ -1078,10 +1083,10 @@ export default function SettingsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-base font-semibold text-foreground">
             Shipping &amp; Delivery
           </h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Set your processing time, delivery coverage, and rider instructions.
           </p>
         </div>
@@ -1106,7 +1111,7 @@ export default function SettingsPage() {
             rows={3}
             placeholder="e.g. Lagos Mainland, Lagos Island, Abuja, Port Harcourt"
           />
-          <p className="-mt-2 text-xs text-gray-400">
+          <p className="-mt-2 text-xs text-muted-foreground">
             List the areas you deliver to, one per line.
           </p>
 
@@ -1142,7 +1147,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <div>
           <h3 className="text-base font-semibold text-red-600">Danger Zone</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Irreversible actions that affect your store and account.
           </p>
         </div>
@@ -1151,8 +1156,8 @@ export default function SettingsPage() {
           {/* Deactivate Store */}
           <div className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Deactivate Store</p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="text-sm font-medium text-foreground">Deactivate Store</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Temporarily disable your store. Products will be hidden from the marketplace.
               </p>
             </div>
@@ -1170,8 +1175,8 @@ export default function SettingsPage() {
           {/* Delete Account */}
           <div className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Delete Account</p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="text-sm font-medium text-foreground">Delete Account</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Permanently delete your account, store, products, and all associated data.
                 This cannot be undone.
               </p>

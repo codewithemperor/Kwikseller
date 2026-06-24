@@ -9,6 +9,7 @@ type WalletBalance = {
   available: number;
   pending: number;
   total: number;
+  totalEarned?: number;
 };
 
 type WalletTransaction = {
@@ -85,9 +86,18 @@ export const useVendorWalletStore = create<WalletState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await paymentsApi.getWallet();
-      const balance = unwrapApiData<WalletBalance>(response.data);
+      const raw = unwrapApiData<any>(response.data);
+      // Backend returns { available, pending, totalEarned } — normalize to { available, pending, total }
+      const balance: WalletBalance = raw
+        ? {
+            available: Number(raw.available ?? 0),
+            pending: Number(raw.pending ?? 0),
+            total: Number(raw.totalEarned ?? raw.total ?? 0),
+            totalEarned: Number(raw.totalEarned ?? 0),
+          }
+        : { available: 0, pending: 0, total: 0 };
       set({
-        balance: balance ?? { available: 0, pending: 0, total: 0 },
+        balance,
         isLoading: false,
         lastFetchedAt: Date.now(),
       });

@@ -1,0 +1,941 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import {
+     5→  Check,
+     6→  ChevronLeft,
+     7→  ChevronRight,
+     8→  Eye,
+     9→  Package,
+    10→  PackagePlus,
+    11→  Pencil,
+    12→  Plus,
+    13→  RefreshCw,
+    14→  Search,
+    15→  Trash2,
+    16→  Upload,
+    17→  X,
+    18→} from "lucide-react";
+    19→import { DashboardMetricCard, VendorPageHeader, VendorToolbar } from "@/components/dashboard/vendor-dashboard-ui";
+    20→import { KwiksellerLoader } from "@/components/kwikseller-loader";
+    21→import { VendorEmptyState } from "@/components/vendor-empty-state";
+    22→import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
+    23→import { useVendorProductsStore } from "@/stores/vendor-products-store";
+    24→import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
+    25→import type { Product, ProductType } from "@kwikseller/types";
+    26→import { AppButton, AppModal, AppSwitch, FieldInput, FieldSelect, FieldTextarea, ProductCard as SharedProductCard } from "@kwikseller/ui";
+    27→import type { Product as SharedProduct } from "@kwikseller/ui";
+    28→import { kwikToast } from "@kwikseller/utils";
+    29→import Link from "next/link";
+    30→import { useRouter } from "next/navigation";
+    31→import { VendorProductCard as VendorMarketplaceProductCard } from "@/components/vendor-product-card";
+    32→
+    33→/* ─── Constants ─── */
+    34→
+    35→const ITEMS_PER_PAGE = 20;
+    36→
+    37→const CATEGORIES = [
+    38→  "Electronics",
+    39→  "Fashion",
+    40→  "Home & Garden",
+    41→  "Health & Beauty",
+    42→  "Sports",
+    43→  "Food & Drinks",
+    44→  "Books",
+    45→  "Toys & Games",
+    46→  "Automotive",
+    47→  "Computers",
+    48→  "Phones",
+    49→  "Accessories",
+    50→  "Other",
+    51→];
+    52→
+    53→const STATUS_OPTIONS = [
+    54→  { value: "", label: "All" },
+    55→  { value: "ACTIVE", label: "Active" },
+    56→  { value: "DRAFT", label: "Draft" },
+    57→  { value: "ARCHIVED", label: "Archived" },
+    58→];
+    59→
+    60→const blankForm = {
+    61→  name: "",
+    62→  description: "",
+    63→  price: 0,
+    64→  comparePrice: 0,
+    65→  sku: "",
+    66→  productType: "PHYSICAL" as ProductType,
+    67→  initialStock: 0,
+    68→  lowStock: 5,
+    69→  images: [] as string[],
+    70→  poolEnabled: false,
+    71→  poolBasePrice: 0,
+    72→  poolMinSalePrice: 0,
+    73→  poolMaxSelectableQuantity: 0,
+    74→};
+    75→
+    76→const wizardSteps = [
+    77→  "Basic Info",
+    78→  "Pricing & Stock",
+    79→  "Details",
+    80→  "Review",
+    81→];
+    82→
+    83→/* ─── Helpers ─── */
+    84→
+    85→function uploadedUrl(response: any) {
+    86→  const data = unwrapApiData<any>(response.data);
+    87→  return data?.secureUrl || data?.url || data?.data?.secureUrl || data?.data?.url || "";
+    88→}
+    89→
+    90→function productImageSrc(product: Product): string {
+    91→  const first = product.images?.[0];
+    92→  if (!first) return "";
+    93→  return typeof first === "string" ? first : first.url;
+    94→}
+    95→
+    96→function isPoolResaleProduct(product: Product) {
+    97→  return product.productSource === "POOL_RESALE";
+    98→}
+    99→
+   100→function statusColor(status: string) {
+   101→  if (status === "ACTIVE") return "text-emerald-600";
+   102→  if (status === "DRAFT") return "text-amber-600";
+   103→  if (status === "ARCHIVED") return "text-gray-400";
+   104→  return "text-gray-500";
+   105→}
+   106→
+   107→/* ─── Skeleton Card ─── */
+   108→
+   109→function SkeletonCard() {
+   110→  return (
+   111→    <div className="animate-pulse">
+   112→      <div className="aspect-square bg-gray-100" />
+   113→      <div className="border-t border-gray-200 p-4">
+   114→        <div className="h-4 w-3/4 rounded bg-gray-200" />
+   115→        <div className="mt-3 flex items-center justify-between">
+   116→          <div className="h-5 w-24 rounded bg-gray-200" />
+   117→          <div className="h-4 w-16 rounded bg-gray-100" />
+   118→        </div>
+   119→        <div className="mt-2 h-3 w-1/2 rounded bg-gray-100" />
+   120→        <div className="mt-4 flex gap-2">
+   121→          <div className="h-8 w-16 rounded bg-gray-100" />
+   122→          <div className="h-8 w-16 rounded bg-gray-100" />
+   123→          <div className="h-8 w-16 rounded bg-gray-100" />
+   124→        </div>
+   125→      </div>
+   126→    </div>
+   127→  );
+   128→}
+   129→
+   130→/* ─── Product Card ─── */
+   131→
+   132→function VendorProductCard({
+   133→  product,
+   134→  selected,
+   135→  onToggleSelect,
+   136→  onView,
+   137→  onDelete,
+   138→}: {
+   139→  product: Product;
+   140→  selected: boolean;
+   141→  onToggleSelect: () => void;
+   142→  onView: () => void;
+   143→  onDelete: () => void;
+   144→}) {
+   145→  const image = productImageSrc(product);
+   146→  const inventory = product.inventoryItems?.[0];
+   147→  const stock = inventory?.available ?? product.stock ?? 0;
+   148→  const poolResale = isPoolResaleProduct(product);
+   149→  const sharedProduct: SharedProduct = {
+   150→    id: product.id,
+   151→    name: product.name,
+   152→    description: product.description ?? undefined,
+   153→    price: Number(product.price ?? 0),
+   154→    comparePrice: product.comparePrice ?? undefined,
+   155→    images: image ? [image] : [],
+   156→    stock,
+   157→    store: product.store ? { name: product.store.name, slug: product.store.slug ?? "" } : undefined,
+   158→    isPoolProduct: product.poolEnabled || poolResale,
+   159→  };
+   160→
+   161→  return (
+   162→    <article className="relative overflow-hidden border border-border bg-background dark:bg-white/5">
+   163→      {/* Image area */}
+   164→      <div className="relative">
+   165→        <SharedProductCard
+   166→          product={sharedProduct}
+   167→          variant="compact"
+   168→          showStore={false}
+   169→          showRating={false}
+   170→          showQuickActions={false}
+   171→          onClick={onView}
+   172→          className="w-full border-0 shadow-none"
+   173→        />
+   174→        {/* Checkbox overlay */}
+   175→        {!poolResale ? (
+   176→          <button
+   177→            type="button"
+   178→            onClick={onToggleSelect}
+   179→            className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-white transition dark:bg-[#0f1115]"
+   180→            aria-label={selected ? "Deselect" : "Select"}
+   181→          >
+   182→            {selected ? (
+   183→              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground">
+   184→                <Check className="h-3.5 w-3.5 text-white" />
+   185→              </span>
+   186→            ) : (
+   187→              <span className="h-4 w-4 rounded-sm border border-muted bg-background" />
+   188→            )}
+   189→          </button>
+   190→        ) : null}
+   191→        {/* Status badge */}
+   192→        <span className={`absolute right-2 top-2 z-10 rounded-full bg-background/90 px-2 py-1 text-[11px] font-semibold shadow-sm dark:bg-[#0f1115]/90 ${statusColor(product.status)}`}>
+   193→          {product.status}
+   194→        </span>
+   195→      </div>
+   196→
+   197→      {/* Info area */}
+   198→      <div className="border-t border-border p-3">
+   199→        <div className="flex items-center justify-between gap-2">
+   200→          <span className="text-xs font-semibold text-muted">Stock: {stock}</span>
+   201→          <span className="text-xs font-semibold text-foreground">{formatCurrency(product.price)}</span>
+   202→        </div>
+   203→
+   204→        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted">
+   205→          <span>{product.productType ?? "PHYSICAL"}</span>
+   206→          <span>•</span>
+   207→          <span>{product.sku ?? product.id.slice(0, 8)}</span>
+   208→          {(product.poolEnabled || poolResale) && (
+   209→            <>
+   210→              <span>•</span>
+   211→              <span className={poolResale ? "text-orange-600" : "text-emerald-600"}>
+   212→                {poolResale ? "Pool sourced" : "Pool"}
+   213→              </span>
+   214→            </>
+   215→          )}
+   216→        </div>
+   217→
+   218→        <div className="mt-3 grid grid-cols-3 gap-2">
+   219→          <Link
+   220→            href={`/dashboard/products/${product.id}/edit`}
+   221→            className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-foreground transition hover:border-accent hover:text-accent"
+   222→          >
+   223→            <Pencil className="h-3.5 w-3.5" />
+   224→            {poolResale ? "Edit price" : "Edit"}
+   225→          </Link>
+   226→          <AppButton
+   227→            type="button"
+   228→            size="sm"
+   229→            variant="secondary"
+   230→            onClick={onView}
+   231→            className="h-9 px-2"
+   232→          >
+   233→            <Eye className="h-3.5 w-3.5" />
+   234→            View
+   235→          </AppButton>
+   236→          {!poolResale ? (
+   237→            <AppButton
+   238→              type="button"
+   239→              size="sm"
+   240→              variant="secondary"
+   241→              onClick={onDelete}
+   242→              className="h-9 px-2 hover:border-danger hover:text-danger"
+   243→            >
+   244→              <Trash2 className="h-3.5 w-3.5" />
+   245→              Delete
+   246→            </AppButton>
+   247→          ) : null}
+   248→        </div>
+   249→      </div>
+   250→    </article>
+   251→  );
+   252→}
+   253→
+   254→/* ─── Delete Confirmation Modal ─── */
+   255→
+   256→function DeleteConfirmModal({
+   257→  isOpen,
+   258→  product,
+   259→  onClose,
+   260→  onConfirm,
+   261→  isDeleting,
+   262→}: {
+   263→  isOpen: boolean;
+   264→  product: Product | null;
+   265→  onClose: () => void;
+   266→  onConfirm: () => void;
+   267→  isDeleting: boolean;
+   268→}) {
+   269→  if (!product) return null;
+   270→  return (
+   271→    <AppModal isOpen={isOpen} onClose={onClose} title="Delete Product?" className="sm:max-w-md">
+   272→      <div>
+   273→        <p className="text-sm text-gray-600">
+   274→          Are you sure you want to archive <strong className="text-gray-900">{product.name}</strong>?
+   275→          This will set the product status to Archived. You can restore it later by changing its status back.
+   276→        </p>
+   277→      </div>
+   278→      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+   279→        <AppButton type="button" variant="secondary" onClick={onClose}>
+   280→          Cancel
+   281→        </AppButton>
+   282→        <AppButton type="button" variant="danger" onClick={onConfirm} isLoading={isDeleting}>
+   283→          <Trash2 className="h-4 w-4" />
+   284→          Delete
+   285→        </AppButton>
+   286→      </div>
+   287→    </AppModal>
+   288→  );
+   289→}
+   290→
+   291→/* ─── Create Product Wizard Modal ─── */
+   292→
+   293→function CreateProductModal({
+   294→  isOpen,
+   295→  onClose,
+   296→  onCreated,
+   297→}: {
+   298→  isOpen: boolean;
+   299→  onClose: () => void;
+   300→  onCreated: () => void;
+   301→}) {
+   302→  const [form, setForm] = React.useState(blankForm);
+   303→  const [step, setStep] = React.useState(0);
+   304→  const [isSaving, setIsSaving] = React.useState(false);
+   305→  const [isUploading, setIsUploading] = React.useState(false);
+   306→
+   307→  const resetAndClose = () => {
+   308→    setForm(blankForm);
+   309→    setStep(0);
+   310→    onClose();
+   311→  };
+   312→
+   313→  const validateStep = (nextStep: number) => {
+   314→    if (step === 0 && (!form.name.trim() || !form.productType)) {
+   315→      kwikToast.error("Add product name and type first");
+   316→      return;
+   317→    }
+   318→    if (step === 1 && Number(form.price) <= 0) {
+   319→      kwikToast.error("Add a valid product price");
+   320→      return;
+   321→    }
+   322→    setStep(nextStep);
+   323→  };
+   324→
+   325→  const createProduct = async () => {
+   326→    if (!form.name.trim()) { kwikToast.error("Product name is required"); setStep(0); return; }
+   327→    if (Number(form.price) <= 0) { kwikToast.error("Price must be greater than zero"); setStep(1); return; }
+   328→
+   329→    setIsSaving(true);
+   330→    try {
+   331→      await vendorCommerceApi.createProduct({
+   332→        name: form.name,
+   333→        description: form.description || undefined,
+   334→        price: Number(form.price),
+   335→        comparePrice: form.comparePrice ? Number(form.comparePrice) : undefined,
+   336→        sku: form.sku || undefined,
+   337→        productType: form.productType,
+   338→        requiresShipping: form.productType === "PHYSICAL",
+   339→        trackInventory: form.productType === "PHYSICAL",
+   340→        initialStock: form.productType === "PHYSICAL" ? Number(form.initialStock) : undefined,
+   341→        lowStock: form.productType === "PHYSICAL" ? Number(form.lowStock) : undefined,
+   342→        images: form.images,
+   343→        poolEnabled: form.productType === "PHYSICAL" ? form.poolEnabled : false,
+   344→        poolBasePrice: form.poolEnabled ? Number(form.poolBasePrice || form.price) : undefined,
+   345→        poolMinSalePrice: form.poolEnabled ? Number(form.poolMinSalePrice || form.poolBasePrice || form.price) : undefined,
+   346→        poolMaxSelectableQuantity: form.poolEnabled && form.poolMaxSelectableQuantity ? Number(form.poolMaxSelectableQuantity) : undefined,
+   347→      });
+   348→      kwikToast.success("Product created");
+   349→      resetAndClose();
+   350→      onCreated();
+   351→    } catch (error) {
+   352→      kwikToast.error(error instanceof Error ? error.message : "Product creation failed");
+   353→    } finally {
+   354→      setIsSaving(false);
+   355→    }
+   356→  };
+   357→
+   358→  const uploadImages = async (files: FileList | null) => {
+   359→    if (!files?.length) return;
+   360→    setIsUploading(true);
+   361→    try {
+   362→      const uploads = await Promise.all(Array.from(files).slice(0, 5).map((f) => uploadApi.productImage(f)));
+   363→      const urls = uploads.map(uploadedUrl).filter(Boolean);
+   364→      setForm((c) => ({ ...c, images: [...c.images, ...urls].slice(0, 5) }));
+   365→      kwikToast.success(`${urls.length} image${urls.length === 1 ? "" : "s"} uploaded`);
+   366→    } catch (error) {
+   367→      kwikToast.error(error instanceof Error ? error.message : "Image upload failed");
+   368→    } finally {
+   369→      setIsUploading(false);
+   370→    }
+   371→  };
+   372→
+   373→  return (
+   374→    <AppModal isOpen={isOpen} onClose={resetAndClose} title="Add Product" description="Complete the required steps, then confirm." className="sm:max-w-3xl">
+   375→      <div className="space-y-6">
+   376→        {/* Step indicator */}
+   377→        <div className="grid grid-cols-4 gap-2">
+   378→          {wizardSteps.map((label, i) => {
+   379→            const done = i < step;
+   380→            const active = i === step;
+   381→            return (
+   382→              <button key={label} type="button" onClick={() => i <= step && setStep(i)} className="flex flex-col items-center gap-2 text-center">
+   383→                <span className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${done ? "border-gray-900 bg-gray-900 text-white" : active ? "border-gray-900 bg-white text-gray-900" : "border-gray-300 bg-white text-gray-400"}`}>
+   384→                  {done ? <Check className="h-4 w-4" /> : i + 1}
+   385→                </span>
+   386→                <span className="hidden text-xs font-medium text-gray-500 sm:block">{label}</span>
+   387→              </button>
+   388→            );
+   389→          })}
+   390→        </div>
+   391→
+   392→        {/* Step 0 — Basic Info */}
+   393→        {step === 0 && (
+   394→          <div className="space-y-4">
+   395→            <FieldInput required label="Product name" value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} />
+   396→            <FieldSelect label="Product type" value={form.productType} onChange={(e) => setForm((v) => ({ ...v, productType: e.target.value as ProductType }))}>
+   397→              <option value="PHYSICAL">Physical</option>
+   398→              <option value="DIGITAL">Digital</option>
+   399→            </FieldSelect>
+   400→            <FieldTextarea label="Description" value={form.description} onChange={(e) => setForm((v) => ({ ...v, description: e.target.value }))} />
+   401→          </div>
+   402→        )}
+   403→
+   404→        {/* Step 1 — Pricing & Stock */}
+   405→        {step === 1 && (
+   406→          <div className="space-y-4">
+   407→            <div className="grid gap-3 sm:grid-cols-2">
+   408→              <FieldInput required type="number" min={0} label="Price" value={form.price} onChange={(e) => setForm((v) => ({ ...v, price: Number(e.target.value) }))} />
+   409→              <FieldInput type="number" min={0} label="Compare price" value={form.comparePrice} onChange={(e) => setForm((v) => ({ ...v, comparePrice: Number(e.target.value) }))} />
+   410→            </div>
+   411→            {form.productType === "PHYSICAL" ? (
+   412→              <div className="grid gap-3 sm:grid-cols-2">
+   413→                <FieldInput type="number" min={0} label="Initial stock" value={form.initialStock} onChange={(e) => setForm((v) => ({ ...v, initialStock: Number(e.target.value) }))} />
+   414→                <FieldInput type="number" min={0} label="Low stock alert" value={form.lowStock} onChange={(e) => setForm((v) => ({ ...v, lowStock: Number(e.target.value) }))} />
+   415→              </div>
+   416→            ) : (
+   417→              <p className="text-sm text-gray-500">Digital products default to unlimited delivery.</p>
+   418→            )}
+   419→          </div>
+   420→        )}
+   421→
+   422→        {/* Step 2 — Details */}
+   423→        {step === 2 && (
+   424→          <div className="space-y-4">
+   425→            <FieldInput label="SKU" value={form.sku} onChange={(e) => setForm((v) => ({ ...v, sku: e.target.value }))} />
+   426→            <label className="block">
+   427→              <span className="text-xs font-semibold text-gray-500">Product images</span>
+   428→              <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+   429→                <Upload className="h-8 w-8 text-gray-400" />
+   430→                <p className="mt-2 text-sm font-medium text-gray-700">
+   431→                  <span className="text-blue-600 underline">Click to upload</span> or drag and drop
+   432→                </p>
+   433→                <p className="mt-1 text-xs text-gray-400">{`${form.images.length}/5 images added`}</p>
+   434→                <input type="file" accept="image/*" multiple onChange={(e) => uploadImages(e.target.files)} className="sr-only" />
+   435→              </div>
+   436→            </label>
+   437→            {form.images.length > 0 && (
+   438→              <div className="grid grid-cols-5 gap-2">
+   439→                {form.images.map((url) => (
+   440→                  <button key={url} type="button" onClick={() => setForm((c) => ({ ...c, images: c.images.filter((img) => img !== url) }))} className="aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50" title="Remove image">
+   441→                    <img src={url} alt="" className="h-full w-full object-cover" />
+   442→                  </button>
+   443→                ))}
+   444→              </div>
+   445→            )}
+   446→            {form.productType === "PHYSICAL" && (
+   447→              <div className="border border-gray-200 p-4">
+   448→                <AppSwitch
+   449→                  isSelected={form.poolEnabled}
+   450→                  onChange={(sel) => setForm((v) => ({
+   451→                    ...v,
+   452→                    poolEnabled: sel,
+   453→                    poolBasePrice: sel && !v.poolBasePrice ? Number(v.price) : v.poolBasePrice,
+   454→                    poolMinSalePrice: sel && !v.poolMinSalePrice ? Number(v.price) : v.poolMinSalePrice,
+   455→                  }))}
+   456→                  label="Make available in Pool"
+   457→                  description="Other vendors can select and sell this product."
+   458→                />
+   459→                {form.poolEnabled && (
+   460→                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+   461→                    <FieldInput type="number" min={0} label="Source price" value={form.poolBasePrice || form.price} onChange={(e) => setForm((v) => ({ ...v, poolBasePrice: Number(e.target.value) }))} />
+   462→                    <FieldInput type="number" min={form.poolBasePrice || form.price} label="Min sale price" value={form.poolMinSalePrice || form.poolBasePrice || form.price} onChange={(e) => setForm((v) => ({ ...v, poolMinSalePrice: Number(e.target.value) }))} />
+   463→                    <FieldInput type="number" min={0} label="Pool quantity" placeholder="Use stock" value={form.poolMaxSelectableQuantity || ""} onChange={(e) => setForm((v) => ({ ...v, poolMaxSelectableQuantity: Number(e.target.value) }))} />
+   464→                  </div>
+   465→                )}
+   466→              </div>
+   467→            )}
+   468→          </div>
+   469→        )}
+   470→
+   471→        {/* Step 3 — Review */}
+   472→        {step === 3 && (
+   473→          <div className="space-y-4">
+   474→            <div className="border border-gray-200 p-5">
+   475→              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Review</p>
+   476→              <h3 className="mt-2 text-xl font-semibold text-gray-900">{form.name || "Untitled product"}</h3>
+   477→              <p className="mt-2 text-sm leading-6 text-gray-500">{form.description || "No description added."}</p>
+   478→              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+   479→                <div><p className="text-xs text-gray-400">Type</p><p className="font-semibold text-gray-900">{form.productType}</p></div>
+   480→                <div><p className="text-xs text-gray-400">Price</p><p className="font-semibold text-gray-900">{formatCurrency(form.price)}</p></div>
+   481→                <div><p className="text-xs text-gray-400">Images</p><p className="font-semibold text-gray-900">{form.images.length}</p></div>
+   482→              </div>
+   483→            </div>
+   484→            {form.poolEnabled && (
+   485→              <p className="text-sm font-medium text-emerald-600">
+   486→                This product will be available in Pool at source price {formatCurrency(form.poolBasePrice || form.price)}.
+   487→              </p>
+   488→            )}
+   489→          </div>
+   490→        )}
+   491→
+   492→        {/* Footer */}
+   493→        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+   494→          <AppButton type="button" variant="secondary" disabled={step === 0 || isSaving} onClick={() => setStep((c) => Math.max(0, c - 1))}>
+   495→            <ChevronLeft className="h-4 w-4" />
+   496→            Back
+   497→          </AppButton>
+   498→          {step < wizardSteps.length - 1 ? (
+   499→            <AppButton type="button" onClick={() => validateStep(step + 1)}>
+   500→              Next
+   501→              <ChevronRight className="h-4 w-4" />
+   502→            </AppButton>
+   503→          ) : (
+   504→            <AppButton type="button" disabled={isSaving || isUploading} onClick={createProduct}>
+   505→              <Plus className="h-4 w-4" />
+   506→              Create product
+   507→            </AppButton>
+   508→          )}
+   509→        </div>
+   510→      </div>
+   511→    </AppModal>
+   512→  );
+   513→}
+   514→
+   515→/* ─── Pagination ─── */
+   516→
+   517→function Pagination({
+   518→  total,
+   519→  page,
+   520→  onPageChange,
+   521→}: {
+   522→  total: number;
+   523→  page: number;
+   524→  onPageChange: (p: number) => void;
+   525→}) {
+   526→  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+   527→  const start = (page - 1) * ITEMS_PER_PAGE + 1;
+   528→  const end = Math.min(page * ITEMS_PER_PAGE, total);
+   529→
+   530→  const pages: (number | "...")[] = [];
+   531→  if (totalPages <= 7) {
+   532→    for (let i = 1; i <= totalPages; i++) pages.push(i);
+   533→  } else {
+   534→    pages.push(1);
+   535→    if (page > 3) pages.push("...");
+   536→    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+   537→    if (page < totalPages - 2) pages.push("...");
+   538→    pages.push(totalPages);
+   539→  }
+   540→
+   541→  return (
+   542→    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+   543→      <p className="text-sm text-gray-500">
+   544→        Showing {total > 0 ? start : 0}–{end} of {total} products
+   545→      </p>
+   546→      <div className="flex items-center gap-1">
+   547→        <button
+   548→          type="button"
+   549→          disabled={page <= 1}
+   550→          onClick={() => onPageChange(page - 1)}
+   551→          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+   552→        >
+   553→          <ChevronLeft className="h-3.5 w-3.5" />
+   554→          Prev
+   555→        </button>
+   556→        {pages.map((p, i) =>
+   557→          p === "..." ? (
+   558→            <span key={`dots-${i}`} className="px-1 text-sm text-gray-400">...</span>
+   559→          ) : (
+   560→            <button
+   561→              key={p}
+   562→              type="button"
+   563→              onClick={() => onPageChange(p as number)}
+   564→              className={`inline-flex h-8 w-8 items-center justify-center rounded text-sm font-medium transition ${p === page ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+   565→            >
+   566→              {p}
+   567→            </button>
+   568→          )
+   569→        )}
+   570→        <button
+   571→          type="button"
+   572→          disabled={page >= totalPages}
+   573→          onClick={() => onPageChange(page + 1)}
+   574→          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+   575→        >
+   576→          Next
+   577→          <ChevronRight className="h-3.5 w-3.5" />
+   578→        </button>
+   579→      </div>
+   580→    </div>
+   581→  );
+   582→}
+   583→
+   584→/* ─── Main Page ─── */
+   585→
+   586→export default function VendorProductsPage() {
+   587→  const router = useRouter();
+   588→  const { products, isLoading, fetchProducts, refreshProducts } = useVendorProductsStore();
+   589→
+   590→  // Filters
+   591→  const [searchQuery, setSearchQuery] = React.useState("");
+   592→  const [statusFilter, setStatusFilter] = React.useState("");
+   593→  const [categoryFilter, setCategoryFilter] = React.useState("");
+   594→
+   595→  // Pagination
+   596→  const [page, setPage] = React.useState(1);
+   597→
+   598→  // Bulk selection
+   599→  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+   600→
+   601→  // Delete
+   602→  const [deleteTarget, setDeleteTarget] = React.useState<Product | null>(null);
+   603→  const [isDeleting, setIsDeleting] = React.useState(false);
+   604→
+   605→  // Create
+   606→  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+   607→
+   608→  // Bulk actions
+   609→  const [bulkStatus, setBulkStatus] = React.useState("");
+   610→  const [bulkCategory, setBulkCategory] = React.useState("");
+   611→  const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
+   612→
+   613→  React.useEffect(() => {
+   614→    fetchProducts().catch((err) => {
+   615→      kwikToast.error(err instanceof Error ? err.message : "Could not load vendor products");
+   616→    });
+   617→  }, [fetchProducts]);
+   618→
+   619→  // Reset page when filters change
+   620→  React.useEffect(() => {
+   621→    setPage(1);
+   622→    setSelectedIds(new Set());
+   623→  }, [searchQuery, statusFilter, categoryFilter]);
+   624→
+   625→  // Derived data
+   626→  const filteredProducts = React.useMemo(() => {
+   627→    let result = products;
+   628→    const q = searchQuery.trim().toLowerCase();
+   629→    if (q) {
+   630→      result = result.filter((p) =>
+   631→        [p.name, p.sku, p.description].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+   632→      );
+   633→    }
+   634→    if (statusFilter) {
+   635→      result = result.filter((p) => p.status === statusFilter);
+   636→    }
+   637→    if (categoryFilter) {
+   638→      result = result.filter((p) => p.category?.name === categoryFilter);
+   639→    }
+   640→    return result;
+   641→  }, [products, searchQuery, statusFilter, categoryFilter]);
+   642→
+   643→  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+   644→  const paginatedProducts = filteredProducts.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+   645→  const selectableProducts = paginatedProducts.filter((product) => !isPoolResaleProduct(product));
+   646→
+   647→  const allSelected = selectableProducts.length > 0 && selectableProducts.every((p) => selectedIds.has(p.id));
+   648→  const noneSelected = selectableProducts.every((p) => !selectedIds.has(p.id));
+   649→
+   650→  const stats = React.useMemo(() => ({
+   651→    total: products.length,
+   652→    physical: products.filter((p) => p.productType !== "DIGITAL").length,
+   653→    pool: products.filter((p) => p.poolEnabled || p.productSource === "POOL_RESALE").length,
+   654→  }), [products]);
+   655→
+   656→  const toggleSelectAll = () => {
+   657→    if (allSelected) {
+   658→      setSelectedIds(new Set());
+   659→    } else {
+   660→      setSelectedIds(new Set(selectableProducts.map((p) => p.id)));
+   661→    }
+   662→  };
+   663→
+   664→  const toggleSelect = (id: string) => {
+   665→    const product = products.find((item) => item.id === id);
+   666→    if (product && isPoolResaleProduct(product)) return;
+   667→    setSelectedIds((prev) => {
+   668→      const next = new Set(prev);
+   669→      if (next.has(id)) next.delete(id);
+   670→      else next.add(id);
+   671→      return next;
+   672→    });
+   673→  };
+   674→
+   675→  const handleDelete = async () => {
+   676→    if (!deleteTarget) return;
+   677→    if (isPoolResaleProduct(deleteTarget)) {
+   678→      kwikToast.error("Pool-sourced products can only have their selling price changed");
+   679→      setDeleteTarget(null);
+   680→      return;
+   681→    }
+   682→    setIsDeleting(true);
+   683→    try {
+   684→      await vendorCommerceApi.updateProduct(deleteTarget.id, { status: "ARCHIVED" });
+   685→      kwikToast.success("Product archived");
+   686→      setDeleteTarget(null);
+   687→      refreshProducts().catch(() => undefined);
+   688→    } catch (error) {
+   689→      kwikToast.error(error instanceof Error ? error.message : "Failed to archive product");
+   690→    } finally {
+   691→      setIsDeleting(false);
+   692→    }
+   693→  };
+   694→
+   695→  const handleBulkAction = async (action: "delete" | "status" | "category") => {
+   696→    if (selectedIds.size === 0) return;
+   697→    const ownedSelectedIds = Array.from(selectedIds).filter((id) => {
+   698→      const product = products.find((item) => item.id === id);
+   699→      return product && !isPoolResaleProduct(product);
+   700→    });
+   701→    if (ownedSelectedIds.length === 0) {
+   702→      kwikToast.error("Pool-sourced products can only have their selling price changed");
+   703→      setSelectedIds(new Set());
+   704→      return;
+   705→    }
+   706→    setIsBulkProcessing(true);
+   707→    try {
+   708→      if (action === "delete") {
+   709→        await Promise.all(
+   710→          ownedSelectedIds.map((id) => vendorCommerceApi.updateProduct(id, { status: "ARCHIVED" }))
+   711→        );
+   712→        kwikToast.success(`${ownedSelectedIds.length} products archived`);
+   713→      } else if (action === "status" && bulkStatus) {
+   714→        await Promise.all(
+   715→          ownedSelectedIds.map((id) => vendorCommerceApi.updateProduct(id, { status: bulkStatus as any }))
+   716→        );
+   717→        kwikToast.success(`Status updated for ${ownedSelectedIds.length} products`);
+   718→      }
+   719→      setSelectedIds(new Set());
+   720→      refreshProducts().catch(() => undefined);
+   721→    } catch (error) {
+   722→      kwikToast.error(error instanceof Error ? error.message : "Bulk action failed");
+   723→    } finally {
+   724→      setIsBulkProcessing(false);
+   725→      setBulkStatus("");
+   726→      setBulkCategory("");
+   727→    }
+   728→  };
+   729→
+   730→  const clearFilters = () => {
+   731→    setSearchQuery("");
+   732→    setStatusFilter("");
+   733→    setCategoryFilter("");
+   734→  };
+   735→
+   736→  const hasActiveFilters = searchQuery || statusFilter || categoryFilter;
+   737→
+   738→  return (
+   739→    <div className="safe-container space-y-5">
+   740→      {/* Page Header */}
+   741→      <VendorPageHeader
+   742→        title="Products"
+   743→        description="Create, review, and manage your store products."
+   744→        action={
+   745→          <div className="flex gap-2">
+   746→          <AppButton
+   747→            type="button"
+   748→            variant="secondary"
+   749→            onClick={() => refreshProducts().catch((e) => kwikToast.error(e instanceof Error ? e.message : "Could not refresh"))}
+   750→            disabled={isLoading}
+   751→          >
+   752→            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+   753→            Refresh
+   754→          </AppButton>
+   755→          <AppButton type="button" onClick={() => setIsCreateOpen(true)}>
+   756→            <Plus className="h-4 w-4" />
+   757→            Add Product
+   758→          </AppButton>
+   759→          </div>
+   760→        }
+   761→      />
+   762→
+   763→      {/* Stats Row */}
+   764→      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+   765→        <DashboardMetricCard
+   766→          title="Total Catalog"
+   767→          value={String(stats.total)}
+   768→          description="All owned and Pool-sourced products in your store."
+   769→          tone="accent"
+   770→          icon={<Package className="h-5 w-5" strokeWidth={1.5} />}
+   771→        />
+   772→        <DashboardMetricCard
+   773→          title="Physical Stock"
+   774→          value={String(stats.physical)}
+   775→          description="Owned products that require stock and shipping."
+   776→          tone="success"
+   777→          icon={<PackagePlus className="h-5 w-5" strokeWidth={1.5} />}
+   778→        />
+   779→        <DashboardMetricCard
+   780→          title="Pool Items"
+   781→          value={String(stats.pool)}
+   782→          description="Products sourced from Pool with price-only control."
+   783→          tone="brand"
+   784→          icon={<Check className="h-5 w-5" strokeWidth={1.5} />}
+   785→        />
+   786→      </section>
+   787→
+   788→      {/* Filters / Search Bar */}
+   789→      <VendorToolbar>
+   790→        <div className="flex-1">
+   791→          <FieldInput
+   792→            placeholder="Search by name or SKU..."
+   793→            value={searchQuery}
+   794→            onChange={(e) => setSearchQuery(e.target.value)}
+   795→            className="!mt-0"
+   796→          />
+   797→        </div>
+   798→        <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-[1fr_1fr_auto]">
+   799→          <FieldSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="!mt-0">
+   800→            {STATUS_OPTIONS.map((opt) => (
+   801→              <option key={opt.value} value={opt.value}>{opt.label}</option>
+   802→            ))}
+   803→          </FieldSelect>
+   804→          <FieldSelect value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="!mt-0">
+   805→            <option value="">All Categories</option>
+   806→            {CATEGORIES.map((c) => (
+   807→              <option key={c} value={c}>{c}</option>
+   808→            ))}
+   809→          </FieldSelect>
+   810→          {hasActiveFilters && (
+   811→            <AppButton
+   812→              type="button"
+   813→              variant="ghost"
+   814→              size="md"
+   815→              onClick={clearFilters}
+   816→              className="h-11"
+   817→            >
+   818→              <X className="h-3.5 w-3.5" />
+   819→              Clear
+   820→            </AppButton>
+   821→          )}
+   822→        </div>
+   823→      </VendorToolbar>
+   824→
+   825→      {/* Bulk Actions Bar */}
+   826→      {selectedIds.size > 0 && (
+   827→        <section className="flex flex-col gap-3 border border-border bg-background p-3 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between">
+   828→          <div className="flex items-center gap-3">
+   829→            <span className="text-sm font-medium text-foreground">{selectedIds.size} selected</span>
+   830→            <button type="button" onClick={() => setSelectedIds(new Set())} className="text-sm text-muted hover:text-foreground">
+   831→              Clear selection
+   832→            </button>
+   833→          </div>
+   834→          <div className="flex flex-wrap items-center gap-2">
+   835→            <AppButton
+   836→              type="button"
+   837→              variant="danger"
+   838→              size="sm"
+   839→              onClick={() => handleBulkAction("delete")}
+   840→              disabled={isBulkProcessing}
+   841→            >
+   842→              <Trash2 className="h-3.5 w-3.5" />
+   843→              Delete Selected
+   844→            </AppButton>
+   845→            <select
+   846→              value={bulkStatus}
+   847→              onChange={(e) => {
+   848→                setBulkStatus(e.target.value);
+   849→                if (e.target.value) handleBulkAction("status");
+   850→              }}
+   851→              disabled={isBulkProcessing}
+   852→              className="h-8 rounded border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-gray-500 disabled:opacity-50"
+   853→            >
+   854→              <option value="">Set Status...</option>
+   855→              {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
+   856→                <option key={o.value} value={o.value}>{o.label}</option>
+   857→              ))}
+   858→            </select>
+   859→          </div>
+   860→        </section>
+   861→      )}
+   862→
+   863→      {/* Product Grid */}
+   864→      {isLoading ? (
+   865→        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+   866→          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+   867→        </div>
+   868→      ) : paginatedProducts.length > 0 ? (
+   869→        <>
+   870→          <div className="flex items-center gap-3 px-1">
+   871→            <button
+   872→              type="button"
+   873→              onClick={toggleSelectAll}
+   874→              className="flex h-6 w-6 items-center justify-center rounded border bg-white text-white transition"
+   875→              aria-label={allSelected ? "Deselect all" : "Select all"}
+   876→            >
+   877→              {allSelected ? (
+   878→                <span className="flex h-6 w-6 items-center justify-center rounded bg-foreground">
+   879→                  <Check className="h-3.5 w-3.5 text-white" />
+   880→                </span>
+   881→              ) : (
+   882→                <span className="h-6 w-6 rounded border border-gray-300 bg-white" />
+   883→              )}
+   884→            </button>
+   885→            <span className="text-xs text-gray-500">Select all on page</span>
+   886→          </div>
+   887→
+   888→          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+   889→            {paginatedProducts.map((product) => (
+   890→              <VendorMarketplaceProductCard
+   891→                key={product.id}
+   892→                name={product.name}
+   893→                image={productImageSrc(product)}
+   894→                store={product.store?.name ?? "Vendor product"}
+   895→                category={product.category?.name ?? product.productType ?? "Product"}
+   896→                price={Number(product.price ?? 0)}
+   897→                comparePrice={product.comparePrice ?? undefined}
+   898→                statusLabel={product.status}
+   899→                stockLabel={`Stock: ${product.inventoryItems?.[0]?.available ?? product.stock ?? 0}`}
+   900→                selected={selectedIds.has(product.id)}
+   901→                canDelete={!isPoolResaleProduct(product)}
+   902→                onSelect={!isPoolResaleProduct(product) ? () => toggleSelect(product.id) : undefined}
+   903→                onOpen={() => router.push(`/dashboard/products/${product.id}/edit`)}
+   904→                onEdit={() => router.push(`/dashboard/products/${product.id}/edit`)}
+   905→                onDelete={() => setDeleteTarget(product)}
+   906→              />
+   907→            ))}
+   908→          </div>
+   909→        </>
+   910→      ) : (
+   911→        <VendorEmptyState
+   912→          title={searchQuery || statusFilter || categoryFilter ? "No matching products" : "No products yet"}
+   913→          text={searchQuery || statusFilter || categoryFilter ? "Try adjusting your filters." : "Create your first product to get started."}
+   914→          action={!searchQuery && !statusFilter && !categoryFilter ? (
+   915→            <AppButton type="button" onClick={() => setIsCreateOpen(true)}>Add Product</AppButton>
+   916→          ) : undefined}
+   917→        />
+   918→      )}
+   919→
+   920→      {/* Pagination */}
+   921→      {filteredProducts.length > ITEMS_PER_PAGE && (
+   922→        <Pagination total={filteredProducts.length} page={page} onPageChange={setPage} />
+   923→      )}
+   924→
+   925→      {/* Modals */}
+   926→      <DeleteConfirmModal
+   927→        isOpen={!!deleteTarget}
+   928→        product={deleteTarget}
+   929→        onClose={() => setDeleteTarget(null)}
+   930→        onConfirm={handleDelete}
+   931→        isDeleting={isDeleting}
+   932→      />
+   933→      <CreateProductModal
+   934→        isOpen={isCreateOpen}
+   935→        onClose={() => setIsCreateOpen(false)}
+   936→        onCreated={() => refreshProducts().catch(() => undefined)}
+   937→      />
+   938→    </div>
+   939→  );
+   940→}
+   941→

@@ -3,15 +3,22 @@
 import React from "react";
 import { Clock, PackageCheck, Save, Truck } from "lucide-react";
 import {
-  VendorMetricCard,
-  VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
-import { AppButton, AppSwitch, FieldInput, FieldTextarea } from "@kwikseller/ui";
+import {
+  AppButton,
+  AppSwitch,
+  FieldInput,
+  FieldTextarea,
+  Skeleton,
+  SkeletonText,
+  VendorMetricCard,
+  VendorPageHeader,
+} from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
+import { motion } from "framer-motion";
 
 type DeliverySettings = {
   manualDeliveryEnabled: boolean;
@@ -62,15 +69,44 @@ export default function VendorDeliveryPage() {
   };
 
   if (isLoading) {
-    return <KwiksellerLoader />;
+    return (
+      <div className="safe-container space-y-5">
+        <VendorPageHeader
+          title="Delivery"
+          description="Set manual delivery rules for your physical products. Kwikseller delivery remains visible as coming soon."
+        />
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </section>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-4 rounded-2xl border border-kwik-border bg-surface p-5">
+            <SkeletonText lines={3} />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <div className="space-y-4 rounded-2xl border border-kwik-border bg-surface p-5">
+            <SkeletonText lines={3} />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="safe-container space-y-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
       <VendorPageHeader
         title="Delivery"
         description="Set manual delivery rules for your physical products. Kwikseller delivery remains visible as coming soon."
-        action={
+        actions={
           <AppButton type="button" size="lg" onClick={save} disabled={isSaving}>
             <Save className="h-4 w-4" />
             Save delivery
@@ -79,15 +115,15 @@ export default function VendorDeliveryPage() {
       />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <VendorMetricCard label="Manual delivery" value={settings.manualDeliveryEnabled ? "Live" : "Off"} note="Your own delivery rules for checkout." icon={Truck} tone="success" />
-        <VendorMetricCard label="Processing" value={`${settings.processingDays || 1} day${Number(settings.processingDays || 1) === 1 ? "" : "s"}`} note="Time before an order is dispatched." icon={Clock} tone="accent" />
-        <VendorMetricCard label="Kwikseller delivery" value="Soon" note="Platform delivery option not enabled yet." icon={PackageCheck} />
+        <VendorMetricCard title="Manual delivery" value={settings.manualDeliveryEnabled ? "Live" : "Off"} description="Your own delivery rules for checkout." icon={Truck} />
+        <VendorMetricCard title="Processing" value={`${settings.processingDays || 1} day${Number(settings.processingDays || 1) === 1 ? "" : "s"}`} description="Time before an order is dispatched." icon={Clock} />
+        <VendorMetricCard title="Kwikseller delivery" value="Soon" description="Platform delivery option not enabled yet." icon={PackageCheck} />
       </section>
 
       <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <VendorSoftPanel title="Manual delivery" description="You control dispatch timing, notes, and return policy.">
           <div className="space-y-4">
-            <div className="rounded-lg bg-[#F7F8FA] p-4 dark:bg-white/5">
+            <div className="rounded-lg bg-default-100 p-4 dark:bg-white/5">
               <AppSwitch
                 isSelected={settings.manualDeliveryEnabled}
                 onChange={(selected) => setSettings((current) => ({ ...current, manualDeliveryEnabled: selected }))}
@@ -101,27 +137,27 @@ export default function VendorDeliveryPage() {
               label="Processing days"
               value={settings.processingDays}
               onChange={(event) => setSettings((current) => ({ ...current, processingDays: Number(event.target.value) }))}
-              className="h-12 rounded-lg bg-white dark:bg-white/5"
+              className="h-12 rounded-lg bg-surface dark:bg-white/5"
             />
             <FieldTextarea
               label="Dispatch note"
               placeholder="Example: Orders before 2pm dispatch same day inside Lagos."
               value={settings.dispatchNote ?? ""}
               onChange={(event) => setSettings((current) => ({ ...current, dispatchNote: event.target.value }))}
-              className="rounded-lg bg-white dark:bg-white/5"
+              className="rounded-lg bg-surface dark:bg-white/5"
             />
             <FieldTextarea
               label="Return policy"
               placeholder="Example: Returns accepted within 3 days for unopened items."
               value={settings.returnPolicy ?? ""}
               onChange={(event) => setSettings((current) => ({ ...current, returnPolicy: event.target.value }))}
-              className="rounded-lg bg-white dark:bg-white/5"
+              className="rounded-lg bg-surface dark:bg-white/5"
             />
           </div>
         </VendorSoftPanel>
 
         <VendorSoftPanel title="Kwikseller delivery" description="Platform-managed pickup, rates, riders, and live tracking.">
-          <div className="rounded-lg bg-[#F7F8FA] p-4 dark:bg-white/5">
+          <div className="rounded-lg bg-default-100 p-4 dark:bg-white/5">
             <AppSwitch
               isSelected={false}
               onChange={() => undefined}
@@ -134,7 +170,6 @@ export default function VendorDeliveryPage() {
           </button>
         </VendorSoftPanel>
       </section>
-      {isSaving ? <KwiksellerLoader overlay /> : null}
-    </div>
+    </motion.div>
   );
 }

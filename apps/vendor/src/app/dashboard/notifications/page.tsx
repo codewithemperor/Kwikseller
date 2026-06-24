@@ -13,10 +13,11 @@ import {
   Mail,
   Smartphone,
 } from "lucide-react";
-import { AppButton, AppSwitch, Skeleton } from "@kwikseller/ui";
+import { AppButton, AppSwitch, FieldSelect, Skeleton, VendorPageHeader } from "@kwikseller/ui";
 import { formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { notificationsApi } from "@kwikseller/api-client";
 import { kwikToast } from "@kwikseller/utils";
+import { motion } from "framer-motion";
 
 // ==================== Local types ====================
 
@@ -85,7 +86,7 @@ function getTypeIconColor(type: NotificationType) {
     case "ANNOUNCEMENT":
       return "text-purple-600 bg-purple-50";
     default:
-      return "text-gray-600 bg-gray-50";
+      return "text-muted-foreground bg-default-100";
   }
 }
 
@@ -232,18 +233,17 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
       {/* ==================== Section 1: Page Header ==================== */}
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Notifications
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage your alerts and preferences.
-            </p>
-          </div>
+      <VendorPageHeader
+        title="Notifications"
+        description="Manage your alerts and preferences."
+        actions={
           <AppButton
             variant="secondary"
             size="sm"
@@ -255,18 +255,18 @@ export default function NotificationsPage() {
             <Bell className="h-4 w-4" />
             Mark All Read
           </AppButton>
-        </div>
-      </section>
+        }
+      />
 
       {/* ==================== Section 2: Tab Switcher ==================== */}
-      <nav className="flex gap-0 border-b border-gray-200" aria-label="Notifications tabs">
+      <nav className="flex gap-0 border-b border-kwik-border" aria-label="Notifications tabs">
         <button
           type="button"
           onClick={() => setActiveTab("notifications")}
           className={`px-4 pb-3 text-sm font-medium transition ${
             activeTab === "notifications"
-              ? "border-b-2 border-gray-900 text-gray-900"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-gray-900 text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Notifications
@@ -276,8 +276,8 @@ export default function NotificationsPage() {
           onClick={() => setActiveTab("preferences")}
           className={`px-4 pb-3 text-sm font-medium transition ${
             activeTab === "preferences"
-              ? "border-b-2 border-gray-900 text-gray-900"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-gray-900 text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Preferences
@@ -289,23 +289,24 @@ export default function NotificationsPage() {
         <section>
           {/* Filter bar */}
           <div className="flex items-center gap-3 pb-4">
-            <select
+            <FieldSelect
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value as TypeFilter);
                 setPage(1);
               }}
-              className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-gray-400"
+              className="h-9"
+              wrapperClassName="w-auto"
             >
               {TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </FieldSelect>
             {unreadCount > 0 && (
-              <p className="text-sm text-gray-500">
-                <span className="font-medium text-gray-700">{unreadCount}</span> unread
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{unreadCount}</span> unread
               </p>
             )}
           </div>
@@ -313,7 +314,7 @@ export default function NotificationsPage() {
           {/* Notification list */}
           <div>
             {isLoading ? (
-              <div className="space-y-0 divide-y divide-gray-100">
+              <div className="space-y-0 divide-y divide-kwik-border">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex items-start gap-4 px-4 py-4">
                     <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
@@ -327,8 +328,8 @@ export default function NotificationsPage() {
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-16">
-                <Bell className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-                <p className="mt-3 text-sm font-medium text-gray-500">{error}</p>
+                <Bell className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+                <p className="mt-3 text-sm font-medium text-muted-foreground">{error}</p>
                 <AppButton
                   variant="secondary"
                   size="sm"
@@ -340,11 +341,11 @@ export default function NotificationsPage() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16">
-                <Bell className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-                <p className="mt-3 text-sm font-medium text-gray-500">
+                <Bell className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+                <p className="mt-3 text-sm font-medium text-muted-foreground">
                   No notifications
                 </p>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {typeFilter !== "ALL"
                     ? `No ${TYPE_OPTIONS.find((o) => o.value === typeFilter)?.label.toLowerCase()} notifications yet`
                     : "You're all caught up!"}
@@ -352,7 +353,7 @@ export default function NotificationsPage() {
               </div>
             ) : (
               <>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-kwik-border">
                   {notifications.map((notification) => {
                     const IconComponent = getTypeIcon(notification.type);
                     const iconColorClass = getTypeIconColor(notification.type);
@@ -369,7 +370,7 @@ export default function NotificationsPage() {
                             }
                           : {})}
                         className={`group flex items-start gap-4 px-4 py-4 transition ${
-                          !notification.read ? "bg-gray-50/50" : ""
+                          !notification.read ? "bg-default-100/50" : ""
                         }`}
                       >
                         {/* Type icon */}
@@ -385,8 +386,8 @@ export default function NotificationsPage() {
                             <p
                               className={`text-sm ${
                                 notification.read
-                                  ? "font-medium text-gray-600"
-                                  : "font-medium text-gray-900"
+                                  ? "font-medium text-muted-foreground"
+                                  : "font-medium text-foreground"
                               }`}
                             >
                               {notification.title}
@@ -399,10 +400,10 @@ export default function NotificationsPage() {
                               />
                             )}
                           </div>
-                          <p className="mt-0.5 text-sm text-gray-500">
+                          <p className="mt-0.5 text-sm text-muted-foreground">
                             {notification.message}
                           </p>
-                          <p className="mt-1 text-xs text-gray-400">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {formatDate(notification.createdAt)}
                           </p>
                         </div>
@@ -416,7 +417,7 @@ export default function NotificationsPage() {
                               e.stopPropagation();
                               markAsRead(notification.id);
                             }}
-                            className="mt-1 shrink-0 text-xs font-medium text-gray-400 opacity-0 transition-opacity hover:text-blue-600 group-hover:opacity-100"
+                            className="mt-1 shrink-0 text-xs font-medium text-muted-foreground opacity-0 transition-opacity hover:text-blue-600 group-hover:opacity-100"
                           >
                             Mark read
                           </button>
@@ -428,8 +429,8 @@ export default function NotificationsPage() {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-gray-100 pt-4 sm:flex-row">
-                    <p className="text-xs text-gray-500">
+                  <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-kwik-border pt-4 sm:flex-row">
+                    <p className="text-xs text-muted-foreground">
                       Page {page} of {totalPages}
                     </p>
                     <div className="flex items-center gap-1">
@@ -454,7 +455,7 @@ export default function NotificationsPage() {
                             return (
                               <span
                                 key={pageNum}
-                                className="px-2 text-xs text-gray-400"
+                                className="px-2 text-xs text-muted-foreground"
                               >
                                 …
                               </span>
@@ -471,7 +472,7 @@ export default function NotificationsPage() {
                             className={`inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-sm font-medium transition ${
                               page === pageNum
                                 ? "border-gray-900 bg-gray-900 text-white"
-                                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                                : "border-kwik-border bg-surface text-foreground hover:border-accent"
                             }`}
                           >
                             {pageNum}
@@ -499,7 +500,7 @@ export default function NotificationsPage() {
       {/* ==================== Preferences Tab ==================== */}
       {activeTab === "preferences" && (
         <section>
-          <div className="space-y-0 divide-y divide-gray-100 border-b border-gray-100">
+          <div className="space-y-0 divide-y divide-kwik-border border-b border-kwik-border">
             {/* New order alerts */}
             <div className="flex items-center justify-between gap-4 px-4 py-5">
               <div className="flex items-start gap-3">
@@ -507,10 +508,10 @@ export default function NotificationsPage() {
                   <Mail className="h-4 w-4 text-blue-600" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     New order alerts
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Receive an email when a new order is placed
                   </p>
                 </div>
@@ -529,10 +530,10 @@ export default function NotificationsPage() {
                   <Smartphone className="h-4 w-4 text-orange-600" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     Delivery updates
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Get push/browser notifications for delivery status changes
                   </p>
                 </div>
@@ -551,10 +552,10 @@ export default function NotificationsPage() {
                   <Mail className="h-4 w-4 text-green-600" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     Payment released
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Receive an email when payment is released to your wallet
                   </p>
                 </div>
@@ -573,21 +574,21 @@ export default function NotificationsPage() {
                   <Package className="h-4 w-4 text-amber-600" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     Low stock warnings
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Get email + push alerts when products are running low
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-gray-400">Email</span>
+                <span className="text-xs text-muted-foreground">Email</span>
                 <AppSwitch
                   isSelected={prefs.lowStockEmail}
                   onChange={(val) => setPrefs((p) => ({ ...p, lowStockEmail: val }))}
                 />
-                <span className="text-xs text-gray-400">Push</span>
+                <span className="text-xs text-muted-foreground">Push</span>
                 <AppSwitch
                   isSelected={prefs.lowStockPush}
                   onChange={(val) => setPrefs((p) => ({ ...p, lowStockPush: val }))}
@@ -602,10 +603,10 @@ export default function NotificationsPage() {
                   <Megaphone className="h-4 w-4 text-purple-600" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     Marketing emails
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Receive promotional emails and product updates
                   </p>
                 </div>
@@ -631,6 +632,6 @@ export default function NotificationsPage() {
           </div>
         </section>
       )}
-    </div>
+    </motion.div>
   );
 }

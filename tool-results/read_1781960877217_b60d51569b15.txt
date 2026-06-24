@@ -1,0 +1,941 @@
+     1→---
+     2→Task ID: 1
+     3→Agent: Main Agent
+     4→Task: Clone Kwikseller repo, install dependencies, and get the monorepo running
+     5→
+     6→Work Log:
+     7→- Cloned https://github.com/codewithemperor/Kwikseller.git to /tmp/Kwikseller
+     8→- Deleted all default project files/folders from /home/z/my-project (preserved .env, .zscripts, .git)
+     9→- Copied entire Kwikseller monorepo contents to /home/z/my-project
+    10→- Identified project as a pnpm workspace monorepo with Turbo (apps: marketplace, vendor, admin, rider, api; packages: ui, utils, types, fonts, api-client, eslint-config, typescript-config)
+    11→- Cleaned old node_modules and installed all dependencies with bun (1231 packages)
+    12→- Updated root package.json scripts: `dev` now runs marketplace app on port 3000 via `cd apps/marketplace && bun run dev`
+    13→- Added `db:push` no-op script to root for compatibility with .zscripts/dev.sh
+    14→- Removed turbopack.root config from next.config.ts (was causing server to not bind port properly)
+    15→- Set allowedDevOrigins to ["*"] for cross-origin access
+    16→- Started marketplace dev server successfully on port 3000
+    17→
+    18→Stage Summary:
+    19→- Kwikseller monorepo is fully set up at /home/z/my-project
+    20→- Marketplace app (Next.js 16 + Turbopack) running on port 3000
+    21→- All workspace packages properly resolved (@kwikseller/ui, @kwikseller/utils, etc.)
+    22→- HeroUI v3 is the UI component library (not shadcn)
+    23→- Landing page renders correctly with all sections (hero, features, stats, pricing, testimonials, CTA, footer)
+    24→- Other apps (vendor, admin, rider, api) exist but are not started (only port 3000 is exposed externally)
+    25→
+    26→---
+    27→Task ID: 2
+    28→Agent: Enhancement Agent (full-stack-developer)
+    29→Task: Enhance landing page with mobile menu, new sections, animations, and dark mode toggle
+    30→
+    31→Work Log:
+    32→- Added mobile hamburger menu with framer-motion slide-in drawer
+    33→- Added "How It Works" 4-step section with gradient numbered circles
+    34→- Added "Shop by Category" section (6 categories with hover effects)
+    35→- Added FAQ section with HeroUI Accordion (6 questions)
+    36→- Added Newsletter subscription section with kwik-gradient background
+    37→- Added scroll-triggered animations (AnimatedSection, StaggerChild, CounterAnimation)
+    38→- Integrated ThemeToggle in header for dark mode
+    39→- All existing content preserved
+    40→
+    41→---
+    42→Task ID: 3
+    43→Agent: Review Agent
+    44→Task: QA testing, bug fixes, and final polish
+    45→
+    46→Work Log:
+    47→- Tested all routes: / (homepage 200, 97KB), /login, /register, /forgot-password, /reset-password
+    48→- All pages render correctly with HeroUI v3 components
+    49→- Fixed HeroUI Accordion: added `id` prop and `selectionMode="multiple"` to enable FAQ expansion
+    50→- Fixed CounterAnimation: added `display` prop so completed counters show "10K+", "500K+" instead of "10,000+"
+    51→- Verified dark mode toggle works on login page
+    52→- Verified mobile nav links work in accessibility tree
+    53→
+    54→Stage Summary:
+    55→- All routes rendering correctly (HTTP 200)
+    56→- FAQ accordion now expands/collapses properly
+    57→- Stats counter animation shows formatted values (10K+, 500K+, 2M+, 15+)
+    58→- Page size increased from ~70KB to ~97KB with new content
+    59→
+    60→---
+    61→Task ID: 4
+    62→Agent: Enhancement Agent (full-stack-developer)
+    63→Task: Major feature additions — cart store, search, trending products, top vendors, social proof, floating buttons, styling polish
+    64→
+    65→Work Log:
+    66→- Created Zustand cart store (`stores/cart-store.ts`) with persist middleware — addItem, removeItem, updateQuantity, clearCart, itemCount, totalPrice
+    67→- Re-exported cart store from `stores/index.ts`
+    68→- Created `components/landing/floating-buttons.tsx` — Back-to-top + WhatsApp chat buttons with framer-motion animations
+    69→- Created `components/landing/trending-products.tsx` — 6 sample products with product cards, add-to-cart with toast, ratings, discounts, hover effects
+    70→- Created `components/landing/top-vendors.tsx` — 4 featured vendors with gradient avatars, ratings, verification badges, sales counts
+    71→- Created `components/landing/social-proof.tsx` — Brand partner logos (Paystack, Flutterwave, FedEx, DHL, GIG Logistics, Bolt, MTN, Airtel)
+    72→- Created `components/landing/newsletter-section.tsx` — Interactive newsletter with form validation, loading state, success feedback, and kwikToast notifications
+    73→- Updated `page.tsx` imports: removed unused `Sun`, `Moon`, `Input`, `Mail`, `useTheme`; added new component imports
+    74→- Added search button + cart icon to header with badge count
+    75→- Added `SearchOverlay` component with keyboard shortcut (ESC to close), animated dropdown, focus management
+    76→- Enhanced hero section: decorative blurred gradient orbs, better gradient direction
+    77→- Fixed CTA section: replaced `bg-primary` (undefined) with `kwik-gradient` + decorative elements
+    78→- Fixed Features section: `bg-primary/10` → `bg-accent/10`, added hover lift animation (-translate-y-1), added section chip
+    79→- Fixed Testimonials: avatar circles use `kwik-gradient` instead of `bg-primary`
+    80→- Added smooth scroll behavior (`scroll-behavior: smooth` in CSS)
+    81→- Page sections flow: Hero → Social Proof → Features → How It Works → Stats → Categories → Trending Products → Pricing → Top Vendors → Testimonials → FAQ → CTA → Newsletter → Footer
+    82→- Added FloatingButtons (WhatsApp + Back-to-top) at bottom-right
+    83→- ESLint check: 0 errors, 1 warning (next/image for external URLs — expected)
+    84→- Page renders at ~147KB, HTTP 200, all new sections verified in HTML output
+    85→
+    86→Stage Summary:
+    87→- 5 new landing page components created in `components/landing/`
+    88→- Cart store created with full CRUD operations and persistence
+    89→- 4 new page sections: Trending Products, Top Vendors, Social Proof, Interactive Newsletter
+    90→- 2 floating action buttons: WhatsApp chat, Back-to-top
+    91→- Search overlay with ESC keyboard shortcut
+    92→- Cart icon with dynamic badge count in header
+    93→- All `bg-primary` references fixed to proper `bg-accent` or `kwik-gradient`
+    94→- Hero section enhanced with decorative gradient elements
+    95→- Features section upgraded with hover lift animation and section chip
+    96→- Smooth scroll CSS added globally
+    97→
+    98→---
+    99→Task ID: 5
+   100→Agent: Main Agent (Cron Review Cycle 1)
+   101→Task: QA testing, styling improvements, new features — Cart Drawer, Quick View Modal, Testimonial Carousel, Promo Banner, Scroll Progress Bar
+   102→
+   103→Work Log:
+   104→- **QA Testing**: Tested homepage (200, 169KB), /login (200), /register (200) via agent-browser
+   105→- **Cart Drawer** (`cart-drawer.tsx`): Full slide-in sidebar with item list, quantity controls (+/-), remove item, clear cart, savings banner, subtotal/total, checkout button, trust badges (Secure Payment, Escrow Protected)
+   106→- **Quick View Modal** (`quick-view-modal.tsx`): Product detail modal with image gallery, arrow navigation, image dots, quantity selector, add-to-cart with multi-quantity, wishlist toggle, share button, trust badges (Free Delivery, Escrow Pay, Easy Returns), ESC/arrow key support
+   107→- **Testimonial Carousel** (`testimonial-carousel.tsx`): 5 testimonials with auto-rotate (5s interval), prev/next navigation, dot indicators, pause on hover, gradient avatars, star ratings, location info, decorative quote elements
+   108→- **Promo Banner** (`promo-banner.tsx`): Rotating promotional messages (3 promos), auto-switching every 4s, dismissible, animated transitions
+   109→- **Scroll Progress Bar** (`scroll-progress.tsx`): Orange gradient progress bar fixed at top, spring-animated scroll tracking
+   110→- **Enhanced Social Proof** (`social-proof.tsx`): Infinite marquee animation with 12 partner logos in 2 rows (opposing directions), hover effects
+   111→- **Enhanced Trending Products**: Added quick view integration, hover "Add to Cart" button overlay on product images, enhanced card styling with shadow/hover lift, gradient image overlay, animated action buttons (wishlist/quick-view slide-in)
+   112→- **Enhanced Cart Badge**: Animated scale-in on badge count change
+   113→- **Cart Button**: Now opens cart drawer instead of showing toast
+   114→- **New CSS Animations**: Marquee loop, shimmer loading, pulse glow effects
+   115→- **ESLint**: Fixed pre-existing setState-in-effect error in reset-password-page.tsx; 0 errors, 2 expected warnings (external img)
+   116→- **Dark Mode**: Verified all new components render correctly in dark mode
+   117→
+   118→Stage Summary:
+   119→- 4 new components created: CartDrawer, QuickViewModal, TestimonialCarousel, PromoBanner, ScrollProgress
+   120→- Social Proof upgraded from static grid to infinite marquee
+   121→- Trending Products upgraded with hover add-to-cart overlay and quick view integration
+   122→- Cart button now opens full cart drawer sidebar
+   123→- Page size: ~169KB (up from ~147KB), all sections rendering correctly
+   124→- ESLint: 0 errors, 2 expected warnings
+   125→- All pages verified: / (200), /login (200), /register (200)
+   126→
+   127→---
+   128→Task ID: 6
+   129→Agent: Main Agent (Cron Review Cycle 2)
+   130→Task: Major feature additions — Mobile Bottom Nav, Recently Viewed, App Promo Banner, Enhanced Footer
+   131→
+   132→Work Log:
+   133→- **QA Testing**: Homepage (200, 195KB), /login (200), /register (200), /forgot-password (200) — all healthy
+   134→- **Recently Viewed Store** (`stores/recently-viewed-store.ts`): Zustand store with localStorage persistence, max 12 items, addItem (dedupes by id), clearAll, auto-stamps viewedAt timestamp
+   135→- **Mobile Bottom Navigation** (`mobile-bottom-nav.tsx`): Fixed bottom bar (md:hidden), glassmorphism backdrop, 5 nav items (Home/Categories/Search/Cart/Profile), animated active indicator (layoutId dot), cart badge with count, framer-motion bounce on tap, iOS safe-area padding, onSearchOpen prop
+   136→- **Recently Viewed Products** (`recently-viewed.tsx`): Horizontal scrollable row with snap, compact cards (160px/200px), quick add-to-cart hover overlay, clear-all button, desktop scroll arrows, staggered animations, hidden when no items (returns null)
+   137→- **App Download Banner** (`app-promo-banner.tsx`): Full-width kwik-gradient section, split layout (text + CSS phone mockup), 3 feature items with staggered animations, App Store + Google Play buttons (styled white cards with SVG icons), dismissible via localStorage (7-day persistence), lazy state initialization
+   138→- **Enhanced Footer** (`enhanced-footer.tsx`): 5-column grid (Brand, Product, Company, Support, Download), brand logo + tagline, 4 social icons (Facebook/Twitter/Instagram/LinkedIn) with hover effects, mini newsletter form, payment method badges (Paystack, Flutterwave, Visa, Mastercard, Mobile Money), app store badges, trust badges (Secure Payments, Escrow Protection, 24/7 Support), copyright bar with legal links + back-to-top button
+   139→- **Integration**: Replaced old basic footer with EnhancedFooter, added MobileBottomNav with onSearchOpen callback, added AppPromoBanner after Newsletter, added RecentlyViewed after AppPromoBanner, added `id="categories"` to categories section for mobile nav scroll, added `pb-20 md:pb-0` to main content for mobile nav clearance
+   140→- **Lint**: 0 errors, 0 warnings across entire project
+   141→- **Dark mode**: Verified all new components render correctly
+   142→
+   143→Stage Summary:
+   144→- 4 new components + 1 new store created
+   145→- Old basic footer replaced with comprehensive EnhancedFooter
+   146→- Mobile bottom nav provides native app-like navigation on mobile
+   147→- Recently viewed products track browsing history with localStorage
+   148→- App promo banner promotes mobile app with CSS phone mockup
+   149→- ESLint: 0 errors, 0 warnings
+   150→- Page size: ~195KB (up from ~169KB)
+   151→- All routes verified: / (200), /login (200), /register (200), /forgot-password (200)
+   152→
+   153→## Current Project Status
+   154→
+   155→### Assessment
+   156→- Kwikseller monorepo is fully operational on port 3000
+   157→- Marketplace landing page has 22+ sections/components with rich interactivity
+   158→- Cart drawer provides full shopping cart experience (items, quantities, totals, checkout)
+   159→- Quick view modal enables product inspection without leaving the page
+   160→- Testimonial carousel with 5 testimonials auto-rotates with navigation
+   161→- Promo banner rotates 3 promotional messages with dismiss capability
+   162→- Scroll progress bar provides visual page position feedback
+   163→- Social proof section uses infinite marquee animation for partner logos
+   164→- Dark mode works across all components
+   165→- Mobile bottom navigation bar provides native app-like experience
+   166→- Recently viewed products section tracks browsing history
+   167→- App promo banner with CSS phone mockup promotes mobile download
+   168→- Comprehensive footer with social links, payment badges, app store badges
+   169→
+   170→### Completed Modifications (All Phases)
+   171→1. Mobile hamburger menu with framer-motion drawer
+   172→2. How It Works section (4 steps)
+   173→3. Shop by Category section (6 categories, with id="categories" for mobile nav)
+   174→4. FAQ section with expandable accordion (6 questions)
+   175→5. Newsletter subscription section (interactive with toast)
+   176→6. Scroll-triggered animations (fade-in, stagger, counter)
+   177→7. Dark mode toggle in header
+   178→8. Bug fix: FAQ accordion now expands
+   179→9. Bug fix: Counter shows formatted display values
+   180→10. Cart store with Zustand + persist
+   181→11. Search overlay with ESC keyboard shortcut
+   182→12. Cart icon with animated badge count in header
+   183→13. Trending Products section (6 products with add-to-cart, quick view, hover effects)
+   184→14. Top Vendors section (4 featured stores)
+   185→15. Social Proof / Brand Partners infinite marquee (12 partners, 2 rows)
+   186→16. WhatsApp floating chat button
+   187→17. Back-to-top floating button
+   188→18. Hero section decorative gradient elements
+   189→19. Features section hover lift animation
+   190→20. CTA section redesigned with kwik-gradient
+   191→21. Smooth scroll CSS + scroll progress bar
+   192→22. All bg-primary references fixed
+   193→23. Cart Drawer sidebar (full cart UI with items, quantities, totals, checkout)
+   194→24. Quick View Modal (product detail with image gallery, quantity, wishlist, trust badges)
+   195→25. Testimonial Carousel (5 testimonials, auto-rotate, navigation dots/arrows)
+   196→26. Promo Banner (3 rotating promotional messages, dismissible)
+   197→27. Scroll Progress Bar (spring-animated orange gradient)
+   198→28. Enhanced product card hover effects (add-to-cart overlay, action buttons slide-in)
+   199→29. CSS animations: marquee, shimmer, pulse-glow
+   200→30. Bug fix: setState-in-effect in reset-password-page.tsx
+   201→31. **NEW** Mobile Bottom Navigation (5 items: Home/Categories/Search/Cart/Profile)
+   202→32. **NEW** Recently Viewed Products (horizontal scroll, localStorage, max 12 items)
+   203→33. **NEW** Recently Viewed Store (Zustand + persist, dedup by id)
+   204→34. **NEW** App Download Banner (CSS phone mockup, App Store/Google Play, 7-day dismiss)
+   205→35. **NEW** Enhanced Footer (5 columns, social icons, payment badges, trust badges, newsletter)
+   206→36. **NEW** Mobile bottom padding (pb-20) for nav clearance
+   207→
+   208→---
+   209→Task ID: 3,4
+   210→Agent: Enhancement Agent
+   211→Task: Create Wishlist Store + Live Activity Feed
+   212→
+   213→Work Log:
+   214→- Created wishlist-store.ts with Zustand + persist middleware (key: 'kwikseller-wishlist')
+   215→- Implemented addItem with deduplication by id, removeItem, toggleItem, isInWishlist, clearAll, itemCount
+   216→- itemCount computed synchronously in every mutation for reactive updates
+   217→- Updated stores/index.ts to re-export useWishlistStore and WishlistItem
+   218→- Created live-activity-feed.tsx with 12 simulated purchase notifications
+   219→- Animated slide-in/out from bottom-left using framer-motion (spring animation)
+   220→- Each notification shows for 4 seconds, auto-cycles every ~8 seconds with random jitter
+   221→- Glassmorphism card styling with backdrop-blur, subtle border, shadow
+   222→- Dismiss button (X) on each notification, EyeOff close-all button for session
+   223→- Responsive positioning: bottom-20 on mobile (above mobile nav), bottom-8 on desktop
+   224→- ESLint: 0 errors, 0 warnings
+   225→
+   226→Stage Summary:
+   227→- Wishlist store ready for use in product cards
+   228→- Live activity feed shows simulated purchase notifications with smooth animations
+   229→- No backend API connected — auth pages and cart are UI-only
+   230→- Product images use Unsplash URLs — may need to be replaced with actual product images
+   231→- WhatsApp chat link points to placeholder phone number
+   232→- App Store / Google Play download links point to "#"
+   233→- Social media links in footer point to "#"
+   234→- Payment badge icons use generic lucide icons (not actual brand logos)
+   235→
+   236→---
+   237→Task ID: 5,6
+   238→Agent: Enhancement Agent
+   239→Task: Create Product Filter Chips + Cookie Consent Banner
+   240→
+   241→Work Log:
+   242→- Created product-filter-chips.tsx with horizontal scrollable filters
+   243→  - 8 filter chips: All, Fashion, Electronics, Beauty, Food & Drinks, Home & Garden, Automobiles, Phones
+   244→  - Active chip uses framer-motion layoutId="active-filter" with kwik-gradient background and white text
+   245→  - Inactive chips use bg-default-100 with text-default-500, hover:bg-default-200
+   246→  - Horizontal scroll with snap on mobile, wrap on desktop
+   247→  - Left/right scroll arrow buttons visible on desktop (hidden on mobile), scroll by 200px
+   248→  - Scroll button visibility auto-updates via scroll event listener
+   249→  - Props: activeFilter, onFilterChange for standalone or integrated use
+   250→- Created cookie-consent-banner.tsx with GDPR-style consent UI
+   251→  - Fixed bottom banner at z-40, glassmorphism card style (bg-background/95, backdrop-blur-lg, border-t)
+   252→  - Shows on first visit (1.2s delay for smooth load), persisted via localStorage key 'kwikseller-cookie-consent'
+   253→  - Cookie icon with spring animation on initial load
+   254→  - "Accept All" button (kwik-gradient) saves full consent and closes banner
+   255→  - "Customize" button opens HeroUI Modal with toggle options for Essential/Analytics/Marketing cookies
+   256→  - Essential cookies marked as required (cannot be disabled)
+   257→  - Slide-up animation with framer-motion (y:100 → y:0), spring physics
+   258→  - Dismiss X button on desktop, works in both light and dark mode
+   259→- ESLint: Both files pass with 0 errors, 0 warnings
+   260→
+   261→Stage Summary:
+   262→- Product filter chips ready for integration with Trending Products section
+   263→- Cookie consent banner with customize modal ready for page integration
+   264→- Both components follow existing project conventions (HeroUI, framer-motion, kwik-gradient, cn utility)
+   265→
+   266→---
+   267→Task ID: 7
+   268→Agent: Main Agent (Cron Review Cycle 3)
+   269→Task: Enhanced Hero Background, Wishlist Integration, Live Activity Feed, Filter Chips, Cookie Consent, Decorative Patterns
+   270→
+   271→Work Log:
+   272→- **QA Testing**: Homepage (200, 228KB), /login (200), /register (200) — all healthy
+   273→- **Wishlist Store** (`stores/wishlist-store.ts`): Zustand + persist, addItem (dedupes), removeItem, toggleItem, isInWishlist, clearAll, itemCount — re-exported from stores/index.ts
+   274→- **Live Activity Feed** (`live-activity-feed.tsx`): 12 simulated purchase notifications from African cities, framer-motion spring slide-in from bottom-left, 4s display, ~8s cycle with random jitter, glassmorphism card, dismiss individual + disable all, responsive positioning (above mobile nav on mobile)
+   275→- **Product Filter Chips** (`product-filter-chips.tsx`): 8 categories (All, Fashion, Electronics, Beauty, Food, Home, Automobiles, Phones), layoutId animated active indicator, horizontal scroll + snap on mobile, flex-wrap on desktop, chevron scroll arrows
+   276→- **Cookie Consent Banner** (`cookie-consent-banner.tsx`): GDPR-style fixed bottom banner, glassmorphism style, "Accept All" + "Customize" buttons, customize modal with 3 toggle rows (Essential locked, Analytics, Marketing), localStorage persistence, spring slide-up animation, Shield badge
+   277→- **Hero Background** (`hero-background.tsx`): Animated mesh gradient with 3 color-shifting blobs (accent/warning/success), 12 floating geometric shapes (circles, triangles, squares, rings), subtle grid pattern overlay, useSyncExternalStore for prefers-reduced-motion (SSR-safe), static fallback for reduced-motion
+   278→- **Enhanced Trending Products**: Expanded from 6 to 12 products with categories (fashion, electronics, beauty, food, home, phones), integrated filter chips with animated transitions, wishlist heart toggle using useWishlistStore (red fill when wishlisted), grid upgraded to 4 columns on desktop
+   279→- **Stats Section Enhancement**: Changed from bg-default-50 to full kwik-gradient background, text changed to white/white-80 for contrast, subtle grid pattern overlay
+   280→- **Decorative Patterns**: Added pattern-dots to Features and FAQ sections, pattern-diagonal to How It Works, pattern-grid to Stats section (via CSS utility classes)
+   281→- **New CSS Utilities**: animate-float, animate-slow-rotate, animate-gradient-shift, animate-bounce-subtle, pattern-dots, pattern-grid, pattern-diagonal, glass-card, glass-card-strong, text-gradient-glow, deco-blob
+   282→- **Bug Fix**: hero-background.tsx — replaced useState+useEffect with useSyncExternalStore for prefers-reduced-motion (fixed setState-in-effect ESLint error)
+   283→- **Bug Fix**: cookie-consent-banner.tsx — replaced HeroUI Modal (non-existent exports in v3: ModalContent, ModalHeader, etc.) with custom framer-motion modal + toggle switches
+   284→- **ESLint**: 0 errors, 0 warnings
+   285→
+   286→Stage Summary:
+   287→- 4 new components + 1 new store created
+   288→- Hero section now has animated mesh gradient + floating shapes
+   289→- Product filtering with 8 categories + animated transitions
+   290→- Wishlist toggle integrated into all product cards
+   291→- Live activity feed provides social proof notifications
+   292→- Cookie consent banner adds GDPR compliance
+   293→- Stats section now has gradient background with white text
+   294→- Decorative patterns (dots, diagonal, grid) enhance section backgrounds
+   295→- Page size: ~228KB (up from ~195KB)
+   296→- ESLint: 0 errors, 0 warnings
+   297→- All routes verified: / (200), /login (200), /register (200)
+   298→
+   299→## Current Project Status
+   300→
+   301→### Assessment
+   302→- Kwikseller monorepo is fully operational on port 3000
+   303→- Marketplace landing page has 26+ sections/components with rich interactivity
+   304→- Cart drawer provides full shopping cart experience (items, quantities, totals, checkout)
+   305→- Quick view modal enables product inspection without leaving the page
+   306→- Testimonial carousel with 5 testimonials auto-rotates with navigation
+   307→- Promo banner rotates 3 promotional messages with dismiss capability
+   308→- Scroll progress bar provides visual page position feedback
+   309→- Social proof section uses infinite marquee animation for partner logos
+   310→- Dark mode works across all components
+   311→- Mobile bottom navigation bar provides native app-like experience
+   312→- Recently viewed products section tracks browsing history
+   313→- App promo banner with CSS phone mockup promotes mobile download
+   314→- Comprehensive footer with social links, payment badges, app store badges
+   315→- Live activity feed simulates real-time purchase notifications
+   316→- Cookie consent banner provides GDPR compliance
+   317→- Product filtering with 8 categories and animated transitions
+   318→- Wishlist integration on all product cards
+   319→- Animated hero background with mesh gradient and floating shapes
+   320→- Stats section with gradient background
+   321→
+   322→### Completed Modifications (All Phases)
+   323→1. Mobile hamburger menu with framer-motion drawer
+   324→2. How It Works section (4 steps)
+   325→3. Shop by Category section (6 categories, with id="categories" for mobile nav)
+   326→4. FAQ section with expandable accordion (6 questions)
+   327→5. Newsletter subscription section (interactive with toast)
+   328→6. Scroll-triggered animations (fade-in, stagger, counter)
+   329→7. Dark mode toggle in header
+   330→8. Bug fix: FAQ accordion now expands
+   331→9. Bug fix: Counter shows formatted display values
+   332→10. Cart store with Zustand + persist
+   333→11. Search overlay with ESC keyboard shortcut
+   334→12. Cart icon with animated badge count in header
+   335→13. Trending Products section (12 products with add-to-cart, quick view, hover effects, filter chips, wishlist)
+   336→14. Top Vendors section (4 featured stores)
+   337→15. Social Proof / Brand Partners infinite marquee (12 partners, 2 rows)
+   338→16. WhatsApp floating chat button
+   339→17. Back-to-top floating button
+   340→18. Hero section decorative gradient elements + animated mesh gradient + floating shapes
+   341→19. Features section hover lift animation + dot pattern overlay
+   342→20. CTA section redesigned with kwik-gradient
+   343→21. Smooth scroll CSS + scroll progress bar
+   344→22. All bg-primary references fixed
+   345→23. Cart Drawer sidebar (full cart UI with items, quantities, totals, checkout)
+   346→24. Quick View Modal (product detail with image gallery, quantity, wishlist, trust badges)
+   347→25. Testimonial Carousel (5 testimonials, auto-rotate, navigation dots/arrows)
+   348→26. Promo Banner (3 rotating promotional messages, dismissible)
+   349→27. Scroll Progress Bar (spring-animated orange gradient)
+   350→28. Enhanced product card hover effects (add-to-cart overlay, action buttons slide-in)
+   351→29. CSS animations: marquee, shimmer, pulse-glow, float, slow-rotate, gradient-shift, bounce-subtle
+   352→30. Bug fix: setState-in-effect in reset-password-page.tsx
+   353→31. Mobile Bottom Navigation (5 items: Home/Categories/Search/Cart/Profile)
+   354→32. Recently Viewed Products (horizontal scroll, localStorage, max 12 items)
+   355→33. Recently Viewed Store (Zustand + persist, dedup by id)
+   356→34. App Download Banner (CSS phone mockup, App Store/Google Play, 7-day dismiss)
+   357→35. Enhanced Footer (5 columns, social icons, payment badges, trust badges, newsletter)
+   358→36. Mobile bottom padding (pb-20) for nav clearance
+   359→37. Wishlist Store (Zustand + persist, toggle, dedup, clear)
+   360→38. Live Activity Feed (simulated purchase notifications, glassmorphism, dismissible)
+   361→39. Product Filter Chips (8 categories, animated layoutId, scroll arrows)
+   362→40. Cookie Consent Banner (GDPR, customize modal, toggle switches)
+   363→41. Hero Background (animated mesh gradient, floating shapes, reduced-motion support)
+   364→42. Stats Section gradient background (kwik-gradient, white text, grid pattern)
+   365→43. Decorative patterns (dots, diagonal, grid) on Features/HowItWorks/Stats/FAQ
+   366→44. Bug fix: hero-background.tsx useSyncExternalStore for reduced-motion
+   367→45. Bug fix: cookie-consent-banner.tsx custom modal (HeroUI v3 doesn't export ModalContent)
+   368→
+   369→### Priority Recommendations for Next Phase
+   370→1. Connect auth pages to actual NestJS API endpoints (or add mock API for demo)
+   371→2. Add a "Browse Marketplace" product listing page with search/filter/sort
+   372→3. Add a product detail page with full image gallery, reviews, related products
+   373→4. Add a checkout flow page (shipping address, payment method selection, order summary)
+   374→5. Connect newsletter form to an actual API endpoint
+   375→6. Add product comparison feature
+   376→7. Add vendor storefront page template
+   377→8. Add vendor-specific animated counters in Top Vendors section
+   378→9. Replace placeholder links with actual URLs (#, social media, app stores)
+   379→10. Add image optimization or replace Unsplash URLs with actual product images
+   380→11. Add load more / infinite scroll to Trending Products
+   381→12. Add internationalization (multi-language support for African markets)
+   382→13. Add a "Compare Products" feature with side-by-side comparison table
+   383→14. Add a "How Pool Selling Works" explainer section
+   384→15. Add seller analytics dashboard preview section
+   385→
+   386→---
+   387→Task ID: 8
+   388→Agent: Main Agent (Cron Review Cycle 4)
+   389→Task: Deals of the Day, Trust Indicators, Vendor Onboarding, Enhanced Pricing Section
+   390→
+   391→Work Log:
+   392→- **QA Testing**: Homepage (200, 273KB), /login (200), /register (200) — all healthy, ESLint 0 errors
+   393→- **Deals of the Day** (`deals-of-the-day.tsx`): kwik-gradient background section, "⚡ Flash Deals" chip, countdown timer (8h from mount, flip-style digit cards), 4 deal product cards in horizontal scrollable row with snap, each card has gradient image, discount badge, time-left, savings chip, "Shop Now" button with cart integration, desktop scroll arrows, staggered framer-motion entrance
+   394→- **Trust Indicators** (`trust-indicators.tsx`): "Why Choose KWIKSELLER?" heading, 4 trust feature cards (Escrow Protection, Fast Delivery, 24/7 Support, Easy Returns) with colored icons and hover effects, gradient line separator, 6 payment/security badges (Visa, Mastercard, Paystack, MoMo, Flutterwave, Bank Transfer), SSL encryption trust text
+   395→- **Vendor Onboarding** (`vendor-onboarding.tsx`): 4-step alternating layout (image left/right), scroll-triggered animations, floating decorative elements, gradient number badges, step progress indicator, CTA "Create Your Free Store" button
+   396→- **Enhanced Pricing Section**: Added decorative blur orbs background, "Simple Pricing" chip with Coins icon, Monthly/Yearly toggle UI, "Save 20%" badge, hover lift animation on cards, improved card styling (ring on popular plan)
+   397→- **ESLint**: Fixed no-constant-condition error in pricing toggle; 0 errors, 0 warnings
+   398→
+   399→Stage Summary:
+   400→- 3 new components created: DealsOfTheDay, TrustIndicators, VendorOnboarding
+   401→- Pricing section enhanced with toggle, chip, decorative elements, hover animations
+   402→- Deals countdown timer adds urgency-driven commerce section
+   403→- Trust indicators reinforce security/payment credibility
+   404→- Vendor onboarding showcases the seller journey
+   405→- Page size: ~273KB (up from ~228KB)
+   406→- ESLint: 0 errors, 0 warnings
+   407→- All routes verified: / (200), /login (200), /register (200)
+   408→
+   409→---
+   410→Task ID: 9
+   411→Agent: Main Agent (Cron Review Cycle 5)
+   412→Task: Mega Menu Navigation, Africa Coverage Map, Product Comparison, Enhanced Search Overlay, Bug Fixes
+   413→
+   414→Work Log:
+   415→- **QA Testing**: Homepage (200), /login (200), /register (200) — all healthy, ESLint 0 errors/0 warnings across entire src/
+   416→- **Mega Menu Navigation** (`mega-menu.tsx`): Desktop mega nav replacing simple text links. 4 dropdown items (Categories/Products/Vendors/Resources). Categories: 9 items in 3-column grid with Lucide icons and product counts. Products: 4 links (Trending, New Arrivals, Top Rated, Deals). Vendors: 4 links. Resources: 4 links. Glassmorphism dropdown (bg-background/90 backdrop-blur-xl), layoutId animated active indicator with spring physics, 200ms close delay, click-outside-to-close, scroll-to-close, hidden on mobile (hidden md:flex), z-30
+   417→- **Africa Coverage Map** (`africa-coverage-map.tsx`): Full-width kwik-gradient section with "Serving Across Africa" heading + Globe Chip badge. 15 African countries (Nigeria, Kenya, Ghana, South Africa, Tanzania, Uganda, Rwanda, Senegal, Cameroon, Egypt, Morocco, Ethiopia, Côte d'Ivoire, Congo, Mozambique) with percentage-based CSS positioning on dark map background. Proportionally-sized dots by vendor count (Nigeria largest), continuous pulse animation, hover tooltips with country name + vendor count. Grid pattern overlay, SVG dashed trade corridor lines. Two-column layout: map (3 cols) + stats/country list (2 cols). Glassmorphism stat cards with animated counters (15+ Countries, 10K+ Vendors, 500K+ Products). Scrollable country list with mini dot indicators
+   418→- **Product Comparison Store** (`stores/compare-store.ts`): Zustand + persist middleware (key: kwikseller-compare). CompareProduct interface with specs Record<string, string>, rating, reviews. Max 4 products. Actions: addProduct (dedup by id), removeProduct, clearAll, setOpen, toggleOpen, isInCompare. Re-exported from stores/index.ts
+   419→- **Compare Panel** (`compare-panel.tsx`): Two exports — ComparePanel (floating bottom-center) and CompareToggle (36x36 button for product cards). Minimized state: pill bar with stacked product thumbnails, "Compare (N)" count, Clear + Compare Now buttons. Expanded state: spring-animated slide-up with product cards (gradient image, name, store, rating, price), up to 4 empty slot placeholders, dynamic specs comparison table (aligned rows, scrollable), action bar. CompareToggle uses Scale icon, red fill when active, shows toast on add/remove, warns at max capacity. ESC key to close. z-55
+   420→- **Enhanced Search Overlay** (`enhanced-search-overlay.tsx`): Replaced old inline SearchOverlay. 6 sections: (1) Search History — localStorage via external store pattern, max 8 items, Clock icon, per-item X remove, Clear All button; (2) Trending Searches — 6 African e-commerce terms (Ankara dresses, iPhone 15, Brazilian hair, etc.) with Flame icon + result counts; (3) Popular Categories — 6 cards (Fashion, Electronics, Beauty, Home, Phones, Food) with colored icons and product counts; (4) Product Suggestions — 15 products filtered in real-time, highlighted matching text, colored initial placeholders; (5) No Results state with helpful suggestions; (6) Keyboard hints (Enter to search, ESC to close). Glassmorphism search bar, spring animations, body scroll lock, responsive design
+   421→- **Integration**: MegaNav replaces old desktop nav links in header. ComparePanel added to floating UI section. EnhancedSearchOverlay replaces old inline SearchOverlay component
+   422→- **Bug Fix**: EnhancedSearchOverlay infinite loop (Maximum update depth exceeded) — useSyncExternalStore was creating new array reference on every getSnapshot call, causing React to re-render infinitely. Fixed by implementing cached snapshot pattern with invalidation on emit, plus switching to useState + useEffect subscription pattern
+   423→- **Bug Fix**: TestimonialCarousel hydration mismatch (Hydration failed because server rendered HTML didn't match client) — `typeof window !== 'undefined'` branch caused different itemsPerPage between server (1) and client (3), resulting in 5 vs 3 dot indicators. Fixed by always rendering all testimonials.length dots using constant TOTAL_DOTS, and using CSS opacity-0/pointer-events-none to hide inactive dots on desktop, with isDesktop state tracked via resize event listener
+   424→- **ESLint**: 0 errors, 0 warnings across entire src/ directory
+   425→
+   426→Stage Summary:
+   427→- 3 new components created: MegaNav, AfricaCoverageMap, ComparePanel (with CompareToggle)
+   428→- 1 new store created: compare-store.ts (Zustand + persist, max 4 products)
+   429→- 1 component significantly enhanced: EnhancedSearchOverlay (replaced old SearchOverlay)
+   430→- Desktop navigation upgraded from simple text links to professional mega menu with dropdowns
+   431→- Africa coverage map provides visual representation of 15+ country presence across the continent
+   432→- Product comparison feature with floating panel, spec comparison table, and toggle button
+   433→- Search overlay significantly enhanced with history, trending, categories, and live suggestions
+   434→- 2 critical bug fixes (infinite re-render loop, hydration mismatch)
+   435→- ESLint: 0 errors, 0 warnings
+   436→- All routes verified: / (200), /login (200), /register (200)
+   437→- Page section order: ScrollProgress → OfflineBanner → PromoBanner → Header(MegaNav) → SearchOverlay → Hero → Features → SocialProof → HowItWorks → Stats → Categories → TrendingProducts → DealsOfTheDay → AfricaCoverageMap → Pricing → VendorOnboarding → TopVendors → Testimonials → FAQ → CTA → TrustIndicators → Newsletter → AppPromo → RecentlyViewed → CartDrawer → ComparePanel → FloatingButtons → LiveActivityFeed → MobileBottomNav → CookieConsent → EnhancedFooter
+   438→
+   439→## Current Project Status (Post-Round 9)
+   440→
+   441→### Assessment
+   442→- Kwikseller monorepo is fully operational on port 3000
+   443→- Marketplace landing page has 30+ sections/components with rich interactivity
+   444→- Professional mega menu navigation with 4 dropdown categories on desktop
+   445→- Africa coverage map showing 15 countries with interactive tooltips and animated counters
+   446→- Product comparison feature with floating panel and side-by-side spec comparison
+   447→- Enhanced search with history, trending searches, categories, and live product suggestions
+   448→- Deals of the day with countdown timer, trust indicators, vendor onboarding
+   449→- Cart drawer, quick view modal, testimonial carousel, promo banner
+   450→- Social proof marquee, product filtering, wishlist integration, cookie consent
+   451→- Animated hero background, dark mode, mobile bottom nav, responsive design
+   452→- Scroll progress, floating buttons, recently viewed products, app promo banner
+   453→- Comprehensive enhanced footer with social links, payment badges, and newsletter
+   454→
+   455→### All Completed Modifications (Tasks 1-9)
+   456→1-45. All previous modifications from Tasks 1-8 (see above)
+   457→46. **NEW** Mega Menu Navigation (4 dropdowns: Categories/Products/Vendors/Resources, glassmorphism, layoutId)
+   458→47. **NEW** Africa Coverage Map (15 countries, interactive dots with tooltips, animated stat counters)
+   459→48. **NEW** Product Comparison Store (Zustand + persist, max 4 products, spec Record)
+   460→49. **NEW** Compare Panel (floating minimized bar + expanded spec comparison, CompareToggle button)
+   461→50. **NEW** Enhanced Search Overlay (history, trending, categories, 15 live suggestions, no-results)
+   462→51. **Bug Fix**: EnhancedSearchOverlay infinite re-render loop (cached snapshot + useState pattern)
+   463→52. **Bug Fix**: TestimonialCarousel hydration mismatch (constant dot count + CSS visibility)
+   464→
+   465→### Known Issues (Non-Critical)
+   466→- Minor hydration warning from MobileBottomNav cart badge (persisted Zustand state vs SSR — cosmetic only, tree regenerates on client)
+   467→- HeroUI v3 `classNames`, `startContent`, `isDisabled` prop warnings on DOM elements (library-level, not fixable)
+   468→- Form fields without onChange handlers on auth pages (read-only during SSR)
+   469→
+   470→### Priority Recommendations for Next Phase
+   471→1. Connect auth pages to actual NestJS API endpoints (or add mock API for demo)
+   472→2. Add a "Browse Marketplace" product listing page with search/filter/sort
+   473→3. Add a product detail page with full image gallery, reviews, related products
+   474→4. Add a checkout flow page (shipping address, payment method, order summary)
+   475→5. Connect newsletter form to an actual API endpoint
+   476→6. Add vendor storefront page template
+   477→7. Add seller analytics dashboard preview section
+   478→8. Replace placeholder links with actual URLs (#, social media, app stores)
+   479→9. Add image optimization or replace Unsplash URLs with actual product images
+   480→10. Add load more / infinite scroll to Trending Products
+   481→11. Add internationalization (multi-language support for African markets)
+   482→12. Add a "How Pool Selling Works" explainer section
+   483→
+   484→---
+   485→Task ID: 10
+   486→Agent: Main Agent (Cron Review Cycle 6)
+   487→Task: KwikCoins Rewards, Seller Success Stories, Delivery Tracker, Pool Selling Integration, Stats Ticker, Functional Pricing Toggle, CSS Styling Improvements
+   488→
+   489→Work Log:
+   490→- **QA Testing**: ESLint 0 errors/0 warnings, homepage HTTP 200, all existing components verified
+   491→- **KwikCoins Rewards** (`kwikcoins-rewards.tsx`): 4 reward tier cards (Bronze/Silver/Gold/Platinum) in 2x2 grid, each with tier-specific color scheme, icon, coin range, perks list with checkmarks, animated progress bar, 3 earning method cards (Make a Sale +1-5, Refer a Friend +50, Complete Milestone +100), CTA button
+   492→- **Seller Success Stories** (`seller-stories.tsx`): 4 vendor success stories from African cities (Lagos, Nairobi, Accra, Kigali), category tab filter (All/Fashion/Electronics/Food/Services) with layoutId animated indicator, each card has gradient avatar, star rating, quote text, revenue growth stats, "Visit Store" button, bottom CTA
+   493→- **Delivery Tracker** (`delivery-tracker.tsx`): kwik-gradient background with pattern-grid overlay, two-column layout — left: mock tracking demo with 5-step vertical timeline (Order Confirmed → Picked Up → In Transit with LIVE badge → Out for Delivery → Delivered), animated progress bar, rider info card; right: 4 glassmorphism feature cards (Fast Pickup, Live GPS Tracking, Delivery Protection, Direct Communication), staggered entrance animations
+   494→- **Stats Ticker** (`stats-ticker.tsx`): Integrated existing scrolling ticker component (10 live stats with marquee animation on kwik-gradient), placed between Social Proof and How It Works
+   495→- **Pool Selling Explainer** (`pool-selling-explainer.tsx`): Integrated existing 4-step pool selling section with alternating image/text layout, gradient step cards, decorative floating elements, CTA; placed after Vendor Onboarding
+   496→- **Wishlist Sidebar** (`wishlist-sidebar.tsx`): Integrated existing wishlist drawer component with isOpen/onClose props, connected to isWishlistOpen state
+   497→- **Functional Pricing Toggle**: Replaced decorative toggle with interactive monthly/yearly switch using framer-motion animated knob, dynamic price display (monthly ₦5,000/₦15,000 vs yearly ₦48,000/₦144,000), animated "Save 20%" badge, active label highlighting
+   498→- **CSS Styling Improvements**: 12+ new utility classes added to globals.css: animate-fade-in-up, animate-slide-in-left/right, animate-glow-pulse, animate-breathe, animate-on-scroll (with modifiers), text-shadow-sm/md, gradient-border (animated 3-color rotation), hover-lift, scrollbar-hide, line-clamp-2/3; custom accent-colored scrollbar for the entire page; selection highlight color (accent/30)
+   499→- **Bug Fix**: Duplicate `useWishlistStore` import causing build failure — removed duplicate import line
+   500→- **ESLint**: 0 errors, 0 warnings
+   501→
+   502→Stage Summary:
+   503→- 3 new components created: KwikCoinsRewards, SellerStories, DeliveryTracker
+   504→- 3 existing components integrated into page: StatsTicker, PoolSellingExplainer, WishlistSidebar
+   505→- Pricing section now has functional monthly/yearly toggle with animated price switching
+   506→- 12+ new CSS utility classes for animations, effects, and layout
+   507→- Custom scrollbar and selection highlight styling
+   508→- Page section order updated: ScrollProgress → OfflineBanner → PromoBanner → Header(MegaNav) → SearchOverlay → Hero → Features → SocialProof → StatsTicker → HowItWorks → Stats → Categories → TrendingProducts → DealsOfTheDay → AfricaCoverageMap → DeliveryTracker → Pricing → VendorOnboarding → PoolSellingExplainer → TopVendors → Testimonials → SellerStories → FAQ → CTA → TrustIndicators → KwikCoinsRewards → Newsletter → AppPromo → RecentlyViewed → CartDrawer → WishlistSidebar → ComparePanel → FloatingButtons → LiveActivityFeed → MobileBottomNav → CookieConsent → EnhancedFooter
+   509→- ESLint: 0 errors, 0 warnings
+   510→- Homepage: HTTP 200, compiles successfully
+   511→- Total landing components: 32
+   512→
+   513→## Current Project Status (Post-Round 10)
+   514→
+   515→### Assessment
+   516→- Kwikseller monorepo is fully operational on port 3000
+   517→- Marketplace landing page has 35+ sections/components — one of the most feature-rich landing pages built
+   518→- 32 landing page components in `components/landing/` directory
+   519→- 4 Zustand stores (cart, wishlist, compare, recently-viewed) with localStorage persistence
+   520→- Professional mega menu navigation with 4 dropdown categories on desktop
+   521→- Africa coverage map showing 15 countries with interactive tooltips and animated counters
+   522→- KwikCoins rewards section with 4 tier cards and earning methods
+   523→- Seller success stories with category filtering and revenue growth stats
+   524→- Delivery tracker with animated mock order tracking timeline
+   525→- Pool selling explainer with alternating step layout
+   526→- Stats ticker scrolling live platform statistics
+   527→- Product comparison feature with floating panel and side-by-side spec comparison
+   528→- Enhanced search with history, trending searches, categories, and live product suggestions
+   529→- Functional monthly/yearly pricing toggle with animated price switching
+   530→- Deals of the day with countdown timer, trust indicators, vendor onboarding
+   531→- Cart drawer, wishlist sidebar, quick view modal, testimonial carousel, promo banner
+   532→- Social proof marquee, product filtering, cookie consent, GDPR compliance
+   533→- Animated hero background, dark mode, mobile bottom nav, responsive design
+   534→- Custom scrollbar, selection highlight, 20+ CSS utility animations
+   535→- Comprehensive enhanced footer with social links, payment badges, and newsletter
+   536→
+   537→### All Completed Modifications (Tasks 1-10)
+   538→1-52. All previous modifications from Tasks 1-9 (see above)
+   539→53. **NEW** KwikCoins Rewards section (4 tiers: Bronze/Silver/Gold/Platinum, earning methods, CTA)
+   540→54. **NEW** Seller Success Stories (4 African vendors, category filter tabs, revenue stats)
+   541→55. **NEW** Delivery Tracker showcase (mock order tracking timeline, 4 feature cards, rider info)
+   542→56. **NEW** StatsTicker integrated (scrolling live stats marquee on kwik-gradient)
+   543→57. **NEW** PoolSellingExplainer integrated (4-step pool selling walkthrough)
+   544→58. **NEW** WishlistSidebar integrated (drawer with isOpen/onClose props)
+   545→59. **NEW** Functional pricing toggle (monthly/yearly switch with animated prices)
+   546→60. **NEW** 12+ CSS utility classes (animations, effects, scrollbar, selection highlight)
+   547→61. **Bug Fix**: Duplicate useWishlistStore import causing build failure
+   548→
+   549→### Known Issues (Non-Critical)
+   550→- Minor hydration warning from MobileBottomNav cart badge (persisted Zustand state vs SSR)
+   551→- HeroUI v3 prop warnings on DOM elements (library-level, not fixable)
+   552→- Form fields without onChange handlers on auth pages (read-only during SSR)
+   553→- Dev server may become unstable under rapid successive route compilation (Turbopack)
+   554→
+   555→### Priority Recommendations for Next Phase
+   556→1. Connect auth pages to actual NestJS API endpoints (or add mock API for demo)
+   557→2. Add a "Browse Marketplace" product listing page with search/filter/sort
+   558→3. Add a product detail page with full image gallery, reviews, related products
+   559→4. Add a checkout flow page (shipping address, payment method, order summary)
+   560→5. Connect newsletter form to an actual API endpoint
+   561→6. Add vendor storefront page template
+   562→7. Add seller analytics dashboard preview section
+   563→8. Replace placeholder links with actual URLs (#, social media, app stores)
+   564→9. Add image optimization or replace Unsplash URLs with actual product images
+   565→10. Add load more / infinite scroll to Trending Products
+   566→11. Add internationalization (multi-language support for African markets)
+   567→12. Add a "KwikCoins wallet" mini-dashboard section showing balance and transaction history
+   568→
+   569→---
+   570→Task ID: 11
+   571→Agent: Main Agent (Cron Review Cycle 7)
+   572→Task: Notification Bell, Interactive Feature Flip Cards, Video Testimonials, Product Rating Widget, Skeleton Loading, Hero Parallax, CSS Polish, Hydration Bug Fix
+   573→
+   574→Work Log:
+   575→- **QA Testing**: ESLint 0 errors/0 warnings across entire src/, homepage HTTP 200, all sections rendering correctly, 25 sections, 126 buttons, 21 h2 headings
+   576→- **Bug Fix**: MobileBottomNav hydration mismatch (Hydration failed because server rendered HTML didn't match client) — persisted Zustand cart count differed between server (0) and client (6), causing different motion.span rendering. Fixed by using `useState(false)` mounted flag with `useEffect(() => setMounted(true))`, only rendering cart badge when `mounted && count > 0`, and removing `suppressHydrationWarning`. This completely eliminates the hydration error.
+   577→- **Notification Bell** (`notification-bell.tsx`): Bell icon button with animated unread badge count, glassmorphism dropdown panel (w-80, bg-background/95 backdrop-blur-xl), header with "Notifications" + unread count chip + "Mark all read" button, 6 African e-commerce themed notifications (order shipped, flash deal, review, delivery, KwikCoins, system), stagger slide-in animation, colored dot indicator per item (accent=unread, default=read), close on click outside + ESC key, "View All Notifications" footer button. Integrated into header between Search and Cart buttons.
+   578→- **Interactive Feature Flip Cards** (`interactive-features.tsx`): 3D flip card section with 6 cards (Store Builder, Smart Analytics, KwikPay Checkout, Pool Marketplace, Rider Network, Marketing Hub). Each card has front face (gradient bg, large icon, title, description, "Tap to explore" hint on mobile) and back face (kwik-gradient bg, title, 4 bullet points, 3 stat badges, "Learn More" button). Pure CSS 3D transforms (perspective: 1000px, preserve-3d, backface-visibility: hidden, rotateY 180deg). Desktop: hover triggers flip. Mobile: click toggles flip. Staggered entrance animations with framer-motion. Keyboard accessible (tabIndex, role, Enter/Space). Placed between Categories and Trending Products sections.
+   579→- **Video Testimonials** (`video-testimonials.tsx`): 6 video-style testimonial cards from African entrepreneurs (Adaeze Okonkwo/Lagos, Emmanuel Mensah/Accra, Fatima Abubakar/Kano, David Mwangi/Nairobi, Aisha Diallo/Dakar, Chidi Nwosu/Enugu). Each card has: video thumbnail area (aspect-video, gradient bg, large initials watermark, animated pulse-ring play button, duration badge, category badge), content area (name, role, star rating, quoted text with line-clamp-3, verified badge + "View Story" link). Horizontal scrollable row with snap on mobile, 3-column grid on desktop. Left/right scroll arrows on desktop. Dot pattern overlay bg. Placed after Seller Stories section.
+   580→- **Product Rating Widget** (`product-rating-widget.tsx`): Overall rating display (4.8/5 with partial star fill), 5-row rating distribution bars (5★ 58%, 4★ 28%, 3★ 9%, 2★ 3%, 1★ 2%) with animated progress bars, 5 rating tags (Great Quality, Fast Delivery, Value for Money, Easy to Use, Beautiful Design) with icons and counts, verified purchase badge (87%). All bars/tags animate in on scroll with stagger. Count-up animation for numbers. Placed after Video Testimonials section.
+   581→- **Skeleton Loading Components** (`skeleton-loading.tsx`): 6 reusable skeleton components — SkeletonPulse (base shimmer), ProductCardSkeleton (matches TrendingProducts layout), VendorCardSkeleton (matches TopVendors layout), TestimonialCardSkeleton (matches TestimonialCarousel), SectionHeaderSkeleton (generic section header), HeroSkeleton (full hero section). All use existing animate-shimmer CSS class from globals.css. Ready for integration when API data loading is implemented.
+   582→- **Hero Parallax** (`hero-parallax.tsx`): Alternative hero with 3 parallax layers — Background (2 blurred gradient orbs + grid pattern, 0.2x scroll speed), Midground (5 floating product bubbles with individual float animations, 0.5x scroll speed), Foreground (hero text content with staggered entrance). Scroll fade-out over 200px. Uses useScroll + useTransform from framer-motion. Respects prefers-reduced-motion. Bubbles hidden on mobile. Created as alternative component (not replacing current hero).
+   583→- **CSS Polish**: 15+ new CSS utility classes appended to globals.css — 3D flip card (perspective-1000, preserve-3d, backface-hidden, rotate-y-180), shimmer skeleton (animate-shimmer-slide with gradient sliding), floating animation variants (animate-float-slow/medium/fast at 6s/4s/3s), pulse ring (animate-pulse-ring for play buttons), gradient text hover (text-gradient-hover), glass morphism (glass-card-subtle), scroll indicator dots (scroll-dot + .active), notification badge bounce (animate-badge-bounce).
+   584→- **Integration**: NotificationBell added to header (between Search and Cart), InteractiveFeatures placed between Categories and TrendingProducts, VideoTestimonials placed after SellerStories, ProductRatingWidget placed after VideoTestimonials.
+   585→
+   586→Stage Summary:
+   587→- 4 new components integrated into page: NotificationBell, InteractiveFeatures, VideoTestimonials, ProductRatingWidget
+   588→- 3 components created as utilities (not yet integrated): SkeletonLoading, HeroParallax
+   589→- 1 critical bug fixed: MobileBottomNav hydration mismatch (mounted flag pattern)
+   590→- 15+ new CSS utility classes for 3D effects, animations, glassmorphism
+   591→- Notification bell with dropdown panel in header
+   592→- Interactive 3D flip cards showcase 6 platform features
+   593→- Video testimonial cards from 6 African entrepreneurs
+   594→- Product rating distribution widget with animated bars and tags
+   595→- ESLint: 0 errors, 0 warnings
+   596→- Homepage: HTTP 200, 25 sections, compiles successfully
+   597→- Total landing components: 38 files in components/landing/
+   598→
+   599→## Current Project Status (Post-Round 11)
+   600→
+   601→### Assessment
+   602→- Kwikseller monorepo is fully operational on port 3000
+   603→- Marketplace landing page has 38+ sections/components — one of the most feature-rich landing pages built
+   604→- Professional mega menu navigation with 4 dropdown categories on desktop
+   605→- Notification bell with dropdown panel for order/promotion/system alerts
+   606→- Interactive 3D flip cards showcasing 6 platform features with hover/click flip
+   607→- Video-style testimonial cards from 6 African entrepreneurs
+   608→- Product rating distribution widget with animated bars and verified purchase badge
+   609→- Skeleton loading components ready for future API integration
+   610→- Hero parallax component available as alternative hero section
+   611→- Africa coverage map showing 15 countries with interactive tooltips
+   612→- KwikCoins rewards, seller success stories, delivery tracker with mock timeline
+   613→- Product comparison feature with floating panel and side-by-side spec comparison
+   614→- Enhanced search with history, trending searches, categories, and live product suggestions
+   615→- Deals of the day with countdown timer, trust indicators, vendor onboarding
+   616→- Cart drawer, wishlist sidebar, quick view modal, testimonial carousel, promo banner
+   617→- Social proof marquee, product filtering, cookie consent, GDPR compliance
+   618→- Animated hero background, dark mode, mobile bottom nav, responsive design
+   619→- Custom scrollbar, selection highlight, 35+ CSS utility animations
+   620→- Comprehensive enhanced footer with social links, payment badges, and newsletter
+   621→
+   622→### All Completed Modifications (Tasks 1-11)
+   623→1-61. All previous modifications from Tasks 1-10 (see above)
+   624→62. **NEW** Notification Bell (dropdown panel, 6 notifications, mark all read, close on ESC/outside)
+   625→63. **NEW** Interactive Feature Flip Cards (6 cards, 3D CSS transforms, hover/click flip, keyboard accessible)
+   626→64. **NEW** Video Testimonials (6 African entrepreneurs, play button overlay, star ratings, scroll arrows)
+   627→65. **NEW** Product Rating Widget (4.8/5 overall, 5-bar distribution, 5 rating tags, verified badge)
+   628→66. **NEW** Skeleton Loading Components (6 reusable skeletons: product, vendor, testimonial, header, hero)
+   629→67. **NEW** Hero Parallax Component (3-layer parallax, scroll fade, floating product bubbles, reduced-motion)
+   630→68. **NEW** 15+ CSS Utilities (3D flip, shimmer, float variants, pulse ring, glass morphism, scroll dots)
+   631→69. **Bug Fix**: MobileBottomNav hydration mismatch (mounted flag pattern eliminates server/client state diff)
+   632→
+   633→### Known Issues (Non-Critical)
+   634→- HeroUI v3 `classNames`, `startContent`, `isDisabled` prop warnings on DOM elements (library-level, not fixable)
+   635→- Form fields without onChange handlers on auth pages (read-only during SSR)
+   636→- HeroParallax and SkeletonLoading components created but not yet integrated into page (available for future use)
+   637→
+   638→### Priority Recommendations for Next Phase
+   639→1. Connect auth pages to actual NestJS API endpoints (or add mock API for demo)
+   640→2. Add a "Browse Marketplace" product listing page with search/filter/sort
+   641→3. Add a product detail page with full image gallery, reviews, related products
+   642→4. Add a checkout flow page (shipping address, payment method, order summary)
+   643→5. Connect newsletter form to an actual API endpoint
+   644→6. Integrate SkeletonLoading components when API data loading is implemented
+   645→7. Replace HeroBackground with HeroParallax for enhanced scroll experience
+   646→8. Add vendor storefront page template
+   647→9. Add seller analytics dashboard preview section
+   648→10. Replace placeholder links with actual URLs (#, social media, app stores)
+   649→11. Add image optimization or replace Unsplash URLs with actual product images
+   650→12. Add load more / infinite scroll to Trending Products
+   651→13. Add internationalization (multi-language support for African markets)
+   652→14. Add a "KwikCoins wallet" mini-dashboard section showing balance and transaction history
+   653→
+   654→---
+   655→Task ID: 12
+   656→Agent: Main Agent (Cron Review Cycle 8)
+   657→Task: KwikCoins Wallet Dashboard, Vendor Spotlight, Page Loading Animation, Community Milestones Timeline
+   658→
+   659→Work Log:
+   660→- **QA Testing**: ESLint 0 errors/0 warnings across entire src/, homepage HTTP 200, all sections rendering correctly via agent-browser
+   661→  - Page structure: 28 sections, 133 buttons, 24 h2 headings, 42 landing components
+   662→  - All new Round 11 components (NotificationBell, InteractiveFeatures, VideoTestimonials, ProductRatingWidget) rendering correctly
+   663→  - No hydration errors in dev server logs
+   664→  - 2 non-critical missing images (icon-192.png 404), 31 placeholder hash links (expected)
+   665→- **KwikCoins Wallet Dashboard** (`kwikcoins-wallet.tsx`): Mini wallet dashboard with two-column layout. Left column: wallet card with kwik-gradient background, coin icon with sparkle, animated count-up balance (2,450 KwikCoins), ₦24,500 equivalent value, Gold Tier badge, 65% progress bar to Platinum. Right column: 3 quick action buttons (Earn Coins/Redeem/Transfer with colored backgrounds), 5 recent transactions with +/- coin amounts and timestamps, coin value calculator (1,000 coins = ₦10,000 ad credit), Gold tier 3x earning rate. Scroll-triggered animations with useInView, wallet slides from left, transactions stagger from right.
+   666→- **Vendor Spotlight** (`vendor-spotlight.tsx`): 6 rich vendor cards (Zara's Collection/Fashion, TechHub Africa/Electronics, Glow Beauty Bar/Beauty, FreshMart Express/Food, HomeVibe Decor/Home, AutoParts NG/Automobiles). Each card: gradient cover area (h-28) with badge (Featured/Top Rated/Rising Star), overlapping avatar with initials and border, store name + category + location, verification badge (ShieldCheck), 3-stat row (Products/Rating/Sales) with animated numbers, 2-line description, 3 category tags, "Visit Store" button. Horizontal scroll with snap on mobile, 3-column grid on desktop. Left/right scroll arrows on desktop. Staggered entrance animations, hover lift effect.
+   667→- **Page Loading Animation** (`page-loader.tsx`): Full-screen overlay (z-[100]) with logo animation (kwik-gradient square + Store icon + pulsing glow), "KWIKSELLER" brand name with letter-by-letter stagger animation, "SELLER" in kwik-gradient-text, 3 bouncing dots, bottom progress bar (kwik-gradient, fills 0%→100% over 2s), "Africa's Commerce Platform" tagline, exit animation (opacity fade + scale down + blur increase, 0.5s). Controlled via isLoading boolean prop. Integrated with useState(true) + 1.8s setTimeout.
+   668→- **Community Milestones Timeline** (`community-milestones.tsx`): kwik-gradient background with pattern-grid overlay. 8 milestones from Jan 2023 to Apr 2025 (Platform Launch → 1K Vendors → 100K Products → KwikCoins Launch → 500K Orders → 15 Countries → 10K Vendors → 2M+ Orders). Alternating timeline on desktop (left/right of center line), linear on mobile (left-aligned). Glassmorphism cards (bg-white/10 backdrop-blur-sm) with white text, kwik-gradient icon circles, date labels, descriptions, stat badges. Animated timeline line that draws on scroll. Latest milestone (Apr 2025) has pulse animation. "Join Our Journey" CTA button at bottom.
+   669→- **Integration**: PageLoader at top of page with 1.8s timeout, VendorSpotlight after ProductRatingWidget, KwikCoinsWallet after VendorSpotlight, CommunityMilestones after KwikCoinsWallet. New state: `isPageLoading` with useEffect cleanup.
+   670→- **ESLint**: 0 errors, 0 warnings across entire src/ directory
+   671→- **Dev Server**: All compilations successful, homepage HTTP 200
+   672→
+   673→Stage Summary:
+   674→- 3 new components integrated into page: KwikCoinsWallet, VendorSpotlight, CommunityMilestones
+   675→- 1 utility component created: PageLoader (integrated into page with loading state)
+   676→- Page now has 28 sections, 42 landing components, 133 buttons
+   677→- Beautiful page loading animation on initial load
+   678→- KwikCoins wallet dashboard shows transaction history and quick actions
+   679→- Vendor spotlight with 6 rich vendor cards (cover, avatar, stats, tags)
+   680→- Community milestones timeline with 8 growth story points on kwik-gradient background
+   681→- ESLint: 0 errors, 0 warnings
+   682→- Homepage: HTTP 200, compiles successfully
+   683→
+   684→## Current Project Status (Post-Round 12)
+   685→
+   686→### Assessment
+   687→- Kwikseller monorepo is fully operational on port 3000
+   688→- Marketplace landing page has 42 landing components across 28 sections
+   689→- Page loading animation with branded splash screen on initial load
+   690→- Professional mega menu navigation with 4 dropdown categories on desktop
+   691→- Notification bell with dropdown panel for alerts
+   692→- Interactive 3D flip cards showcasing 6 platform features
+   693→- Video testimonial cards from 6 African entrepreneurs
+   694→- Product rating distribution widget with animated bars
+   695→- Vendor spotlight carousel with 6 rich vendor cards
+   696→- KwikCoins wallet dashboard with transaction history and quick actions
+   697→- Community milestones timeline with 8 growth story points (Jan 2023 → Apr 2025)
+   698→- Africa coverage map, KwikCoins rewards, seller success stories
+   699→- Delivery tracker, vendor onboarding, product comparison
+   700→- Enhanced search, deals of the day, trust indicators
+   701→- Cart drawer, wishlist sidebar, quick view modal, testimonial carousel
+   702→- Social proof marquee, product filtering, cookie consent
+   703→- Animated hero background, dark mode, mobile bottom nav, responsive design
+   704→- Comprehensive enhanced footer with social links, payment badges
+   705→
+   706→### All Completed Modifications (Tasks 1-12)
+   707→1-69. All previous modifications from Tasks 1-11 (see above)
+   708→70. **NEW** KwikCoins Wallet Dashboard (balance card, quick actions, 5 transactions, value calculator)
+   709→71. **NEW** Vendor Spotlight Carousel (6 vendors, cover/gradient areas, stats rows, category tags, scroll arrows)
+   710→72. **NEW** Page Loading Animation (branded splash, letter stagger, bouncing dots, progress bar, exit animation)
+   711→73. **NEW** Community Milestones Timeline (8 milestones Jan 2023→Apr 2025, alternating layout, animated line)
+   712→
+   713→### Known Issues (Non-Critical)
+   714→- HeroUI v3 `classNames`, `startContent`, `isDisabled`, `isPressable` prop warnings on DOM elements (library-level, not fixable)
+   715→- Form fields without onChange handlers on auth pages (read-only during SSR)
+   716→- 2 missing images (icon-192.png 404) for PWA manifest
+   717→- 31 placeholder hash links (#) in footer and app promo sections (expected — no actual URLs yet)
+   718→- HeroParallax and SkeletonLoading components available but not yet integrated into page
+   719→
+   720→### Priority Recommendations for Next Phase
+   721→1. Connect auth pages to actual NestJS API endpoints (or add mock API for demo)
+   722→2. Add a "Browse Marketplace" product listing page with search/filter/sort
+   723→3. Add a product detail page with full image gallery, reviews, related products
+   724→4. Add a checkout flow page (shipping address, payment method, order summary)
+   725→5. Connect newsletter form to an actual API endpoint
+   726→6. Replace HeroBackground with HeroParallax for enhanced scroll experience
+   727→7. Integrate SkeletonLoading components when API data loading is implemented
+   728→8. Add vendor storefront page template
+   729→9. Add seller analytics dashboard preview section
+   730→10. Replace placeholder links with actual URLs (#, social media, app stores)
+   731→11. Add image optimization or replace Unsplash URLs with actual product images
+   732→12. Add load more / infinite scroll to Trending Products
+   733→13. Add internationalization (multi-language support for African markets)
+   734→14. Add a "KwikCoins wallet" expanded page (from dashboard preview to full page)
+   735→15. Fix icon-192.png 404 for PWA manifest
+   736→
+   737→---
+   738→Task ID: clone-1
+   739→Agent: main (Z.ai Code)
+   740→Task: Clone the Kwikseller repository (https://github.com/codewithemperor/Kwikseller.git) into /home/z/my-project/ as a 1:1 mirror, replacing the previous Next.js scaffold.
+   741→
+   742→Work Log:
+   743→- Cloned the repo with `git clone --depth 1 https://github.com/codewithemperor/Kwikseller.git /tmp/kwikseller-repo` (exit 0).
+   744→- Inspected the cloned repo's root files, apps/, packages/, agent-ctx/, docs/, logo/, screenshots/, upload/ — all matched the spec exactly.
+   745→- Stopped the previously-running dev server (PID from .zscripts/dev.pid) and killed any leftover next-server/next-dev/node-dev processes.
+   746→- STEP 1 (clean scaffold): deleted scaffold root files (.env, components.json, dev.log, next-env.d.ts, next.config.ts, postcss.config.mjs, tailwind.config.ts) and the overwrite-target root files (.gitignore, Caddyfile, bun.lock, eslint.config.mjs, package.json, tsconfig.json). Deleted scaffold directories (.next, db, download, examples, mini-services, node_modules, prisma, public, src). Force-removed .next after killing the dev server. The `upload` directory is a FUSE (ossfs) mount point and could not be rmdir'd, so its contents were cleared instead (rm -rf upload/*) to prepare for the source repo's upload/ contents.
+   747→- Preserved sandbox infrastructure (NOT part of the scaffold): `.git` (task forbids re-initializing a git repo), `.zscripts` (dev server management scripts — needed for `bun run dev`), `skills` (Skill tool packages). These are directories and do not appear in the `find -maxdepth 1 -type f` verification.
+   748→- STEP 2-3 (copy): `rsync -a --exclude='.git/' /tmp/kwikseller-repo/ /home/z/my-project/`. The only rsync warning was `chgrp upload failed: Input/output error` — a metadata-only error on the ossfs mount point (does not support chgrp); all file CONTENTS transferred correctly. Verified upload/ ended up with its 3 expected files.
+   749→- STEP 5 (verification): all 4 commands passed (see Stage Summary).
+   750→- Byte-for-byte fidelity: ran `diff -q` on 13 root files (package.json, pnpm-workspace.yaml, pnpm-lock.yaml, bun.lock, turbo.json, tsconfig.json, eslint.config.mjs, Caddyfile, .gitignore, .env.example, .config, README.md, worklog.md) — all OK (identical).
+   751→- Cleaned up: removed /tmp/kwikseller-repo after copying and verification.
+   752→- Did NOT run npm/pnpm install, did NOT build, did NOT create any new files, did NOT init a new git repo, did NOT create a root next.config.ts.
+   753→
+   754→Stage Summary:
+   755→- Final /home/z/my-project/ is a 1:1 mirror of the Kwikseller monorepo (excluding .git).
+   756→- Root files (find -maxdepth 1 -type f | sort): exactly the 15 expected — .accesslog, .config, .env.example, .gitignore, .stats, Caddyfile, README.md, bun.lock, eslint.config.mjs, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, turbo.json, worklog.md.
+   757→- apps/: admin, api, marketplace, rider, vendor (5 apps, all @kwikseller/* names confirmed).
+   758→- packages/: api-client, eslint-config, fonts, types, typescript-config, ui, utils (7 packages, all @kwikseller/* names confirmed).
+   759→- agent-ctx/: 21 .md files (spec said ~18; all present).
+   760→- apps/api/prisma/: database.sql, nigeria-lgas-flat.json, schema.prisma, seed.ts (all 4 present).
+   761→- apps/api/php_api/: admin.php, customer.php (both present, legacy PHP kept as-is).
+   762→- docs/, logo/, screenshots/, upload/ all match spec.
+   763→- Root package.json is the MONOREPO root (name: "kwikseller", private, workspaces: apps/* + packages/*), NOT a Next.js app package.json.
+   764→- Sandbox infrastructure preserved: .git (existing sandbox repo, not re-initialized), .zscripts (dev server tooling), skills (Skill tool). These do not interfere with the mirror and are required for sandbox operability.
+   765→- NOTE for next steps: dependencies are NOT installed (per task rules). Running `bun run dev` at root will invoke the monorepo's dev script (turbo) which expects pnpm workspace installs; a `pnpm install` (or `bun install`) at the monorepo root will be needed before any dev/build can run.
+   766→
+   767→---
+   768→Task ID: explore-1
+   769→Agent: Explore
+   770→Task: Map vendor app current state + marketplace reference patterns for the vendor dashboard redesign.
+   771→
+   772→Work Log:
+   773→- Read tail of worklog.md (Tasks 1, 2, clone-1) to understand prior context: monorepo mirror at /home/z/my-project with apps/{marketplace,vendor,admin,rider,api} and packages/{ui,utils,types,fonts,api-client,eslint-config,typescript-config}; marketplace is the only app currently running (port 3000).
+   774→- PART A — Vendor app file tree: ran `find apps/vendor/src -type f` (54 files). Captured complete tree including 5 (auth) routes, dashboard layout + 22 dashboard page.tsx files, 8 components, 3 hooks/lib, 1 proxy.ts, 3 zustand stores.
+   775→- PART A — Dashboard pages grep matrix: grepped each dashboard page for KwiksellerLoader usage (9 pages use it), raw <select> elements (7 pages, 11 occurrences), imports from vendor-dashboard-ui (VendorPageHeader, DashboardMetricCard, VendorMetricCard, VendorSolidCard, SummaryCard, VendorToolbar, VendorSoftPanel), VendorEmptyState usage (6 pages), raw <h1>/<h2> tags (16 pages, 60+ occurrences), and dark-mode gap patterns bg-gray-100/text-gray-/bg-white/border-gray-/text-gray-900 (21 dashboard files, 893 occurrences).
+   776→- PART A — Component summaries: read full source of vendor-drawer.tsx (196 lines), vendor-header.tsx (116), vendor-workspace-shell.tsx (125), vendor-dashboard-ui.tsx (461), vendor-product-card.tsx (176), vendor-empty-state.tsx (20), kwikseller-loader.tsx (42). Identified dead code in vendor-dashboard-ui.tsx: VendorDesktopNav, VendorBottomTabs, VendorSolidCard, vendorPrimaryTabs, isVendorTabActive (5 exports with zero external consumers).
+   777→- PART A — Destructive-action audit: grepped for onClick delete/remove/trash + confirmation patterns (window.confirm, AlertDialog, setDeleteModalOpen, setDeleteTarget, setConfirmModalOpen). Found 1 GAP: wallet/page.tsx deleteBank() at line 1097 fires directly with NO confirmation dialog. orders/[id] handleCancel (line 658, sets order status to CANCELLED) also lacks confirmation. products/page.tsx, products/[id]/edit, settings, subscriptions, kyc all have proper confirmations.
+   778→- PART A — QueryProvider/OfflineBanner: confirmed NEITHER is used anywhere in apps/vendor/src (grep returned no matches). Marketplace uses both (OfflineBanner imported in marketplace-layout.tsx line 28; QueryProvider in marketplace app/layout.tsx line 16, 136, 173).
+   779→- PART A — Vendor next.config.ts + package.json: dev script `next dev -p 3001`, build `next build`, start `next start -p 3000`. next.config has reactStrictMode:false, turbopack:{}, allowedDevOrigins:["172.20.10.2"], and one rewrite proxying /api/v1/* to process.env.API_URL (default http://localhost:4000). Dependencies include @heroui/react ^3.0.3, @tanstack/react-query ^5.82.0 (declared but UNUSED — no QueryProvider wired), framer-motion ^12.23.2, lucide-react ^0.525.0, @kwikseller/{ui,utils,types,fonts,api-client} workspace:*, next ^16.1.1, recharts ^2.15.4, zustand ^5.0.6.
+   780→- PART B — Marketplace reference patterns: read skeleton-loading.tsx (233 lines, 6 exported skeleton components — SkeletonPulse, ProductCardSkeleton, VendorCardSkeleton, TestimonialCardSkeleton, SectionHeaderSkeleton, HeroSkeleton — all driven by `animate-shimmer` / `animate-shimmer-slide` utilities), section-divider.tsx (54 lines, framer-motion useInView + scale/opacity reveal), shared/marketplace-product-card.tsx (189 lines, mirrors vendor-product-card structure but uses AppImage + cart/wishlist/compare zustand stores + kwikToast), shared/marketplace-section-header.tsx (29 lines, simple kwik-orange header bar with ArrowRight CTA), enhanced-footer.tsx (277 lines, 4 footer columns + PaymentBadge + newsletter form + AnimatePresence back-to-top button + framer-motion social links), mobile-bottom-nav.tsx (132 lines, framer-motion layoutId="mobile-nav-indicator" for active tab indicator + spring transitions), mega-menu.tsx (485 lines, hover-driven dropdown with 200ms close delay, scroll-to-close, click-outside-to-close, layoutId="mega-nav-indicator" for nav underline), notification-bell.tsx (508 lines, AnimatePresence badge, category tabs with counts, mark-all-read, click-outside + ESC to close, framer-motion staggered list), marketplace-layout.tsx (710 lines, MarketplaceShellProvider wrapper, OfflineBanner, PageLoader, fixed header with MegaNav, MobileBottomNav, CartDrawer, WishlistSidebar, ComparePanel, EnhancedSearchOverlay, NotificationToastStack, ScrollProgress, OrderTrackingWidget, PriceDropAlert).
+   781→- PART B — Marketplace globals.css token confirmation (2192 lines): animate-shimmer ✓ (line 531), animate-shimmer-slide ✓ (line 957), animate-shimmer-sweep ✓ (line 2176), animate-pulse-glow ✓ (line 551), kwik-shadow ✓ (line 471), kwik-shadow-lg ✓ (line 475), --kwik-bg-warm ✓ (lines 102 light / 174 dark), --kwik-bg-warm-gray ✓ (103/175), --kwik-bg-warm-light ✓ (104/176). NOT in marketplace globals: premium-card, vendor-sidebar-blue, pool-description-html, vendor-loader-dot, flat-button, drawer-backdrop, drawer-panel (these 7 are vendor-only).
+   782→- Cross-checked vendor globals.css (572 lines): HAS animate-pulse-glow (504), vendor-loader-dot (508), premium-card (407), vendor-sidebar-blue (349/353), pool-description-html (357-378), flat-button (459-462), drawer-backdrop (445), drawer-panel (448-454), kwik-shadow (341), kwik-shadow-lg (345), --kwik-bg-warm/-gray/-light (97-99/168-170). GAP: vendor globals.css DOES NOT HAVE `animate-shimmer`, `animate-shimmer-slide`, or `animate-shimmer-sweep` — marketplace's SkeletonPulse components will not work in vendor until these tokens are added.
+   783→
+   784→Stage Summary:
+   785→- Vendor app has 22 dashboard page.tsx files (18,002 lines total) — the largest are help (1,833), onboarding (1,584), wallet (1,344), profile (1,314), deliveries (1,213), settings (1,192), kyc (1,190), storefront (1,161), products/[id]/edit (1,097).
+   786→- 893 dark-mode gap occurrences across 21 dashboard files; worst offenders: onboarding (87), deliveries (76), analytics (60), storefront (58), settings (57), profile (53), products/[id]/edit (49), subscriptions (47), products (41), dashboard root (40).
+   787→- 11 raw <select> elements across 7 pages (deliveries, onboarding×5, products, orders, notifications, kyc, subscriptions) — should be replaced with HeroUI Select.
+   788→- 16 of 22 dashboard pages still use raw <h1>/<h2> instead of VendorPageHeader.
+   789→- 5 dead exports in vendor-dashboard-ui.tsx (VendorDesktopNav, VendorBottomTabs, VendorSolidCard, vendorPrimaryTabs, isVendorTabActive) — VendorDesktopNav is the only one referencing `vendor-sidebar-blue`; can be removed once confirmed.
+   790→- 1 destructive-action GAP: wallet deleteBank() has no confirmation; 1 risky non-confirm: orders/[id] Cancel Order sets status to CANCELLED directly.
+   791→- 0 usage of QueryProvider / @tanstack/react-query / OfflineBanner in vendor — vendor's package.json declares @tanstack/react-query ^5.82.0 but never wires a provider. Marketplace's QueryProvider lives at apps/marketplace/src/lib/query-provider.tsx and is mounted in marketplace app/layout.tsx.
+   792→- Marketplace provides 6 reusable skeleton components (skeleton-loading.tsx) + framer-motion patterns (useInView, layoutId, AnimatePresence, staggered children) + offline awareness (OfflineBanner from @kwikseller/ui) that vendor can adopt directly.
+   793→- Token GAP to fix before any marketplace skeleton can be reused in vendor: add `animate-shimmer`, `animate-shimmer-slide`, `animate-shimmer-sweep` keyframes/utilities to apps/vendor/src/app/globals.css.
+   794→
+   795→---
+   796→Task ID: redesign-A
+   797→Agent: full-stack-developer
+   798→Task: Redesign vendor dashboard home + analytics pages (Group A).
+   799→
+   800→Work Log:
+   801→- Read worklog.md tail (tasks clone-1, explore-1) to understand monorepo layout: apps/vendor with 22 dashboard pages, packages/ui with shared Vendor* components, 893 dark-mode gap occurrences across 21 dashboard files.
+   802→- Read both target files in full: dashboard/page.tsx (583 LOC) and analytics/page.tsx (808 LOC). Read shared component sources: VendorMetricCard, VendorPageHeader, VendorStatusBadge from packages/ui/src/vendor/. Read vendor-dashboard-ui.tsx legacy exports. Read AppButton source to confirm onClick support.
+   803→- Confirmed @kwikseller/ui exports VendorMetricCard, VendorPageHeader, VendorStatusBadge, AppButton, Skeleton. Confirmed framer-motion ^12.23.2 available in vendor app.
+   804→
+   805→- dashboard/page.tsx (Phase 5A) — surgical edits via MultiEdit:
+   806→  1. Imports: removed DashboardMetricCard from vendor-dashboard-ui; added useRouter (next/navigation), motion (framer-motion), AppButton/VendorMetricCard/VendorPageHeader/VendorStatusBadge from @kwikseller/ui.
+   807→  2. Added `const router = useRouter()` in component body for Quick Actions navigation.
+   808→  3. Replaced 4 DashboardMetricCard usages with Link-wrapped VendorMetricCard (icon passed as LucideIcon component, not JSX; tone omitted; description preserved; href preserved via Link wrapper).
+   809→  4. Replaced raw <h1> welcome bar with VendorPageHeader (title=greeting+name, description=store+status, actions=View Public Store link). Replaced error-state raw <h1> with VendorPageHeader too.
+   810→  5. Added new Quick Actions section after metric cards grid: 4 AppButton(variant="secondary") with icons (Plus/ShoppingBag/DollarSign/Package) navigating to products/orders/wallet/pool via router.push. Wrapped in Framer Motion stagger container (variants show/hidden, staggerChildren 0.05).
+   811→  6. Updated Activity Feed: changed activityItems data shape to include `ref` and `status` separately (was single `description` string); rendering now shows "Order {ref}" + VendorStatusBadge(status, size="sm") instead of inline text. Existing recent-orders data reused (not static placeholder) since activity data exists.
+   812→  7. Wrapped main content return in <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.3}}>.
+   813→  8. Dark mode fixes: bg-gray-100→bg-default-100 (9 skeleton occurrences), border-gray-100→border-kwik-border (skeleton + wallet divider), divide-gray-100→divide-kwik-border (2 lists), text-gray-500→text-muted-foreground (order ref, empty orders text), text-gray-400→text-muted-foreground (order date, wallet labels×3, pending hint, activity icon, activity timestamp), text-gray-200→text-muted-foreground/40 (empty orders icon), text-gray-300→text-muted-foreground/50 (error icon), bg-gray-900→bg-foreground+text-background (Reload button, Go to Wallet button), bg-gray-200→bg-kwik-border (timeline line), h-5 w-5 text-gray-500→text-muted-foreground (4 right-column Quick Actions icons). Left all patterns that already had dark: variants (statusColor map, View all link, Restock button, right-column card borders).
+   814→
+   815→- analytics/page.tsx (Phase 4B/4C/4H) — surgical edits via MultiEdit:
+   816→  1. Imports: removed DashboardMetricCard from vendor-dashboard-ui; added motion (framer-motion), type LucideIcon (lucide-react), VendorMetricCard/VendorPageHeader from @kwikseller/ui.
+   817→  2. Replaced raw <h1>Analytics</h1> + <p> + Refresh button section with VendorPageHeader (title, description, actions=Refresh AppButton).
+   818→  3. Replaced DashboardMetricCard "Top Selling Product" usage with VendorMetricCard (icon={Package} component).
+   819→  4. Refactored MetricBlock sub-component: changed icon type from React.ComponentType to LucideIcon; renders VendorMetricCard instead of DashboardMetricCard (tone prop retained in type for caller compatibility but not passed to VendorMetricCard).
+   820→  5. Wrapped main content return in <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.3}}>.
+   821→  6. Dark mode fixes via targeted replace_all (all ~60 occurrences had NO dark: variants, so all were safe to replace): text-gray-900→text-foreground, text-gray-700→text-foreground, text-gray-500→text-muted-foreground, text-gray-400→text-muted-foreground, text-gray-300→text-muted-foreground/50, bg-gray-100→bg-default-100, bg-gray-900→bg-foreground, bg-gray-700→bg-muted-foreground, bg-white→bg-surface, border-gray-200→border-kwik-border, border-gray-100→border-kwik-border, border-gray-300→border-kwik-border, border-gray-900→border-foreground, hover:border-gray-400→hover:border-accent, focus:border-gray-500→focus:border-accent, hover:bg-gray-50→hover:bg-default-100 (also caught hover:bg-gray-50/50 variants), divide-gray-100→divide-kwik-border, text-white→text-background. Verified zero remaining gray-* / bg-white / text-white patterns after edits.
+   822→
+   823→- Verification: ran `npx tsc --noEmit -p apps/vendor/tsconfig.json 2>&1 | grep -E "dashboard/page|analytics/page"` — 0 errors in both target files. (Pre-existing errors in vendor-drawer.tsx and vendor-header.tsx are unrelated to this task.) Fixed a skeleton JSX syntax issue (missing `}` in map callback closing) introduced during initial bg-gray-100 replacement.
+   824→
+   825→Stage Summary:
+   826→- Files changed: apps/vendor/src/app/dashboard/page.tsx, apps/vendor/src/app/dashboard/analytics/page.tsx.
+   827→- dashboard/page.tsx: 4 DashboardMetricCard→VendorMetricCard (Link-wrapped), 2 raw h1→VendorPageHeader (welcome + error), added Quick Actions section (4 AppButton + Framer Motion stagger), enhanced Activity Feed with VendorStatusBadge, wrapped in motion.div page transition, fixed ~25 dark-mode gaps.
+   828→- analytics/page.tsx: 2 DashboardMetricCard→VendorMetricCard (Top Selling Product + MetricBlock sub-component), 1 raw h1→VendorPageHeader (with Refresh action), wrapped in motion.div page transition, fixed ~60 dark-mode gaps (all gray-*/bg-white/border-gray-*/text-white patterns replaced with semantic tokens).
+   829→- No API calls, store logic, or business logic changed. No imports removed that were still used. All new classes use semantic tokens with dark mode support.
+   830→
+   831→---
+   832→Task ID: redesign-B
+   833→Agent: full-stack-developer
+   834→Task: Redesign vendor products/orders/inventory/delivery/deliveries pages (Group B).
+   835→
+   836→Work Log:
+   837→- Read worklog.md tail (tasks clone-1, explore-1, redesign-A) to understand monorepo layout, prior dark-mode gap analysis (893 occurrences across 21 files), and the shared `@kwikseller/ui` Vendor* component APIs already in use by redesign-A.
+   838→- Read shared component sources in packages/ui/src: VendorMetricCard, VendorPageHeader (new shared version with `actions`+`breadcrumbs`), VendorStatusBadge (palette + formatLabel), EmptyState (variants + action={label,onClick}), Skeleton/SkeletonText/SkeletonCard, AppModal (isOpen/onClose/title/description/children/footer), AppButton, FieldSelect (native <select> wrapper, label/error/wrapperClassName).
+   839→- Read all 7 target files in full (4,523 LOC total). Applied surgical edits only via Edit/MultiEdit — no full rewrites, no business-logic changes.
+   840→
+   841→- products/page.tsx (940→964 LOC, Phase 5B):
+   842→  1. Imports: removed `DashboardMetricCard, VendorPageHeader` (old) and `KwiksellerLoader, VendorEmptyState`; added `EmptyState, Skeleton, VendorMetricCard, VendorPageHeader` from `@kwikseller/ui`; added `motion` from `framer-motion`. Kept `VendorToolbar` (still valid, deprecated but exported).
+   843→  2. Replaced local `SkeletonCard` function (animate-pulse + bg-gray-100/200) with `ProductSkeletonCard` using shared `Skeleton shape="rectangular" aspect-[3/4]` + 3 text Skeletons + 3 button Skeletons; rendered 8 cards in the same grid layout as the real products grid.
+   844→  3. Replaced old `VendorPageHeader` (with `action=...`) usage with new shared `VendorPageHeader` (with `actions=...`).
+   845→  4. Replaced 3 `DashboardMetricCard` usages (Total Catalog / Physical Stock / Pool Items) with `VendorMetricCard`, passing icon as LucideIcon component (`Package`, `PackagePlus`, `Check`) instead of JSX; dropped `tone` prop (not supported). Wrapped the 3-card grid in `motion.section` with stagger variants (`staggerChildren:0.05`).
+   846→  5. Replaced raw `<select>` (bulk status) with `FieldSelect` (kept all `<option>` children).
+   847→  6. Replaced `VendorEmptyState` (props `title`+`text`+`action:ReactNode`) with `EmptyState` (props `variant="search"|"products"` + `title`+`description`+`action={label,onClick}`).
+   848→  7. Wrapped main content return in `<motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.3}}>`.
+   849→  8. Fixed dark-mode gaps: bg-gray-100→bg-default-100, border-gray-200→border-kwik-border, text-gray-600→text-muted-foreground, text-gray-900→text-foreground, text-gray-500→text-muted-foreground, text-gray-400→text-muted-foreground, bg-gray-900→bg-foreground, text-white→text-background (pagination selected state), hover:bg-gray-100→hover:bg-default-100, bg-gray-50→bg-default-100, border-gray-300→border-kwik-border, border-dashed border-gray-300→border-dashed border-kwik-border, text-blue-600→text-accent (upload link). Left intact patterns that already had `dark:` variants (vendor-product-card overlays using `bg-background dark:bg-[#0f1115]`).
+   850→  9. Confirmed `DeleteConfirmModal` already uses `AppModal` from `@kwikseller/ui` — no changes needed; existing delete logic preserved.
+   851→  10. Preserved dead local `VendorProductCard` component (defined but unused; page renders `VendorMarketplaceProductCard` instead). Updated its `statusColor` helper to use semantic tokens (`text-emerald-600 dark:text-emerald-400`, etc.) so it would compile cleanly if revived.
+   852→
+   853→- products/[id]/edit/page.tsx (1097→1157 LOC):
+   854→  1. Imports: removed `KwiksellerLoader`; added `SkeletonText, VendorPageHeader` to existing `@kwikseller/ui` import; added `motion` from `framer-motion`.
+   855→  2. Replaced `KwiksellerLoader` loading return with a skeleton form layout matching the real edit form: `VendorPageHeader` + grid with `SkeletonText` blocks (left column) + 3 stacked `Skeleton h-11 w-full` inputs (right column).
+   856→  3. Replaced `window.confirm` in `handleCancel` (dirty-form navigation warning) with new state `isCancelModalOpen` + `AppModal` (title "Discard changes?", description warning about unsaved changes, footer with `Keep editing` + `Discard & leave` `AppButton variant="danger"`). Added `confirmCancel` function that performs the actual navigation; `handleCancel` only opens the modal. Modal wired in both main return + POOL_RESALE return.
+   857→  4. Replaced raw `<h1>` + breadcrumb + description `<section>` with `VendorPageHeader` (title "Edit Product", description, breadcrumbs=[{Products, href}, {Edit Product}], actions={ProductType toggle + Unsaved changes indicator}).
+   858→  5. Replaced raw `<h1>` + breadcrumb in POOL_RESALE view with `VendorPageHeader` (title "Edit selling price", description, breadcrumbs=[{Products, href}, {Edit selling price"}]).
+   859→  6. Wrapped main return + POOL_RESALE return in `<motion.div>` page transitions.
+   860→  7. Replaced raw `<h2>` "Pool Settings" header text color (`text-gray-900`→`text-foreground`); kept it as `<h2>` since it's a sub-section (task said "use judgement").
+   861→  8. Fixed dark-mode gaps in renderBasicInfo/renderPricing/renderImages/renderVisibility: text-gray-400/500/700/900→text-muted-foreground/foreground, border-gray-200/300→border-kwik-border, border-dashed border-gray-300→border-dashed border-kwik-border, bg-gray-50→bg-default-100, bg-white→bg-surface, text-blue-600→text-accent, hover:border-gray-400→hover:border-accent, hover:text-gray-700→hover:text-foreground, focus:border-gray-500→focus:border-accent. Replaced `border-green-200 bg-green-50 text-green-700` price-comparison callout with `border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300`.
+   862→  9. Tab Navigation: `border-gray-900 text-gray-900` (active)→`border-foreground text-foreground`; `border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300`→`border-transparent text-muted-foreground hover:text-foreground hover:border-accent`.
+   863→  10. Step indicator (create wizard): `border-gray-900 bg-gray-900 text-white`→`border-foreground bg-foreground text-background`; `border-gray-900 bg-white text-gray-900`→`border-foreground bg-surface text-foreground`; `border-gray-300 bg-white text-gray-400`→`border-kwik-border bg-surface text-muted-foreground`.
+   864→  11. Pagination footer of wizard: `border-gray-200`→`border-kwik-border`. Bottom action bar: `border-gray-200 bg-white`→`border-kwik-border bg-surface`.
+   865→  12. Not-found state: `text-gray-300`→`text-muted-foreground/50`, `text-gray-900`→`text-foreground`, `text-gray-500`→`text-muted-foreground`, `hover:text-gray-700`→`hover:text-accent`.
+   866→
+   867→- orders/page.tsx (224→255 LOC, Phase 5C):
+   868→  1. Imports: removed old `VendorPageHeader` (from vendor-dashboard-ui), `KwiksellerLoader`, `VendorEmptyState`; kept `VendorSoftPanel` (still valid); added `EmptyState, FieldSelect, Skeleton, SkeletonText, VendorPageHeader, VendorStatusBadge` from `@kwikseller/ui`; added `motion`. Removed unused `PackageCheck` lucide import.
+   869→  2. Replaced `KwiksellerLoader` (inside VendorSoftPanel "Order queue") with skeleton order-list: 4 skeleton rows (each row = `Skeleton h-6 w-40` for order ref + `Skeleton h-6 w-28` for parent ref + `SkeletonText lines=2` + 3× `Skeleton h-16` stat cards + `Skeleton h-11 max-w-sm` for select).
+   870→  3. Replaced old `VendorPageHeader` (with `action=...`) with new shared `VendorPageHeader` (with `actions=...`).
+   871→  4. Replaced raw `<select>` (status filter per order) with `FieldSelect` (moved `<option>` children inside; added `wrapperClassName="mb-0"` to remove label margin).
+   872→  5. Replaced `<h3 className="...text-foreground">{order.status}</h3>` (raw status text) with `<VendorStatusBadge status={order.status} size="sm" />`.
+   873→  6. Replaced `VendorEmptyState` with `EmptyState` (variant="orders", title="No order found", description=..., action={{label:"Browse Pool", onClick:...}}).
+   874→  7. Wrapped main content in `<motion.div>` page transition.
+   875→  8. Fixed dark-mode gaps: bg-gray-50→bg-default-100, divide-gray-200→divide-kwik-border, border-gray-200→border-kwik-border, bg-white→bg-surface, bg-gray-100→bg-default-100. Left intact patterns with `dark:` variants (amber waiting banner, `dark:bg-white/8` chips).
+   876→
+   877→- orders/[id]/page.tsx (750→739 LOC) — CRITICAL: added Cancel Order confirmation modal:
+   878→  1. Imports: added `VendorPageHeader, VendorStatusBadge` to `@kwikseller/ui` import; added `motion`.
+   879→  2. **Added `isCancelModalOpen` state + `confirmCancel` function.** Refactored `handleCancel` to only open the modal (no longer fires `updateStatus("CANCELLED")` directly). `confirmCancel` closes the modal and calls `updateStatus("CANCELLED")` — preserving existing API logic.
+   880→  3. **Added AppModal for Cancel Order confirmation**: title "Cancel Order?", description "This action is irreversible. The order will be marked as cancelled and the customer will be notified.", footer with `Keep order` (variant="secondary") + `Yes, cancel order` (variant="danger", isLoading={updatingId===order.id}). Modal rendered at end of return, before closing `</motion.div>`.
+   881→  4. Replaced breadcrumb + `<section>` order header with `VendorPageHeader` (title=order.checkoutReference||order.id, description=`Order placed {date} by {buyerName}`, breadcrumbs=[{Orders, href}, {Order Details}], actions={Copy ID button}). Kept the rich metadata (status badge + date + buyer name) as a separate inline row below the header.
+   882→  5. Removed unused `statusColor` and `paymentStatusColor` helper functions (both relied on text-amber/red/gray without dark variants).
+   883→  6. Replaced raw status text spans with `VendorStatusBadge` (status={order.status} size="md"; status={order.paymentStatus} size="sm").
+   884→  7. Wrapped main return in `<motion.div>`.
+   885→  8. Fixed dark-mode gaps throughout: bg-gray-*→bg-default-100/bg-surface, border-gray-*→border-kwik-border, text-gray-*→text-muted-foreground/text-foreground, hover:border-gray-400→hover:border-accent, hover:text-gray-700→hover:text-foreground, bg-gray-900 text-white→bg-foreground text-background (delivery stage indicator). Replaced `border-amber-200 bg-amber-50 text-amber-800` (escrow info) with `border-amber-500/30 bg-amber-500/10 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200`. Replaced `border-red-300 bg-red-50 text-red-500` (cancelled stage) with `border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400`. Replaced `text-red-600` "Cancelled" text with `text-red-600 dark:text-red-400`.
+   886→
+   887→- inventory/page.tsx (159→187 LOC):
+   888→  1. Imports: removed `VendorMetricCard, VendorPageHeader` (old from vendor-dashboard-ui) + `KwiksellerLoader, VendorEmptyState`; kept `VendorSoftPanel`; added `EmptyState, Skeleton, VendorMetricCard, VendorPageHeader` from `@kwikseller/ui`; added `motion`.
+   889→  2. Replaced `KwiksellerLoader` (inside VendorSoftPanel "Stock ledger") with skeleton ledger: 4 skeleton rows matching real card layout (rounded border + `Skeleton h-5 w-2/3` name + `Skeleton h-4 w-1/3` SKU + 3× `Skeleton h-10 w-16` Available/Reserved/Threshold).
+   890→  3. Replaced 3 old `VendorMetricCard` (props `label`, `value`, `note`, `icon`, `tone`) with new shared `VendorMetricCard` (props `title`, `value`, `description`, `icon`). Dropped `tone` prop (not supported by new). Kept icon as LucideIcon component (`Boxes`, `PackageCheck`, `AlertTriangle`).
+   891→  4. Replaced old `VendorPageHeader` (with `action=...`) with new shared `VendorPageHeader` (with `actions=...`).
+   892→  5. Replaced `VendorEmptyState` (title/text) with `EmptyState` (variant="products", title="No owned stock", description=...).
+   893→  6. Removed trailing `{isSaving ? <KwiksellerLoader overlay /> : null}` (isSaving state is already surfaced via AppButton `isLoading` on the form's submit button — the overlay was redundant).
+   894→  7. Wrapped main return in `<motion.div>`.
+   895→
+   896→- delivery/page.tsx (140→175 LOC):
+   897→  1. Imports: removed `VendorMetricCard, VendorPageHeader` (old) + `KwiksellerLoader`; kept `VendorSoftPanel`; added `Skeleton, SkeletonText, VendorMetricCard, VendorPageHeader` from `@kwikseller/ui`; added `motion`.
+   898→  2. Replaced `KwiksellerLoader` (loading state) with skeleton layout: `VendorPageHeader` + 3× `Skeleton h-28` metric cards + 2 panels with `SkeletonText lines={3}` + multiple `Skeleton h-12`/`h-24` inputs.
+   899→  3. Replaced 3 old `VendorMetricCard` (with `label`/`note`/`tone`) with new shared `VendorMetricCard` (with `title`/`description`). Dropped `tone` prop.
+   900→  4. Replaced old `VendorPageHeader` (with `action=...`) with new shared `VendorPageHeader` (with `actions=...`).
+   901→  5. Removed trailing `{isSaving ? <KwiksellerLoader overlay /> : null}`.
+   902→  6. Wrapped main return in `<motion.div>`.
+   903→  7. Fixed dark-mode gaps: `bg-[#F7F8FA]`→`bg-default-100`, `bg-white`→`bg-surface`. Kept the existing `dark:bg-white/5` variants.
+   904→
+   905→- deliveries/page.tsx (1213→1150 LOC):
+   906→  1. Imports: replaced `AppModal` (unused) with `FieldSelect, VendorPageHeader, VendorStatusBadge`; added `motion`.
+   907→  2. Replaced raw `<h1>` page header + `<p>` description with new shared `VendorPageHeader` (title="Deliveries", description="Track and manage all your outgoing deliveries.").
+   908→  3. Replaced raw `<select>` (status filter) with `FieldSelect` (kept all `<option>` children).
+   909→  4. Wrapped main return in `<motion.div>`.
+   910→  5. Removed dead `getStatusColor` and `getStatusLabel` helper functions (no longer called after VendorStatusBadge replacement). Removed `statusColor`/`statusLabel` local vars from DeliveryRow.
+   911→  6. Replaced raw `<span className={`inline-flex items-center gap-1 text-xs font-medium ${statusColor}`}>{statusLabel}</span>` with `<VendorStatusBadge status={delivery.status} size="sm" />`.
+   912→  7. Fixed dark-mode gaps (~76 occurrences, all WITHOUT `dark:` variants so safe to replace_all): divide-gray-200→divide-kwik-border, border-gray-100/200/300→border-kwik-border, border-gray-900→border-foreground, bg-gray-900→bg-foreground, bg-white→bg-surface, bg-gray-50/50→bg-default-100/50, bg-gray-50→bg-default-100, bg-gray-200→bg-default-100, hover:bg-gray-50/50→hover:bg-default-100/50, hover:border-gray-400→hover:border-accent, text-gray-900→text-foreground, text-gray-700→text-foreground, text-gray-600→text-muted-foreground, text-gray-500→text-muted-foreground, text-gray-400→text-muted-foreground, text-gray-300→text-muted-foreground/50, text-white→text-background. Added `dark:text-red-500` to error-state AlertCircle and `dark:text-red-400` to error message.
+   913→
+   914→- Verification: ran `npx tsc --noEmit -p apps/vendor/tsconfig.json 2>&1 | grep -E "products/page|products/\[id\]/edit/page|orders/page|orders/\[id\]/page|inventory/page|delivery/page|deliveries/page"` — **0 errors in all 7 target files**. (8 pre-existing errors remain in vendor-drawer.tsx + vendor-header.tsx, both outside redesign-B scope and noted in redesign-A's worklog.)
+   915→- Could not run `bun run lint` to completion — ESLint binary missing in sandbox (turbo lint failed with `sh: 1: eslint: not found` for packages/* — environment issue, not code issue). All 7 files pass `tsc --noEmit` cleanly.
+   916→- Verified zero remaining `bg-gray`/`text-gray`/`border-gray`/`bg-white`/`text-white`/`bg-[#`/`text-[#` patterns WITHOUT `dark:` variants in any of the 7 target files (remaining patterns are all intentional `dark:bg-white/5`, `dark:bg-[#0f1115]`, etc. — already dark-mode aware).
+   917→
+   918→Stage Summary:
+   919→- Files changed (7):
+   920→  - apps/vendor/src/app/dashboard/products/page.tsx (940→964 LOC)
+   921→  - apps/vendor/src/app/dashboard/products/[id]/edit/page.tsx (1097→1157 LOC)
+   922→  - apps/vendor/src/app/dashboard/orders/page.tsx (224→255 LOC)
+   923→  - apps/vendor/src/app/dashboard/orders/[id]/page.tsx (750→739 LOC)
+   924→  - apps/vendor/src/app/dashboard/inventory/page.tsx (159→187 LOC)
+   925→  - apps/vendor/src/app/dashboard/delivery/page.tsx (140→175 LOC)
+   926→  - apps/vendor/src/app/dashboard/deliveries/page.tsx (1213→1150 LOC)
+   927→- Key changes:
+   928→  - All 7 pages wrapped in Framer Motion page transitions (`<motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.3}}>`).
+   929→  - 6 KwiksellerLoader usages replaced with content-shaped Skeleton layouts (product grid skeleton, form skeleton, order list skeleton, ledger skeleton, delivery settings skeleton, deliveries list skeleton already existed).
+   930→  - 4 old `VendorPageHeader` (with `action=`) → new shared `VendorPageHeader` (with `actions=`/`breadcrumbs=`) from `@kwikseller/ui`.
+   931→  - 6 raw `<h1>`/`<h2>` page headers → `VendorPageHeader` (kept sub-section `<h2>`s as-is per task guidance).
+   932→  - 4 raw `<select>` → `FieldSelect` (orders status, orders bulk status, deliveries status filter, products bulk status).
+   933→  - 3 `DashboardMetricCard` (products) + 6 old `VendorMetricCard` (inventory, delivery) → new shared `VendorMetricCard` (icon passed as LucideIcon component, not JSX; `tone` prop dropped).
+   934→  - 4 `VendorEmptyState` → `EmptyState` (variant="orders"|"products"|"search"; action converted from ReactNode to {label, onClick}).
+   935→  - 2 raw status text spans → `VendorStatusBadge` (orders list, orders detail, deliveries list); also added `VendorStatusBadge` for payment status in orders detail.
+   936→  - **CRITICAL**: Added Cancel Order confirmation `AppModal` in orders/[id]/page.tsx — `handleCancel` no longer fires `updateStatus("CANCELLED")` directly; instead opens modal, and `confirmCancel` performs the actual status change. Title "Cancel Order?", irreversible warning, footer with `Keep order` + `Yes, cancel order` (`AppButton variant="danger"`).
+   937→  - Added Discard-changes `AppModal` in products/[id]/edit (replaced `window.confirm` in handleCancel dirty-form warning).
+   938→  - Fixed ~200 dark-mode gap occurrences across the 7 files (only patterns without existing `dark:` variants — left `dark:bg-white/5`, `dark:bg-[#0f1115]`, etc. intact).
+   939→  - Removed dead helpers: `getStatusColor` + `getStatusLabel` in deliveries/page.tsx; `statusColor` + `paymentStatusColor` in orders/[id]/page.tsx (all replaced by `VendorStatusBadge`).
+   940→- No API calls, store logic, or business logic changed. No imports removed that were still used. All new classes use semantic tokens with dark mode support. `VendorToolbar` and `VendorSoftPanel` from the legacy `vendor-dashboard-ui.tsx` retained (still exported, still valid, not in scope for replacement).
+   941→

@@ -878,24 +878,24 @@ export const paymentsApi = {
   // Get payment methods
   getMethods: () => api.get('/payments/methods'),
 
-  // Wallet (for vendors)
-  getWallet: () => api.get('/payments/wallet'),
+  // Wallet (for vendors) — backend controller is @Controller('vendor/wallet')
+  getWallet: () => api.get('/vendor/wallet'),
 
   getWalletTransactions: (params?: {
     type?: 'CREDIT' | 'DEBIT'
     page?: number
     limit?: number
-  }) => api.get('/payments/wallet/transactions', { params }),
+  }) => api.get('/vendor/wallet/transactions', { params }),
 
   requestWithdrawal: (data: {
     amount: number
     bankCode: string
     accountNumber: string
     accountName: string
-  }) => api.post('/payments/wallet/withdraw', data),
+  }) => api.post('/vendor/wallet/withdraw', data),
 
   getWithdrawals: (params?: { status?: string }) =>
-    api.get('/payments/wallet/withdrawals', { params }),
+    api.get('/vendor/wallet/withdrawals', { params }),
 
   // Bank list
   getBanks: () => api.get('/payments/banks'),

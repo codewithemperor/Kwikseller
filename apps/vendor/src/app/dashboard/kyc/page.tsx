@@ -16,7 +16,8 @@ import {
   Trash2,
   Image as ImageIcon,
 } from "lucide-react";
-import { AppButton, AppModal, Skeleton } from "@kwikseller/ui";
+import { motion } from "framer-motion";
+import { AppButton, AppModal, FieldSelect, Skeleton, VendorPageHeader } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import { usersApi, uploadApi } from "@kwikseller/api-client";
 import { formatDate } from "@/lib/vendor-format";
@@ -148,13 +149,13 @@ function getStatusIcon(status: KycStatus) {
 function getStatusColor(status: KycStatus): string {
   switch (status) {
     case "NOT_STARTED":
-      return "text-gray-500";
+      return "text-muted-foreground";
     case "IN_REVIEW":
-      return "text-amber-600";
+      return "text-amber-600 dark:text-amber-400";
     case "VERIFIED":
-      return "text-green-600";
+      return "text-green-600 dark:text-green-400";
     case "REJECTED":
-      return "text-red-600";
+      return "text-red-600 dark:text-red-400";
   }
 }
 
@@ -439,35 +440,31 @@ export default function KycPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* ==================== Section 1: Page Header ==================== */}
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Identity Verification
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Complete your KYC to unlock higher selling limits and a verified
-              badge on your store.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`flex items-center gap-1.5 text-sm font-medium ${getStatusColor(kycStatus)}`}>
-              {getStatusIcon(kycStatus)}
-              {getStatusText(kycStatus)}
-            </span>
-          </div>
-        </div>
-      </section>
+      <VendorPageHeader
+        title="Identity Verification"
+        description="Complete your KYC to unlock higher selling limits and a verified badge on your store."
+        actions={
+          <span className={`flex items-center gap-1.5 text-sm font-medium ${getStatusColor(kycStatus)}`}>
+            {getStatusIcon(kycStatus)}
+            {getStatusText(kycStatus)}
+          </span>
+        }
+      />
 
       {/* ==================== Section 2: Status Banner ==================== */}
       <section>
         <div className="border-b border-border pb-6">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" strokeWidth={1.5} />
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground/50" strokeWidth={1.5} />
             <div className="space-y-1">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-foreground">
                 {kycStatus === "NOT_STARTED" && (
                   <>Verification is <span className="font-medium">required</span> to access all platform features.</>
                 )}
@@ -481,7 +478,7 @@ export default function KycPage() {
                   <>Your previous submission was rejected. Please review the feedback and resubmit with corrections.</>
                 )}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground/50">
                 Benefits: Higher transaction limits, verified trust badge on
                 your store, priority support, and access to withdrawal features.
               </p>
@@ -493,13 +490,13 @@ export default function KycPage() {
       {/* ==================== Section 3: Rejection Feedback ==================== */}
       {kycStatus === "REJECTED" && rejectionReason && (
         <section>
-          <div className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" strokeWidth={1.5} />
+          <div className="flex items-start gap-3 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500 dark:text-red-400" strokeWidth={1.5} />
             <div className="space-y-1">
-              <p className="text-sm font-medium text-red-700">
+              <p className="text-sm font-medium text-red-700 dark:text-red-300">
                 Rejection Reason
               </p>
-              <p className="text-xs text-red-600">{rejectionReason}</p>
+              <p className="text-xs text-red-600 dark:text-red-400">{rejectionReason}</p>
               {lastSubmittedAt && (
                 <p className="text-xs text-red-400">
                   Last submitted: {formatDate(lastSubmittedAt)}
@@ -514,16 +511,16 @@ export default function KycPage() {
       {!isLocked && (
         <section>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-gray-500">
+            <span className="text-xs font-medium text-muted-foreground">
               Progress
             </span>
-            <div className="flex-1 h-1.5 rounded-full bg-gray-100">
+            <div className="flex-1 h-1.5 rounded-full bg-default-100">
               <div
-                className="h-1.5 rounded-full bg-gray-900 transition-all"
+                className="h-1.5 rounded-full bg-foreground transition-all"
                 style={{ width: `${(completedCount / totalCount) * 100}%` }}
               />
             </div>
-            <span className="text-xs tabular-nums text-gray-500">
+            <span className="text-xs tabular-nums text-muted-foreground">
               {completedCount}/{totalCount} complete
             </span>
           </div>
@@ -540,7 +537,7 @@ export default function KycPage() {
                 <h2 className="mt-4 text-lg font-medium text-foreground">
                   Verification Complete
                 </h2>
-                <p className="mt-2 max-w-md text-center text-sm text-gray-500">
+                <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
                   Your identity has been verified. You now have full access to
                   all platform features.
                 </p>
@@ -551,12 +548,12 @@ export default function KycPage() {
                 <h2 className="mt-4 text-lg font-medium text-foreground">
                   Under Review
                 </h2>
-                <p className="mt-2 max-w-md text-center text-sm text-gray-500">
+                <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
                   Your documents are being reviewed. You&apos;ll receive a
                   notification once verification is complete.
                 </p>
                 {lastSubmittedAt && (
-                  <p className="mt-3 text-xs text-gray-400">
+                  <p className="mt-3 text-xs text-muted-foreground/50">
                     Submitted on {formatDate(lastSubmittedAt)}
                   </p>
                 )}
@@ -570,12 +567,12 @@ export default function KycPage() {
             {/* ========= Section A: Business Type Selection ========= */}
             <div className="border-t border-border pt-8">
               <div className="flex items-center gap-2 mb-4">
-                <Building2 className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                <Building2 className="h-4 w-4 text-muted-foreground/50" strokeWidth={1.5} />
                 <h2 className="text-lg font-semibold text-foreground">
                   Business Type
                 </h2>
                 {sectionStatus.businessType && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                 )}
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -586,20 +583,20 @@ export default function KycPage() {
                     onClick={() => setBusinessType(bt.value)}
                     className={`flex flex-col items-start gap-1 rounded-md border p-4 text-left transition ${
                       businessType === bt.value
-                        ? "border-gray-900 bg-gray-50"
-                        : "border-border hover:border-gray-300"
+                        ? "border-foreground bg-default-100"
+                        : "border-border hover:border-accent"
                     }`}
                   >
                     <span
                       className={`text-sm font-medium ${
                         businessType === bt.value
-                          ? "text-gray-900"
-                          : "text-gray-700"
+                          ? "text-foreground"
+                          : "text-foreground"
                       }`}
                     >
                       {bt.label}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {bt.description}
                     </span>
                   </button>
@@ -610,12 +607,12 @@ export default function KycPage() {
             {/* ========= Section B: Personal Information ========= */}
             <div className="border-t border-border pt-8">
               <div className="flex items-center gap-2 mb-4">
-                <User className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                <User className="h-4 w-4 text-muted-foreground/50" strokeWidth={1.5} />
                 <h2 className="text-lg font-semibold text-foreground">
                   Personal Information
                 </h2>
                 {sectionStatus.personalInfo && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                 )}
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -673,12 +670,12 @@ export default function KycPage() {
             {/* ========= Section C: ID Document Upload ========= */}
             <div className="border-t border-border pt-8">
               <div className="flex items-center gap-2 mb-4">
-                <FileText className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                <FileText className="h-4 w-4 text-muted-foreground/50" strokeWidth={1.5} />
                 <h2 className="text-lg font-semibold text-foreground">
                   ID Document
                 </h2>
                 {sectionStatus.idDocument && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                 )}
               </div>
               <div className="space-y-4">
@@ -690,7 +687,7 @@ export default function KycPage() {
                   >
                     Document Type
                   </label>
-                  <select
+                  <FieldSelect
                     id="kyc-idtype"
                     value={idType}
                     onChange={(e) => {
@@ -700,14 +697,15 @@ export default function KycPage() {
                         setIdBack(emptyFilePreview);
                       }
                     }}
-                    className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none ring-0 transition focus:border-border focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[240px]"
+                    wrapperClassName="mt-1"
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none ring-0 transition focus:border-border focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[240px]"
                   >
                     {ID_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
                       </option>
                     ))}
-                  </select>
+                  </FieldSelect>
                 </div>
 
                 {/* Front image upload */}
@@ -729,13 +727,13 @@ export default function KycPage() {
                         <button
                           type="button"
                           onClick={() => setIdFront(emptyFilePreview)}
-                          className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-gray-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
                           aria-label="Remove front image"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <p className="mt-1.5 text-xs text-gray-400">
+                      <p className="mt-1.5 text-xs text-muted-foreground/50">
                         {idFront.name} · {formatFileSize(idFront.file?.size ?? 0)}
                       </p>
                     </div>
@@ -743,19 +741,19 @@ export default function KycPage() {
                     <label
                       className={`flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed transition ${
                         dragOver === "idFront"
-                          ? "border-gray-400 bg-gray-50"
-                          : "border-border hover:border-gray-300"
+                          ? "border-accent bg-default-100"
+                          : "border-border hover:border-accent"
                       }`}
                       onDragOver={(e) => handleDragOver(e, "idFront")}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, "idFront")}
                     >
-                      <Upload className="h-6 w-6 text-gray-300" strokeWidth={1.5} />
+                      <Upload className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
                       <div className="text-center">
-                        <p className="text-xs font-medium text-gray-500">
+                        <p className="text-xs font-medium text-muted-foreground">
                           Drag &amp; drop or click to upload
                         </p>
-                        <p className="mt-0.5 text-xs text-gray-400">
+                        <p className="mt-0.5 text-xs text-muted-foreground/50">
                           JPG, PNG, or WebP · Max 5MB
                         </p>
                       </div>
@@ -789,13 +787,13 @@ export default function KycPage() {
                           <button
                             type="button"
                             onClick={() => setIdBack(emptyFilePreview)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-gray-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
                             aria-label="Remove back image"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <p className="mt-1.5 text-xs text-gray-400">
+                        <p className="mt-1.5 text-xs text-muted-foreground/50">
                           {idBack.name} · {formatFileSize(idBack.file?.size ?? 0)}
                         </p>
                       </div>
@@ -803,19 +801,19 @@ export default function KycPage() {
                       <label
                         className={`flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed transition ${
                           dragOver === "idBack"
-                            ? "border-gray-400 bg-gray-50"
-                            : "border-border hover:border-gray-300"
+                            ? "border-accent bg-default-100"
+                            : "border-border hover:border-accent"
                         }`}
                         onDragOver={(e) => handleDragOver(e, "idBack")}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, "idBack")}
                       >
-                        <Upload className="h-6 w-6 text-gray-300" strokeWidth={1.5} />
+                        <Upload className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
                         <div className="text-center">
-                          <p className="text-xs font-medium text-gray-500">
+                          <p className="text-xs font-medium text-muted-foreground">
                             Drag &amp; drop or click to upload
                           </p>
-                          <p className="mt-0.5 text-xs text-gray-400">
+                          <p className="mt-0.5 text-xs text-muted-foreground/50">
                             JPG, PNG, or WebP · Max 5MB
                           </p>
                         </div>
@@ -836,12 +834,12 @@ export default function KycPage() {
             {businessType !== "individual" && (
               <div className="border-t border-border pt-8">
                 <div className="flex items-center gap-2 mb-4">
-                  <Building2 className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                  <Building2 className="h-4 w-4 text-muted-foreground/50" strokeWidth={1.5} />
                   <h2 className="text-lg font-semibold text-foreground">
                     Business Documents
                   </h2>
                   {sectionStatus.businessDocs && (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
                 </div>
                 <div className="space-y-4">
@@ -864,13 +862,13 @@ export default function KycPage() {
                           <button
                             type="button"
                             onClick={() => setBusinessRegistration(emptyFilePreview)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-gray-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
                             aria-label="Remove business registration"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <p className="mt-1.5 text-xs text-gray-400">
+                        <p className="mt-1.5 text-xs text-muted-foreground/50">
                           {businessRegistration.name} · {formatFileSize(businessRegistration.file?.size ?? 0)}
                         </p>
                       </div>
@@ -878,19 +876,19 @@ export default function KycPage() {
                       <label
                         className={`flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed transition ${
                           dragOver === "businessRegistration"
-                            ? "border-gray-400 bg-gray-50"
-                            : "border-border hover:border-gray-300"
+                            ? "border-accent bg-default-100"
+                            : "border-border hover:border-accent"
                         }`}
                         onDragOver={(e) => handleDragOver(e, "businessRegistration")}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, "businessRegistration")}
                       >
-                        <Upload className="h-6 w-6 text-gray-300" strokeWidth={1.5} />
+                        <Upload className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
                         <div className="text-center">
-                          <p className="text-xs font-medium text-gray-500">
+                          <p className="text-xs font-medium text-muted-foreground">
                             Upload CAC registration or equivalent
                           </p>
-                          <p className="mt-0.5 text-xs text-gray-400">
+                          <p className="mt-0.5 text-xs text-muted-foreground/50">
                             JPG, PNG, or WebP · Max 5MB
                           </p>
                         </div>
@@ -923,13 +921,13 @@ export default function KycPage() {
                           <button
                             type="button"
                             onClick={() => setUtilityBill(emptyFilePreview)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-gray-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
                             aria-label="Remove utility bill"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <p className="mt-1.5 text-xs text-gray-400">
+                        <p className="mt-1.5 text-xs text-muted-foreground/50">
                           {utilityBill.name} · {formatFileSize(utilityBill.file?.size ?? 0)}
                         </p>
                       </div>
@@ -937,19 +935,19 @@ export default function KycPage() {
                       <label
                         className={`flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed transition ${
                           dragOver === "utilityBill"
-                            ? "border-gray-400 bg-gray-50"
-                            : "border-border hover:border-gray-300"
+                            ? "border-accent bg-default-100"
+                            : "border-border hover:border-accent"
                         }`}
                         onDragOver={(e) => handleDragOver(e, "utilityBill")}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, "utilityBill")}
                       >
-                        <Upload className="h-6 w-6 text-gray-300" strokeWidth={1.5} />
+                        <Upload className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
                         <div className="text-center">
-                          <p className="text-xs font-medium text-gray-500">
+                          <p className="text-xs font-medium text-muted-foreground">
                             Upload recent utility bill or bank statement
                           </p>
-                          <p className="mt-0.5 text-xs text-gray-400">
+                          <p className="mt-0.5 text-xs text-muted-foreground/50">
                             JPG, PNG, or WebP · Max 5MB
                           </p>
                         </div>
@@ -987,18 +985,18 @@ export default function KycPage() {
             {/* ========= Section E: Face Verification (Optional) ========= */}
             <div className="border-t border-border pt-8">
               <div className="flex items-center gap-2 mb-4">
-                <Camera className="h-4 w-4 text-gray-300" strokeWidth={1.5} />
+                <Camera className="h-4 w-4 text-muted-foreground/50" strokeWidth={1.5} />
                 <h2 className="text-lg font-semibold text-foreground">
                   Face Verification
                 </h2>
-                <span className="text-xs font-medium text-gray-400">
+                <span className="text-xs font-medium text-muted-foreground/50">
                   Optional
                 </span>
                 {sectionStatus.faceVerification && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                 )}
               </div>
-              <p className="text-xs text-gray-500 mb-4">
+              <p className="text-xs text-muted-foreground mb-4">
                 Take a clear selfie with good lighting and a neutral expression.
                 This helps verify your identity faster.
               </p>
@@ -1016,13 +1014,13 @@ export default function KycPage() {
                     <button
                       type="button"
                       onClick={() => setSelfie(emptyFilePreview)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-gray-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400"
                       aria-label="Remove selfie"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <p className="mt-1.5 text-xs text-gray-400">
+                  <p className="mt-1.5 text-xs text-muted-foreground/50">
                     {selfie.name} · {formatFileSize(selfie.file?.size ?? 0)}
                   </p>
                 </div>
@@ -1030,19 +1028,19 @@ export default function KycPage() {
                 <label
                   className={`flex h-48 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed transition ${
                     dragOver === "selfie"
-                      ? "border-gray-400 bg-gray-50"
-                      : "border-border hover:border-gray-300"
+                      ? "border-accent bg-default-100"
+                      : "border-border hover:border-accent"
                   } sm:w-48`}
                   onDragOver={(e) => handleDragOver(e, "selfie")}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, "selfie")}
                 >
-                  <Camera className="h-8 w-8 text-gray-300" strokeWidth={1.5} />
+                  <Camera className="h-8 w-8 text-muted-foreground/50" strokeWidth={1.5} />
                   <div className="text-center">
-                    <p className="text-xs font-medium text-gray-500">
+                    <p className="text-xs font-medium text-muted-foreground">
                       Upload selfie
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-400">
+                    <p className="mt-0.5 text-xs text-muted-foreground/50">
                       JPG, PNG, or WebP · Max 5MB
                     </p>
                   </div>
@@ -1064,16 +1062,16 @@ export default function KycPage() {
         <section className="border-t border-border pt-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" strokeWidth={1.5} />
                 <span>
                   Estimated review time:{" "}
-                  <span className="font-medium text-gray-700">
+                  <span className="font-medium text-foreground">
                     1–3 business days
                   </span>
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground/50">
                 Your submission cannot be edited once submitted.
               </p>
             </div>
@@ -1165,8 +1163,8 @@ export default function KycPage() {
                   key={item.label}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-gray-500">{item.label}</span>
-                  <span className="font-medium text-gray-700">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium text-foreground">
                     {item.value}
                   </span>
                 </div>
@@ -1175,9 +1173,9 @@ export default function KycPage() {
           </div>
 
           {/* Warning */}
-          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.5} />
-            <p className="text-xs text-amber-800">
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+            <p className="text-xs text-amber-800 dark:text-amber-200">
               Once submitted, your documents cannot be edited. If rejected, you
               will need to resubmit with corrections. Please double-check
               everything before proceeding.
@@ -1185,6 +1183,6 @@ export default function KycPage() {
           </div>
         </div>
       </AppModal>
-    </div>
+    </motion.div>
   );
 }

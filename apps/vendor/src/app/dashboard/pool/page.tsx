@@ -9,9 +9,8 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { VendorSoftPanel } from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
 import {
   poolItemRouteKey,
   poolSourceName,
@@ -19,7 +18,14 @@ import {
 } from "@/lib/pool";
 import { formatCurrency } from "@/lib/vendor-format";
 import { useVendorPoolStore, type VendorPoolSourceFilter } from "@/stores/vendor-pool-store";
-import { AppButton, FieldInput, FieldSelect } from "@kwikseller/ui";
+import {
+  AppButton,
+  EmptyState,
+  FieldInput,
+  FieldSelect,
+  SkeletonCard,
+  VendorPageHeader,
+} from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import { VendorProductCard } from "@/components/vendor-product-card";
 
@@ -95,40 +101,41 @@ export default function VendorPoolPage() {
   const showInitialLoader = isLoading && !catalog.length;
 
   return (
-    <div className="safe-container space-y-5">
-      <section className="flex flex-row items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold leading-tight text-foreground md:text-2xl">
-            Pool
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm font-normal leading-6 text-muted-foreground">
-            Browse source products from Kwikseller and other vendors. Open a product first, review the source details, then add it to your store.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <AppButton
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => setShowFilters((value) => !value)}
-            aria-label="Search Pool"
-            className="h-10 w-10 rounded-full p-0"
-          >
-            <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </AppButton>
-          <AppButton
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={refreshCatalog}
-            disabled={isLoading}
-            aria-label="Refresh Pool"
-            className="h-10 w-10 rounded-full p-0"
-          >
-            <RefreshCw className={isLoading ? "h-[18px] w-[18px] animate-spin" : "h-[18px] w-[18px]"} strokeWidth={1.5} />
-          </AppButton>
-        </div>
-      </section>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
+      <VendorPageHeader
+        title="Pool"
+        description="Browse source products from Kwikseller and other vendors. Open a product first, review the source details, then add it to your store."
+        actions={
+          <div className="flex shrink-0 items-center gap-2">
+            <AppButton
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowFilters((value) => !value)}
+              aria-label="Search Pool"
+              className="h-10 w-10 rounded-full p-0"
+            >
+              <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </AppButton>
+            <AppButton
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={refreshCatalog}
+              disabled={isLoading}
+              aria-label="Refresh Pool"
+              className="h-10 w-10 rounded-full p-0"
+            >
+              <RefreshCw className={isLoading ? "h-[18px] w-[18px] animate-spin" : "h-[18px] w-[18px]"} strokeWidth={1.5} />
+            </AppButton>
+          </div>
+        }
+      />
 
       {showFilters ? (
         <VendorSoftPanel>
@@ -165,7 +172,8 @@ export default function VendorPoolPage() {
                 aria-label="Category"
                 value={draftCategory}
                 onChange={(event) => setDraftCategory(event.target.value)}
-                className="h-10 rounded-full border-0 bg-[#F3F4F6] px-3 text-sm dark:bg-white/8"
+                wrapperClassName="mb-0"
+                className="h-10 rounded-full border-0 bg-default-100 px-3 text-sm dark:bg-white/8"
               >
                 <option value="ALL">All categories</option>
                 {categories.map((category) => (
@@ -200,12 +208,17 @@ export default function VendorPoolPage() {
       ) : null}
 
       {showInitialLoader ? (
-        <KwiksellerLoader />
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-live="polite">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCard key={i} className="aspect-[3/4]" />
+          ))}
+        </section>
       ) : error && !catalog.length ? (
         <VendorSoftPanel>
-          <VendorEmptyState
+          <EmptyState
+            variant="error"
             title="Pool catalog could not load"
-            text={`${error}. Refresh the catalog or sign in again if your session expired.`}
+            description={`${error}. Refresh the catalog or sign in again if your session expired.`}
           />
         </VendorSoftPanel>
       ) : catalog.length ? (
@@ -247,19 +260,18 @@ export default function VendorPoolPage() {
         </>
       ) : (
         <VendorSoftPanel>
-          <VendorEmptyState
+          <EmptyState
+            variant="search"
             title="No Pool products found"
-            text={
+            description={
               hasActiveFilters
                 ? "Pool products are loaded, but your current search or filters hide them."
                 : "There are no Pool products available right now. Check back after Kwikseller or vendors publish products to the Pool."
             }
             action={
-              hasActiveFilters ? (
-                <AppButton type="button" variant="secondary" onClick={clearFilters}>
-                  Clear filters
-                </AppButton>
-              ) : undefined
+              hasActiveFilters
+                ? { label: "Clear filters", onClick: clearFilters }
+                : undefined
             }
           />
         </VendorSoftPanel>
@@ -275,6 +287,6 @@ export default function VendorPoolPage() {
       >
         <ArrowUp className="h-5 w-5" strokeWidth={1.5} />
       </AppButton>
-    </div>
+    </motion.div>
   );
 }

@@ -9,12 +9,8 @@ import {
   PackageSearch,
   Store,
 } from "lucide-react";
-import {
-  VendorPageHeader,
-  VendorSoftPanel,
-} from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
+import { motion } from "framer-motion";
+import { VendorSoftPanel } from "@/components/dashboard/vendor-dashboard-ui";
 import {
   PoolCatalogItem,
   poolSourceName,
@@ -25,7 +21,7 @@ import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorPoolStore } from "@/stores/vendor-pool-store";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { VendorPoolOffer } from "@kwikseller/types";
-import { AppButton, FieldInput, SanitizedHTML } from "@kwikseller/ui";
+import { AppButton, EmptyState, FieldInput, SanitizedHTML, Skeleton, SkeletonText, VendorPageHeader } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -46,8 +42,8 @@ function hasHtml(value?: string | null) {
 function ReceiptRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[#F0F0F0] py-3 last:border-b-0 dark:border-white/10">
-      <span className="text-sm font-normal text-[#6B7280] dark:text-white/62">{label}</span>
-      <span className="max-w-[58%] text-right text-sm font-medium text-[#111827] dark:text-white">{value}</span>
+      <span className="text-sm font-normal text-muted-foreground dark:text-white/62">{label}</span>
+      <span className="max-w-[58%] text-right text-sm font-medium text-foreground dark:text-white">{value}</span>
     </div>
   );
 }
@@ -159,25 +155,40 @@ export default function VendorPoolProductPage() {
   };
 
   if (isLoading) {
-    return <KwiksellerLoader />;
+    return (
+      <div className="safe-container space-y-5" aria-busy="true" aria-live="polite">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-9 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+        <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="space-y-5">
+            <Skeleton className="h-[420px] w-full rounded-lg" />
+            <SkeletonText lines={3} />
+            <SkeletonText lines={4} />
+          </div>
+          <Skeleton className="h-80 w-full rounded-lg" />
+        </section>
+      </div>
+    );
   }
 
   if (!item) {
     return (
-      <VendorSoftPanel>
-        <VendorEmptyState
-          title="Pool product not found"
-          text="This product is no longer available in the Pool catalog."
-          action={
-            <Link
-              href="/dashboard/pool"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-[#111827] px-5 text-sm font-medium text-white"
-            >
-              Back to Pool
-            </Link>
-          }
-        />
-      </VendorSoftPanel>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="safe-container space-y-5"
+      >
+        <VendorSoftPanel>
+          <EmptyState
+            variant="error"
+            title="Pool product not found"
+            description="This product is no longer available in the Pool catalog."
+            action={{ label: "Back to Pool", onClick: () => router.push("/dashboard/pool") }}
+          />
+        </VendorSoftPanel>
+      </motion.div>
     );
   }
 
@@ -189,10 +200,15 @@ export default function VendorPoolProductPage() {
   const margin = Math.max(0, Number(salePrice) - basePrice);
 
   return (
-    <div className="safe-container space-y-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
       <Link
         href="/dashboard/pool"
-        className="inline-flex items-center gap-2 text-sm font-medium text-[#6B7280] hover:text-[#111827] dark:hover:text-white"
+        className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground dark:hover:text-white"
       >
         <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
         Back to Pool
@@ -205,7 +221,7 @@ export default function VendorPoolProductPage() {
 
       <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-5">
-          <div className="overflow-hidden bg-[#F7F8FA]">
+          <div className="overflow-hidden bg-default-100">
             {image ? (
               <img src={image} alt={item.name} className="h-[48vh] min-h-[280px] w-full object-cover md:h-[420px]" />
             ) : (
@@ -245,7 +261,7 @@ export default function VendorPoolProductPage() {
               </div>
             ) : null}
 
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-4 dark:border-white/10 dark:bg-white/5">
+            <div className="rounded-lg border border-kwik-border bg-surface p-4 dark:border-white/10 dark:bg-white/5">
               <ReceiptRow label="Source price" value={formatCurrency(basePrice)} />
               <ReceiptRow label="Suggested" value={formatCurrency(poolSuggestedPrice(item))} />
               <ReceiptRow label="Minimum" value={formatCurrency(minimumSalePrice)} />
@@ -258,7 +274,7 @@ export default function VendorPoolProductPage() {
               label="Your sale price"
               value={salePrice}
               onChange={(event) => setSalePrice(Number(event.target.value))}
-              className="h-12 rounded-lg bg-white dark:bg-white/5"
+              className="h-12 rounded-lg bg-surface dark:bg-white/5"
             />
             <AppButton
               type="button"
@@ -272,7 +288,6 @@ export default function VendorPoolProductPage() {
           </div>
         </VendorSoftPanel>
       </section>
-      {isSaving ? <KwiksellerLoader overlay /> : null}
-    </div>
+    </motion.div>
   );
 }

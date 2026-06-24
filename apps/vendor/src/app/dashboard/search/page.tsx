@@ -10,17 +10,13 @@ import {
   ShoppingBag,
   Store,
 } from "lucide-react";
-import {
-  VendorPageHeader,
-  VendorSoftPanel,
-} from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
+import { motion } from "framer-motion";
+import { VendorSoftPanel } from "@/components/dashboard/vendor-dashboard-ui";
 import { PoolCatalogItem, poolItemRouteKey, poolSourceName } from "@/lib/pool";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Order, Product } from "@kwikseller/types";
-import { FieldInput } from "@kwikseller/ui";
+import { EmptyState, FieldInput, Skeleton, SkeletonCard, VendorPageHeader } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 
 type SearchResults = {
@@ -117,7 +113,12 @@ export default function VendorSearchPage() {
   );
 
   return (
-    <div className="safe-container space-y-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
       <VendorPageHeader
         title="Search"
         description="Search your products, order queue, and Pool catalog when you need a specific item."
@@ -140,7 +141,7 @@ export default function VendorSearchPage() {
             onClick={() => runSearch()}
             disabled={isLoading}
             aria-label="Search"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111827] text-white transition hover:bg-[#1F2937] disabled:opacity-60"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background transition hover:bg-foreground/90 disabled:opacity-60"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </button>
@@ -148,13 +149,22 @@ export default function VendorSearchPage() {
       </VendorSoftPanel>
 
       {isLoading ? (
-        <KwiksellerLoader />
+        <section className="grid gap-5 xl:grid-cols-3" aria-busy="true" aria-live="polite">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="space-y-3 rounded-2xl border border-kwik-border bg-surface p-4 md:p-5">
+              <Skeleton className="h-5 w-24" />
+              {Array.from({ length: 4 }).map((_, row) => (
+                <SkeletonCard key={row} className="h-16 w-full" />
+              ))}
+            </div>
+          ))}
+        </section>
       ) : !results ? (
         <VendorSoftPanel
           title="Recents"
           action={
             recents.length ? (
-              <button type="button" onClick={clearRecents} className="text-sm font-medium text-[#111827] dark:text-white">
+              <button type="button" onClick={clearRecents} className="text-sm font-medium text-foreground dark:text-white">
                 Delete all
               </button>
             ) : null
@@ -167,9 +177,9 @@ export default function VendorSearchPage() {
                   key={item}
                   type="button"
                   onClick={() => runSearch(item)}
-                  className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 text-left dark:bg-white/5"
+                  className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-default-100 p-3 text-left dark:bg-white/5"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#111827] dark:bg-white/8 dark:text-white">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface text-foreground dark:bg-white/8 dark:text-white">
                     <Clock className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="font-medium text-foreground">{item}</span>
@@ -178,7 +188,11 @@ export default function VendorSearchPage() {
               ))}
             </div>
           ) : (
-            <VendorEmptyState title="No recent searches" text="Search once and your recent terms will appear here." />
+            <EmptyState
+              variant="search"
+              title="No recent searches"
+              description="Search once and your recent terms will appear here."
+            />
           )}
         </VendorSoftPanel>
       ) : hasResults ? (
@@ -186,8 +200,8 @@ export default function VendorSearchPage() {
           <VendorSoftPanel title="Products">
             <div className="space-y-3">
               {results.products.slice(0, 6).map((product) => (
-                <Link key={product.id} href="/dashboard/products" className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5">
-                  <span className="h-[52px] w-[52px] overflow-hidden rounded-lg bg-white dark:bg-white/8">
+                <Link key={product.id} href="/dashboard/products" className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-lg bg-default-100 p-3 dark:bg-white/5">
+                  <span className="h-[52px] w-[52px] overflow-hidden rounded-lg bg-surface dark:bg-white/8">
                     {productImage(product) ? <img src={productImage(product)} alt="" className="h-full w-full object-cover" /> : null}
                   </span>
                   <span className="min-w-0">
@@ -203,8 +217,8 @@ export default function VendorSearchPage() {
           <VendorSoftPanel title="Pool">
             <div className="space-y-3">
               {results.pool.slice(0, 6).map((item) => (
-                <Link key={`${item.sourceType}-${item.id}`} href={`/dashboard/pool/product/${poolItemRouteKey(item)}`} className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#111827] dark:bg-white/8 dark:text-white">
+                <Link key={`${item.sourceType}-${item.id}`} href={`/dashboard/pool/product/${poolItemRouteKey(item)}`} className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-default-100 p-3 dark:bg-white/5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface text-foreground dark:bg-white/8 dark:text-white">
                     <PackageSearch className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="min-w-0">
@@ -220,8 +234,8 @@ export default function VendorSearchPage() {
           <VendorSoftPanel title="Orders">
             <div className="space-y-3">
               {results.orders.slice(0, 6).map((order) => (
-                <Link key={order.id} href="/dashboard/orders" className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 dark:bg-white/5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#111827] dark:bg-white/8 dark:text-white">
+                <Link key={order.id} href="/dashboard/orders" className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-default-100 p-3 dark:bg-white/5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface text-foreground dark:bg-white/8 dark:text-white">
                     <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="min-w-0">
@@ -236,9 +250,13 @@ export default function VendorSearchPage() {
         </section>
       ) : (
         <VendorSoftPanel>
-          <VendorEmptyState title="No matches" text="Try another term or search Pool directly from the Pool tab." />
+          <EmptyState
+            variant="search"
+            title="No matches"
+            description="Try another term or search Pool directly from the Pool tab."
+          />
         </VendorSoftPanel>
       )}
-    </div>
+    </motion.div>
   );
 }

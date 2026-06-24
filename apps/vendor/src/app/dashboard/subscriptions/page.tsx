@@ -4,10 +4,10 @@ import {
   CreditCard,
   Check,
   ChevronRight,
-  X,
   Info,
 } from "lucide-react";
-import { AppButton, AppModal } from "@kwikseller/ui";
+import { motion } from "framer-motion";
+import { AppButton, AppModal, FieldSelect, VendorPageHeader } from "@kwikseller/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { subscriptionsApi } from "@kwikseller/api-client";
 import { kwikToast } from "@kwikseller/utils";
@@ -131,15 +131,15 @@ function getStatusBadge(status: SubscriptionStatus) {
   switch (status) {
     case "ACTIVE":
       return (
-        <span className="text-xs font-medium text-green-600">Active</span>
+        <span className="text-xs font-medium text-green-600 dark:text-green-400">Active</span>
       );
     case "CANCELLED":
       return (
-        <span className="text-xs font-medium text-gray-500">Cancelled</span>
+        <span className="text-xs font-medium text-muted-foreground">Cancelled</span>
       );
     case "EXPIRED":
       return (
-        <span className="text-xs font-medium text-red-600">Expired</span>
+        <span className="text-xs font-medium text-red-600 dark:text-red-400">Expired</span>
       );
     default:
       return null;
@@ -257,34 +257,31 @@ export default function SubscriptionsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* ==================== Section 1: Page Header ==================== */}
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Subscriptions
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage your plan and billing.
-            </p>
-          </div>
-        </div>
-      </section>
+      <VendorPageHeader
+        title="Subscriptions"
+        description="Manage your plan and billing."
+      />
 
       {/* ==================== Section 2: Current Plan ==================== */}
       <section>
         <h2 className="text-lg font-semibold text-foreground">
           Current Plan
         </h2>
-        <div className="mt-3 border border-gray-200 rounded-lg p-6">
+        <div className="mt-3 border border-kwik-border rounded-lg p-6">
           {isLoading ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
-                <div className="h-5 w-16 animate-pulse rounded bg-gray-100" />
+                <div className="h-8 w-48 animate-pulse rounded bg-default-200" />
+                <div className="h-5 w-16 animate-pulse rounded bg-default-100" />
               </div>
-              <div className="h-4 w-64 animate-pulse rounded bg-gray-100" />
+              <div className="h-4 w-64 animate-pulse rounded bg-default-100" />
             </div>
           ) : currentPlan ? (
             <div className="space-y-6">
@@ -333,16 +330,16 @@ export default function SubscriptionsPage() {
                 ].map((feature) => (
                   <div
                     key={feature.label}
-                    className="grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-[150px_1fr_auto] sm:items-center dark:bg-white/5"
+                    className="grid gap-3 rounded-lg bg-default-100 p-3 sm:grid-cols-[150px_1fr_auto] sm:items-center dark:bg-white/5"
                   >
-                    <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {feature.label}
                     </span>
                     <div className="min-w-0">
                       {feature.max > 0 ? (
                         <div className="h-2 w-full rounded-full bg-white dark:bg-white/10">
                           <div
-                            className="h-2 rounded-full bg-gray-900 transition-all dark:bg-white"
+                            className="h-2 rounded-full bg-foreground transition-all dark:bg-white"
                             style={{
                               width: `${Math.min(100, (feature.current / feature.max) * 100)}%`,
                             }}
@@ -352,7 +349,7 @@ export default function SubscriptionsPage() {
                         <div className="hidden h-2 sm:block" />
                       )}
                     </div>
-                    <span className="text-sm font-medium text-gray-800 dark:text-white/80">
+                    <span className="text-sm font-medium text-foreground dark:text-white/80">
                       {feature.value}
                     </span>
                   </div>
@@ -360,8 +357,8 @@ export default function SubscriptionsPage() {
               </div>
 
               {/* Renewal info */}
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="flex items-center justify-between border-t border-kwik-border pt-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Info className="h-4 w-4" strokeWidth={1.5} />
                   {currentPlan.id === "STARTER" ? (
                     <span>Free plan — no renewal needed</span>
@@ -400,8 +397,8 @@ export default function SubscriptionsPage() {
                 key={plan.id}
                 className={`rounded-lg border p-6 transition ${
                   isCurrent
-                    ? "border-gray-900 bg-gray-50/50"
-                    : "border-gray-200"
+                    ? "border-foreground bg-default-100/50"
+                    : "border-kwik-border"
                 }`}
               >
                 {/* Plan name + price */}
@@ -411,7 +408,7 @@ export default function SubscriptionsPage() {
                       {plan.name}
                     </h3>
                     {isCurrent && (
-                      <span className="rounded-md bg-gray-900 px-2 py-0.5 text-xs font-medium text-white">
+                      <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-medium text-background">
                         Current
                       </span>
                     )}
@@ -421,7 +418,7 @@ export default function SubscriptionsPage() {
                       {plan.price === 0 ? "Free" : `₦${plan.price.toLocaleString()}`}
                     </span>
                     {plan.price > 0 && (
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-muted-foreground">
                         /{plan.interval}
                       </span>
                     )}
@@ -437,11 +434,11 @@ export default function SubscriptionsPage() {
                     { label: "Support", value: plan.support },
                   ].map((feature) => (
                     <div key={feature.label} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 shrink-0 text-green-600" strokeWidth={2} />
-                      <span className="text-gray-600">
+                      <Check className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" strokeWidth={2} />
+                      <span className="text-muted-foreground">
                         {feature.label}:
                       </span>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-foreground">
                         {feature.value}
                       </span>
                     </div>
@@ -486,8 +483,8 @@ export default function SubscriptionsPage() {
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <tr className="border-b border-kwik-border">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Feature
                 </th>
                 {PLANS.map((plan) => (
@@ -495,8 +492,8 @@ export default function SubscriptionsPage() {
                     key={plan.id}
                     className={`px-4 py-3 text-center text-xs font-medium uppercase tracking-wide ${
                       plan.id === currentSub.planId
-                        ? "text-gray-900"
-                        : "text-gray-500"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {plan.name}
@@ -514,8 +511,8 @@ export default function SubscriptionsPage() {
                 { label: "Custom branding", values: ["", "", "Yes"] },
                 { label: "Priority listing", values: ["", "Yes", "Yes"] },
               ].map((row) => (
-                <tr key={row.label} className="border-b border-gray-100">
-                  <td className="px-4 py-3 font-medium text-gray-700">
+                <tr key={row.label} className="border-b border-kwik-border">
+                  <td className="px-4 py-3 font-medium text-foreground">
                     {row.label}
                   </td>
                   {row.values.map((val, i) => (
@@ -523,8 +520,8 @@ export default function SubscriptionsPage() {
                       key={PLANS[i].id}
                       className={`px-4 py-3 text-center ${
                         val
-                          ? "text-gray-900"
-                          : "text-gray-300"
+                          ? "text-foreground"
+                          : "text-muted-foreground/50"
                       }`}
                     >
                       {val || "—"}
@@ -544,33 +541,33 @@ export default function SubscriptionsPage() {
         </h2>
         <div className="mt-3">
           {billingHistory.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 border border-gray-200 rounded-lg">
-              <CreditCard className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-gray-500">
+            <div className="flex flex-col items-center justify-center py-16 border border-kwik-border rounded-lg">
+              <CreditCard className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-muted-foreground">
                 No billing history
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground/50">
                 Invoices will appear here after your first payment.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <div className="overflow-x-auto border border-kwik-border rounded-lg">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <tr className="border-b border-kwik-border">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Date
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Plan
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                       Amount
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Invoice
                     </th>
                   </tr>
@@ -579,25 +576,25 @@ export default function SubscriptionsPage() {
                   {billingHistory.map((entry) => (
                     <tr
                       key={entry.id}
-                      className="border-b border-gray-100 last:border-b-0"
+                      className="border-b border-kwik-border last:border-b-0"
                     >
-                      <td className="px-4 py-4 text-gray-600">
+                      <td className="px-4 py-4 text-muted-foreground">
                         {formatDate(entry.date)}
                       </td>
-                      <td className="px-4 py-4 text-gray-900 font-medium">
+                      <td className="px-4 py-4 text-foreground font-medium">
                         {entry.plan}
                       </td>
-                      <td className="px-4 py-4 text-right tabular-nums text-gray-900">
+                      <td className="px-4 py-4 text-right tabular-nums text-foreground">
                         {entry.amount === 0 ? "Free" : formatCurrency(entry.amount)}
                       </td>
                       <td className="px-4 py-4">
                         <span
                           className={`text-xs font-medium ${
                             entry.status === "Paid"
-                              ? "text-green-600"
+                              ? "text-green-600 dark:text-green-400"
                               : entry.status === "Pending"
-                              ? "text-yellow-600"
-                              : "text-red-600"
+                              ? "text-yellow-600 dark:text-yellow-400"
+                              : "text-red-600 dark:text-red-400"
                           }`}
                         >
                           {entry.status}
@@ -607,12 +604,12 @@ export default function SubscriptionsPage() {
                         {entry.invoiceUrl ? (
                           <button
                             type="button"
-                            className="text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline"
+                            className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                           >
                             Download
                           </button>
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          <span className="text-xs text-muted-foreground/50">—</span>
                         )}
                       </td>
                     </tr>
@@ -626,13 +623,13 @@ export default function SubscriptionsPage() {
 
       {/* ==================== Section 6: Cancel Subscription ==================== */}
       {currentPlan && currentPlan.id !== "STARTER" && (
-        <section className="border-t border-gray-100 pt-8">
+        <section className="border-t border-kwik-border pt-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-red-600">
+              <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">
                 Cancel Subscription
               </h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Your plan will remain active until the end of the billing period.
                 You can resubscribe at any time.
               </p>
@@ -676,9 +673,9 @@ export default function SubscriptionsPage() {
         }
       >
         <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.5} />
-            <p className="text-xs text-amber-800">
+          <div className="flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+            <p className="text-xs text-amber-800 dark:text-amber-200">
               After cancellation, you will be moved to the Free Starter plan.
               Your data will be preserved but access to premium features will be
               limited.
@@ -687,15 +684,16 @@ export default function SubscriptionsPage() {
           <div>
             <label
               htmlFor="cancel-reason"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-foreground"
             >
-              Reason for cancellation <span className="text-gray-400">(optional)</span>
+              Reason for cancellation <span className="text-muted-foreground/70">(optional)</span>
             </label>
-            <select
+            <FieldSelect
               id="cancel-reason"
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              className="mt-1.5 h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-gray-400"
+              wrapperClassName="mt-1.5"
+              className="h-9 w-full rounded-md border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none focus:border-accent"
             >
               <option value="">Select a reason</option>
               <option value="too_expensive">Too expensive</option>
@@ -703,10 +701,10 @@ export default function SubscriptionsPage() {
               <option value="switching_platform">Switching to another platform</option>
               <option value="closing_store">Closing my store</option>
               <option value="other">Other</option>
-            </select>
+            </FieldSelect>
           </div>
         </div>
       </AppModal>
-    </div>
+    </motion.div>
   );
 }

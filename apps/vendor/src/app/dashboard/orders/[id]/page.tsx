@@ -20,7 +20,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { Skeleton } from "@kwikseller/ui";
+import { Skeleton, VendorPageHeader, VendorStatusBadge } from "@kwikseller/ui";
 import { AppButton, AppModal, FieldTextarea } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
@@ -28,44 +28,9 @@ import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Order, OrderStatus } from "@kwikseller/types";
 import Link from "next/link";
 import { use } from "react";
+import { motion } from "framer-motion";
 
 /* ─── Helpers ─── */
-
-function statusColor(status: string): string {
-  switch (status) {
-    case "PENDING":
-    case "PENDING_PAYMENT":
-    case "PAID":
-      return "text-amber-600";
-    case "CONFIRMED":
-    case "PROCESSING":
-      return "text-gray-600";
-    case "FULFILLED":
-    case "SHIPPED":
-      return "text-purple-600";
-    case "DELIVERED":
-      return "text-green-600";
-    case "CANCELLED":
-    case "REFUNDED":
-      return "text-red-600";
-    default:
-      return "text-gray-500";
-  }
-}
-
-function paymentStatusColor(status: string): string {
-  switch (status) {
-    case "PAID":
-      return "text-green-600";
-    case "PENDING":
-      return "text-amber-600";
-    case "FAILED":
-    case "REFUNDED":
-      return "text-red-600";
-    default:
-      return "text-gray-500";
-  }
-}
 
 const deliveryStages = [
   "CONFIRMED",
@@ -126,7 +91,7 @@ function buildActivityLog(order: Order): Array<{ time: string; label: string }> 
 function OrderDetailSkeleton() {
   return (
     <div className="safe-container space-y-6">
-      <nav className="flex items-center gap-1.5 text-sm text-gray-500">
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Skeleton className="h-4 w-20" />
         <Skeleton className="h-3 w-3" shape="circular" />
         <Skeleton className="h-4 w-24" />
@@ -174,6 +139,9 @@ export default function OrderDetailPage({
   // Reject modal
   const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
+
+  // Cancel modal
+  const [isCancelModalOpen, setIsCancelModalOpen] = React.useState(false);
 
   // Load order
   React.useEffect(() => {
@@ -245,7 +213,13 @@ export default function OrderDetailPage({
   const handleMarkPreparing = () => updateStatus("PROCESSING");
   const handleMarkReady = () => updateStatus("FULFILLED");
   const handleConfirmHandoff = () => updateStatus("SHIPPED");
-  const handleCancel = () => updateStatus("CANCELLED");
+  const handleCancel = () => {
+    setIsCancelModalOpen(true);
+  };
+  const confirmCancel = () => {
+    setIsCancelModalOpen(false);
+    updateStatus("CANCELLED");
+  };
 
   const handlePrintInvoice = () => {
     window.print();
@@ -260,16 +234,16 @@ export default function OrderDetailPage({
   if (!orderFound || !order) {
     return (
       <div className="safe-container py-20 text-center">
-        <PackageCheck className="mx-auto h-12 w-12 text-gray-300" strokeWidth={1.5} />
-        <p className="mt-4 text-lg font-semibold text-gray-900">
+        <PackageCheck className="mx-auto h-12 w-12 text-muted-foreground/50" strokeWidth={1.5} />
+        <p className="mt-4 text-lg font-semibold text-foreground">
           Order not found
         </p>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           The order you are looking for does not exist or has been removed.
         </p>
         <Link
           href="/dashboard/orders"
-          className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-gray-900 hover:text-gray-700 transition"
+          className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-accent transition"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Orders
@@ -292,72 +266,66 @@ export default function OrderDetailPage({
   const address = order.address;
 
   return (
-    <div className="safe-container space-y-6 pb-16">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm text-gray-500">
-        <Link
-          href="/dashboard/orders"
-          className="hover:text-gray-900 transition"
-        >
-          Orders
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="font-medium text-gray-900">Order Details</span>
-      </nav>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-6 pb-16"
+    >
+      {/* Page Header */}
+      <VendorPageHeader
+        title={order.checkoutReference || order.id}
+        description={`Order placed ${formatDate(order.createdAt)} by ${buyerName}`}
+        breadcrumbs={[
+          { label: "Orders", href: "/dashboard/orders" },
+          { label: "Order Details" },
+        ]}
+        actions={
+          <button
+            type="button"
+            onClick={handleCopyId}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-default-100 transition"
+            title="Copy order ID"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
+        }
+      />
 
-      {/* Order Header */}
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xl font-semibold text-gray-900">
-              {order.checkoutReference || order.id}
-            </span>
-            <button
-              type="button"
-              onClick={handleCopyId}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-              title="Copy order ID"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-            <span className={`font-semibold ${statusColor(order.status)}`}>
-              {order.status.replace(/_/g, " ")}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CalendarDays className="h-3.5 w-3.5" />
-              {formatDate(order.createdAt)}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <User className="h-3.5 w-3.5" />
-              {buyerName}
-            </span>
-          </div>
-        </div>
-      </section>
+      {/* Status + meta row */}
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <VendorStatusBadge status={order.status} size="md" />
+        <span className="inline-flex items-center gap-1">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {formatDate(order.createdAt)}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <User className="h-3.5 w-3.5" />
+          {buyerName}
+        </span>
+      </div>
 
       {/* Two-column layout */}
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         {/* Left Column */}
         <div className="min-w-0 space-y-0">
           {/* Customer Information */}
-          <section className="border-t border-gray-200 pt-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="border-t border-kwik-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Customer Information
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Name</p>
-                <p className="text-sm font-medium text-gray-900">{buyerName}</p>
+                <p className="text-xs text-muted-foreground mb-1">Name</p>
+                <p className="text-sm font-medium text-foreground">{buyerName}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Contact</p>
+                <p className="text-xs text-muted-foreground mb-1">Contact</p>
                 <div className="flex items-center gap-2">
                   {buyerPhone && (
                     <a
                       href={`tel:${buyerPhone}`}
-                      className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 px-2 text-xs font-medium text-gray-700 hover:border-gray-400 transition"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-kwik-border px-2 text-xs font-medium text-foreground hover:border-accent hover:text-accent transition"
                     >
                       <Phone className="h-3 w-3" />
                       {buyerPhone}
@@ -366,7 +334,7 @@ export default function OrderDetailPage({
                   {buyerEmail && (
                     <a
                       href={`mailto:${buyerEmail}`}
-                      className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 px-2 text-xs font-medium text-gray-700 hover:border-gray-400 transition"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-kwik-border px-2 text-xs font-medium text-foreground hover:border-accent hover:text-accent transition"
                     >
                       <MessageSquare className="h-3 w-3" />
                       Email
@@ -378,10 +346,10 @@ export default function OrderDetailPage({
 
             {address && (
               <div className="mt-4">
-                <p className="text-xs text-gray-500 mb-1">Delivery Address</p>
+                <p className="text-xs text-muted-foreground mb-1">Delivery Address</p>
                 <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-0.5 text-gray-400 shrink-0" />
-                  <p className="text-sm text-gray-700">
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <p className="text-sm text-foreground">
                     {address.line1}
                     {address.line2 ? `, ${address.line2}` : ""}
                     {address.localGovernment ? `, ${address.localGovernment}` : ""}
@@ -391,7 +359,7 @@ export default function OrderDetailPage({
                   </p>
                 </div>
                 {address.deliveryInstructions && (
-                  <p className="mt-2 text-xs text-gray-500 italic">
+                  <p className="mt-2 text-xs text-muted-foreground italic">
                     Note: {address.deliveryInstructions}
                   </p>
                 )}
@@ -400,14 +368,14 @@ export default function OrderDetailPage({
           </section>
 
           {/* Order Items */}
-          <section className="border-t border-gray-200 pt-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="border-t border-kwik-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Order Items
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
+                  <tr className="border-b border-kwik-border text-left text-xs text-muted-foreground uppercase tracking-wide">
                     <th className="pb-3 pr-4 font-medium">Product</th>
                     <th className="pb-3 pr-4 font-medium hidden sm:table-cell">Variant</th>
                     <th className="pb-3 pr-4 font-medium text-right">Qty</th>
@@ -415,29 +383,29 @@ export default function OrderDetailPage({
                     <th className="pb-3 font-medium text-right">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-kwik-border">
                   {order.items?.map((item) => (
                     <tr key={item.id}>
                       <td className="py-3 pr-4">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {item.product?.name || item.productId}
                         </p>
                         {item.isPoolItem && (
-                          <span className="text-xs text-gray-400">Pool item</span>
+                          <span className="text-xs text-muted-foreground">Pool item</span>
                         )}
                       </td>
                       <td className="py-3 pr-4 hidden sm:table-cell">
-                        <span className="text-gray-500">
+                        <span className="text-muted-foreground">
                           {item.variant?.name || "-"}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-right text-gray-700">
+                      <td className="py-3 pr-4 text-right text-foreground">
                         {item.quantity}
                       </td>
-                      <td className="py-3 pr-4 text-right text-gray-500 hidden sm:table-cell">
+                      <td className="py-3 pr-4 text-right text-muted-foreground hidden sm:table-cell">
                         {formatCurrency(item.unitPrice)}
                       </td>
-                      <td className="py-3 text-right font-medium text-gray-900">
+                      <td className="py-3 text-right font-medium text-foreground">
                         {formatCurrency(item.totalPrice)}
                       </td>
                     </tr>
@@ -447,22 +415,22 @@ export default function OrderDetailPage({
             </div>
 
             {/* Totals */}
-            <div className="mt-4 border-t border-gray-200 pt-3 space-y-2 text-sm">
-              <div className="flex justify-between text-gray-500">
+            <div className="mt-4 border-t border-kwik-border pt-3 space-y-2 text-sm">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
                 <span>{formatCurrency(order.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-500">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Shipping</span>
                 <span>{formatCurrency(order.shippingFee ?? 0)}</span>
               </div>
               {order.discount ? (
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Discount</span>
                   <span>-{formatCurrency(order.discount)}</span>
                 </div>
               ) : null}
-              <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-200">
+              <div className="flex justify-between font-semibold text-foreground pt-2 border-t border-kwik-border">
                 <span>Total</span>
                 <span>{formatCurrency(order.totalAmount)}</span>
               </div>
@@ -470,29 +438,27 @@ export default function OrderDetailPage({
           </section>
 
           {/* Payment Information */}
-          <section className="border-t border-gray-200 pt-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="border-t border-kwik-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Payment Information
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Payment Method</p>
-                <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <CreditCard className="h-3.5 w-3.5 text-gray-400" />
+                <p className="text-xs text-muted-foreground mb-1">Payment Method</p>
+                <div className="flex items-center gap-1.5 text-sm text-foreground">
+                  <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
                   {order.payment?.gateway || "Online Payment"}
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Payment Status</p>
-                <span className={`text-sm font-semibold ${paymentStatusColor(order.paymentStatus)}`}>
-                  {order.paymentStatus}
-                </span>
+                <p className="text-xs text-muted-foreground mb-1">Payment Status</p>
+                <VendorStatusBadge status={order.paymentStatus} size="sm" />
               </div>
             </div>
             {order.escrow?.status === "HELD" && (
-              <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
-                <ClipboardList className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
-                <p className="text-sm text-amber-800">
+              <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 dark:border-amber-400/20 dark:bg-amber-400/10">
+                <ClipboardList className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
                   Amount of {formatCurrency(order.escrow.amount)} is held in escrow and will be released after delivery confirmation.
                 </p>
               </div>
@@ -500,22 +466,22 @@ export default function OrderDetailPage({
           </section>
 
           {/* Activity Log / Timeline */}
-          <section className="border-t border-gray-200 pt-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="border-t border-kwik-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Activity Log
             </h2>
             {activityLog.length > 0 ? (
               <div className="relative pl-6">
                 {/* Vertical line */}
-                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200" />
+                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-kwik-border" />
                 <div className="space-y-4">
                   {activityLog.map((entry, idx) => (
                     <div key={idx} className="relative flex items-start gap-3">
                       {/* Dot */}
-                      <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-gray-300 bg-white" />
+                      <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-kwik-border bg-surface" />
                       <div className="min-w-0">
-                        <p className="text-sm text-gray-700">{entry.label}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-sm text-foreground">{entry.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {formatDate(entry.time)}
                         </p>
                       </div>
@@ -524,7 +490,7 @@ export default function OrderDetailPage({
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-400">No activity recorded yet.</p>
+              <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
             )}
           </section>
         </div>
@@ -532,8 +498,8 @@ export default function OrderDetailPage({
         {/* Right Column */}
         <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           {/* Delivery Tracking */}
-          <section className="border border-gray-200 rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="border border-kwik-border rounded-lg p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Delivery Tracking
             </h2>
 
@@ -548,8 +514,8 @@ export default function OrderDetailPage({
                     <div
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition ${
                         isActive
-                          ? "border-gray-900 bg-gray-900 text-white"
-                          : "border-gray-200 bg-white text-gray-300"
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-kwik-border bg-surface text-muted-foreground"
                       }`}
                     >
                       {isActive ? (
@@ -561,7 +527,7 @@ export default function OrderDetailPage({
                     <div className="min-w-0">
                       <p
                         className={`text-sm font-medium ${
-                          isActive ? "text-gray-900" : "text-gray-400"
+                          isActive ? "text-foreground" : "text-muted-foreground"
                         }`}
                       >
                         {stageLabels[stage]}
@@ -572,19 +538,19 @@ export default function OrderDetailPage({
               })}
               {isCancelled && (
                 <div className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-red-300 bg-red-50 text-red-500">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400">
                     <XCircle className="h-4 w-4" />
                   </div>
-                  <p className="text-sm font-medium text-red-600">Cancelled</p>
+                  <p className="text-sm font-medium text-red-600 dark:text-red-400">Cancelled</p>
                 </div>
               )}
             </div>
 
             {/* Rider info */}
             {order.delivery?.rider && (
-              <div className="mt-4 border-t border-gray-100 pt-3 space-y-2">
-                <p className="text-xs text-gray-500">Assigned Rider</p>
-                <p className="text-sm font-medium text-gray-900">
+              <div className="mt-4 border-t border-kwik-border pt-3 space-y-2">
+                <p className="text-xs text-muted-foreground">Assigned Rider</p>
+                <p className="text-sm font-medium text-foreground">
                   {order.delivery.rider.vehicleType === "BIKE"
                     ? "Bike"
                     : order.delivery.rider.vehicleType === "CAR"
@@ -598,22 +564,22 @@ export default function OrderDetailPage({
             )}
 
             {order.estimatedDeliveryEnd && (
-              <div className="mt-3 border-t border-gray-100 pt-3">
-                <p className="text-xs text-gray-500">Estimated Delivery</p>
-                <p className="text-sm font-medium text-gray-900">
+              <div className="mt-3 border-t border-kwik-border pt-3">
+                <p className="text-xs text-muted-foreground">Estimated Delivery</p>
+                <p className="text-sm font-medium text-foreground">
                   {formatDate(order.estimatedDeliveryEnd)}
                 </p>
               </div>
             )}
 
-            <p className="mt-4 text-xs text-gray-400">
+            <p className="mt-4 text-xs text-muted-foreground">
               Delivery tracking powered by Kwikseller Logistics
             </p>
           </section>
 
           {/* Order Actions */}
-          <section className="border border-gray-200 rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="border border-kwik-border rounded-lg p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Order Actions
             </h2>
             <div className="space-y-2">
@@ -691,7 +657,7 @@ export default function OrderDetailPage({
                 order.status === "DELIVERED" ||
                 order.status === "CANCELLED" ||
                 order.status === "REFUNDED") && (
-                <p className="text-sm text-gray-400 text-center py-2">
+                <p className="text-sm text-muted-foreground text-center py-2">
                   No further actions available
                 </p>
               )}
@@ -745,6 +711,29 @@ export default function OrderDetailPage({
           placeholder="Explain why you are rejecting this order..."
         />
       </AppModal>
-    </div>
+
+      {/* Cancel Order Modal */}
+      <AppModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        title="Cancel Order?"
+        description="This action is irreversible. The order will be marked as cancelled and the customer will be notified."
+        className="sm:max-w-md"
+      >
+        <div className="flex items-center justify-end gap-3">
+          <AppButton type="button" variant="secondary" onClick={() => setIsCancelModalOpen(false)}>
+            Keep order
+          </AppButton>
+          <AppButton
+            type="button"
+            variant="danger"
+            onClick={confirmCancel}
+            isLoading={updatingId === order.id}
+          >
+            Yes, cancel order
+          </AppButton>
+        </div>
+      </AppModal>
+    </motion.div>
   );
 }

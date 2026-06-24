@@ -9,7 +9,6 @@ import {
   X,
   GripVertical,
 } from "lucide-react";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi, uploadApi } from "@kwikseller/api-client";
 import type { ProductType, ProductStatus } from "@kwikseller/types";
@@ -21,10 +20,13 @@ import {
   FieldSelect,
   FieldTextarea,
   Skeleton,
+  SkeletonText,
+  VendorPageHeader,
 } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import Link from "next/link";
 import { use } from "react";
+import { motion } from "framer-motion";
 
 /* ─── Constants ─── */
 
@@ -134,6 +136,7 @@ export default function EditProductPage({
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [productFound, setProductFound] = React.useState(true);
+  const [isCancelModalOpen, setIsCancelModalOpen] = React.useState(false);
 
   // Dirty tracking
   const initialDataRef = React.useRef<string>("");
@@ -478,11 +481,18 @@ export default function EditProductPage({
   // Warn on navigation if dirty
   const handleCancel = () => {
     if (isDirty) {
-      const confirmed = window.confirm(
-        "You have unsaved changes. Are you sure you want to leave?"
-      );
-      if (!confirmed) return;
+      setIsCancelModalOpen(true);
+      return;
     }
+    try {
+      localStorage.removeItem(`kwikseller_product_edit_${id}`);
+    } catch {
+      // ignore
+    }
+    window.location.href = "/dashboard/products";
+  };
+
+  const confirmCancel = () => {
     try {
       localStorage.removeItem(`kwikseller_product_edit_${id}`);
     } catch {
@@ -493,23 +503,47 @@ export default function EditProductPage({
 
   // Loading state
   if (isLoading) {
-    return <KwiksellerLoader />;
+    return (
+      <div className="safe-container pb-24">
+        <VendorPageHeader
+          title="Edit Product"
+          description="Update product details, pricing, and inventory."
+          breadcrumbs={[
+            { label: "Products", href: "/dashboard/products" },
+            { label: "Edit Product" },
+          ]}
+        />
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl">
+          <div className="space-y-4 sm:col-span-2 lg:col-span-2">
+            <SkeletonText lines={2} />
+            <Skeleton className="h-11 w-full" />
+            <SkeletonText lines={3} />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Not found state
   if (!productFound) {
     return (
       <div className="safe-container py-20 text-center">
-        <ImageIcon className="mx-auto h-12 w-12 text-gray-300" strokeWidth={1.5} />
-        <p className="mt-4 text-lg font-semibold text-gray-900">
+        <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/50" strokeWidth={1.5} />
+        <p className="mt-4 text-lg font-semibold text-foreground">
           Product not found
         </p>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           The product you are looking for does not exist or has been removed.
         </p>
         <Link
           href="/dashboard/products"
-          className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-gray-900 hover:text-gray-700 transition"
+          className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-accent transition"
         >
           Back to Products
         </Link>
@@ -519,25 +553,25 @@ export default function EditProductPage({
 
   if (productSource === "POOL_RESALE") {
     return (
-      <div className="safe-container max-w-2xl pb-24">
-        <nav className="flex items-center gap-1.5 text-sm text-gray-500">
-          <Link href="/dashboard/products" className="transition hover:text-gray-900">
-            Products
-          </Link>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="font-medium text-gray-900">Edit selling price</span>
-        </nav>
-        <section className="mt-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Edit selling price</h1>
-          <p className="mt-2 text-sm leading-6 text-gray-500">
-            This is a Pool-sourced product. You do not own the source listing, so only your marketplace selling price can be changed.
-          </p>
-        </section>
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="safe-container max-w-2xl pb-24"
+      >
+        <VendorPageHeader
+          title="Edit selling price"
+          description="This is a Pool-sourced product. You do not own the source listing, so only your marketplace selling price can be changed."
+          breadcrumbs={[
+            { label: "Products", href: "/dashboard/products" },
+            { label: "Edit selling price" },
+          ]}
+        />
+        <section className="mt-6 rounded-2xl border border-kwik-border bg-surface p-5">
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Product</p>
-              <p className="mt-1 text-base font-semibold text-gray-900">{name}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Product</p>
+              <p className="mt-1 text-base font-semibold text-foreground">{name}</p>
             </div>
             <FieldInput
               required
@@ -548,7 +582,7 @@ export default function EditProductPage({
               onChange={(event) => setPrice(Number(event.target.value))}
               placeholder="0"
             />
-            <p className="text-xs leading-5 text-gray-500">
+            <p className="text-xs leading-5 text-muted-foreground">
               Source details, inventory, images, and fulfillment settings stay managed by the original Pool owner.
             </p>
           </div>
@@ -566,7 +600,23 @@ export default function EditProductPage({
             Save selling price
           </AppButton>
         </div>
-      </div>
+        <AppModal
+          isOpen={isCancelModalOpen}
+          onClose={() => setIsCancelModalOpen(false)}
+          title="Discard changes?"
+          description="You have unsaved changes. Leaving now will lose them."
+          className="sm:max-w-md"
+        >
+          <div className="flex items-center justify-end gap-3">
+            <AppButton type="button" variant="secondary" onClick={() => setIsCancelModalOpen(false)}>
+              Keep editing
+            </AppButton>
+            <AppButton type="button" variant="danger" onClick={confirmCancel}>
+              Discard & leave
+            </AppButton>
+          </div>
+        </AppModal>
+      </motion.div>
     );
   }
 
@@ -591,7 +641,7 @@ export default function EditProductPage({
           rows={6}
           placeholder="Describe your product in detail..."
         />
-        <p className="mt-1 text-xs text-gray-400 text-right">
+        <p className="mt-1 text-xs text-muted-foreground text-right">
           {description.length} / 2000 characters
         </p>
       </div>
@@ -609,18 +659,18 @@ export default function EditProductPage({
       </FieldSelect>
       <div className="sm:col-span-2">
         <label className="block">
-          <span className="text-xs font-semibold text-gray-500">Tags</span>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 min-h-[44px]">
+          <span className="text-xs font-semibold text-muted-foreground">Tags</span>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-md border border-kwik-border bg-surface px-3 py-2 min-h-[44px]">
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                className="inline-flex items-center gap-1 rounded-md bg-default-100 px-2 py-0.5 text-xs font-medium text-foreground"
               >
                 {tag}
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="text-gray-400 hover:text-gray-600 transition"
+                  className="text-muted-foreground hover:text-foreground transition"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -636,10 +686,10 @@ export default function EditProductPage({
                   ? "Type and press Enter to add tags"
                   : "Add another"
               }
-              className="flex-1 min-w-[100px] bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+              className="flex-1 min-w-[100px] bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Up to 10 tags. Press Enter to add.
           </p>
         </label>
@@ -654,7 +704,7 @@ export default function EditProductPage({
         <button
           type="button"
           onClick={() => setSku(generateSku(name))}
-          className="text-xs text-gray-500 underline hover:text-gray-700 transition"
+          className="text-xs text-muted-foreground underline hover:text-foreground transition"
         >
           Auto-generate SKU from product name
         </button>
@@ -682,7 +732,7 @@ export default function EditProductPage({
           onChange={(e) => setComparePrice(Number(e.target.value))}
           placeholder="0"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           Shows strikethrough on marketplace
         </p>
       </div>
@@ -695,7 +745,7 @@ export default function EditProductPage({
           onChange={(e) => setCostPrice(Number(e.target.value))}
           placeholder="0"
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           Hidden from customers - for profit tracking
         </p>
       </div>
@@ -714,7 +764,7 @@ export default function EditProductPage({
         description="Apply tax to this product"
       />
       {price > 0 && comparePrice > 0 && comparePrice < price && (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300">
           Customers will see {formatCurrency(comparePrice)} crossed out and{" "}
           {formatCurrency(price)} as the sale price.
         </div>
@@ -789,13 +839,13 @@ export default function EditProductPage({
     <div className="space-y-4">
       {/* Main image upload */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 mb-2">
+        <p className="text-xs font-semibold text-muted-foreground mb-2">
           Main Image
         </p>
         <label className="block">
-          <div className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 p-6 text-center transition hover:border-gray-400">
+          <div className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-kwik-border bg-default-100 p-6 text-center transition hover:border-accent">
             {isUploading ? (
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             ) : images.length > 0 ? (
               <div className="relative h-full w-full">
                 <img
@@ -806,11 +856,11 @@ export default function EditProductPage({
               </div>
             ) : (
               <>
-                <Upload className="h-8 w-8 text-gray-400" />
-                <p className="mt-2 text-sm font-medium text-gray-700">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-sm font-medium text-foreground">
                   Click to upload or drag and drop
                 </p>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   PNG, JPG up to 5MB
                 </p>
               </>
@@ -835,7 +885,7 @@ export default function EditProductPage({
 
       {/* Gallery images */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 mb-2">
+        <p className="text-xs font-semibold text-muted-foreground mb-2">
           Gallery Images ({images.length}/5)
         </p>
         {images.length > 1 ? (
@@ -843,10 +893,10 @@ export default function EditProductPage({
             {images.slice(1).map((url, idx) => (
               <div
                 key={url}
-                className="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50"
+                className="group relative aspect-square overflow-hidden rounded-md border border-kwik-border bg-default-100"
               >
                 {/* Drag handle */}
-                <div className="absolute left-1 top-1 z-10 cursor-grab text-gray-300 opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute left-1 top-1 z-10 cursor-grab text-muted-foreground opacity-0 group-hover:opacity-100 transition">
                   <GripVertical className="h-4 w-4" />
                 </div>
                 <img
@@ -865,8 +915,8 @@ export default function EditProductPage({
               </div>
             ))}
             {images.length < 5 && (
-              <label className="flex aspect-square cursor-pointer items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 transition hover:border-gray-400">
-                <Upload className="h-5 w-5 text-gray-400" />
+              <label className="flex aspect-square cursor-pointer items-center justify-center rounded-md border border-dashed border-kwik-border bg-default-100 transition hover:border-accent">
+                <Upload className="h-5 w-5 text-muted-foreground" />
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg"
@@ -878,10 +928,10 @@ export default function EditProductPage({
             )}
           </div>
         ) : images.length <= 1 && images.length < 5 ? (
-          <label className="flex min-h-24 cursor-pointer items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 transition hover:border-gray-400">
+          <label className="flex min-h-24 cursor-pointer items-center justify-center rounded-md border border-dashed border-kwik-border bg-default-100 transition hover:border-accent">
             <div className="flex flex-col items-center gap-1">
-              <Upload className="h-5 w-5 text-gray-400" />
-              <p className="text-xs text-gray-500">
+              <Upload className="h-5 w-5 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
                 Add gallery images (up to {5 - images.length} more)
               </p>
             </div>
@@ -923,7 +973,7 @@ export default function EditProductPage({
           onChange={(e) => setPublishDate(e.target.value)}
           min={new Date().toISOString().split("T")[0]}
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           Leave empty to publish immediately when status is Active
         </p>
       </div>
@@ -939,48 +989,41 @@ export default function EditProductPage({
   };
 
   return (
-    <div className="safe-container pb-24">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm text-gray-500">
-        <Link
-          href="/dashboard/products"
-          className="hover:text-gray-900 transition"
-        >
-          Products
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="font-medium text-gray-900">Edit Product</span>
-      </nav>
-
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container pb-24"
+    >
       {/* Page Header */}
-      <section className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between mt-2 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Edit Product
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Update product details, pricing, and inventory.
-          </p>
-        </div>
-        <div className="hidden lg:flex gap-2">
-          <AppButton
-            type="button"
-            variant="secondary"
-            onClick={() => setProductType(productType)}
-            disabled
-          >
-            {productType === "PHYSICAL" ? "Physical" : "Digital"} Product
-          </AppButton>
-          {isDirty && (
-            <span className="inline-flex items-center text-xs text-amber-600">
-              Unsaved changes
-            </span>
-          )}
-        </div>
-      </section>
+      <VendorPageHeader
+        title="Edit Product"
+        description="Update product details, pricing, and inventory."
+        breadcrumbs={[
+          { label: "Products", href: "/dashboard/products" },
+          { label: "Edit Product" },
+        ]}
+        actions={
+          <div className="hidden lg:flex gap-2">
+            <AppButton
+              type="button"
+              variant="secondary"
+              onClick={() => setProductType(productType)}
+              disabled
+            >
+              {productType === "PHYSICAL" ? "Physical" : "Digital"} Product
+            </AppButton>
+            {isDirty && (
+              <span className="inline-flex items-center text-xs text-amber-600 dark:text-amber-400">
+                Unsaved changes
+              </span>
+            )}
+          </div>
+        }
+      />
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="mt-6 border-b border-kwik-border mb-6">
         <div className="flex gap-0 overflow-x-auto scrollbar-hide -mb-px">
           {TABS.map((tab) => (
             <button
@@ -989,8 +1032,8 @@ export default function EditProductPage({
               onClick={() => setActiveTab(tab.key)}
               className={`shrink-0 px-4 py-3 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                 activeTab === tab.key
-                  ? "border-gray-900 text-gray-900"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-accent"
               }`}
             >
               {tab.label}
@@ -1006,8 +1049,8 @@ export default function EditProductPage({
 
       {/* Pool Settings (shown if PHYSICAL type) */}
       {productType === "PHYSICAL" && (
-        <section className="border-t border-gray-200 mt-10 pt-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <section className="border-t border-kwik-border mt-10 pt-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">
             Pool Settings
           </h2>
           <div className="space-y-4">
@@ -1058,7 +1101,7 @@ export default function EditProductPage({
       )}
 
       {/* Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white lg:static lg:border-t lg:mt-8 lg:pt-6">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-kwik-border bg-surface lg:static lg:border-t lg:mt-8 lg:pt-6">
         <div className="safe-container flex items-center justify-between gap-3 py-3 lg:py-0">
           <AppButton
             type="button"
@@ -1092,6 +1135,23 @@ export default function EditProductPage({
           </div>
         </div>
       </div>
-    </div>
+
+      <AppModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        title="Discard changes?"
+        description="You have unsaved changes. Leaving now will lose them."
+        className="sm:max-w-md"
+      >
+        <div className="flex items-center justify-end gap-3">
+          <AppButton type="button" variant="secondary" onClick={() => setIsCancelModalOpen(false)}>
+            Keep editing
+          </AppButton>
+          <AppButton type="button" variant="danger" onClick={confirmCancel}>
+            Discard & leave
+          </AppButton>
+        </div>
+      </AppModal>
+    </motion.div>
   );
 }

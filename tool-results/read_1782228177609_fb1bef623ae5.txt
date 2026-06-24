@@ -1,0 +1,2002 @@
+     1→import {
+     2→  BadRequestException,
+     3→  ForbiddenException,
+     4→  Injectable,
+     5→  Logger,
+     6→  NotFoundException,
+     7→  UnauthorizedException,
+     8→} from '@nestjs/common';
+     9→import { ConfigService } from '@nestjs/config';
+    10→import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+    11→import { PrismaService } from '../../database/prisma.service';
+    12→import { PaystackService } from './paystack.service';
+    13→import { EscrowService } from '../../payments/escrow.service';
+    14→import { NotificationService } from '../../common/services/notification.service';
+    15→import { EmailService } from '../../common/services/email.service';
+    16→import { PushService } from '../../common/services/push.service';
+    17→import {
+    18→  AddCartItemDto,
+    19→  CheckoutDto,
+    20→  CreatePaymentIntentDto,
+    21→  CreatePoolCampaignDto,
+    22→  CreatePoolOfferDto,
+    23→  CreatePoolProductDto,
+    24→  CreateVendorProductDto,
+    25→  DigitalAssetDto,
+    26→  InventoryAdjustmentDto,
+    27→  ManualDeliveryDto,
+    28→  RefundPaymentDto,
+    29→  ShippingAddressDto,
+    30→  UpdateCartItemDto,
+    31→  UpdateDeliverySettingsDto,
+    32→  UpdateOrderStatusDto,
+    33→  UpdatePoolOfferDto,
+    34→  UpdateStorefrontDesignDto,
+    35→  UpdateVendorProductDto,
+    36→  UpsertDeliveryRateDto,
+    37→  ValidateCartCouponDto,
+    38→} from './commerce.dto';
+    39→
+    40→type AuthContext = {
+    41→  id?: string;
+    42→  sub?: string;
+    43→  userId?: string;
+    44→  role?: string;
+    45→  storeId?: string;
+    46→  email?: string;
+    47→};
+    48→
+    49→type CartValidationIssue = {
+    50→  code: string;
+    51→  message: string;
+    52→  cartItemId?: string;
+    53→  productId?: string;
+    54→  field?: string;
+    55→  available?: number;
+    56→  requested?: number;
+    57→};
+    58→
+    59→const STOREFRONT_TEMPLATE_OPTIONS = {
+    60→  themePreset: ['CLASSIC', 'MODERN_DARK', 'EDITORIAL_LIGHT'],
+    61→  navbarTemplate: ['NAVBAR_CLASSIC', 'NAVBAR_CENTERED', 'NAVBAR_MINIMAL'],
+    62→  bottomNavTemplate: ['BOTTOM_TABS_CLASSIC', 'BOTTOM_TABS_COMPACT', 'BOTTOM_NONE'],
+    63→  layoutTemplate: ['GRID_COMMERCE', 'DENSE_GRID', 'EDITORIAL_STACK'],
+    64→  cartTemplate: ['CART_COMPACT', 'CART_SIDEPANEL', 'CART_MINIMAL'],
+    65→  typographyPreset: ['FIGTREE_QUESTRIAL', 'INTER_TIGHT', 'SERIF_EDITORIAL'],
+    66→  fontPairing: ['FIGTREE_QUESTRIAL', 'INTER_TIGHT', 'SERIF_EDITORIAL'],
+    67→  heroLayout: ['BANNER_LEFT', 'CENTERED_HERO', 'MINIMAL_STRIP'],
+    68→  productCardStyle: ['CLEAN_GRID', 'COMPACT_COMMERCE', 'EDITORIAL_CARD'],
+    69→} as const;
+    70→
+    71→const STOREFRONT_FONT_KEYS = [
+    72→  'SORA',
+    73→  'FIGTREE',
+    74→  'INTER',
+    75→  'POPPINS',
+    76→  'DM_SANS',
+    77→  'LATO',
+    78→  'MONTSERRAT',
+    79→  'PLAYFAIR_DISPLAY',
+    80→  'MERRIWEATHER',
+    81→] as const;
+    82→
+    83→const RESERVATION_MINUTES = 15;
+    84→const STARTER_POOL_SELECTION_LIMIT = 50;
+    85→const ORDER_TRANSITIONS: Record<string, string[]> = {
+    86→  DRAFT: ['PENDING_PAYMENT', 'CANCELLED'],
+    87→  PENDING_PAYMENT: ['PAID', 'CANCELLED'],
+    88→  PENDING: ['PAID', 'CANCELLED'],
+    89→  PAID: ['PROCESSING', 'FULFILLED', 'CANCELLED', 'REFUNDED'],
+    90→  CONFIRMED: ['PROCESSING', 'CANCELLED'],
+    91→  PROCESSING: ['FULFILLED', 'SHIPPED', 'CANCELLED', 'REFUNDED'],
+    92→  FULFILLED: ['DELIVERED', 'REFUNDED'],
+    93→  SHIPPED: ['DELIVERED', 'REFUNDED'],
+    94→  DELIVERED: ['REFUNDED'],
+    95→  CANCELLED: [],
+    96→  REFUNDED: [],
+    97→};
+    98→
+    99→@Injectable()
+   100→export class CommerceService {
+   101→  private readonly logger = new Logger(CommerceService.name);
+   102→
+   103→  constructor(
+   104→    private readonly prisma: PrismaService,
+   105→    private readonly config: ConfigService,
+   106→    private readonly paystack: PaystackService,
+   107→    private readonly escrowService: EscrowService,
+   108→    private readonly notificationService: NotificationService,
+   109→    private readonly emailService: EmailService,
+   110→    private readonly pushService: PushService,
+   111→  ) {}
+   112→
+   113→  private db() {
+   114→    return this.prisma as unknown as Record<string, any>;
+   115→  }
+   116→
+   117→  private getUserId(user: AuthContext | null | undefined) {
+   118→    const userId = user?.id ?? user?.sub ?? user?.userId;
+   119→    if (!userId) {
+   120→      throw new UnauthorizedException('Authentication required');
+   121→    }
+   122→    return userId;
+   123→  }
+   124→
+   125→  private assertRole(user: AuthContext | null | undefined, allowed: string[]) {
+   126→    const role = `${user?.role ?? ''}`.toUpperCase();
+   127→    if (!allowed.includes(role)) {
+   128→      throw new ForbiddenException('Insufficient permissions');
+   129→    }
+   130→  }
+   131→
+   132→  private async resolveStoreId(user: AuthContext) {
+   133→    if (user.storeId) {
+   134→      return user.storeId;
+   135→    }
+   136→
+   137→    const userId = this.getUserId(user);
+   138→    const store = await this.db()
+   139→      .store?.findFirst({
+   140→        where: { vendorId: userId },
+   141→        select: { id: true },
+   142→      })
+   143→      .catch(() => null);
+   144→
+   145→    if (store?.id) {
+   146→      return store.id;
+   147→    }
+   148→
+   149→    const vendor = await this.db().user?.findUnique({
+   150→      where: { id: userId },
+   151→      include: { profile: true },
+   152→    });
+   153→    if (!vendor || `${vendor.role}`.toUpperCase() !== 'VENDOR') {
+   154→      throw new ForbiddenException('Vendor store is required for this action');
+   155→    }
+   156→
+   157→    const baseName =
+   158→      [vendor.profile?.firstName, vendor.profile?.lastName].filter(Boolean).join(' ').trim() ||
+   159→      vendor.email?.split('@')[0] ||
+   160→      'Vendor Store';
+   161→    const created = await this.db().store?.create({
+   162→      data: {
+   163→        vendorId: userId,
+   164→        name: baseName,
+   165→        slug: `${this.slugify(baseName)}-${randomUUID().slice(0, 6)}`,
+   166→        category: 'other',
+   167→      },
+   168→      select: { id: true },
+   169→    });
+   170→
+   171→    if (!created?.id) {
+   172→      throw new ForbiddenException('Vendor store is required for this action');
+   173→    }
+   174→
+   175→    await Promise.allSettled([
+   176→      this.db().storefrontDesign?.create({
+   177→        data: {
+   178→          storeId: created.id,
+   179→          headingFont: 'SORA',
+   180→          bodyFont: 'FIGTREE',
+   181→        },
+   182→      }),
+   183→      this.db().storeDeliverySetting?.create({
+   184→        data: {
+   185→          storeId: created.id,
+   186→          manualDeliveryEnabled: true,
+   187→          kwiksellerDeliveryEnabled: false,
+   188→          processingDays: 1,
+   189→        },
+   190→      }),
+   191→    ]);
+   192→
+   193→    return created.id;
+   194→  }
+   195→
+   196→  private checkoutReference() {
+   197→    return `KWK-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+   198→  }
+   199→
+   200→  private normalizeLocationPart(value: string) {
+   201→    return value.trim().replace(/\s+/g, ' ');
+   202→  }
+   203→
+   204→  private deliveryEstimate(rate: { minDeliveryDays: number; maxDeliveryDays: number }) {
+   205→    const start = new Date();
+   206→    const end = new Date();
+   207→    start.setDate(start.getDate() + Number(rate.minDeliveryDays ?? 0));
+   208→    end.setDate(end.getDate() + Number(rate.maxDeliveryDays ?? rate.minDeliveryDays ?? 0));
+   209→    return { estimatedDeliveryStart: start, estimatedDeliveryEnd: end };
+   210→  }
+   211→
+   212→  private normalizeStorefrontDesign(design?: any) {
+   213→    const fallbackSections = ['hero', 'products', 'pool', 'policies'];
+   214→    const sections =
+   215→      typeof design?.sections === 'string'
+   216→        ? (() => {
+   217→            try {
+   218→              const parsed = JSON.parse(design.sections);
+   219→              return Array.isArray(parsed) ? parsed : fallbackSections;
+   220→            } catch {
+   221→              return fallbackSections;
+   222→            }
+   223→          })()
+   224→        : fallbackSections;
+   225→
+   226→    return {
+   227→      id: design?.id,
+   228→      themePreset: this.safeTemplateKey('themePreset', design?.themePreset),
+   229→      navbarTemplate: this.safeTemplateKey('navbarTemplate', design?.navbarTemplate),
+   230→      bottomNavTemplate: this.safeTemplateKey('bottomNavTemplate', design?.bottomNavTemplate),
+   231→      layoutTemplate: this.safeTemplateKey('layoutTemplate', design?.layoutTemplate),
+   232→      cartTemplate: this.safeTemplateKey('cartTemplate', design?.cartTemplate),
+   233→      typographyPreset: this.safeTemplateKey('typographyPreset', design?.typographyPreset),
+   234→      primaryColor: this.safeHexColor(design?.primaryColor, '#071A2F'),
+   235→      accentColor: this.safeHexColor(design?.accentColor, '#F97316'),
+   236→      fontPairing: this.safeTemplateKey('fontPairing', design?.fontPairing),
+   237→      headingFont: this.safeFontKey(design?.headingFont, 'SORA'),
+   238→      bodyFont: this.safeFontKey(design?.bodyFont, 'FIGTREE'),
+   239→      heroLayout: this.safeTemplateKey('heroLayout', design?.heroLayout),
+   240→      productCardStyle: this.safeTemplateKey('productCardStyle', design?.productCardStyle),
+   241→      sections,
+   242→      heroTitle: design?.heroTitle ?? null,
+   243→      heroSubtitle: design?.heroSubtitle ?? null,
+   244→    };
+   245→  }
+   246→
+   247→  private safeTemplateKey<T extends keyof typeof STOREFRONT_TEMPLATE_OPTIONS>(field: T, value?: string) {
+   248→    const options = STOREFRONT_TEMPLATE_OPTIONS[field] as readonly string[];
+   249→    return value && options.includes(value) ? value : options[0];
+   250→  }
+   251→
+   252→  private assertTemplateKey<T extends keyof typeof STOREFRONT_TEMPLATE_OPTIONS>(field: T, value?: string) {
+   253→    if (!value) return undefined;
+   254→    const options = STOREFRONT_TEMPLATE_OPTIONS[field] as readonly string[];
+   255→    if (!options.includes(value)) {
+   256→      throw new BadRequestException(`${field} must be one of: ${options.join(', ')}`);
+   257→    }
+   258→    return value;
+   259→  }
+   260→
+   261→  private assertProductCanPublish(product: any) {
+   262→    if (!product.categoryId) {
+   263→      throw new BadRequestException('Publishing requires a category');
+   264→    }
+   265→    const images = Array.isArray(product.images) ? product.images : [];
+   266→    if (!images.length) {
+   267→      throw new BadRequestException('Publishing requires at least one product image');
+   268→    }
+   269→    if (Number(product.price ?? 0) <= 0) {
+   270→      throw new BadRequestException('Publishing requires a valid price');
+   271→    }
+   272→    const isTrackedPhysical =
+   273→      product.productType === 'PHYSICAL' &&
+   274→      (product.trackInventory ?? product.inventoryPolicy === 'TRACKED');
+   275→    if (isTrackedPhysical && Number(product.stock ?? 0) < 1) {
+   276→      throw new BadRequestException('Publishing tracked physical products requires available stock');
+   277→    }
+   278→  }
+   279→
+   280→  private safeHexColor(value: unknown, fallback: string) {
+   281→    return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value.toUpperCase() : fallback;
+   282→  }
+   283→
+   284→  private assertHexColor(field: string, value?: string) {
+   285→    if (value === undefined) return undefined;
+   286→    if (!/^#[0-9a-fA-F]{6}$/.test(value)) {
+   287→      throw new BadRequestException(`${field} must be a valid #RRGGBB color`);
+   288→    }
+   289→    return value.toUpperCase();
+   290→  }
+   291→
+   292→  private safeFontKey(value: unknown, fallback: (typeof STOREFRONT_FONT_KEYS)[number]) {
+   293→    return typeof value === 'string' && (STOREFRONT_FONT_KEYS as readonly string[]).includes(value)
+   294→      ? value
+   295→      : fallback;
+   296→  }
+   297→
+   298→  private assertFontKey(field: string, value?: string) {
+   299→    if (!value) return undefined;
+   300→    if (!(STOREFRONT_FONT_KEYS as readonly string[]).includes(value)) {
+   301→      throw new BadRequestException(`${field} must be one of: ${STOREFRONT_FONT_KEYS.join(', ')}`);
+   302→    }
+   303→    return value;
+   304→  }
+   305→
+   306→  async getCart(user: AuthContext) {
+   307→    const userId = this.getUserId(user);
+   308→    const db = this.db();
+   309→
+   310→    const existingCart = await db.cart?.findFirst({
+   311→      where: { userId },
+   312→      include: {
+   313→        items: {
+   314→          include: {
+   315→            product: { include: { store: true } },
+   316→            variant: true,
+   317→            poolOffer: {
+   318→              include: {
+   319→                poolProduct: true,
+   320→                store: true,
+   321→                sourceStore: true,
+   322→                sourceProduct: { include: { inventoryItems: true, store: true } },
+   323→              },
+   324→            },
+   325→            reservations: true,
+   326→          },
+   327→        },
+   328→      },
+   329→      orderBy: { updatedAt: 'desc' },
+   330→    });
+   331→
+   332→    if (existingCart) {
+   333→      return this.withCartTotals(existingCart);
+   334→    }
+   335→
+   336→    const cart = await db.cart?.create({
+   337→      data: { userId },
+   338→      include: { items: true },
+   339→    });
+   340→
+   341→    return this.withCartTotals(cart);
+   342→  }
+   343→
+   344→  async addCartItem(user: AuthContext, dto: AddCartItemDto) {
+   345→    this.getUserId(user);
+   346→    const db = this.db();
+   347→    const cart = await this.getCart(user);
+   348→    const product = await db.product?.findUnique({
+   349→      where: { id: dto.productId },
+   350→      include: {
+   351→        inventoryItems: true,
+   352→        digitalAssets: true,
+   353→        store: true,
+   354→        poolProduct: { include: { inventoryItems: true } },
+   355→        vendorPoolOffers: {
+   356→          where: { isActive: true, status: 'ACTIVE' },
+   357→          include: {
+   358→            poolProduct: { include: { inventoryItems: true } },
+   359→            sourceStore: true,
+   360→            sourceProduct: { include: { inventoryItems: true, store: true } },
+   361→          },
+   362→        },
+   363→      },
+   364→    });
+   365→
+   366→    if (!product) {
+   367→      throw new NotFoundException('Product not found');
+   368→    }
+   369→
+   370→    let poolOffer: any = null;
+   371→    if (dto.poolOfferId) {
+   372→      poolOffer = await db.vendorPoolOffer?.findUnique({
+   373→        where: { id: dto.poolOfferId },
+   374→        include: {
+   375→          poolProduct: { include: { inventoryItems: true } },
+   376→          store: true,
+   377→          sourceStore: true,
+   378→          sourceProduct: { include: { inventoryItems: true, store: true } },
+   379→        },
+   380→      });
+   381→      if (!poolOffer || !poolOffer.isActive) {
+   382→        throw new BadRequestException('Pool offer is not available');
+   383→      }
+   384→    }
+   385→
+   386→    const existing = await db.cartItem?.findFirst({
+   387→      where: {
+   388→        cartId: cart.id,
+   389→        productId: dto.productId,
+   390→        variantId: dto.variantId ?? null,
+   391→        poolOfferId: dto.poolOfferId ?? null,
+   392→      },
+   393→    });
+   394→    const requestedQuantity = Number(existing?.quantity ?? 0) + Number(dto.quantity ?? 0);
+   395→    await this.assertCartLineCanBeAdded({
+   396→      product,
+   397→      quantity: requestedQuantity,
+   398→      variantId: dto.variantId,
+   399→      poolOfferId: dto.poolOfferId,
+   400→      poolOffer,
+   401→    });
+   402→
+   403→    if (existing) {
+   404→      await db.cartItem.update({
+   405→        where: { id: existing.id },
+   406→        data: { quantity: existing.quantity + dto.quantity },
+   407→      });
+   408→    } else {
+   409→      await db.cartItem?.create({
+   410→        data: {
+   411→          cartId: cart.id,
+   412→          productId: dto.productId,
+   413→          variantId: dto.variantId,
+   414→          poolOfferId: dto.poolOfferId,
+   415→          quantity: dto.quantity,
+   416→          price: product.salePrice ?? product.price,
+   417→          productType: product.productType ?? 'PHYSICAL',
+   418→          productSource: product.productSource ?? 'VENDOR_STOCK',
+   419→          requiresShipping: product.requiresShipping ?? product.productType !== 'DIGITAL',
+   420→        },
+   421→      });
+   422→    }
+   423→
+   424→    return this.getCart(user);
+   425→  }
+   426→
+   427→  async addPoolOfferToCart(user: AuthContext, poolOfferId: string, quantity: number) {
+   428→    const poolOffer = await this.db().vendorPoolOffer?.findUnique({
+   429→      where: { id: poolOfferId },
+   430→      include: { product: true, poolProduct: true, store: true, sourceStore: true, sourceProduct: true },
+   431→    });
+   432→
+   433→    if (!poolOffer?.productId) {
+   434→      throw new BadRequestException('Pool offer is not linked to a storefront product yet');
+   435→    }
+   436→
+   437→    return this.addCartItem(user, {
+   438→      productId: poolOffer.productId,
+   439→      poolOfferId,
+   440→      quantity,
+   441→    });
+   442→  }
+   443→
+   444→  async updateCartItem(user: AuthContext, itemId: string, dto: UpdateCartItemDto) {
+   445→    const userId = this.getUserId(user);
+   446→    const db = this.db();
+   447→    const item = await db.cartItem?.findFirst({
+   448→      where: { id: itemId, cart: { userId } },
+   449→      include: {
+   450→        product: {
+   451→          include: {
+   452→            inventoryItems: true,
+   453→              digitalAssets: true,
+   454→              store: true,
+   455→              poolProduct: { include: { inventoryItems: true } },
+   456→              vendorPoolOffers: {
+   457→                where: { isActive: true, status: 'ACTIVE' },
+   458→                include: {
+   459→                  poolProduct: { include: { inventoryItems: true } },
+   460→                  sourceStore: true,
+   461→                  sourceProduct: { include: { inventoryItems: true, store: true } },
+   462→                },
+   463→              },
+   464→            },
+   465→          },
+   466→          poolOffer: {
+   467→            include: {
+   468→              poolProduct: { include: { inventoryItems: true } },
+   469→              store: true,
+   470→              sourceStore: true,
+   471→              sourceProduct: { include: { inventoryItems: true, store: true } },
+   472→            },
+   473→          },
+   474→        },
+   475→      });
+   476→
+   477→    if (!item) {
+   478→      throw new NotFoundException('Cart item not found');
+   479→    }
+   480→
+   481→    if (dto.quantity === 0) {
+   482→      await db.cartItem.delete({ where: { id: itemId } });
+   483→    } else {
+   484→      await this.assertCartLineCanBeAdded({
+   485→        product: item.product,
+   486→        quantity: dto.quantity,
+   487→        variantId: item.variantId,
+   488→        poolOfferId: item.poolOfferId,
+   489→        poolOffer: item.poolOffer,
+   490→      });
+   491→      await db.cartItem.update({
+   492→        where: { id: itemId },
+   493→        data: { quantity: dto.quantity },
+   494→      });
+   495→    }
+   496→
+   497→    return this.getCart(user);
+   498→  }
+   499→
+   500→  async removeCartItem(user: AuthContext, itemId: string) {
+   501→    return this.updateCartItem(user, itemId, { quantity: 0 });
+   502→  }
+   503→
+   504→  async clearCart(user: AuthContext) {
+   505→    const userId = this.getUserId(user);
+   506→    const cart = await this.db().cart?.findFirst({ where: { userId } });
+   507→    if (cart) {
+   508→      await this.db().cartItem?.deleteMany({ where: { cartId: cart.id } });
+   509→    }
+   510→    return this.getCart(user);
+   511→  }
+   512→
+   513→  async clearStoreCart(user: AuthContext, storeSlug: string) {
+   514→    const userId = this.getUserId(user);
+   515→    const cart = await this.db().cart?.findFirst({
+   516→      where: { userId },
+   517→      include: this.cartValidationInclude(),
+   518→    });
+   519→    if (!cart) return this.getCart(user);
+   520→
+   521→    const itemIds = (cart.items ?? [])
+   522→      .filter((item: any) => this.cartItemMatchesStoreSlug(item, storeSlug))
+   523→      .map((item: any) => item.id)
+   524→      .filter(Boolean);
+   525→
+   526→    if (itemIds.length) {
+   527→      await this.db().cartItem?.deleteMany({
+   528→        where: { cartId: cart.id, id: { in: itemIds } },
+   529→      });
+   530→    }
+   531→
+   532→    return this.getCart(user);
+   533→  }
+   534→
+   535→  async validateCart(user: AuthContext) {
+   536→    const userId = this.getUserId(user);
+   537→    const cart = await this.db().cart?.findFirst({
+   538→      where: { userId },
+   539→      include: this.cartValidationInclude(),
+   540→      orderBy: { updatedAt: 'desc' },
+   541→    });
+   542→
+   543→    if (!cart) {
+   544→      return {
+   545→        valid: true,
+   546→        errors: [],
+   547→        warnings: [],
+   548→        cart: null,
+   549→        totals: { subtotal: 0, discount: 0, total: 0 },
+   550→        requiresShipping: false,
+   551→        hasDigitalDelivery: false,
+   552→      };
+   553→    }
+   554→
+   555→    return this.buildCartValidation(cart);
+   556→  }
+   557→
+   558→  async lookupDeliveryRate(state: string, localGovernment: string) {
+   559→    const normalizedState = this.normalizeLocationPart(state ?? '');
+   560→    const normalizedLga = this.normalizeLocationPart(localGovernment ?? '');
+   561→
+   562→    if (!normalizedState || !normalizedLga) {
+   563→      throw new BadRequestException('State and local government are required');
+   564→    }
+   565→
+   566→    const rate = await (this.db() as any).deliveryRate?.findFirst({
+   567→      where: {
+   568→        state: { equals: normalizedState, mode: 'insensitive' },
+   569→        localGovernment: { equals: normalizedLga, mode: 'insensitive' },
+   570→        isActive: true,
+   571→      },
+   572→    });
+   573→
+   574→    if (!rate) {
+   575→      throw new NotFoundException('Delivery is not active for this state and local government yet');
+   576→    }
+   577→
+   578→    return {
+   579→      ...rate,
+   580→      ...this.deliveryEstimate(rate),
+   581→      dispatchNote: 'Kwikseller operations will assign manual dispatch after payment.',
+   582→    };
+   583→  }
+   584→
+   585→  async validateCouponForCart(user: AuthContext, dto: ValidateCartCouponDto) {
+   586→    this.getUserId(user);
+   587→    const cart = await this.getCart(user);
+   588→    return this.resolveCouponDiscount(this.db(), dto.code, cart.subtotal);
+   589→  }
+   590→
+   591→  async checkout(user: AuthContext, dto: CheckoutDto) {
+   592→    const userId = this.getUserId(user);
+   593→    const db = this.db();
+   594→    const buyerEmail = await this.resolveBuyerEmail(userId, user);
+   595→    const cartWhere = dto.cartId ? { id: dto.cartId, userId } : { userId };
+   596→
+   597→    const result = await db.$transaction(async (tx: any) => {
+   598→      if (dto.idempotencyKey) {
+   599→        const existingCheckout = await tx.parentCheckout.findFirst({
+   600→          where: { buyerId: userId, idempotencyKey: dto.idempotencyKey },
+   601→          include: {
+   602→            payment: true,
+   603→            orders: {
+   604→              include: { items: true, store: true },
+   605→              orderBy: { createdAt: 'asc' },
+   606→            },
+   607→          },
+   608→        });
+   609→
+   610→        if (existingCheckout?.payment) {
+   611→          return {
+   612→            parentCheckout: existingCheckout,
+   613→            orders: existingCheckout.orders,
+   614→            order: existingCheckout.orders[0],
+   615→            payment: existingCheckout.payment,
+   616→            authorizationUrl: existingCheckout.payment.authorizationUrl,
+   617→            reference: existingCheckout.payment.reference,
+   618→            requiresShipping: existingCheckout.orders.some((order: any) => Number(order.shippingFee ?? 0) > 0),
+   619→          };
+   620→        }
+   621→
+   622→        const existingOrder = await tx.order.findFirst({
+   623→          where: { buyerId: userId, idempotencyKey: dto.idempotencyKey },
+   624→          include: { payment: true, items: true },
+   625→        });
+   626→
+   627→        if (existingOrder?.payment) {
+   628→          return {
+   629→            order: existingOrder,
+   630→            payment: existingOrder.payment,
+   631→            authorizationUrl: existingOrder.payment.authorizationUrl,
+   632→            reference: existingOrder.payment.reference,
+   633→            requiresShipping: this.withCartTotals({ items: existingOrder.items }).requiresShipping,
+   634→          };
+   635→        }
+   636→      }
+   637→
+   638→      const cart = await tx.cart.findFirst({
+   639→        where: cartWhere,
+   640→        include: this.cartValidationInclude(),
+   641→        orderBy: { updatedAt: 'desc' },
+   642→      });
+   643→
+   644→      if (dto.storeSlug) {
+   645→        const store = await tx.store.findUnique({
+   646→          where: { slug: dto.storeSlug },
+   647→          select: { id: true },
+   648→        });
+   649→        if (!store) {
+   650→          throw new BadRequestException('Vendor store not found');
+   651→        }
+   652→      }
+   653→
+   654→      const checkoutCart = dto.storeSlug ? this.scopeCartToStore(cart, dto.storeSlug) : cart;
+   655→      const checkoutCartItemIds = (checkoutCart?.items ?? [])
+   656→        .map((item: any) => item.id)
+   657→        .filter(Boolean);
+   658→
+   659→      if (!checkoutCart?.items?.length) {
+   660→        throw new BadRequestException(dto.storeSlug ? 'Vendor cart is empty' : 'Cart is empty');
+   661→      }
+   662→
+   663→      const validation = this.buildCartValidation(checkoutCart);
+   664→      if (!validation.valid) {
+   665→        throw new BadRequestException({
+   666→          message: 'Cart validation failed',
+   667→          errors: validation.errors,
+   668→          warnings: validation.warnings,
+   669→        });
+   670→      }
+   671→
+   672→      const groupedItems = this.groupCartItemsByStore(checkoutCart.items);
+   673→      const groups = [...groupedItems.values()];
+   674→      const hasPhysicalItems = groups.some((group) => group.requiresShipping);
+   675→      if (hasPhysicalItems && !dto.shippingAddress) {
+   676→        throw new BadRequestException('Shipping address is required for physical products');
+   677→      }
+   678→
+   679→      const deliveryQuotes = new Map<string, any>();
+   680→      if (hasPhysicalItems) {
+   681→        for (const group of groups) {
+   682→          if (group.requiresShipping) {
+   683→            deliveryQuotes.set(group.storeId, await this.resolveDeliveryQuote(tx, dto.shippingAddress, group));
+   684→          }
+   685→        }
+   686→      }
+   687→
+   688→      const address = dto.shippingAddress
+   689→        ? await tx.address.create({
+   690→            data: {
+   691→              userId,
+   692→              line1: dto.shippingAddress.addressLine1,
+   693→              line2: dto.shippingAddress.addressLine2,
+   694→              city: dto.shippingAddress.city,
+   695→              stateId: deliveryQuotes.values().next().value?.location?.stateId ?? null,
+   696→              lgaId: deliveryQuotes.values().next().value?.location?.lgaId ?? null,
+   697→              deliveryInstructions: dto.shippingAddress.deliveryInstructions,
+   698→              country: dto.shippingAddress.country,
+   699→              type: 'SHIPPING',
+   700→            },
+   701→          })
+   702→        : null;
+   703→
+   704→      const totals = this.withCartTotals(checkoutCart);
+   705→      const coupon = dto.couponCode
+   706→        ? await this.resolveCouponDiscount(tx, dto.couponCode, totals.subtotal)
+   707→        : null;
+   708→      const discount = coupon ? Number(coupon.discount ?? 0) : totals.discount;
+   709→      const groupDiscounts = this.allocateDiscount(discount, groups);
+   710→      const shippingFee = groups.reduce(
+   711→        (sum, group) => sum + (group.requiresShipping ? Number(deliveryQuotes.get(group.storeId)?.rate.fee ?? 0) : 0),
+   712→        0,
+   713→      );
+   714→      const totalAmount = Math.max(0, totals.subtotal + shippingFee - discount);
+   715→      const reference = this.checkoutReference();
+   716→
+   717→      const parentCheckout = await tx.parentCheckout.create({
+   718→        data: {
+   719→          buyerId: userId,
+   720→          subtotal: totals.subtotal,
+   721→          shippingFee,
+   722→          discount,
+   723→          totalAmount,
+   724→          couponId: coupon?.couponId,
+   725→          status: 'PENDING_PAYMENT',
+   726→          paymentStatus: 'PENDING',
+   727→          checkoutReference: reference,
+   728→          idempotencyKey: dto.idempotencyKey,
+   729→        },
+   730→      });
+   731→
+   732→      const orders: any[] = [];
+   733→      for (const [index, group] of groups.entries()) {
+   734→        const deliveryQuote = deliveryQuotes.get(group.storeId);
+   735→        const groupShippingFee = group.requiresShipping ? Number(deliveryQuote?.rate.fee ?? 0) : 0;
+   736→        const groupDiscount = groupDiscounts.get(group.storeId) ?? 0;
+   737→        const groupTotal = Math.max(0, group.subtotal + groupShippingFee - groupDiscount);
+   738→        const order = await tx.order.create({
+   739→          data: {
+   740→            buyerId: userId,
+   741→            storeId: group.storeId,
+   742→            parentCheckoutId: parentCheckout.id,
+   743→            addressId: group.requiresShipping ? address?.id : null,
+   744→            subtotal: group.subtotal,
+   745→            shippingFee: groupShippingFee,
+   746→            totalAmount: groupTotal,
+   747→            discount: groupDiscount,
+   748→            couponId: coupon?.couponId,
+   749→            deliveryRateId: group.requiresShipping ? deliveryQuote?.rate.id : null,
+   750→            deliveryState: group.requiresShipping ? deliveryQuote?.location?.stateName : null,
+   751→            deliveryLocalGovernment: group.requiresShipping ? deliveryQuote?.location?.lgaName : null,
+   752→            estimatedDeliveryStart: group.requiresShipping ? deliveryQuote?.estimatedDeliveryStart : null,
+   753→            estimatedDeliveryEnd: group.requiresShipping ? deliveryQuote?.estimatedDeliveryEnd : null,
+   754→            deliveryRateSnapshot: group.requiresShipping && deliveryQuote ? JSON.stringify(deliveryQuote.snapshot) : null,
+   755→            status: 'PENDING_PAYMENT',
+   756→            paymentStatus: 'PENDING',
+   757→            checkoutReference: `${reference}-${index + 1}`,
+   758→            idempotencyKey: dto.idempotencyKey ? `${dto.idempotencyKey}:${group.storeId}` : undefined,
+   759→            items: {
+   760→              create: group.items.map((item: any) => ({
+   761→              productId: item.productId,
+   762→              variantId: item.variantId,
+   763→              poolOfferId: item.poolOfferId,
+   764→              quantity: item.quantity,
+   765→              unitPrice: item.price,
+   766→              totalPrice: Number(item.price ?? 0) * Number(item.quantity ?? 0),
+   767→              isPoolItem: Boolean(item.poolOfferId),
+   768→              productType: item.productType ?? item.product?.productType ?? 'PHYSICAL',
+   769→                productSource: item.productSource ?? item.product?.productSource ?? 'VENDOR_STOCK',
+   770→                sellerStoreId: item.product?.storeId ?? item.poolOffer?.storeId,
+   771→                sourceStoreId: item.poolOffer?.sourceStoreId ?? item.product?.poolSourceStoreId ?? group.storeId,
+   772→                sourceProductId: item.poolOffer?.sourceProductId ?? item.product?.poolSourceProductId,
+   773→                sourceBasePrice: item.poolOffer?.sourceBasePrice ?? item.product?.poolSourceBasePrice,
+   774→                resellerMargin: item.poolOfferId
+   775→                  ? Math.max(0, Number(item.price ?? 0) - Number(item.poolOffer?.sourceBasePrice ?? item.product?.poolSourceBasePrice ?? 0))
+   776→                  : 0,
+   777→                platformFeeAmount: 0,
+   778→                fulfillmentStatus: 'PENDING',
+   779→              })),
+   780→            },
+   781→          },
+   782→          include: { items: true, store: true },
+   783→        });
+   784→
+   785→        for (const orderItem of order.items) {
+   786→          const cartItem = group.items.find((item: any) => this.lineItemKey(item) === this.lineItemKey(orderItem));
+   787→          await this.reserveInventoryForOrderItem(tx, orderItem, cartItem);
+   788→          await this.createPoolSettlementForOrderItem(tx, order, orderItem, cartItem);
+   789→        }
+   790→
+   791→        orders.push(order);
+   792→      }
+   793→
+   794→      const payment = await tx.payment.create({
+   795→        data: {
+   796→          parentCheckoutId: parentCheckout.id,
+   797→          entityType: 'CHECKOUT',
+   798→          entityId: parentCheckout.id,
+   799→          amount: totalAmount,
+   800→          gateway: 'PAYSTACK',
+   801→          status: 'PENDING',
+   802→          reference,
+   803→        },
+   804→      });
+   805→
+   806→      await tx.cartItem.deleteMany({
+   807→        where: dto.storeSlug
+   808→          ? { cartId: cart.id, id: { in: checkoutCartItemIds } }
+   809→          : { cartId: cart.id },
+   810→      });
+   811→      await this.writeAudit(tx, {
+   812→        userId,
+   813→        action: 'checkout.created',
+   814→        entity: 'ParentCheckout',
+   815→        entityId: parentCheckout.id,
+   816→        changes: {
+   817→          reference,
+   818→          total: totalAmount,
+   819→          shippingFee,
+   820→          discount,
+   821→          couponCode: coupon?.code,
+   822→            deliveryRateId: [...deliveryQuotes.values()][0]?.rate.id,
+   823→          vendorOrders: orders.map((order: any) => order.id),
+   824→          reservedItems: orders.reduce((sum: number, order: any) => sum + order.items.length, 0),
+   825→        },
+   826→      });
+   827→
+   828→      return {
+   829→        parentCheckout,
+   830→        orders,
+   831→        order: orders[0],
+   832→        payment,
+   833→        authorizationUrl: payment.authorizationUrl,
+   834→        reference,
+   835→        requiresShipping: totals.requiresShipping,
+   836→      };
+   837→    });
+   838→
+   839→    try {
+   840→      const callbackUrl = this.defaultPaymentCallbackUrl(result.reference);
+   841→      const initialized = await this.paystack.initializeTransaction({
+   842→        email: buyerEmail,
+   843→        amount: result.parentCheckout?.totalAmount ?? result.order.totalAmount,
+   844→        reference: result.reference,
+   845→        callbackUrl,
+   846→        metadata: {
+   847→          parentCheckoutId: result.parentCheckout?.id,
+   848→          orderIds: result.orders?.map((order: any) => order.id) ?? [result.order.id],
+   849→          buyerId: userId,
+   850→          source: 'kwikseller_checkout',
+   851→        },
+   852→      });
+   853→
+   854→      const payment = await db.payment.update({
+   855→        where: { id: result.payment.id },
+   856→        data: {
+   857→          authorizationUrl: initialized.authorizationUrl,
+   858→          gatewayResponse: JSON.stringify({
+   859→            initialize: initialized.raw,
+   860→            accessCode: initialized.accessCode,
+   861→          }),
+   862→        },
+   863→      });
+   864→
+   865→      return {
+   866→        ...result,
+   867→        payment,
+   868→        authorizationUrl: initialized.authorizationUrl,
+   869→        requiresShipping:
+   870→          result.requiresShipping ??
+   871→          this.withCartTotals({ items: result.orders?.flatMap((order: any) => order.items) ?? result.order.items })
+   872→            .requiresShipping,
+   873→      };
+   874→    } catch (error) {
+   875→      await this.failPaymentInitialization(result.reference, error);
+   876→      throw error;
+   877→    }
+   878→  }
+   879→
+   880→  async createPaymentIntent(user: AuthContext, dto: CreatePaymentIntentDto) {
+   881→    const userId = this.getUserId(user);
+   882→    const db = this.db();
+   883→    const buyerEmail = await this.resolveBuyerEmail(userId, user);
+   884→    const order = await db.order?.findFirst({
+   885→      where: { id: dto.orderId, buyerId: userId },
+   886→      include: { payment: true },
+   887→    });
+   888→
+   889→    if (!order) {
+   890→      throw new NotFoundException('Order not found');
+   891→    }
+   892→
+   893→    const reference = order.checkoutReference ?? this.checkoutReference();
+   894→    let payment = order.payment;
+   895→    if (!payment) {
+   896→      payment = await db.payment?.create({
+   897→        data: {
+   898→          orderId: order.id,
+   899→          entityType: 'ORDER',
+   900→          entityId: order.id,
+   901→          amount: order.totalAmount,
+   902→          gateway: 'PAYSTACK',
+   903→          status: 'PENDING',
+   904→          reference,
+   905→        },
+   906→      });
+   907→    }
+   908→
+   909→    if (!payment.authorizationUrl) {
+   910→      const initialized = await this.paystack.initializeTransaction({
+   911→        email: buyerEmail,
+   912→        amount: order.totalAmount,
+   913→        reference,
+   914→        callbackUrl: dto.callbackUrl ?? this.defaultPaymentCallbackUrl(reference),
+   915→        metadata: {
+   916→          orderId: order.id,
+   917→          buyerId: userId,
+   918→          source: 'kwikseller_payment_intent',
+   919→        },
+   920→      });
+   921→
+   922→      payment = await db.payment?.update({
+   923→        where: { id: payment.id },
+   924→        data: {
+   925→          authorizationUrl: initialized.authorizationUrl,
+   926→          gatewayResponse: JSON.stringify({
+   927→            initialize: initialized.raw,
+   928→            accessCode: initialized.accessCode,
+   929→          }),
+   930→        },
+   931→      });
+   932→    }
+   933→
+   934→    return { payment, reference, authorizationUrl: payment.authorizationUrl };
+   935→  }
+   936→
+   937→  async verifyPayment(reference: string) {
+   938→    const db = this.db();
+   939→    const payment = await db.payment?.findUnique({
+   940→      where: { reference },
+   941→      include: {
+   942→        order: { include: { items: true } },
+   943→        parentCheckout: { include: { orders: { include: { items: true, store: true } } } },
+   944→      },
+   945→    });
+   946→
+   947→    if (!payment) {
+   948→      throw new NotFoundException('Payment reference not found');
+   949→    }
+   950→
+   951→    if (payment.status === 'PENDING') {
+   952→      const verification = await this.paystack.verifyTransaction(reference);
+   953→      const gatewayStatus = verification?.data?.status;
+   954→
+   955→      if (gatewayStatus === 'success') {
+   956→        return this.processSuccessfulPayment(reference, {
+   957→          source: 'payment.verify',
+   958→          payload: verification.data,
+   959→        });
+   960→      }
+   961→
+   962→      if (['failed', 'abandoned'].includes(gatewayStatus)) {
+   963→        await this.failPaymentReference(reference, verification.data);
+   964→      }
+   965→    }
+   966→
+   967→    const refreshed = await db.payment?.findUnique({
+   968→      where: { reference },
+   969→      include: {
+   970→        order: { include: { items: true, fulfillments: true } },
+   971→        parentCheckout: {
+   972→          include: { orders: { include: { items: true, fulfillments: true, store: true } } },
+   973→        },
+   974→      },
+   975→    });
+   976→
+   977→    return {
+   978→      reference,
+   979→      status: refreshed?.status ?? payment.status,
+   980→      order: refreshed?.order ?? payment.order,
+   981→      parentCheckout: refreshed?.parentCheckout ?? payment.parentCheckout,
+   982→      orders: refreshed?.parentCheckout?.orders ?? (refreshed?.order ? [refreshed.order] : undefined),
+   983→      verifiedAt: refreshed?.verifiedAt ?? payment.verifiedAt,
+   984→    };
+   985→  }
+   986→
+   987→  async handlePaystackWebhook(signature: string | undefined, body: unknown) {
+   988→    const secret = this.config.get<string>('payment.paystackSecret');
+   989→    if (!secret) {
+   990→      throw new ForbiddenException('Paystack secret is not configured');
+   991→    }
+   992→
+   993→    const payload = JSON.stringify(body);
+   994→    const expected = createHmac('sha512', secret).update(payload).digest('hex');
+   995→    if (!signature || !this.safeEqual(signature, expected)) {
+   996→      throw new ForbiddenException('Invalid Paystack signature');
+   997→    }
+   998→
+   999→    const event = body as any;
+  1000→    if (event.event !== 'charge.success') {
+  1001→      return { received: true, ignored: true };
+  1002→    }
+  1003→
+  1004→    const reference = event.data?.reference;
+  1005→    if (!reference) {
+  1006→      throw new BadRequestException('Webhook reference is missing');
+  1007→    }
+  1008→
+  1009→    const idempotencyKey = this.paystackWebhookIdempotencyKey(event);
+  1010→    const webhookEvent = await this.recordWebhookEvent(idempotencyKey, event.event, reference, event);
+  1011→    if (webhookEvent.idempotent) {
+  1012→      return { received: true, reference, idempotent: true };
+  1013→    }
+  1014→
+  1015→    try {
+  1016→      const result = await this.processSuccessfulPayment(reference, {
+  1017→        source: 'payment.webhook.paystack.charge_success',
+  1018→        payload: event.data ?? {},
+  1019→      });
+  1020→      await this.markWebhookEventProcessed(webhookEvent.id);
+  1021→      return { received: true, reference, idempotent: result.idempotent };
+  1022→    } catch (error) {
+  1023→      await this.markWebhookEventFailed(webhookEvent.id, error);
+  1024→      throw error;
+  1025→    }
+  1026→  }
+  1027→
+  1028→  async listOrders(user: AuthContext) {
+  1029→    const userId = this.getUserId(user);
+  1030→    return this.db().order?.findMany({
+  1031→      where: { buyerId: userId },
+  1032→      include: {
+  1033→        items: { include: { product: true, variant: true } },
+  1034→        payment: true,
+  1035→        fulfillments: true,
+  1036→      },
+  1037→      orderBy: { createdAt: 'desc' },
+  1038→    });
+  1039→  }
+  1040→
+  1041→  async getOrder(user: AuthContext, orderId: string) {
+  1042→    const userId = this.getUserId(user);
+  1043→    const order = await this.db().order?.findFirst({
+  1044→      where: { id: orderId, buyerId: userId },
+  1045→      include: {
+  1046→        items: { include: { product: true, variant: true } },
+  1047→        payment: true,
+  1048→        fulfillments: true,
+  1049→        delivery: true,
+  1050→        escrow: true,
+  1051→        store: { select: { id: true, name: true, slug: true } },
+  1052→      },
+  1053→    });
+  1054→
+  1055→    if (!order) {
+  1056→      throw new NotFoundException('Order not found');
+  1057→    }
+  1058→
+  1059→    return order;
+  1060→  }
+  1061→
+  1062→  /**
+  1063→   * Buyer confirms they received the order. Sets delivery.customerConfirmed,
+  1064→   * initiates escrow release (escrow → PENDING_RELEASE), and notifies the
+  1065→   * vendor. The actual fund credit happens via the escrow auto-release cron.
+  1066→   */
+  1067→  async confirmDelivery(user: AuthContext, orderId: string) {
+  1068→    const userId = this.getUserId(user);
+  1069→    const db = this.db();
+  1070→
+  1071→    const order = await db.order?.findFirst({
+  1072→      where: { id: orderId, buyerId: userId },
+  1073→      include: { delivery: true, store: { select: { vendorId: true, name: true } } },
+  1074→    });
+  1075→
+  1076→    if (!order) {
+  1077→      throw new NotFoundException('Order not found');
+  1078→    }
+  1079→
+  1080→    if (!['SHIPPED', 'DELIVERED', 'FULFILLED'].includes(order.status)) {
+  1081→      throw new BadRequestException(
+  1082→        `Cannot confirm delivery for an order in ${order.status} status. Order must be shipped, fulfilled, or delivered.`,
+  1083→      );
+  1084→    }
+  1085→
+  1086→    if (!order.delivery) {
+  1087→      throw new NotFoundException('No delivery record found for this order');
+  1088→    }
+  1089→
+  1090→    if (order.delivery.customerConfirmed) {
+  1091→      throw new BadRequestException('Delivery has already been confirmed');
+  1092→    }
+  1093→
+  1094→    // Mark delivery as customer-confirmed
+  1095→    await db.delivery?.update({
+  1096→      where: { id: order.delivery.id },
+  1097→      data: {
+  1098→        customerConfirmed: true,
+  1099→        customerConfirmedAt: new Date(),
+  1100→        status: 'DELIVERED',
+  1101→        deliveredAt: order.delivery.deliveredAt ?? new Date(),
+  1102→      },
+  1103→    });
+  1104→
+  1105→    // Initiate escrow release (escrow → PENDING_RELEASE)
+  1106→    await this.escrowService
+  1107→      .initiateRelease(order.delivery.id)
+  1108→      .catch((err) => {
+  1109→        this.logger.warn(
+  1110→          `EscrowService.initiateRelease failed for delivery ${order.delivery!.id}: ${
+  1111→            err instanceof Error ? err.message : String(err)
+  1112→          }`,
+  1113→        );
+  1114→      });
+  1115→
+  1116→    // Notify vendor that the buyer confirmed delivery
+  1117→    const vendorId = order.store?.vendorId ?? order.storeId;
+  1118→    const orderRef = order.checkoutReference ?? orderId.slice(-8);
+  1119→    await this.notificationService
+  1120→      .create({
+  1121→        userId: vendorId,
+  1122→        type: 'DELIVERY_CONFIRMED',
+  1123→        title: 'Delivery Confirmed by Buyer',
+  1124→        message: `Buyer confirmed delivery for order #${orderRef}. Escrow funds will be released shortly.`,
+  1125→        data: { orderId, deliveryId: order.delivery.id },
+  1126→      })
+  1127→      .catch(() => undefined);
+  1128→
+  1129→    // Email the buyer a thank-you / confirmation
+  1130→    const buyer = await db.user?.findUnique({
+  1131→      where: { id: userId },
+  1132→      include: { profile: true },
+  1133→    });
+  1134→    if (buyer?.email) {
+  1135→      await this.emailService
+  1136→        .sendEmail(
+  1137→          buyer.email,
+  1138→          `Delivery confirmed — order #${orderRef}`,
+  1139→          'order-delivered',
+  1140→          {
+  1141→            customerName: buyer.profile?.firstName || buyer.email,
+  1142→            orderRef,
+  1143→            storeName: order.store?.name ?? 'the vendor',
+  1144→          },
+  1145→        )
+  1146→        .catch(() => undefined);
+  1147→    }
+  1148→
+  1149→    return db.order?.findUnique({
+  1150→      where: { id: orderId },
+  1151→      include: {
+  1152→        items: { include: { product: true } },
+  1153→        delivery: true,
+  1154→        escrow: true,
+  1155→      },
+  1156→    });
+  1157→  }
+  1158→
+  1159→  /**
+  1160→   * Buyer opens a dispute on an order. Freezes the escrow (escrow → DISPUTED),
+  1161→   * records the dispute reason/evidence, and notifies the vendor + admin.
+  1162→   */
+  1163→  async openDispute(
+  1164→    user: AuthContext,
+  1165→    orderId: string,
+  1166→    reason: string,
+  1167→    evidence?: string,
+  1168→  ) {
+  1169→    const userId = this.getUserId(user);
+  1170→    const db = this.db();
+  1171→
+  1172→    const order = await db.order?.findFirst({
+  1173→      where: { id: orderId, buyerId: userId },
+  1174→      include: { escrow: true, store: { select: { vendorId: true, name: true } } },
+  1175→    });
+  1176→
+  1177→    if (!order) {
+  1178→      throw new NotFoundException('Order not found');
+  1179→    }
+  1180→
+  1181→    if (['CANCELLED', 'REFUNDED'].includes(order.status)) {
+  1182→      throw new BadRequestException(
+  1183→        `Cannot dispute an order in ${order.status} status`,
+  1184→      );
+  1185→    }
+  1186→
+  1187→    if (order.disputeStatus === 'OPENED') {
+  1188→      throw new BadRequestException('A dispute is already open for this order');
+  1189→    }
+  1190→
+  1191→    // Freeze escrow (escrow → DISPUTED) and update order dispute fields
+  1192→    await this.escrowService.freezeForDispute(orderId, reason).catch((err) => {
+  1193→      this.logger.warn(
+  1194→        `EscrowService.freezeForDispute failed for order ${orderId}: ${
+  1195→          err instanceof Error ? err.message : String(err)
+  1196→        }`,
+  1197→      );
+  1198→      // Still record the dispute on the order even if escrow freeze fails
+  1199→    });
+  1200→
+  1201→    // Ensure order dispute fields are set (freezeForDispute also does this, but
+  1202→    // we repeat here in case the escrow call failed)
+  1203→    await db.order?.update({
+  1204→      where: { id: orderId },
+  1205→      data: {
+  1206→        disputeStatus: 'OPENED',
+  1207→        disputeReason: reason,
+  1208→        disputeEvidence: evidence ?? null,
+  1209→      },
+  1210→    });
+  1211→
+  1212→    const orderRef = order.checkoutReference ?? orderId.slice(-8);
+  1213→    const vendorId = order.store?.vendorId ?? order.storeId;
+  1214→
+  1215→    // Notify vendor
+  1216→    await this.notificationService
+  1217→      .create({
+  1218→        userId: vendorId,
+  1219→        type: 'DISPUTE_OPENED',
+  1220→        title: 'A Dispute Has Been Opened',
+  1221→        message: `Buyer opened a dispute on order #${orderRef}: ${reason}`,
+  1222→        data: { orderId, reason },
+  1223→      })
+  1224→      .catch(() => undefined);
+  1225→
+  1226→    // Notify admins (users with ADMIN role) — best-effort
+  1227→    await (async () => {
+  1228→      try {
+  1229→        const admins = await db.user?.findMany({
+  1230→          where: { role: 'ADMIN' },
+  1231→          select: { id: true, email: true },
+  1232→        });
+  1233→        if (admins && admins.length > 0) {
+  1234→          await Promise.allSettled(
+  1235→            admins.map((admin: any) =>
+  1236→              this.notificationService.create({
+  1237→                userId: admin.id,
+  1238→                type: 'DISPUTE_OPENED',
+  1239→                title: 'New Dispute Requires Review',
+  1240→                message: `Order #${orderRef} dispute: ${reason}`,
+  1241→                data: { orderId, reason, vendorId },
+  1242→              }),
+  1243→            ),
+  1244→          );
+  1245→        }
+  1246→      } catch {
+  1247→        // best-effort
+  1248→      }
+  1249→    })();
+  1250→
+  1251→    return db.order?.findUnique({
+  1252→      where: { id: orderId },
+  1253→      include: { escrow: true, delivery: true, store: { select: { name: true } } },
+  1254→    });
+  1255→  }
+  1256→
+  1257→  async getVendorDashboard(user: AuthContext) {
+  1258→    const storeId = await this.resolveStoreId(user);
+  1259→    const db = this.db();
+  1260→    const [orders, products, alerts, poolOffers] = await Promise.all([
+  1261→      db.order?.findMany({
+  1262→        where: { items: { some: { product: { storeId } } } },
+  1263→        include: { items: true, payment: true },
+  1264→        orderBy: { createdAt: 'desc' },
+  1265→        take: 20,
+  1266→      }),
+  1267→      db.product?.count({ where: { storeId } }),
+  1268→      db.inventoryItem?.findMany({
+  1269→        where: { product: { storeId }, available: { lte: 5 } },
+  1270→        take: 10,
+  1271→      }),
+  1272→      db.vendorPoolOffer?.findMany({
+  1273→        where: { storeId },
+  1274→        include: { poolProduct: true },
+  1275→        take: 10,
+  1276→      }),
+  1277→    ]);
+  1278→
+  1279→    const revenue = (orders ?? [])
+  1280→      .filter((order: any) => ['PAID', 'PROCESSING', 'FULFILLED', 'DELIVERED'].includes(order.status))
+  1281→      .reduce((sum: number, order: any) => sum + Number(order.totalAmount ?? 0), 0);
+  1282→
+  1283→    return {
+  1284→      revenue,
+  1285→      ordersCount: orders?.length ?? 0,
+  1286→      productsCount: products ?? 0,
+  1287→      inventoryAlerts: alerts ?? [],
+  1288→      fulfillmentTasks: (orders ?? []).filter((order: any) => order.status === 'PAID'),
+  1289→      poolEarnings: (poolOffers ?? []).reduce(
+  1290→        (sum: number, offer: any) => sum + Number(offer.markup ?? 0),
+  1291→        0,
+  1292→      ),
+  1293→      recentOrders: orders ?? [],
+  1294→      poolOffers: poolOffers ?? [],
+  1295→    };
+  1296→  }
+  1297→
+  1298→  async listVendorProducts(user: AuthContext) {
+  1299→    const storeId = await this.resolveStoreId(user);
+  1300→    return this.db().product?.findMany({
+  1301→      where: { storeId },
+  1302→      include: { variants: true, inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
+  1303→      orderBy: { createdAt: 'desc' },
+  1304→    });
+  1305→  }
+  1306→
+  1307→  async getPublicStore(slug: string) {
+  1308→    const store = await this.db().store?.findUnique({
+  1309→      where: { slug },
+  1310→      include: {
+  1311→        storefrontDesign: true,
+  1312→        products: {
+  1313→          where: { status: 'ACTIVE' },
+  1314→          include: { images: true, inventoryItems: true, digitalAssets: true, category: true },
+  1315→          orderBy: { updatedAt: 'desc' },
+  1316→          take: 8,
+  1317→        },
+  1318→        poolOffers: {
+  1319→          where: { isActive: true, status: 'ACTIVE' },
+  1320→          include: { poolProduct: true, product: { include: { images: true, inventoryItems: true } } },
+  1321→          orderBy: { updatedAt: 'desc' },
+  1322→          take: 6,
+  1323→        },
+  1324→      },
+  1325→    });
+  1326→
+  1327→    if (!store) {
+  1328→      throw new NotFoundException('Vendor store not found');
+  1329→    }
+  1330→
+  1331→    return {
+  1332→      ...store,
+  1333→      storefrontDesign: this.normalizeStorefrontDesign(store.storefrontDesign),
+  1334→    };
+  1335→  }
+  1336→
+  1337→  async listPublicStoreProducts(
+  1338→    slug: string,
+  1339→    options: { limit?: number; search?: string; category?: string; source?: string } = {},
+  1340→  ) {
+  1341→    const store = await this.db().store?.findUnique({ where: { slug }, select: { id: true, slug: true, name: true } });
+  1342→    if (!store) {
+  1343→      throw new NotFoundException('Vendor store not found');
+  1344→    }
+  1345→
+  1346→    const take = Math.min(Math.max(Number(options.limit) || 100, 1), 500);
+  1347→    const search = options.search?.trim();
+  1348→    const category = options.category?.trim();
+  1349→    const source = options.source?.trim();
+  1350→    const where: Record<string, unknown> = { storeId: store.id, status: 'ACTIVE' };
+  1351→
+  1352→    if (search) {
+  1353→      where.OR = [
+  1354→        { name: { contains: search } },
+  1355→        { description: { contains: search } },
+  1356→        { category: { name: { contains: search } } },
+  1357→      ];
+  1358→    }
+  1359→
+  1360→    if (category && category !== 'all') {
+  1361→      where.category = { name: category };
+  1362→    }
+  1363→
+  1364→    if (source && source !== 'all') {
+  1365→      if (source === 'DIGITAL') {
+  1366→        where.productType = 'DIGITAL';
+  1367→      } else {
+  1368→        where.productSource = source;
+  1369→      }
+  1370→    }
+  1371→
+  1372→    return this.db().product?.findMany({
+  1373→      where,
+  1374→      include: {
+  1375→        store: true,
+  1376→        images: true,
+  1377→        variants: true,
+  1378→        inventoryItems: true,
+  1379→        digitalAssets: true,
+  1380→        category: true,
+  1381→        vendorPoolOffers: { where: { isActive: true, status: 'ACTIVE' }, include: { poolProduct: true } },
+  1382→      },
+  1383→      orderBy: { updatedAt: 'desc' },
+  1384→      take,
+  1385→    });
+  1386→  }
+  1387→
+  1388→  async getPublicStoreProduct(slug: string, productSlug: string) {
+  1389→    const product = await this.db().product?.findFirst({
+  1390→      where: {
+  1391→        slug: productSlug,
+  1392→        status: 'ACTIVE',
+  1393→        store: { slug },
+  1394→      },
+  1395→      include: {
+  1396→        store: { include: { storefrontDesign: true } },
+  1397→        images: true,
+  1398→        variants: true,
+  1399→        inventoryItems: true,
+  1400→        digitalAssets: true,
+  1401→        category: true,
+  1402→        vendorPoolOffers: { where: { isActive: true, status: 'ACTIVE' }, include: { poolProduct: true } },
+  1403→      },
+  1404→    });
+  1405→
+  1406→    if (!product) {
+  1407→      throw new NotFoundException('Product not found for this vendor store');
+  1408→    }
+  1409→
+  1410→    return {
+  1411→      ...product,
+  1412→      store: product.store
+  1413→        ? {
+  1414→            ...product.store,
+  1415→            storefrontDesign: this.normalizeStorefrontDesign(product.store.storefrontDesign),
+  1416→          }
+  1417→        : product.store,
+  1418→    };
+  1419→  }
+  1420→
+  1421→  async getVendorStorefrontDesign(user: AuthContext) {
+  1422→    const storeId = await this.resolveStoreId(user);
+  1423→    const design = await this.db().storefrontDesign?.findUnique({ where: { storeId } });
+  1424→    return this.normalizeStorefrontDesign(design);
+  1425→  }
+  1426→
+  1427→  async updateVendorStorefrontDesign(user: AuthContext, dto: UpdateStorefrontDesignDto) {
+  1428→    const storeId = await this.resolveStoreId(user);
+  1429→    const safeSections = dto.sections?.filter((section) =>
+  1430→      ['hero', 'products', 'pool', 'policies', 'trust'].includes(section),
+  1431→    );
+  1432→    const data = {
+  1433→      themePreset: this.assertTemplateKey('themePreset', dto.themePreset),
+  1434→      navbarTemplate: this.assertTemplateKey('navbarTemplate', dto.navbarTemplate),
+  1435→      bottomNavTemplate: this.assertTemplateKey('bottomNavTemplate', dto.bottomNavTemplate),
+  1436→      layoutTemplate: this.assertTemplateKey('layoutTemplate', dto.layoutTemplate),
+  1437→      cartTemplate: this.assertTemplateKey('cartTemplate', dto.cartTemplate),
+  1438→      typographyPreset: this.assertTemplateKey('typographyPreset', dto.typographyPreset),
+  1439→      primaryColor: this.assertHexColor('primaryColor', dto.primaryColor),
+  1440→      accentColor: this.assertHexColor('accentColor', dto.accentColor),
+  1441→      fontPairing: this.assertTemplateKey('fontPairing', dto.fontPairing),
+  1442→      headingFont: this.assertFontKey('headingFont', dto.headingFont),
+  1443→      bodyFont: this.assertFontKey('bodyFont', dto.bodyFont),
+  1444→      heroLayout: this.assertTemplateKey('heroLayout', dto.heroLayout),
+  1445→      productCardStyle: this.assertTemplateKey('productCardStyle', dto.productCardStyle),
+  1446→      heroTitle: dto.heroTitle,
+  1447→      heroSubtitle: dto.heroSubtitle,
+  1448→      sections: safeSections ? JSON.stringify(safeSections) : undefined,
+  1449→    };
+  1450→
+  1451→    const design = await this.db().storefrontDesign?.upsert({
+  1452→      where: { storeId },
+  1453→      create: { storeId, ...data },
+  1454→      update: data,
+  1455→    });
+  1456→
+  1457→    await this.writeAudit(this.db(), {
+  1458→      userId: this.getUserId(user),
+  1459→      action: 'storefront_design.updated',
+  1460→      entity: 'Store',
+  1461→      entityId: storeId,
+  1462→      changes: this.normalizeStorefrontDesign(design),
+  1463→    });
+  1464→
+  1465→    return this.normalizeStorefrontDesign(design);
+  1466→  }
+  1467→
+  1468→  async createVendorProduct(user: AuthContext, dto: CreateVendorProductDto) {
+  1469→    const storeId = await this.resolveStoreId(user);
+  1470→    const isPhysical = dto.productType === 'PHYSICAL';
+  1471→    const inventoryPolicy = dto.inventoryPolicy ?? (isPhysical ? 'TRACKED' : 'UNLIMITED');
+  1472→    const trackInventory = dto.trackInventory ?? inventoryPolicy === 'TRACKED';
+  1473→    const initialStock = isPhysical && trackInventory ? Number(dto.initialStock ?? 0) : 0;
+  1474→    const images = dto.images?.filter(Boolean) ?? [];
+  1475→    const poolEnabled = Boolean(dto.poolEnabled) && dto.productSource !== 'POOL_RESALE';
+  1476→    const poolBasePrice = poolEnabled ? Number(dto.poolBasePrice ?? dto.price) : undefined;
+  1477→    const poolMinSalePrice = poolEnabled ? Number(dto.poolMinSalePrice ?? poolBasePrice ?? dto.price) : undefined;
+  1478→    if (poolEnabled) {
+  1479→      if (!isPhysical || !trackInventory || !dto.requiresShipping && dto.requiresShipping !== undefined) {
+  1480→        throw new BadRequestException('Only tracked physical products can be made available in Pool');
+  1481→      }
+  1482→      if (Number(poolBasePrice ?? 0) <= 0) {
+  1483→        throw new BadRequestException('Pool base price must be greater than zero');
+  1484→      }
+  1485→      if (Number(poolMinSalePrice ?? 0) < Number(poolBasePrice ?? 0)) {
+  1486→        throw new BadRequestException('Pool minimum sale price cannot be lower than the base price');
+  1487→      }
+  1488→    }
+  1489→    if (dto.status === 'ACTIVE') {
+  1490→      this.assertProductCanPublish({
+  1491→        ...dto,
+  1492→        images,
+  1493→        inventoryPolicy,
+  1494→        trackInventory,
+  1495→        stock: initialStock,
+  1496→      });
+  1497→      await this.assertStoreDeliverySetupComplete(storeId);
+  1498→    }
+  1499→
+  1500→    const product = await this.db().product?.create({
+  1501→      data: {
+  1502→        name: dto.name,
+  1503→        slug: `${this.slugify(dto.name)}-${randomUUID().slice(0, 6)}`,
+  1504→        description: dto.description ?? '',
+  1505→        price: dto.price,
+  1506→        comparePrice: dto.comparePrice,
+  1507→        sku: dto.sku,
+  1508→        categoryId: dto.categoryId,
+  1509→        brandId: dto.brandId,
+  1510→        storeId,
+  1511→        productType: dto.productType,
+  1512→        productSource: dto.productSource ?? 'VENDOR_STOCK',
+  1513→        inventoryPolicy,
+  1514→        requiresShipping: dto.requiresShipping ?? isPhysical,
+  1515→        trackInventory,
+  1516→        stock: initialStock,
+  1517→        lowStock: dto.lowStock ?? 5,
+  1518→        status: dto.status ?? 'DRAFT',
+  1519→        poolEnabled,
+  1520→        poolBasePrice,
+  1521→        poolMinSalePrice,
+  1522→        poolMaxSelectableQuantity: poolEnabled ? dto.poolMaxSelectableQuantity : undefined,
+  1523→        images: images.length
+  1524→          ? {
+  1525→              create: images.map((url, index) => ({
+  1526→                url,
+  1527→                alt: dto.name,
+  1528→                position: index,
+  1529→                isMain: index === 0,
+  1530→              })),
+  1531→            }
+  1532→          : undefined,
+  1533→        inventoryItems:
+  1534→          !trackInventory
+  1535→            ? undefined
+  1536→            : {
+  1537→                create: {
+  1538→                  storeId,
+  1539→                  sku: dto.sku,
+  1540→                  available: initialStock,
+  1541→                  reserved: 0,
+  1542→                  lowStockThreshold: dto.lowStock ?? 5,
+  1543→                  policy: inventoryPolicy,
+  1544→                },
+  1545→              },
+  1546→      },
+  1547→      include: { inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
+  1548→    });
+  1549→
+  1550→    return product;
+  1551→  }
+  1552→
+  1553→  async updateVendorProduct(user: AuthContext, productId: string, dto: UpdateVendorProductDto) {
+  1554→    const storeId = await this.resolveStoreId(user);
+  1555→    await this.assertVendorProductOwnership(storeId, productId);
+  1556→    const product = await this.db().product?.findFirst({
+  1557→      where: { id: productId, storeId },
+  1558→      include: { images: true, inventoryItems: true },
+  1559→    });
+  1560→    if (product?.productSource === 'POOL_RESALE') {
+  1561→      const changedFields = Object.keys(dto).filter((key) => (dto as any)[key] !== undefined);
+  1562→      const invalidFields = changedFields.filter((key) => key !== 'price');
+  1563→      if (invalidFields.length) {
+  1564→        throw new BadRequestException('Pool-sourced products can only update the selling price');
+  1565→      }
+  1566→      if (Number(dto.price ?? 0) <= 0) {
+  1567→        throw new BadRequestException('Selling price must be greater than zero');
+  1568→      }
+  1569→      return this.db().$transaction(async (tx: any) => {
+  1570→        const offer = await tx.vendorPoolOffer.findFirst({
+  1571→          where: { productId, storeId },
+  1572→          select: { id: true, sourceBasePrice: true },
+  1573→        });
+  1574→        const nextPrice = Number(dto.price);
+  1575→        const sourceBasePrice = Number(offer?.sourceBasePrice ?? product.poolSourceBasePrice ?? 0);
+  1576→        const poolMargin = Math.max(0, nextPrice - sourceBasePrice);
+  1577→        const updated = await tx.product.update({
+  1578→          where: { id: productId },
+  1579→          data: {
+  1580→            price: nextPrice,
+  1581→            poolMargin,
+  1582→          },
+  1583→          include: { images: true, inventoryItems: true },
+  1584→        });
+  1585→        if (offer) {
+  1586→          await tx.vendorPoolOffer.update({
+  1587→            where: { id: offer.id },
+  1588→            data: {
+  1589→              retailPrice: nextPrice,
+  1590→              markup: poolMargin,
+  1591→            },
+  1592→          });
+  1593→        }
+  1594→        return updated;
+  1595→      });
+  1596→    }
+  1597→    const next = { ...product, ...dto, images: dto.images ?? product?.images?.map((image: any) => image.url) ?? [] };
+  1598→    const nextPoolEnabled = dto.poolEnabled ?? product?.poolEnabled ?? false;
+  1599→    const nextProductType = dto.productType ?? product?.productType;
+  1600→    const nextTrackInventory = dto.trackInventory ?? product?.trackInventory;
+  1601→    const nextRequiresShipping = dto.requiresShipping ?? product?.requiresShipping;
+  1602→    const nextPoolBasePrice = dto.poolBasePrice ?? product?.poolBasePrice ?? dto.price ?? product?.price;
+  1603→    const nextPoolMinSalePrice = dto.poolMinSalePrice ?? product?.poolMinSalePrice ?? nextPoolBasePrice;
+  1604→    if (nextPoolEnabled) {
+  1605→      if (product?.productSource === 'POOL_RESALE') {
+  1606→        throw new BadRequestException('Pool-sourced products cannot be offered back into Pool');
+  1607→      }
+  1608→      if (nextProductType !== 'PHYSICAL' || nextTrackInventory === false || nextRequiresShipping === false) {
+  1609→        throw new BadRequestException('Only tracked physical products can be made available in Pool');
+  1610→      }
+  1611→      if (Number(nextPoolBasePrice ?? 0) <= 0) {
+  1612→        throw new BadRequestException('Pool base price must be greater than zero');
+  1613→      }
+  1614→      if (Number(nextPoolMinSalePrice ?? 0) < Number(nextPoolBasePrice ?? 0)) {
+  1615→        throw new BadRequestException('Pool minimum sale price cannot be lower than the base price');
+  1616→      }
+  1617→    }
+  1618→    if (dto.status === 'ACTIVE') {
+  1619→      this.assertProductCanPublish({
+  1620→        ...next,
+  1621→        stock: product?.inventoryItems?.[0]?.available ?? product?.stock ?? 0,
+  1622→      });
+  1623→      await this.assertStoreDeliverySetupComplete(storeId);
+  1624→    }
+  1625→
+  1626→    return this.db().$transaction(async (tx: any) => {
+  1627→      if (dto.images) {
+  1628→        await tx.productMedia.deleteMany({ where: { productId } });
+  1629→        if (dto.images.length) {
+  1630→          await tx.productMedia.createMany({
+  1631→            data: dto.images.map((url, index) => ({
+  1632→              productId,
+  1633→              url,
+  1634→              alt: dto.name ?? product?.name,
+  1635→              position: index,
+  1636→              isMain: index === 0,
+  1637→            })),
+  1638→          });
+  1639→        }
+  1640→      }
+  1641→
+  1642→      const { images: _images, ...data } = dto;
+  1643→      return tx.product.update({
+  1644→      where: { id: productId },
+  1645→        data: {
+  1646→          ...data,
+  1647→          poolBasePrice: nextPoolEnabled ? nextPoolBasePrice : null,
+  1648→          poolMinSalePrice: nextPoolEnabled ? nextPoolMinSalePrice : null,
+  1649→          poolMaxSelectableQuantity: nextPoolEnabled
+  1650→            ? dto.poolMaxSelectableQuantity ?? product?.poolMaxSelectableQuantity ?? null
+  1651→            : null,
+  1652→        },
+  1653→        include: { inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
+  1654→      });
+  1655→    });
+  1656→  }
+  1657→
+  1658→  async getVendorDeliverySettings(user: AuthContext) {
+  1659→    const storeId = await this.resolveStoreId(user);
+  1660→    return this.db().storeDeliverySetting?.upsert({
+  1661→      where: { storeId },
+  1662→      create: {
+  1663→        storeId,
+  1664→        manualDeliveryEnabled: true,
+  1665→        kwiksellerDeliveryEnabled: false,
+  1666→        processingDays: 1,
+  1667→      },
+  1668→      update: {},
+  1669→      include: { areas: true },
+  1670→    });
+  1671→  }
+  1672→
+  1673→  async updateVendorDeliverySettings(user: AuthContext, dto: UpdateDeliverySettingsDto) {
+  1674→    const storeId = await this.resolveStoreId(user);
+  1675→    return this.db().storeDeliverySetting?.upsert({
+  1676→      where: { storeId },
+  1677→      create: {
+  1678→        storeId,
+  1679→        manualDeliveryEnabled: dto.manualDeliveryEnabled ?? true,
+  1680→        kwiksellerDeliveryEnabled: false,
+  1681→        processingDays: dto.processingDays ?? 1,
+  1682→        dispatchNote: dto.dispatchNote,
+  1683→        returnPolicy: dto.returnPolicy,
+  1684→      },
+  1685→      update: {
+  1686→        manualDeliveryEnabled: dto.manualDeliveryEnabled,
+  1687→        kwiksellerDeliveryEnabled: false,
+  1688→        processingDays: dto.processingDays,
+  1689→        dispatchNote: dto.dispatchNote,
+  1690→        returnPolicy: dto.returnPolicy,
+  1691→      },
+  1692→      include: { areas: true },
+  1693→    });
+  1694→  }
+  1695→
+  1696→  async adjustInventory(user: AuthContext, dto: InventoryAdjustmentDto) {
+  1697→    const storeId = await this.resolveStoreId(user);
+  1698→    await this.assertVendorProductOwnership(storeId, dto.productId);
+  1699→    const db = this.db();
+  1700→    const inventory = await db.inventoryItem?.findFirst({
+  1701→      where: {
+  1702→        productId: dto.productId,
+  1703→        variantId: dto.variantId ?? null,
+  1704→        storeId,
+  1705→      },
+  1706→    });
+  1707→
+  1708→    if (!inventory) {
+  1709→      return db.inventoryItem?.create({
+  1710→        data: {
+  1711→          productId: dto.productId,
+  1712→          variantId: dto.variantId,
+  1713→          storeId,
+  1714→          available: dto.quantityDelta,
+  1715→          reserved: 0,
+  1716→          lowStockThreshold: 5,
+  1717→        },
+  1718→      });
+  1719→    }
+  1720→
+  1721→    return db.inventoryItem?.update({
+  1722→      where: { id: inventory.id },
+  1723→      data: {
+  1724→        available: inventory.available + dto.quantityDelta,
+  1725→      },
+  1726→    });
+  1727→  }
+  1728→
+  1729→  async addDigitalAsset(user: AuthContext, dto: DigitalAssetDto) {
+  1730→    const storeId = await this.resolveStoreId(user);
+  1731→    await this.assertVendorProductOwnership(storeId, dto.productId);
+  1732→    return this.db().digitalAsset?.create({
+  1733→      data: {
+  1734→        productId: dto.productId,
+  1735→        variantId: dto.variantId,
+  1736→        name: dto.name,
+  1737→        deliveryType: dto.deliveryType,
+  1738→        fileUrl: dto.fileUrl,
+  1739→        licenseKey: dto.licenseKey,
+  1740→      },
+  1741→    });
+  1742→  }
+  1743→
+  1744→  async listVendorOrders(user: AuthContext) {
+  1745→    const storeId = await this.resolveStoreId(user);
+  1746→    return this.db().order?.findMany({
+  1747→      where: { storeId },
+  1748→      include: {
+  1749→        items: { include: { product: true, variant: true } },
+  1750→        payment: true,
+  1751→        parentCheckout: { include: { payment: true } },
+  1752→        fulfillments: true,
+  1753→      },
+  1754→      orderBy: { createdAt: 'desc' },
+  1755→    });
+  1756→  }
+  1757→
+  1758→  async updateVendorOrderStatus(user: AuthContext, orderId: string, dto: UpdateOrderStatusDto) {
+  1759→    const storeId = await this.resolveStoreId(user);
+  1760→    const order = await this.db().order?.findFirst({
+  1761→      where: { id: orderId, storeId },
+  1762→    });
+  1763→
+  1764→    if (!order) {
+  1765→      throw new NotFoundException('Order not found');
+  1766→    }
+  1767→
+  1768→    return this.transitionOrderStatus(this.db(), orderId, dto.status, {
+  1769→      userId: this.getUserId(user),
+  1770→      note: dto.note,
+  1771→      scope: 'vendor',
+  1772→    });
+  1773→  }
+  1774→
+  1775→  async listPoolCatalog(user: AuthContext, options: { categoryId?: string; vendorId?: string; search?: string; page?: string | number; limit?: string | number } = {}) {
+  1776→    const storeId = await this.resolveStoreId(user);
+  1777→    const db = this.db();
+  1778→    const search = options.search?.trim();
+  1779→    const page = Math.max(1, Number(options.page ?? 1) || 1);
+  1780→    const limit = Math.min(100, Math.max(1, Number(options.limit ?? 100) || 100));
+  1781→    const sourceTake = page * limit;
+  1782→    const start = (page - 1) * limit;
+  1783→    const end = start + limit;
+  1784→    const ownOffers = await db.vendorPoolOffer?.findMany({
+  1785→      where: { storeId, isActive: true },
+  1786→      select: { id: true, poolProductId: true, sourceProductId: true, productId: true, sourceType: true },
+  1787→    });
+  1788→    const selectedAdminIds = new Map<string, any>(
+  1789→      (ownOffers ?? [])
+  1790→        .filter((offer: any) => offer.poolProductId)
+  1791→        .map((offer: any) => [offer.poolProductId, offer]),
+  1792→    );
+  1793→    const selectedVendorIds = new Map<string, any>(
+  1794→      (ownOffers ?? [])
+  1795→        .filter((offer: any) => offer.sourceProductId)
+  1796→        .map((offer: any) => [offer.sourceProductId, offer]),
+  1797→    );
+  1798→
+  1799→    const adminItems = await db.poolProduct?.findMany({
+  1800→      where: {
+  1801→        status: 'ACTIVE',
+  1802→        isActive: true,
+  1803→        ...(options.categoryId ? { categoryId: options.categoryId } : {}),
+  1804→        ...(search
+  1805→          ? {
+  1806→              OR: [
+  1807→                { name: { contains: search, mode: 'insensitive' } },
+  1808→                { description: { contains: search, mode: 'insensitive' } },
+  1809→                { category: { contains: search, mode: 'insensitive' } },
+  1810→              ],
+  1811→            }
+  1812→          : {}),
+  1813→      },
+  1814→      include: { inventoryItems: true, campaigns: true },
+  1815→      orderBy: { createdAt: 'desc' },
+  1816→      take: sourceTake,
+  1817→    });
+  1818→
+  1819→    const vendorItems = await db.product?.findMany({
+  1820→      where: {
+  1821→        poolEnabled: true,
+  1822→        status: 'ACTIVE',
+  1823→        productSource: 'VENDOR_STOCK',
+  1824→        storeId: { not: storeId },
+  1825→        requiresShipping: true,
+  1826→        ...(options.categoryId ? { categoryId: options.categoryId } : {}),
+  1827→        ...(options.vendorId ? { storeId: options.vendorId } : {}),
+  1828→        ...(search
+  1829→          ? {
+  1830→              OR: [
+  1831→                { name: { contains: search, mode: 'insensitive' } },
+  1832→                { description: { contains: search, mode: 'insensitive' } },
+  1833→                { store: { name: { contains: search, mode: 'insensitive' } } },
+  1834→                { category: { name: { contains: search, mode: 'insensitive' } } },
+  1835→              ],
+  1836→            }
+  1837→          : {}),
+  1838→        store: {
+  1839→          deliverySetting: {
+  1840→            is: {
+  1841→              manualDeliveryEnabled: true,
+  1842→              areas: { some: { isActive: true } },
+  1843→            },
+  1844→          },
+  1845→        },
+  1846→      },
+  1847→      include: { store: true, images: true, inventoryItems: true, category: true },
+  1848→      orderBy: { updatedAt: 'desc' },
+  1849→      take: sourceTake,
+  1850→    });
+  1851→
+  1852→    const adminCatalog = (adminItems ?? []).map((item: any) => {
+  1853→      const linked = selectedAdminIds.get(item.id);
+  1854→      return {
+  1855→        ...item,
+  1856→        images: this.parseImageList(item.images),
+  1857→        sourceType: 'ADMIN_POOL',
+  1858→        sourceProductId: item.id,
+  1859→        sourceBasePrice: Number(item.wholesalePrice ?? 0),
+  1860→        sourceStoreName: 'Kwikseller',
+  1861→        alreadySelected: Boolean(linked),
+  1862→        linkedOfferId: linked?.id,
+  1863→        linkedProductId: linked?.productId,
+  1864→      };
+  1865→    });
+  1866→
+  1867→    const vendorCatalog = (vendorItems ?? []).map((product: any) => {
+  1868→      const linked = selectedVendorIds.get(product.id);
+  1869→      const basePrice = Number(product.poolBasePrice ?? product.price ?? 0);
+  1870→      return {
+  1871→        id: product.id,
+  1872→        name: product.name,
+  1873→        description: product.description,
+  1874→        wholesalePrice: basePrice,
+  1875→        suggestedRetailPrice: Number(product.poolMinSalePrice ?? product.comparePrice ?? product.price ?? basePrice),
+  1876→        productType: product.productType,
+  1877→        status: 'ACTIVE',
+  1878→        categoryId: product.categoryId,
+  1879→        category: product.category?.name,
+  1880→        stock: product.poolMaxSelectableQuantity ?? product.inventoryItems?.[0]?.available ?? product.stock ?? 0,
+  1881→        supplierId: product.storeId,
+  1882→        images: (product.images ?? []).map((image: any) => image.url),
+  1883→        isActive: true,
+  1884→        createdAt: product.createdAt,
+  1885→        updatedAt: product.updatedAt,
+  1886→        inventoryItems: product.inventoryItems,
+  1887→        sourceType: 'VENDOR_PRODUCT',
+  1888→        sourceProductId: product.id,
+  1889→        sourceStoreId: product.storeId,
+  1890→        sourceStoreName: product.store?.name,
+  1891→        sourceStoreSlug: product.store?.slug,
+  1892→        sourceBasePrice: basePrice,
+  1893→        alreadySelected: Boolean(linked),
+  1894→        linkedOfferId: linked?.id,
+  1895→        linkedProductId: linked?.productId,
+  1896→      };
+  1897→    });
+  1898→
+  1899→    return [...adminCatalog, ...vendorCatalog].slice(start, end);
+  1900→  }
+  1901→
+  1902→  async listAdminPoolProducts(user: AuthContext) {
+  1903→    this.assertRole(user, ['ADMIN', 'SUPER_ADMIN']);
+  1904→    return this.db().poolProduct?.findMany({
+  1905→      include: { inventoryItems: true, vendorOffers: true, campaigns: true },
+  1906→      orderBy: { createdAt: 'desc' },
+  1907→    });
+  1908→  }
+  1909→
+  1910→  async listAdminPoolCampaigns(user: AuthContext) {
+  1911→    this.assertRole(user, ['ADMIN', 'SUPER_ADMIN']);
+  1912→    return this.db().poolCampaign?.findMany({
+  1913→      include: { poolProduct: true },
+  1914→      orderBy: { startsAt: 'asc' },
+  1915→    });
+  1916→  }
+  1917→
+  1918→  async listPublicPoolOffers() {
+  1919→    return this.db().vendorPoolOffer?.findMany({
+  1920→      where: { status: 'ACTIVE', isActive: true },
+  1921→      include: { poolProduct: true, store: true, product: true, sourceProduct: true, sourceStore: true },
+  1922→      orderBy: { updatedAt: 'desc' },
+  1923→    });
+  1924→  }
+  1925→
+  1926→  async listPoolCampaigns() {
+  1927→    return this.db().poolCampaign?.findMany({
+  1928→      where: { status: { in: ['SCHEDULED', 'ACTIVE'] } },
+  1929→      include: { poolProduct: true },
+  1930→      orderBy: { startsAt: 'asc' },
+  1931→    });
+  1932→  }
+  1933→
+  1934→  async createPoolOffer(user: AuthContext, dto: CreatePoolOfferDto) {
+  1935→    const storeId = await this.resolveStoreId(user);
+  1936→    const userId = this.getUserId(user);
+  1937→    const sourceType = dto.sourceType ?? (dto.sourceProductId ? 'VENDOR_PRODUCT' : 'ADMIN_POOL');
+  1938→    return this.db().$transaction(async (tx: any) => {
+  1939→      const selectionCount = await tx.vendorPoolOffer.count({
+  1940→        where: { storeId, isActive: true, status: { in: ['ACTIVE', 'DRAFT'] } },
+  1941→      });
+  1942→      const subscription = await tx.subscription.findUnique({ where: { vendorId: userId } }).catch(() => null);
+  1943→
+  1944→      let source: any;
+  1945→      let duplicate: any;
+  1946→      let sourceBasePrice = 0;
+  1947→      let minSalePrice = 0;
+  1948→      let sourceStoreId: string | null = null;
+  1949→      let sourceProductId: string | null = null;
+  1950→      let poolProductId: string | null = null;
+  1951→      let images: string[] = [];
+  1952→
+  1953→      if (sourceType === 'VENDOR_PRODUCT') {
+  1954→        if (!dto.sourceProductId) {
+  1955→          throw new BadRequestException('Source product is required');
+  1956→        }
+  1957→        source = await tx.product.findUnique({
+  1958→          where: { id: dto.sourceProductId },
+  1959→          include: { store: { include: { deliverySetting: { include: { areas: true } } } }, images: true, inventoryItems: true },
+  1960→        });
+  1961→        if (!source || source.storeId === storeId || !source.poolEnabled || source.status !== 'ACTIVE') {
+  1962→          throw new BadRequestException('This product is not available in the Pool catalog');
+  1963→        }
+  1964→        if (!source.requiresShipping || !source.store?.deliverySetting?.manualDeliveryEnabled) {
+  1965→          throw new BadRequestException('This product does not have source-vendor delivery configured');
+  1966→        }
+  1967→        sourceBasePrice = Number(source.poolBasePrice ?? source.price ?? 0);
+  1968→        minSalePrice = Number(source.poolMinSalePrice ?? sourceBasePrice);
+  1969→        sourceStoreId = source.storeId;
+  1970→        sourceProductId = source.id;
+  1971→        images = (source.images ?? []).map((image: any) => image.url).filter(Boolean);
+  1972→        duplicate = await tx.vendorPoolOffer.findFirst({
+  1973→          where: { storeId, sourceType: 'VENDOR_PRODUCT', sourceProductId: source.id },
+  1974→          include: { product: true },
+  1975→        });
+  1976→      } else {
+  1977→        if (!dto.poolProductId) {
+  1978→          throw new BadRequestException('Pool product is required');
+  1979→        }
+  1980→        source = await tx.poolProduct.findUnique({
+  1981→          where: { id: dto.poolProductId },
+  1982→        });
+  1983→        if (!source || source.status !== 'ACTIVE' || !source.isActive) {
+  1984→          throw new BadRequestException('Pool product is not available');
+  1985→        }
+  1986→        sourceBasePrice = Number(source.wholesalePrice ?? 0);
+  1987→        minSalePrice = Number(source.wholesalePrice ?? 0);
+  1988→        poolProductId = source.id;
+  1989→        sourceProductId = null;
+  1990→        images = this.parseImageList(source.images);
+  1991→        duplicate = await tx.vendorPoolOffer.findFirst({
+  1992→          where: { storeId, sourceType: 'ADMIN_POOL', poolProductId: source.id },
+  1993→          include: { product: true },
+  1994→        });
+  1995→      }
+  1996→
+  1997→      if (Number(dto.retailPrice ?? 0) < Math.max(sourceBasePrice, minSalePrice)) {
+  1998→        throw new BadRequestException('Your sale price cannot be lower than the source price');
+  1999→      }
+  2000→      if (!duplicate && (subscription?.plan ?? 'STARTER') === 'STARTER' && selectionCount >= STARTER_POOL_SELECTION_LIMIT) {
+
+[showing lines 1-2000 of 3824; use offset=2001 with limit to continue reading]

@@ -19,9 +19,10 @@ import {
   ChevronRight,
   Eye,
 } from "lucide-react";
-import { AppButton, Skeleton, AppModal } from "@kwikseller/ui";
+import { AppButton, Skeleton, FieldSelect, VendorPageHeader, VendorStatusBadge } from "@kwikseller/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { kwikToast } from "@kwikseller/utils";
+import { motion } from "framer-motion";
 
 // ==================== Types ====================
 
@@ -118,68 +119,6 @@ const STATUS_ORDER: DeliveryStatus[] = [
 
 function generateId() {
   return `del_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function getStatusColor(status: DeliveryStatus): string {
-  switch (status) {
-    case "PENDING":
-      return "text-gray-500";
-    case "ASSIGNED":
-      return "text-gray-500";
-    case "ACCEPTED":
-      return "text-gray-600";
-    case "PREPARING":
-      return "text-amber-600";
-    case "READY_FOR_PICKUP":
-      return "text-orange-600";
-    case "PICKED_UP":
-      return "text-blue-600";
-    case "IN_TRANSIT":
-      return "text-blue-600";
-    case "ARRIVED":
-      return "text-purple-600";
-    case "DELIVERED":
-      return "text-green-600";
-    case "COMPLETED":
-      return "text-green-700";
-    case "CANCELLED":
-      return "text-red-500";
-    case "RETURNED":
-      return "text-red-400";
-    default:
-      return "text-gray-500";
-  }
-}
-
-function getStatusLabel(status: DeliveryStatus): string {
-  switch (status) {
-    case "PENDING":
-      return "Pending";
-    case "ASSIGNED":
-      return "Assigned";
-    case "ACCEPTED":
-      return "Accepted";
-    case "PREPARING":
-      return "Preparing";
-    case "READY_FOR_PICKUP":
-      return "Ready for Pickup";
-    case "PICKED_UP":
-      return "Picked Up";
-    case "IN_TRANSIT":
-      return "In Transit";
-    case "ARRIVED":
-      return "Arrived";
-    case "DELIVERED":
-      return "Delivered";
-    case "COMPLETED":
-      return "Completed";
-    case "CANCELLED":
-      return "Cancelled";
-    case "RETURNED":
-      return "Returned";
-    default:
-      return status;
-  }
 }
 
 function getTimelineStageIndex(status: DeliveryStatus): number {
@@ -420,17 +359,17 @@ function TimelineDots({ status }: { status: DeliveryStatus }) {
               <div
                 className={`flex h-3 w-3 items-center justify-center rounded-full border-2 ${
                   isActive
-                    ? "border-gray-900 bg-gray-900"
-                    : "border-gray-300 bg-white"
+                    ? "border-foreground bg-foreground"
+                    : "border-kwik-border bg-surface"
                 }`}
               >
                 {isActive && (
-                  <div className="h-1 w-1 rounded-full bg-white" />
+                  <div className="h-1 w-1 rounded-full bg-surface" />
                 )}
               </div>
               <span
                 className={`mt-1 hidden text-[9px] leading-tight lg:block ${
-                  isActive ? "text-gray-700 font-medium" : "text-gray-400"
+                  isActive ? "text-foreground font-medium" : "text-muted-foreground"
                 }`}
               >
                 {stage.label.split(" ")[0]}
@@ -439,7 +378,7 @@ function TimelineDots({ status }: { status: DeliveryStatus }) {
             {!isLast && (
               <div
                 className={`h-0.5 w-4 lg:w-6 ${
-                  idx < activeIdx ? "bg-gray-900" : "bg-gray-200"
+                  idx < activeIdx ? "bg-foreground" : "bg-default-100"
                 }`}
               />
             )}
@@ -453,12 +392,12 @@ function TimelineDots({ status }: { status: DeliveryStatus }) {
 function DetailTimeline({ delivery }: { delivery: DeliveryItem }) {
   const entries: Array<{ key: string; label: string; time?: string; color: string }> = [];
 
-  const push = (key: string, label: string, time?: string, color = "text-gray-600") => {
+  const push = (key: string, label: string, time?: string, color = "text-muted-foreground") => {
     if (time) entries.push({ key, label, time, color });
   };
 
-  push("created", "Order created", delivery.createdAt, "text-gray-500");
-  push("accepted", "Accepted by vendor", delivery.acceptedAt, "text-gray-600");
+  push("created", "Order created", delivery.createdAt, "text-muted-foreground");
+  push("accepted", "Accepted by vendor", delivery.acceptedAt, "text-muted-foreground");
   push("preparing", "Preparing order", delivery.preparingAt, "text-amber-600");
   push("ready", "Ready for pickup", delivery.readyAt, "text-orange-600");
   push("picked_up", "Picked up by rider", delivery.pickedUpAt, "text-blue-600");
@@ -473,14 +412,14 @@ function DetailTimeline({ delivery }: { delivery: DeliveryItem }) {
 
   return (
     <div className="relative pl-6">
-      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200" />
+      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-default-100" />
       <div className="space-y-4">
         {entries.map((entry) => (
           <div key={entry.key} className="relative flex items-start gap-3">
-            <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-gray-300 bg-white" />
+            <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-kwik-border bg-surface" />
             <div className="min-w-0">
-              <p className="text-sm text-gray-700">{entry.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{getRelativeTime(entry.time!)}</p>
+              <p className="text-sm text-foreground">{entry.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{getRelativeTime(entry.time!)}</p>
             </div>
           </div>
         ))}
@@ -675,14 +614,17 @@ export default function DeliveriesPage() {
   // ==================== Render ====================
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
       {/* ==================== Section 1: Page Header ==================== */}
-      <section>
-        <h1 className="text-2xl font-semibold text-foreground">Deliveries</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Track and manage all your outgoing deliveries.
-        </p>
-      </section>
+      <VendorPageHeader
+        title="Deliveries"
+        description="Track and manage all your outgoing deliveries."
+      />
 
       {/* ==================== Section 1b: Filters ==================== */}
       <section>
@@ -696,8 +638,8 @@ export default function DeliveriesPage() {
                 onClick={() => setDateRange(range.key)}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
                   dateRange === range.key
-                    ? "bg-gray-900 text-white"
-                    : "border border-gray-300 text-gray-600 hover:border-gray-400"
+                    ? "bg-foreground text-background"
+                    : "border border-kwik-border text-muted-foreground hover:border-accent hover:text-accent"
                 }`}
               >
                 {range.label}
@@ -708,42 +650,43 @@ export default function DeliveriesPage() {
           {/* Search + Status filter */}
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={1.5} />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
               <input
                 type="text"
                 placeholder="Search orders, customers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-transparent py-1.5 pl-9 pr-3 text-sm text-foreground placeholder:text-gray-400 focus:border-gray-500 focus:outline-none sm:w-56"
+                className="w-full rounded-md border border-kwik-border bg-transparent py-1.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none sm:w-56"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
               )}
             </div>
-            <select
+            <FieldSelect
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="h-[34px] rounded-md border border-gray-300 bg-transparent px-3 text-sm text-foreground focus:border-gray-500 focus:outline-none"
+              className="h-[34px]"
+              wrapperClassName="mb-0"
             >
               {statusFilterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </FieldSelect>
           </div>
         </div>
       </section>
 
       {/* ==================== Section 2: Stats Row ==================== */}
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-0 divide-y divide-gray-200 border-b border-gray-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-1 gap-0 divide-y border-kwik-border border-b border-kwik-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="px-4 py-3">
               <Skeleton className="mb-1 h-3 w-28" />
@@ -752,9 +695,9 @@ export default function DeliveriesPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-0 divide-y divide-gray-200 border-b border-gray-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-1 gap-0 divide-y border-kwik-border border-b border-kwik-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <div className="px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Active Deliveries
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">
@@ -762,7 +705,7 @@ export default function DeliveriesPage() {
             </p>
           </div>
           <div className="px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Completed Today
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">
@@ -770,7 +713,7 @@ export default function DeliveriesPage() {
             </p>
           </div>
           <div className="px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Avg Delivery Time
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">
@@ -782,7 +725,7 @@ export default function DeliveriesPage() {
 
       {/* ==================== Section 3: Delivery Tabs ==================== */}
       {!isLoading && (
-        <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-200">
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-kwik-border">
           {VENDOR_RELEVANT_TABS.map((tab) => {
             const count =
               tab.key === "ALL"
@@ -799,14 +742,14 @@ export default function DeliveriesPage() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
                   statusFilter === tab.key
-                    ? "border-gray-900 text-gray-900"
-                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    ? "border-foreground text-foreground"
+                    : "border-transparent text-muted-foreground hover:border-kwik-border hover:text-foreground"
                 }`}
               >
                 {tab.label}
                 <span
                   className={`text-xs ${
-                    statusFilter === tab.key ? "text-gray-600" : "text-gray-400"
+                    statusFilter === tab.key ? "text-muted-foreground" : "text-muted-foreground"
                   }`}
                 >
                   {count}
@@ -820,7 +763,7 @@ export default function DeliveriesPage() {
       {/* ==================== Section 4: Delivery List ==================== */}
       {isLoading ? (
         <section>
-          <div className="border-b border-gray-100">
+          <div className="border-b border-kwik-border">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="px-4 py-4">
                 <div className="flex items-start justify-between gap-4">
@@ -840,11 +783,11 @@ export default function DeliveriesPage() {
         <section>
           {statusFilter === "DELIVERED" || statusFilter === "COMPLETED" ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <CheckCircle className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-gray-500">
+              <CheckCircle className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-muted-foreground">
                 No completed deliveries yet
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {searchQuery
                   ? "No results match your current filters."
                   : "Completed deliveries will appear here."}
@@ -852,11 +795,11 @@ export default function DeliveriesPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16">
-              <Truck className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-gray-500">
+              <Truck className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-muted-foreground">
                 No active deliveries
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {searchQuery || statusFilter !== "ALL"
                   ? "No results match your current filters."
                   : "Active deliveries will appear here when orders are placed."}
@@ -866,7 +809,7 @@ export default function DeliveriesPage() {
         </section>
       ) : (
         <section>
-          <div className="border-b border-gray-200">
+          <div className="border-b border-kwik-border">
             {displayedDeliveries.map((d) => (
               <DeliveryRow
                 key={d.id}
@@ -884,8 +827,8 @@ export default function DeliveriesPage() {
       {/* Error state */}
       {error && (
         <section className="flex flex-col items-center justify-center py-12">
-          <AlertCircle className="h-10 w-10 text-red-400" strokeWidth={1.5} />
-          <p className="mt-3 text-sm text-red-600">{error}</p>
+          <AlertCircle className="h-10 w-10 text-red-400 dark:text-red-500" strokeWidth={1.5} />
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
           <AppButton
             variant="secondary"
             size="sm"
@@ -896,7 +839,7 @@ export default function DeliveriesPage() {
           </AppButton>
         </section>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -915,14 +858,12 @@ function DeliveryRow({
   onMarkReady: (id: string) => void;
   onConfirmPickup: (id: string) => void;
 }) {
-  const statusColor = getStatusColor(delivery.status);
-  const statusLabel = getStatusLabel(delivery.status);
   const isTerminal = isTerminalStatus(delivery.status);
 
   return (
-    <div className="border-b border-gray-100 last:border-b-0">
+    <div className="border-b border-kwik-border last:border-b-0">
       {/* Main row */}
-      <div className="px-4 py-4 transition hover:bg-gray-50/50">
+      <div className="px-4 py-4 transition hover:bg-default-100/50">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           {/* Left: Main info */}
           <div className="min-w-0 flex-1">
@@ -930,19 +871,15 @@ function DeliveryRow({
             <div className="flex items-center gap-2">
               <a
                 href={`/dashboard/orders/${delivery.orderId}`}
-                className="font-mono text-sm font-medium text-gray-900 hover:underline"
+                className="font-mono text-sm font-medium text-foreground hover:underline"
               >
                 {delivery.orderId}
               </a>
-              <span
-                className={`inline-flex items-center gap-1 text-xs font-medium ${statusColor}`}
-              >
-                {statusLabel}
-              </span>
+              <VendorStatusBadge status={delivery.status} size="sm" />
             </div>
 
             {/* Customer + Address */}
-            <div className="mt-1 flex items-start gap-1.5 text-xs text-gray-500">
+            <div className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
               <User className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.5} />
               <span className="truncate">
                 {delivery.customerName} &middot;{" "}
@@ -954,7 +891,7 @@ function DeliveryRow({
 
             {/* Rider info */}
             {delivery.riderName && (
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Bike className="h-3 w-3 shrink-0" strokeWidth={1.5} />
                 <span>
                   {delivery.riderName}
@@ -976,7 +913,7 @@ function DeliveryRow({
 
             {/* ETA */}
             {delivery.estimatedMinutes && !isTerminal && (
-              <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-500">
+              <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" strokeWidth={1.5} />
                 <span>ETA: ~{delivery.estimatedMinutes} min</span>
               </div>
@@ -984,7 +921,7 @@ function DeliveryRow({
 
             {/* Items preview */}
             {delivery.items && delivery.items.length > 0 && !isExpanded && (
-              <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
+              <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                 <Package className="h-3 w-3 shrink-0" strokeWidth={1.5} />
                 <span className="truncate">
                   {delivery.items.length > 2
@@ -997,7 +934,7 @@ function DeliveryRow({
 
           {/* Right: Amount + Actions */}
           <div className="flex items-start gap-3 sm:flex-col sm:items-end sm:gap-2">
-            <p className="text-sm font-medium tabular-nums text-gray-900">
+            <p className="text-sm font-medium tabular-nums text-foreground">
               {formatCurrency(delivery.amount)}
             </p>
 
@@ -1047,7 +984,7 @@ function DeliveryRow({
               <button
                 type="button"
                 onClick={onToggle}
-                className="flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-gray-700"
+                className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
               >
                 {isExpanded ? (
                   <>
@@ -1063,7 +1000,7 @@ function DeliveryRow({
 
             {/* Delivered/Completed timestamp */}
             {isTerminal && delivery.deliveredAt && (
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-muted-foreground">
                 {formatDate(delivery.deliveredAt)}
               </span>
             )}
@@ -1073,26 +1010,26 @@ function DeliveryRow({
 
       {/* ==================== Expanded Detail Panel ==================== */}
       {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-4">
+        <div className="border-t border-kwik-border bg-default-100/50 px-4 py-4">
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Left: Timeline + Order summary */}
             <div className="space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Delivery Timeline
               </h3>
               <DetailTimeline delivery={delivery} />
 
               {/* Order Items */}
               {delivery.items && delivery.items.length > 0 && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                <div className="border-t border-kwik-border pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                     Order Items
                   </h3>
                   <div className="space-y-1.5">
                     {delivery.items.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-sm">
-                        <Package className="h-3.5 w-3.5 text-gray-400" strokeWidth={1.5} />
-                        <span className="text-gray-700">{item}</span>
+                        <Package className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+                        <span className="text-foreground">{item}</span>
                       </div>
                     ))}
                   </div>
@@ -1105,19 +1042,19 @@ function DeliveryRow({
               {/* Rider Info */}
               {delivery.riderName ? (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                     Rider Information
                   </h3>
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50">
-                        <Bike className="h-5 w-5 text-gray-500" strokeWidth={1.5} />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-kwik-border bg-default-100">
+                        <Bike className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {delivery.riderName}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {delivery.riderVehicle || "Bike"} rider
                         </p>
                       </div>
@@ -1125,7 +1062,7 @@ function DeliveryRow({
                     {delivery.riderPhone && (
                       <a
                         href={`tel:${delivery.riderPhone}`}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-kwik-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-accent"
                       >
                         <Phone className="h-3 w-3" strokeWidth={1.5} />
                         <span className="font-mono">{delivery.riderPhone}</span>
@@ -1135,10 +1072,10 @@ function DeliveryRow({
                 </div>
               ) : (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                     Rider Information
                   </h3>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     No rider assigned yet. A rider will be assigned when the order is ready for pickup.
                   </p>
                 </div>
@@ -1146,27 +1083,27 @@ function DeliveryRow({
 
               {/* Pickup Address */}
               {delivery.pickupAddress && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                <div className="border-t border-kwik-border pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                     Pickup Address
                   </h3>
                   <div className="flex items-start gap-2">
-                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" strokeWidth={1.5} />
-                    <p className="text-sm text-gray-700">{delivery.pickupAddress}</p>
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+                    <p className="text-sm text-foreground">{delivery.pickupAddress}</p>
                   </div>
                 </div>
               )}
 
               {/* Delivery Address */}
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+              <div className="border-t border-kwik-border pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Delivery Address
                 </h3>
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" strokeWidth={1.5} />
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                   <div>
-                    <p className="text-sm text-gray-700">{delivery.deliveryAddress}</p>
-                    <p className="mt-1 text-xs text-gray-400">
+                    <p className="text-sm text-foreground">{delivery.deliveryAddress}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {delivery.customerName} &middot;{" "}
                       <span className="font-mono">{delivery.customerPhone}</span>
                     </p>
@@ -1176,13 +1113,13 @@ function DeliveryRow({
 
               {/* ETA */}
               {delivery.estimatedMinutes && !isTerminalStatus(delivery.status) && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                <div className="border-t border-kwik-border pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                     Estimated Arrival
                   </h3>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
-                    <span className="text-sm font-medium text-gray-700">
+                    <Clock className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                    <span className="text-sm font-medium text-foreground">
                       ~{delivery.estimatedMinutes} minutes
                     </span>
                   </div>
@@ -1192,15 +1129,15 @@ function DeliveryRow({
           </div>
 
           {/* Bottom action bar for expanded panel */}
-          <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <div className="mt-4 flex items-center justify-between border-t border-kwik-border pt-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" strokeWidth={1.5} />
               Updated {getRelativeTime(delivery.updatedAt)}
             </div>
             <div className="flex items-center gap-2">
               <a
                 href={`/dashboard/orders/${delivery.orderId}`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 transition hover:text-gray-900"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
               >
                 View Order <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
               </a>

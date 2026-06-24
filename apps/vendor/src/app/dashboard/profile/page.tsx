@@ -32,7 +32,9 @@ import {
   FieldSelect,
   FieldTextarea,
   Skeleton,
+  VendorPageHeader,
 } from "@kwikseller/ui";
+import { motion } from "framer-motion";
 import { usersApi, storeApi, authApi } from "@kwikseller/api-client";
 import { useAuthStore, kwikToast } from "@kwikseller/utils";
 import { unwrapApiData } from "@/lib/vendor-format";
@@ -137,7 +139,7 @@ export default function VendorProfilePage() {
   const { user } = useAuthStore();
 
   // ---- Section expansion (mobile accordion) ----
-  const [mobileExpanded, setMobileExpanded] = React.useState<SectionId | null>("personal");
+  const [mobileExpanded, setMobileExpanded] = React.useState<SectionId | null>(null);
 
   // ---- Personal Info State ----
   const [personal, setPersonal] = React.useState<PersonalData>({
@@ -583,14 +585,17 @@ export default function VendorProfilePage() {
   // ==================== Render ====================
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* Page Header */}
-      <section>
-        <h1 className="text-2xl font-semibold text-foreground">Profile</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your personal information, store profile, and account security.
-        </p>
-      </section>
+      <VendorPageHeader
+        title="Profile"
+        description="Manage your personal information, store profile, and account security."
+      />
 
       {/* ==================== Profile Header Section ==================== */}
       <ProfileHeaderSection />
@@ -626,17 +631,17 @@ export default function VendorProfilePage() {
                   <span className="mt-0.5 block text-xs text-muted-foreground">{item.text}</span>
                 </span>
               </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
             </Link>
           );
         })}
       </section>
 
       {/* Divider */}
-      <div className="border-t border-gray-100" />
+      <div className="border-t border-kwik-border" />
 
       {/* ==================== All Sections (Desktop: stacked, Mobile: accordion) ==================== */}
-      <div className="space-y-0 divide-y divide-gray-100 border-t border-gray-200">
+      <div className="space-y-0 divide-y divide-kwik-border border-t border-kwik-border">
         {/* Mobile Accordion Nav */}
         {SECTIONS.filter((s) => s.id !== "header").map((section) => {
           const IconComp = section.icon;
@@ -646,16 +651,16 @@ export default function VendorProfilePage() {
               <button
                 type="button"
                 onClick={() => toggleMobileSection(section.id)}
-                className="flex w-full items-center justify-between px-1 py-4 text-left text-sm font-medium text-gray-900 transition"
+                className="flex w-full items-center justify-between px-1 py-4 text-left text-sm font-medium text-foreground transition"
               >
                 <span className="flex items-center gap-3">
-                  <IconComp className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+                  <IconComp className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                   {section.label}
                 </span>
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                 )}
               </button>
               {isExpanded && <div className="pb-6">{renderSection(section.id)}</div>}
@@ -664,7 +669,7 @@ export default function VendorProfilePage() {
         })}
 
         {/* Desktop Sections */}
-        <div className="hidden lg:space-y-0 lg:divide-y lg:divide-gray-100">
+        <div className="hidden lg:space-y-0 lg:divide-y lg:divide-kwik-border">
           {SECTIONS.filter((s) => s.id !== "header").map((section) => (
             <div key={section.id} className="py-8 first:pt-0">
               {renderSection(section.id)}
@@ -672,7 +677,7 @@ export default function VendorProfilePage() {
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   // ==================== Profile Header Section ====================
@@ -685,7 +690,7 @@ export default function VendorProfilePage() {
           <div
             className={`flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 transition ${
               isDraggingAvatar
-                ? "border-gray-900 bg-gray-100"
+                ? "border-foreground bg-default-100"
                 : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-white/5"
             }`}
             onDragOver={handleAvatarDragOver}
@@ -699,7 +704,7 @@ export default function VendorProfilePage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <User className="h-10 w-10 text-gray-400" strokeWidth={1.5} />
+              <User className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
             )}
             {isUploadingAvatar && (
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
@@ -712,7 +717,7 @@ export default function VendorProfilePage() {
           <button
             type="button"
             onClick={() => avatarInputRef.current?.click()}
-            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-default-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
           >
             <Camera className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
@@ -729,8 +734,8 @@ export default function VendorProfilePage() {
 
           {/* Drag overlay text */}
           {isDraggingAvatar && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-full border-2 border-dashed border-gray-400 bg-gray-100/80">
-              <Upload className="h-6 w-6 text-gray-500" strokeWidth={1.5} />
+            <div className="absolute inset-0 flex items-center justify-center rounded-full border-2 border-dashed border-kwik-border bg-default-100/80">
+              <Upload className="h-6 w-6 text-muted-foreground" strokeWidth={1.5} />
             </div>
           )}
         </div>
@@ -751,10 +756,10 @@ export default function VendorProfilePage() {
             )}
           </div>
           {store?.name && (
-            <p className="mt-0.5 text-sm text-gray-500">{store.name}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{store.name}</p>
           )}
           {user?.email && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500">
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
               <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
               {user.email}
               {emailVerified && (
@@ -763,12 +768,12 @@ export default function VendorProfilePage() {
             </p>
           )}
           {user?.phone && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500">
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
               <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
               {user.phone}
             </p>
           )}
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs text-muted-foreground">
             Click the camera icon or drag &amp; drop to update your avatar
           </p>
         </div>
@@ -800,8 +805,8 @@ export default function VendorProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Personal Information</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Personal Information</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             Your personal details used across the platform.
           </p>
         </div>
@@ -877,8 +882,8 @@ export default function VendorProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Store Profile</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Store Profile</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             Your storefront details visible to customers on the marketplace.
           </p>
         </div>
@@ -922,9 +927,9 @@ export default function VendorProfilePage() {
               setStoreProfile((p) => ({ ...p, storeSlug: slugify(e.target.value) }))
             }
           />
-          <p className="mt-1.5 text-xs text-gray-400">
+          <p className="mt-1.5 text-xs text-muted-foreground">
             Preview:{" "}
-            <span className="font-mono text-gray-600">
+            <span className="font-mono text-muted-foreground">
               kwikseller.com/store/{storeProfile.storeSlug || "your-store"}
             </span>
           </p>
@@ -942,10 +947,10 @@ export default function VendorProfilePage() {
 
         {/* Logo Upload */}
         <div>
-          <span className="text-xs font-semibold text-gray-500">Store Logo</span>
+          <span className="text-xs font-semibold text-muted-foreground">Store Logo</span>
           <div className="mt-2 flex items-start gap-4">
             {storeProfile.logoPreview ? (
-              <div className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200">
+              <div className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-kwik-border">
                 <img
                   src={storeProfile.logoPreview}
                   alt="Store logo"
@@ -960,12 +965,12 @@ export default function VendorProfilePage() {
                 </button>
               </div>
             ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50">
-                <ImageIcon className="h-6 w-6 text-gray-400" strokeWidth={1.5} />
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-kwik-border bg-default-100">
+                <ImageIcon className="h-6 w-6 text-muted-foreground" strokeWidth={1.5} />
               </div>
             )}
             <div>
-              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700 transition hover:text-gray-900">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground transition hover:text-foreground">
                 <Upload className="h-4 w-4" strokeWidth={1.5} />
                 {isUploadingLogo ? "Uploading..." : "Upload Logo"}
                 <input
@@ -976,7 +981,7 @@ export default function VendorProfilePage() {
                   disabled={isUploadingLogo}
                 />
               </label>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 PNG, JPG, or WebP. Recommended 200x200px.
               </p>
             </div>
@@ -985,10 +990,10 @@ export default function VendorProfilePage() {
 
         {/* Banner Upload */}
         <div>
-          <span className="text-xs font-semibold text-gray-500">Store Banner</span>
+          <span className="text-xs font-semibold text-muted-foreground">Store Banner</span>
           <div className="mt-2">
             {storeProfile.bannerPreview ? (
-              <div className="group relative aspect-[3/1] w-full max-w-md overflow-hidden rounded-lg border border-gray-200">
+              <div className="group relative aspect-[3/1] w-full max-w-md overflow-hidden rounded-lg border border-kwik-border">
                 <img
                   src={storeProfile.bannerPreview}
                   alt="Store banner"
@@ -1003,12 +1008,12 @@ export default function VendorProfilePage() {
                 </button>
               </div>
             ) : (
-              <label className="flex aspect-[3/1] w-full max-w-md cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 transition hover:border-gray-400 hover:bg-gray-100">
-                <Upload className="h-6 w-6 text-gray-400" strokeWidth={1.5} />
-                <span className="text-xs font-medium text-gray-500">
+              <label className="flex aspect-[3/1] w-full max-w-md cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-kwik-border bg-default-100 transition hover:border-accent hover:bg-default-100">
+                <Upload className="h-6 w-6 text-muted-foreground" strokeWidth={1.5} />
+                <span className="text-xs font-medium text-muted-foreground">
                   {isUploadingBanner ? "Uploading..." : "Upload Banner"}
                 </span>
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[10px] text-muted-foreground">
                   PNG, JPG, or WebP. Recommended 1200x400px.
                 </span>
                 <input
@@ -1061,8 +1066,8 @@ export default function VendorProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Contact Information</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Contact Information</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             How customers and Kwikseller can reach you.
           </p>
         </div>
@@ -1087,7 +1092,7 @@ export default function VendorProfilePage() {
                   type="button"
                   onClick={handleSendVerification}
                   disabled={isSendingVerification || !contact.email}
-                  className="text-xs font-medium text-gray-500 transition hover:text-gray-700 disabled:text-gray-300"
+                  className="text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:text-muted-foreground/50"
                 >
                   {isSendingVerification ? "Sending..." : "Send verification email"}
                 </button>
@@ -1106,12 +1111,12 @@ export default function VendorProfilePage() {
           value={contact.phone}
           onChange={(e) => setContact((p) => ({ ...p, phone: e.target.value }))}
         />
-        <p className="-mt-3 text-xs text-gray-400">
+        <p className="-mt-3 text-xs text-muted-foreground">
           OTP verification required when changed.
         </p>
 
-        <div className="border-t border-gray-100 pt-5">
-          <p className="text-xs font-semibold text-gray-500 mb-4">Business Address</p>
+        <div className="border-t border-kwik-border pt-5">
+          <p className="text-xs font-semibold text-muted-foreground mb-4">Business Address</p>
           <div className="space-y-4">
             <FieldInput
               label="Street Address"
@@ -1184,8 +1189,8 @@ export default function VendorProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Security</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Security</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             Manage your password and two-factor authentication settings.
           </p>
         </div>
@@ -1197,10 +1202,10 @@ export default function VendorProfilePage() {
               <ShieldCheck className="h-4 w-4 text-green-600" strokeWidth={1.5} />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-foreground">
                 Two-Factor Authentication
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Add an extra layer of security to your account with 2FA.
               </p>
             </div>
@@ -1212,12 +1217,12 @@ export default function VendorProfilePage() {
           />
         </div>
 
-        <div className="border-t border-gray-100" />
+        <div className="border-t border-kwik-border" />
 
         {/* Change Password */}
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Change Password</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-semibold text-foreground">Change Password</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             Update your account password. You will be logged out of other sessions.
           </p>
         </div>
@@ -1234,7 +1239,7 @@ export default function VendorProfilePage() {
             <button
               type="button"
               onClick={() => setShowCurrentPw(!showCurrentPw)}
-              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-[38px] text-muted-foreground hover:text-muted-foreground"
               tabIndex={-1}
             >
               {showCurrentPw ? (
@@ -1256,7 +1261,7 @@ export default function VendorProfilePage() {
             <button
               type="button"
               onClick={() => setShowNewPw(!showNewPw)}
-              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-[38px] text-muted-foreground hover:text-muted-foreground"
               tabIndex={-1}
             >
               {showNewPw ? (
@@ -1278,7 +1283,7 @@ export default function VendorProfilePage() {
             <button
               type="button"
               onClick={() => setShowConfirmPw(!showConfirmPw)}
-              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-[38px] text-muted-foreground hover:text-muted-foreground"
               tabIndex={-1}
             >
               {showConfirmPw ? (

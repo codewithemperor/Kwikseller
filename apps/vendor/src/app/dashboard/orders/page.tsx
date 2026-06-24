@@ -5,22 +5,27 @@ import {
   AlertTriangle,
   CalendarDays,
   CreditCard,
-  PackageCheck,
   RefreshCw,
   ShoppingBag,
   Truck,
 } from "lucide-react";
 import {
-  VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Order, OrderStatus } from "@kwikseller/types";
-import { AppButton } from "@kwikseller/ui";
+import {
+  AppButton,
+  EmptyState,
+  FieldSelect,
+  Skeleton,
+  SkeletonText,
+  VendorPageHeader,
+  VendorStatusBadge,
+} from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
+import { motion } from "framer-motion";
 
 const nextStatuses: OrderStatus[] = ["PROCESSING", "FULFILLED", "DELIVERED", "CANCELLED"];
 const tabs = [
@@ -79,11 +84,16 @@ export default function VendorOrdersPage() {
   const waitingCount = orders.filter((order) => ["PENDING", "PAID", "CONFIRMED"].includes(order.status)).length;
 
   return (
-    <div className="safe-container space-y-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
       <VendorPageHeader
         title="Orders"
         description="Checkout activity and fulfillment."
-        action={
+        actions={
           <AppButton type="button" variant="secondary" onClick={loadOrders} disabled={isLoading}>
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -127,25 +137,47 @@ export default function VendorOrdersPage() {
 
       <VendorSoftPanel title="Order queue">
         {isLoading ? (
-          <KwiksellerLoader />
+          <div className="divide-y divide-kwik-border border-t border-kwik-border">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <article key={i} className="py-4 first:pt-0">
+                <div className="rounded-2xl bg-default-100 p-4 dark:bg-white/5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="h-6 w-28" />
+                  </div>
+                  <div className="mt-3">
+                    <SkeletonText lines={2} />
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                  <Skeleton className="mt-4 h-11 w-full max-w-sm" />
+                </div>
+              </article>
+            ))}
+          </div>
         ) : filteredOrders.length ? (
-          <div className="divide-y divide-gray-200 border-t border-gray-200">
+          <div className="divide-y divide-kwik-border border-t border-kwik-border">
             {filteredOrders.map((order) => (
               <article key={order.id} className="py-4 first:pt-0">
-                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-white/5">
+                <div className="rounded-2xl bg-default-100 p-4 dark:bg-white/5">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-md bg-gray-100 px-2.5 py-1 font-mono text-xs font-medium text-muted-foreground dark:bg-white/8">
+                      <span className="rounded-md bg-default-100 px-2.5 py-1 font-mono text-xs font-medium text-muted-foreground dark:bg-white/8">
                         {order.checkoutReference ?? order.id}
                       </span>
                       {order.parentCheckout?.checkoutReference ? (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-default-100 px-2.5 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
                           <CreditCard className="h-3 w-3" strokeWidth={1.5} />
                           Parent {order.parentCheckout.checkoutReference}
                         </span>
                       ) : null}
                     </div>
-                    <h3 className="mt-3 font-heading text-base font-semibold text-foreground">{order.status}</h3>
+                    <div className="mt-3 flex items-center gap-2">
+                      <VendorStatusBadge status={order.status} size="sm" />
+                    </div>
                     <p className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
@@ -158,7 +190,7 @@ export default function VendorOrdersPage() {
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {order.items?.slice(0, 3).map((item) => (
-                        <span key={item.id} className="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
+                        <span key={item.id} className="rounded-md bg-default-100 px-2.5 py-1 text-xs font-medium text-muted-foreground dark:bg-white/8">
                           {item.product?.name ?? item.productId} x{item.quantity}
                         </span>
                       ))}
@@ -166,15 +198,15 @@ export default function VendorOrdersPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl bg-white p-3 dark:bg-black/20">
+                    <div className="rounded-xl bg-surface p-3 dark:bg-black/20">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total</p>
                       <p className="mt-1 font-heading text-lg font-semibold text-foreground">{formatCurrency(order.totalAmount)}</p>
                     </div>
-                    <div className="rounded-xl bg-white p-3 dark:bg-black/20">
+                    <div className="rounded-xl bg-surface p-3 dark:bg-black/20">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Payment</p>
                       <p className="mt-1 text-sm font-semibold text-foreground">{order.paymentStatus}</p>
                     </div>
-                    <div className="rounded-xl bg-white p-3 dark:bg-black/20">
+                    <div className="rounded-xl bg-surface p-3 dark:bg-black/20">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Delivery</p>
                       <p className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-foreground">
                         <Truck className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -184,20 +216,20 @@ export default function VendorOrdersPage() {
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center">
-                    <select
+                    <FieldSelect
                       disabled={updatingId === order.id}
                       defaultValue=""
                       onChange={(event) => {
                         const status = event.target.value as OrderStatus;
                         if (status) updateStatus(order.id, status);
                       }}
-                      className="h-11 w-full rounded-md border border-border bg-white px-3 text-sm font-medium text-foreground outline-none dark:bg-white/5"
+                      wrapperClassName="mb-0"
                     >
                       <option value="">Update status</option>
                       {nextStatuses.map((status) => (
                         <option key={status} value={status}>{status}</option>
                       ))}
-                    </select>
+                    </FieldSelect>
                     <p className="text-xs leading-5 text-muted-foreground">
                       Escrow releases after package receipt is confirmed.
                     </p>
@@ -207,18 +239,17 @@ export default function VendorOrdersPage() {
             ))}
           </div>
         ) : (
-          <VendorEmptyState
+          <EmptyState
+            variant="orders"
             title="No order found"
-            text="Start selling products or select Pool items so customers can place orders."
-            action={
-              <AppButton type="button" onClick={() => window.location.href = "/dashboard/pool"}>
-                <PackageCheck className="h-4 w-4" />
-                Browse Pool
-              </AppButton>
-            }
+            description="Start selling products or select Pool items so customers can place orders."
+            action={{
+              label: "Browse Pool",
+              onClick: () => { window.location.href = "/dashboard/pool"; },
+            }}
           />
         )}
       </VendorSoftPanel>
-    </div>
+    </motion.div>
   );
 }

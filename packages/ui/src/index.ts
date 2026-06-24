@@ -44,6 +44,7 @@ export {
   AppButton,
   AppSwitch,
   AppColorPicker,
+  AppImage,
 } from "./inputs";
 export type {
   BaseInputProps,
@@ -59,6 +60,8 @@ export type {
   AppButtonProps,
   AppSwitchProps,
   AppColorPickerProps,
+  AppImageProps,
+  AppImageFallbackVariant,
 } from "./inputs";
 
 // OTP Components
@@ -210,3 +213,25 @@ export type {
   BrandedAuthSidePanelProps,
   BrandedAuthLayoutProps,
 } from "./auth/branded-auth";
+
+// ==================== Vendor Dashboard Components ====================
+// Shared vendor dashboard primitives — used by the vendor app (and
+// available to admin/rider for consistency).
+export {
+  VendorMetricCard,
+  VendorPageHeader,
+  VendorStatusBadge,
+  VendorStatCard,
+} from "./vendor";
+export type {
+  VendorMetricCardProps,
+  VendorMetricCardVariant,
+  VendorMetricTrend,
+  VendorPageHeaderProps,
+  VendorBreadcrumb,
+  VendorStatusBadgeProps,
+  VendorStatusBadgeSize,
+  VendorStatCardProps,
+  VendorStatCardVariant,
+  VendorStatSubItem,
+} from "./vendor";

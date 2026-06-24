@@ -51,3 +51,7 @@ export { AppSwitch } from "./app-switch";
 export type { AppSwitchProps } from "./app-switch";
 export { AppColorPicker } from "./app-color-picker";
 export type { AppColorPickerProps } from "./app-color-picker";
+
+// AppImage — shared resilient image with product placeholder fallback
+export { AppImage } from "./app-image";
+export type { AppImageProps, AppImageFallbackVariant } from "./app-image";

@@ -16,19 +16,30 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { DashboardMetricCard, VendorPageHeader, VendorToolbar } from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
+import { VendorToolbar } from "@/components/dashboard/vendor-dashboard-ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorProductsStore } from "@/stores/vendor-products-store";
 import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product, ProductType } from "@kwikseller/types";
-import { AppButton, AppModal, AppSwitch, FieldInput, FieldSelect, FieldTextarea, ProductCard as SharedProductCard } from "@kwikseller/ui";
+import {
+  AppButton,
+  AppModal,
+  AppSwitch,
+  EmptyState,
+  FieldInput,
+  FieldSelect,
+  FieldTextarea,
+  ProductCard as SharedProductCard,
+  Skeleton,
+  VendorMetricCard,
+  VendorPageHeader,
+} from "@kwikseller/ui";
 import type { Product as SharedProduct } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { VendorProductCard as VendorMarketplaceProductCard } from "@/components/vendor-product-card";
+import { motion } from "framer-motion";
 
 /* ─── Constants ─── */
 
@@ -98,29 +109,26 @@ function isPoolResaleProduct(product: Product) {
 }
 
 function statusColor(status: string) {
-  if (status === "ACTIVE") return "text-emerald-600";
-  if (status === "DRAFT") return "text-amber-600";
-  if (status === "ARCHIVED") return "text-gray-400";
-  return "text-gray-500";
+  if (status === "ACTIVE") return "text-emerald-600 dark:text-emerald-400";
+  if (status === "DRAFT") return "text-amber-600 dark:text-amber-400";
+  if (status === "ARCHIVED") return "text-muted-foreground";
+  return "text-muted-foreground";
 }
 
 /* ─── Skeleton Card ─── */
 
-function SkeletonCard() {
+function ProductSkeletonCard() {
   return (
-    <div className="animate-pulse">
-      <div className="aspect-square bg-gray-100" />
-      <div className="border-t border-gray-200 p-4">
-        <div className="h-4 w-3/4 rounded bg-gray-200" />
-        <div className="mt-3 flex items-center justify-between">
-          <div className="h-5 w-24 rounded bg-gray-200" />
-          <div className="h-4 w-16 rounded bg-gray-100" />
-        </div>
-        <div className="mt-2 h-3 w-1/2 rounded bg-gray-100" />
-        <div className="mt-4 flex gap-2">
-          <div className="h-8 w-16 rounded bg-gray-100" />
-          <div className="h-8 w-16 rounded bg-gray-100" />
-          <div className="h-8 w-16 rounded bg-gray-100" />
+    <div className="overflow-hidden rounded-xl border border-kwik-border bg-surface">
+      <Skeleton shape="rectangular" className="aspect-[3/4] w-full rounded-none" />
+      <div className="space-y-2 border-t border-kwik-border p-4">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-5 w-1/2" />
+        <Skeleton className="h-3 w-2/3" />
+        <div className="flex gap-2 pt-2">
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-16" />
         </div>
       </div>
     </div>
@@ -270,12 +278,12 @@ function DeleteConfirmModal({
   return (
     <AppModal isOpen={isOpen} onClose={onClose} title="Delete Product?" className="sm:max-w-md">
       <div>
-        <p className="text-sm text-gray-600">
-          Are you sure you want to archive <strong className="text-gray-900">{product.name}</strong>?
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to archive <strong className="text-foreground">{product.name}</strong>?
           This will set the product status to Archived. You can restore it later by changing its status back.
         </p>
       </div>
-      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+      <div className="flex items-center justify-end gap-3 border-t border-kwik-border pt-4">
         <AppButton type="button" variant="secondary" onClick={onClose}>
           Cancel
         </AppButton>
@@ -380,10 +388,10 @@ function CreateProductModal({
             const active = i === step;
             return (
               <button key={label} type="button" onClick={() => i <= step && setStep(i)} className="flex flex-col items-center gap-2 text-center">
-                <span className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${done ? "border-gray-900 bg-gray-900 text-white" : active ? "border-gray-900 bg-white text-gray-900" : "border-gray-300 bg-white text-gray-400"}`}>
+                <span className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${done ? "border-foreground bg-foreground text-background" : active ? "border-foreground bg-surface text-foreground" : "border-kwik-border bg-surface text-muted-foreground"}`}>
                   {done ? <Check className="h-4 w-4" /> : i + 1}
                 </span>
-                <span className="hidden text-xs font-medium text-gray-500 sm:block">{label}</span>
+                <span className="hidden text-xs font-medium text-muted-foreground sm:block">{label}</span>
               </button>
             );
           })}
@@ -414,7 +422,7 @@ function CreateProductModal({
                 <FieldInput type="number" min={0} label="Low stock alert" value={form.lowStock} onChange={(e) => setForm((v) => ({ ...v, lowStock: Number(e.target.value) }))} />
               </div>
             ) : (
-              <p className="text-sm text-gray-500">Digital products default to unlimited delivery.</p>
+              <p className="text-sm text-muted-foreground">Digital products default to unlimited delivery.</p>
             )}
           </div>
         )}
@@ -424,27 +432,27 @@ function CreateProductModal({
           <div className="space-y-4">
             <FieldInput label="SKU" value={form.sku} onChange={(e) => setForm((v) => ({ ...v, sku: e.target.value }))} />
             <label className="block">
-              <span className="text-xs font-semibold text-gray-500">Product images</span>
-              <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-                <Upload className="h-8 w-8 text-gray-400" />
-                <p className="mt-2 text-sm font-medium text-gray-700">
-                  <span className="text-blue-600 underline">Click to upload</span> or drag and drop
+              <span className="text-xs font-semibold text-muted-foreground">Product images</span>
+              <div className="mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-kwik-border bg-default-100 p-6 text-center">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-sm font-medium text-foreground">
+                  <span className="text-accent underline">Click to upload</span> or drag and drop
                 </p>
-                <p className="mt-1 text-xs text-gray-400">{`${form.images.length}/5 images added`}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{`${form.images.length}/5 images added`}</p>
                 <input type="file" accept="image/*" multiple onChange={(e) => uploadImages(e.target.files)} className="sr-only" />
               </div>
             </label>
             {form.images.length > 0 && (
               <div className="grid grid-cols-5 gap-2">
                 {form.images.map((url) => (
-                  <button key={url} type="button" onClick={() => setForm((c) => ({ ...c, images: c.images.filter((img) => img !== url) }))} className="aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50" title="Remove image">
+                  <button key={url} type="button" onClick={() => setForm((c) => ({ ...c, images: c.images.filter((img) => img !== url) }))} className="aspect-square overflow-hidden rounded-lg border border-kwik-border bg-default-100" title="Remove image">
                     <img src={url} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
             )}
             {form.productType === "PHYSICAL" && (
-              <div className="border border-gray-200 p-4">
+              <div className="border border-kwik-border p-4">
                 <AppSwitch
                   isSelected={form.poolEnabled}
                   onChange={(sel) => setForm((v) => ({
@@ -471,18 +479,18 @@ function CreateProductModal({
         {/* Step 3 — Review */}
         {step === 3 && (
           <div className="space-y-4">
-            <div className="border border-gray-200 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Review</p>
-              <h3 className="mt-2 text-xl font-semibold text-gray-900">{form.name || "Untitled product"}</h3>
-              <p className="mt-2 text-sm leading-6 text-gray-500">{form.description || "No description added."}</p>
+            <div className="border border-kwik-border p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review</p>
+              <h3 className="mt-2 text-xl font-semibold text-foreground">{form.name || "Untitled product"}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{form.description || "No description added."}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div><p className="text-xs text-gray-400">Type</p><p className="font-semibold text-gray-900">{form.productType}</p></div>
-                <div><p className="text-xs text-gray-400">Price</p><p className="font-semibold text-gray-900">{formatCurrency(form.price)}</p></div>
-                <div><p className="text-xs text-gray-400">Images</p><p className="font-semibold text-gray-900">{form.images.length}</p></div>
+                <div><p className="text-xs text-muted-foreground">Type</p><p className="font-semibold text-foreground">{form.productType}</p></div>
+                <div><p className="text-xs text-muted-foreground">Price</p><p className="font-semibold text-foreground">{formatCurrency(form.price)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Images</p><p className="font-semibold text-foreground">{form.images.length}</p></div>
               </div>
             </div>
             {form.poolEnabled && (
-              <p className="text-sm font-medium text-emerald-600">
+              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                 This product will be available in Pool at source price {formatCurrency(form.poolBasePrice || form.price)}.
               </p>
             )}
@@ -490,7 +498,7 @@ function CreateProductModal({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+        <div className="flex items-center justify-between gap-3 border-t border-kwik-border pt-4">
           <AppButton type="button" variant="secondary" disabled={step === 0 || isSaving} onClick={() => setStep((c) => Math.max(0, c - 1))}>
             <ChevronLeft className="h-4 w-4" />
             Back
@@ -540,7 +548,7 @@ function Pagination({
 
   return (
     <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Showing {total > 0 ? start : 0}–{end} of {total} products
       </p>
       <div className="flex items-center gap-1">
@@ -548,20 +556,20 @@ function Pagination({
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-muted-foreground transition hover:bg-default-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Prev
         </button>
         {pages.map((p, i) =>
           p === "..." ? (
-            <span key={`dots-${i}`} className="px-1 text-sm text-gray-400">...</span>
+            <span key={`dots-${i}`} className="px-1 text-sm text-muted-foreground">...</span>
           ) : (
             <button
               key={p}
               type="button"
               onClick={() => onPageChange(p as number)}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded text-sm font-medium transition ${p === page ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded text-sm font-medium transition ${p === page ? "bg-foreground text-background" : "text-muted-foreground hover:bg-default-100"}`}
             >
               {p}
             </button>
@@ -571,7 +579,7 @@ function Pagination({
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-8 items-center gap-1 rounded px-2 text-sm font-medium text-muted-foreground transition hover:bg-default-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next
           <ChevronRight className="h-3.5 w-3.5" />
@@ -736,12 +744,17 @@ export default function VendorProductsPage() {
   const hasActiveFilters = searchQuery || statusFilter || categoryFilter;
 
   return (
-    <div className="safe-container space-y-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
       {/* Page Header */}
       <VendorPageHeader
         title="Products"
         description="Create, review, and manage your store products."
-        action={
+        actions={
           <div className="flex gap-2">
           <AppButton
             type="button"
@@ -761,29 +774,37 @@ export default function VendorProductsPage() {
       />
 
       {/* Stats Row */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <DashboardMetricCard
-          title="Total Catalog"
-          value={String(stats.total)}
-          description="All owned and Pool-sourced products in your store."
-          tone="accent"
-          icon={<Package className="h-5 w-5" strokeWidth={1.5} />}
-        />
-        <DashboardMetricCard
-          title="Physical Stock"
-          value={String(stats.physical)}
-          description="Owned products that require stock and shipping."
-          tone="success"
-          icon={<PackagePlus className="h-5 w-5" strokeWidth={1.5} />}
-        />
-        <DashboardMetricCard
-          title="Pool Items"
-          value={String(stats.pool)}
-          description="Products sourced from Pool with price-only control."
-          tone="brand"
-          icon={<Check className="h-5 w-5" strokeWidth={1.5} />}
-        />
-      </section>
+      <motion.section
+        variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-3"
+      >
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+          <VendorMetricCard
+            title="Total Catalog"
+            value={String(stats.total)}
+            description="All owned and Pool-sourced products in your store."
+            icon={Package}
+          />
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+          <VendorMetricCard
+            title="Physical Stock"
+            value={String(stats.physical)}
+            description="Owned products that require stock and shipping."
+            icon={PackagePlus}
+          />
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+          <VendorMetricCard
+            title="Pool Items"
+            value={String(stats.pool)}
+            description="Products sourced from Pool with price-only control."
+            icon={Check}
+          />
+        </motion.div>
+      </motion.section>
 
       {/* Filters / Search Bar */}
       <VendorToolbar>
@@ -842,20 +863,21 @@ export default function VendorProductsPage() {
               <Trash2 className="h-3.5 w-3.5" />
               Delete Selected
             </AppButton>
-            <select
+            <FieldSelect
               value={bulkStatus}
               onChange={(e) => {
                 setBulkStatus(e.target.value);
                 if (e.target.value) handleBulkAction("status");
               }}
               disabled={isBulkProcessing}
-              className="h-8 rounded border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-gray-500 disabled:opacity-50"
+              className="h-8"
+              wrapperClassName="mb-0"
             >
               <option value="">Set Status...</option>
               {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
-            </select>
+            </FieldSelect>
           </div>
         </section>
       )}
@@ -863,7 +885,7 @@ export default function VendorProductsPage() {
       {/* Product Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 8 }).map((_, i) => <ProductSkeletonCard key={i} />)}
         </div>
       ) : paginatedProducts.length > 0 ? (
         <>
@@ -871,18 +893,18 @@ export default function VendorProductsPage() {
             <button
               type="button"
               onClick={toggleSelectAll}
-              className="flex h-6 w-6 items-center justify-center rounded border bg-white text-white transition"
+              className="flex h-6 w-6 items-center justify-center rounded border border-kwik-border bg-surface text-foreground transition"
               aria-label={allSelected ? "Deselect all" : "Select all"}
             >
               {allSelected ? (
                 <span className="flex h-6 w-6 items-center justify-center rounded bg-foreground">
-                  <Check className="h-3.5 w-3.5 text-white" />
+                  <Check className="h-3.5 w-3.5 text-background" />
                 </span>
               ) : (
-                <span className="h-6 w-6 rounded border border-gray-300 bg-white" />
+                <span className="h-6 w-6 rounded border border-kwik-border bg-surface" />
               )}
             </button>
-            <span className="text-xs text-gray-500">Select all on page</span>
+            <span className="text-xs text-muted-foreground">Select all on page</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
@@ -908,12 +930,14 @@ export default function VendorProductsPage() {
           </div>
         </>
       ) : (
-        <VendorEmptyState
+        <EmptyState
+          variant={searchQuery || statusFilter || categoryFilter ? "search" : "products"}
           title={searchQuery || statusFilter || categoryFilter ? "No matching products" : "No products yet"}
-          text={searchQuery || statusFilter || categoryFilter ? "Try adjusting your filters." : "Create your first product to get started."}
-          action={!searchQuery && !statusFilter && !categoryFilter ? (
-            <AppButton type="button" onClick={() => setIsCreateOpen(true)}>Add Product</AppButton>
-          ) : undefined}
+          description={searchQuery || statusFilter || categoryFilter ? "Try adjusting your filters." : "Create your first product to get started."}
+          action={!searchQuery && !statusFilter && !categoryFilter ? {
+            label: "Add Product",
+            onClick: () => setIsCreateOpen(true),
+          } : undefined}
         />
       )}
 
@@ -935,6 +959,6 @@ export default function VendorProductsPage() {
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => refreshProducts().catch(() => undefined)}
       />
-    </div>
+    </motion.div>
   );
 }

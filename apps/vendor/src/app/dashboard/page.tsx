@@ -18,7 +18,14 @@ import {
   PackageSearch,
   RefreshCw,
 } from "lucide-react";
-import { DashboardMetricCard } from "@/components/dashboard/vendor-dashboard-ui";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  AppButton,
+  VendorMetricCard,
+  VendorPageHeader,
+  VendorStatusBadge,
+} from "@kwikseller/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { InventoryItem, Order, VendorPoolOffer } from "@kwikseller/types";
@@ -114,17 +121,17 @@ function DashboardSkeleton() {
     <div className="space-y-8">
       {/* Welcome bar */}
       <div className="space-y-2">
-        <div className="h-7 w-48 animate-pulse rounded bg-gray-100" />
-        <div className="h-4 w-72 animate-pulse rounded bg-gray-100" />
+        <div className="h-7 w-48 animate-pulse rounded bg-default-100" />
+        <div className="h-4 w-72 animate-pulse rounded bg-default-100" />
       </div>
 
       {/* Metrics row */}
-      <div className="grid grid-cols-1 gap-6 border-b border-gray-100 pb-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 border-b border-kwik-border pb-6 sm:grid-cols-2 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="space-y-2">
-            <div className="h-5 w-5 animate-pulse rounded bg-gray-100" />
-            <div className="h-8 w-24 animate-pulse rounded bg-gray-100" />
-            <div className="h-4 w-32 animate-pulse rounded bg-gray-100" />
+            <div className="h-5 w-5 animate-pulse rounded bg-default-100" />
+            <div className="h-8 w-24 animate-pulse rounded bg-default-100" />
+            <div className="h-4 w-32 animate-pulse rounded bg-default-100" />
           </div>
         ))}
       </div>
@@ -132,16 +139,16 @@ function DashboardSkeleton() {
       {/* Two-column */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[3fr_2fr]">
         <div className="space-y-3">
-          <div className="h-6 w-32 animate-pulse rounded bg-gray-100" />
+          <div className="h-6 w-32 animate-pulse rounded bg-default-100" />
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-12 animate-pulse rounded bg-gray-100" />
+            <div key={i} className="h-12 animate-pulse rounded bg-default-100" />
           ))}
         </div>
         <div className="space-y-6">
-          <div className="h-40 animate-pulse rounded bg-gray-100" />
+          <div className="h-40 animate-pulse rounded bg-default-100" />
           <div className="grid grid-cols-2 gap-3">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-20 animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-20 animate-pulse rounded bg-default-100" />
             ))}
           </div>
         </div>
@@ -154,6 +161,7 @@ function DashboardSkeleton() {
 
 export default function VendorDashboardPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [data, setData] = React.useState<VendorDashboardResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -208,8 +216,9 @@ export default function VendorDashboardPage() {
   /* ── Activity feed from recent orders ─────────────── */
   const activityItems = recentOrders.slice(0, 6).map((order) => ({
     id: order.id,
+    ref: order.checkoutReference ?? order.id.slice(0, 8),
+    status: order.status,
     timestamp: order.createdAt,
-    description: `Order ${order.checkoutReference ?? order.id.slice(0, 8)} — ${formatStatus(order.status)}`,
     icon:
       order.status === "DELIVERED"
         ? PackageCheck
@@ -227,26 +236,24 @@ export default function VendorDashboardPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Overview of your store performance and activity.
-          </p>
-        </div>
+        <VendorPageHeader
+          title="Dashboard"
+          description="Overview of your store performance and activity."
+        />
         <div className="flex flex-col items-center justify-center py-20">
           <PackageSearch
-            className="h-12 w-12 text-gray-300"
+            className="h-12 w-12 text-muted-foreground/50"
             strokeWidth={1.5}
           />
           <h2 className="mt-4 text-lg font-medium text-foreground">
             Dashboard unavailable
           </h2>
-          <p className="mt-2 max-w-md text-center text-sm text-gray-500">
+          <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
             {error}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 inline-flex h-10 items-center rounded-md bg-gray-900 px-5 text-sm font-medium text-white transition hover:bg-gray-800"
+            className="mt-4 inline-flex h-10 items-center rounded-md bg-foreground px-5 text-sm font-medium text-background transition hover:bg-foreground/90"
           >
             <RefreshCw className="mr-2 h-4 w-4" strokeWidth={1.5} />
             Reload
@@ -259,72 +266,109 @@ export default function VendorDashboardPage() {
   /* ── Render ───────────────────────────────────────── */
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* ─── Section 1: Welcome Bar ─────────────────── */}
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {getGreeting()}, {vendorName}
-          </h1>
-          <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
-            <span>{storeName}</span>
-            <span
-              className={cn(
-                "rounded px-1.5 py-0.5 text-xs font-medium",
-                store?.isVerified
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-              )}
+      <VendorPageHeader
+        title={`${getGreeting()}, ${vendorName}`}
+        description={`${storeName} · ${storeStatus}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              aria-label="Refresh dashboard"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-kwik-border text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
             >
-              {storeStatus}
-            </span>
+              <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+            <a
+              href={storeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              View Public Store
+              <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
+            </a>
           </div>
-        </div>
-        <a
-          href={storeUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-        >
-          View Public Store
-          <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
-        </a>
-      </section>
+        }
+      />
 
       {/* ─── Section 2: Metrics Row ──────────────────── */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <DashboardMetricCard
-          title="Today's Orders"
-          value={String(todaysOrders.length)}
-          description="Orders created today from buyer checkout activity."
-          href="/dashboard/orders"
-          tone="accent"
-          icon={<ShoppingBag className="h-5 w-5" strokeWidth={1.5} />}
-        />
-        <DashboardMetricCard
-          title="Revenue"
-          value={formatCurrency(data?.revenue ?? 0)}
-          description="Live paid order value for your current month."
-          href="/dashboard/wallet"
-          tone="success"
-          icon={<DollarSign className="h-5 w-5" strokeWidth={1.5} />}
-        />
-        <DashboardMetricCard
-          title="Active Products"
-          value={String(data?.productsCount ?? 0)}
-          description={lowStockItems.length > 0 ? `${lowStockItems.length} products need stock attention.` : "Products currently visible in your catalog."}
-          href="/dashboard/products"
-          tone="neutral"
-          icon={<Package className="h-5 w-5" strokeWidth={1.5} />}
-        />
-        <DashboardMetricCard
-          title="Pending Deliveries"
-          value={String(fulfillmentTasks.length)}
-          description="Paid orders waiting for fulfillment action."
-          href="/dashboard/deliveries"
-          tone="brand"
-          icon={<Truck className="h-5 w-5" strokeWidth={1.5} />}
-        />
+        <Link href="/dashboard/orders" className="block">
+          <VendorMetricCard
+            title="Today's Orders"
+            value={String(todaysOrders.length)}
+            icon={ShoppingBag}
+            description="Orders created today from buyer checkout activity."
+          />
+        </Link>
+        <Link href="/dashboard/wallet" className="block">
+          <VendorMetricCard
+            title="Revenue"
+            value={formatCurrency(data?.revenue ?? 0)}
+            icon={DollarSign}
+            description="Live paid order value for your current month."
+          />
+        </Link>
+        <Link href="/dashboard/products" className="block">
+          <VendorMetricCard
+            title="Active Products"
+            value={String(data?.productsCount ?? 0)}
+            icon={Package}
+            description={lowStockItems.length > 0 ? `${lowStockItems.length} products need stock attention.` : "Products currently visible in your catalog."}
+          />
+        </Link>
+        <Link href="/dashboard/deliveries" className="block">
+          <VendorMetricCard
+            title="Pending Deliveries"
+            value={String(fulfillmentTasks.length)}
+            icon={Truck}
+            description="Paid orders waiting for fulfillment action."
+          />
+        </Link>
+      </section>
+
+      {/* ─── Section 2.5: Quick Actions ─────────────── */}
+      <section>
+        <h2 className="text-lg font-semibold text-foreground">Quick Actions</h2>
+        <motion.div
+          variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+          initial="hidden"
+          animate="show"
+          className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
+          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/products")}>
+              <Plus className="h-4 w-4" />
+              Add Product
+            </AppButton>
+          </motion.div>
+          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/orders")}>
+              <ShoppingBag className="h-4 w-4" />
+              View Orders
+            </AppButton>
+          </motion.div>
+          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/wallet")}>
+              <DollarSign className="h-4 w-4" />
+              Check Wallet
+            </AppButton>
+          </motion.div>
+          <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
+            <AppButton variant="secondary" fullWidth onClick={() => router.push("/dashboard/pool")}>
+              <Package className="h-4 w-4" />
+              Pool Sourcing
+            </AppButton>
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* ─── Section 3: Two-Column Layout ────────────── */}
@@ -347,14 +391,14 @@ export default function VendorDashboardPage() {
             </div>
 
             {recentOrders.length > 0 ? (
-              <div className="mt-4 divide-y divide-gray-100">
+              <div className="mt-4 divide-y divide-kwik-border">
                 {recentOrders.slice(0, 8).map((order) => (
                   <div
                     key={order.id}
                     className="flex items-center justify-between gap-4 py-3 first:pt-0"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs text-gray-500">
+                      <p className="font-mono text-xs text-muted-foreground">
                         {order.checkoutReference ?? order.id.slice(0, 12)}
                       </p>
                       <div className="mt-0.5 flex items-center gap-3">
@@ -372,7 +416,7 @@ export default function VendorDashboardPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatDate(order.createdAt)}
                       </span>
                       <Link
@@ -388,10 +432,10 @@ export default function VendorDashboardPage() {
             ) : (
               <div className="mt-6 py-8 text-center">
                 <ShoppingBag
-                  className="mx-auto h-10 w-10 text-gray-200"
+                  className="mx-auto h-10 w-10 text-muted-foreground/40"
                   strokeWidth={1.5}
                 />
-                <p className="mt-3 text-sm text-gray-500">
+                <p className="mt-3 text-sm text-muted-foreground">
                   No orders yet. Orders will appear here after buyers checkout.
                 </p>
               </div>
@@ -404,7 +448,7 @@ export default function VendorDashboardPage() {
               <h2 className="text-lg font-semibold text-foreground">
                 Low Stock Alerts
               </h2>
-              <div className="mt-4 divide-y divide-gray-100">
+              <div className="mt-4 divide-y divide-kwik-border">
                 {lowStockItems.slice(0, 5).map((item) => (
                   <div
                     key={item.id}
@@ -440,17 +484,17 @@ export default function VendorDashboardPage() {
             </h2>
             <div className="mt-4 space-y-4">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Total Revenue
                 </p>
                 <p className="mt-1 text-2xl font-semibold text-foreground">
                   {formatCurrency(data?.revenue ?? 0)}
                 </p>
               </div>
-              <div className="border-t border-gray-100 pt-4">
+              <div className="border-t border-kwik-border pt-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Pool Earnings
                     </p>
                     <p className="mt-1 text-base font-semibold text-foreground">
@@ -458,13 +502,13 @@ export default function VendorDashboardPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Pending Orders
                     </p>
                     <p className="mt-1 text-base font-semibold text-foreground">
                       {fulfillmentTasks.length}
                       {fulfillmentTasks.length > 0 && (
-                        <span className="ml-1 text-xs font-normal text-gray-400">
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
                           (~{formatCurrency(fulfillmentTasks.length * avgOrderAmount)})
                         </span>
                       )}
@@ -474,7 +518,7 @@ export default function VendorDashboardPage() {
               </div>
               <Link
                 href="/dashboard/wallet"
-                className="inline-flex w-full items-center justify-center rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+                className="inline-flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition hover:bg-foreground/90"
               >
                 Go to Wallet
                 <ChevronRight className="ml-1 h-4 w-4" strokeWidth={1.5} />
@@ -493,7 +537,7 @@ export default function VendorDashboardPage() {
                 className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
               >
                 <Plus
-                  className="h-5 w-5 text-gray-500"
+                  className="h-5 w-5 text-muted-foreground"
                   strokeWidth={1.5}
                 />
                 <span className="text-sm font-medium text-foreground">
@@ -505,7 +549,7 @@ export default function VendorDashboardPage() {
                 className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
               >
                 <ShoppingBag
-                  className="h-5 w-5 text-gray-500"
+                  className="h-5 w-5 text-muted-foreground"
                   strokeWidth={1.5}
                 />
                 <span className="text-sm font-medium text-foreground">
@@ -517,7 +561,7 @@ export default function VendorDashboardPage() {
                 className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
               >
                 <Store
-                  className="h-5 w-5 text-gray-500"
+                  className="h-5 w-5 text-muted-foreground"
                   strokeWidth={1.5}
                 />
                 <span className="text-sm font-medium text-foreground">
@@ -529,7 +573,7 @@ export default function VendorDashboardPage() {
                 className="flex flex-col items-center gap-2 rounded-md border border-gray-200 px-4 py-5 text-center transition hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
               >
                 <MessageSquare
-                  className="h-5 w-5 text-gray-500"
+                  className="h-5 w-5 text-muted-foreground"
                   strokeWidth={1.5}
                 />
                 <span className="text-sm font-medium text-foreground">
@@ -555,19 +599,24 @@ export default function VendorDashboardPage() {
               >
                 {/* Vertical line */}
                 {index < activityItems.length - 1 && (
-                  <div className="absolute bottom-0 left-[11px] top-6 w-px bg-gray-200" />
+                  <div className="absolute bottom-0 left-[11px] top-6 w-px bg-kwik-border" />
                 )}
                 {/* Icon dot */}
                 <div className="relative mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
                   <item.icon
-                    className="h-4 w-4 text-gray-400"
+                    className="h-4 w-4 text-muted-foreground"
                     strokeWidth={1.5}
                   />
                 </div>
                 {/* Content */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-foreground">{item.description}</p>
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-foreground">
+                      Order <span className="font-mono">{item.ref}</span>
+                    </p>
+                    <VendorStatusBadge status={item.status} size="sm" />
+                  </div>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" strokeWidth={1.5} />
                     {formatRelativeTime(item.timestamp)}
                   </p>
@@ -577,6 +626,6 @@ export default function VendorDashboardPage() {
           </div>
         </section>
       )}
-    </div>
+    </motion.div>
   );
 }

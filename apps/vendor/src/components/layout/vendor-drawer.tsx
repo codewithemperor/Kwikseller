@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
+import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   Package,
@@ -12,14 +13,17 @@ import {
   Store,
   BarChart3,
   Wallet,
+  CreditCard,
   Truck,
   MessageSquare,
   Bell,
   UserRound,
   Settings,
+  ShieldCheck,
   HelpCircle,
   LogOut,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,25 +47,52 @@ export interface VendorDrawerProps {
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: LucideIcon;
   badgeKey?: keyof NonNullable<VendorDrawerProps["badgeCounts"]>;
 }
 
-const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Products", href: "/dashboard/products", icon: Package, badgeKey: "products" },
-  { label: "Orders", href: "/dashboard/orders", icon: ShoppingCart, badgeKey: "orders" },
-  { label: "Inventory", href: "/dashboard/inventory", icon: Boxes, badgeKey: "lowStock" },
-  { label: "Pool Sourcing", href: "/dashboard/pool", icon: Waves },
-  { label: "Storefront", href: "/dashboard/storefront", icon: Store },
-  { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { label: "Wallet", href: "/dashboard/wallet", icon: Wallet },
-  { label: "Deliveries", href: "/dashboard/deliveries", icon: Truck, badgeKey: "deliveries" },
-  { label: "Messages", href: "/dashboard/messages", icon: MessageSquare, badgeKey: "messages" },
-  { label: "Notifications", href: "/dashboard/notifications", icon: Bell, badgeKey: "notifications" },
-  { label: "Profile", href: "/dashboard/profile", icon: UserRound },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
-  { label: "Help", href: "/dashboard/help", icon: HelpCircle },
+interface NavGroup {
+  heading: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    heading: "Main",
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Products", href: "/dashboard/products", icon: Package, badgeKey: "products" },
+      { label: "Orders", href: "/dashboard/orders", icon: ShoppingCart, badgeKey: "orders" },
+      { label: "Pool Sourcing", href: "/dashboard/pool", icon: Waves },
+      { label: "Inventory", href: "/dashboard/inventory", icon: Boxes, badgeKey: "lowStock" },
+    ],
+  },
+  {
+    heading: "Finance",
+    items: [
+      { label: "Wallet", href: "/dashboard/wallet", icon: Wallet },
+      { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+      { label: "Subscriptions", href: "/dashboard/subscriptions", icon: CreditCard },
+    ],
+  },
+  {
+    heading: "Store",
+    items: [
+      { label: "Storefront", href: "/dashboard/storefront", icon: Store },
+      { label: "Profile", href: "/dashboard/profile", icon: UserRound },
+      { label: "Settings", href: "/dashboard/settings", icon: Settings },
+      { label: "KYC", href: "/dashboard/kyc", icon: ShieldCheck },
+    ],
+  },
+  {
+    heading: "Support",
+    items: [
+      { label: "Messages", href: "/dashboard/messages", icon: MessageSquare, badgeKey: "messages" },
+      { label: "Notifications", href: "/dashboard/notifications", icon: Bell, badgeKey: "notifications" },
+      { label: "Deliveries", href: "/dashboard/deliveries", icon: Truck, badgeKey: "deliveries" },
+      { label: "Help", href: "/dashboard/help", icon: HelpCircle },
+    ],
+  },
 ];
 
 function isNavActive(pathname: string, href: string) {
@@ -74,6 +105,16 @@ function getInitials(name: string) {
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
+
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.03 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -8 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.2, ease: "easeOut" as const } },
+};
 
 export function VendorDrawer({
   isOpen,
@@ -97,94 +138,109 @@ export function VendorDrawer({
   }, [isOpen, onClose]);
 
   return (
-    <div className="flex h-full flex-col bg-white dark:bg-[#0f1115]">
+    <div className="flex h-full flex-col bg-surface">
       {/* Scrollable nav area */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* Vendor info header */}
         <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-white">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent/10 text-accent">
             {storeLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={storeLogoUrl}
                 alt=""
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-sm font-semibold">
-                {getInitials(vendorName)}
-              </span>
+              <span className="text-sm font-semibold">{getInitials(vendorName)}</span>
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-              {vendorName}
-            </p>
+            <p className="truncate text-sm font-semibold text-foreground">{vendorName}</p>
             {storeSlug && (
-              <p className="truncate text-xs text-gray-500 dark:text-white/60">
-                {storeSlug}.kwik.com
-              </p>
+              <p className="truncate text-xs text-muted-foreground">{storeSlug}.kwik.com</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-600 transition-colors hover:bg-gray-100 dark:text-white/70 dark:hover:bg-white/8 lg:hidden"
+            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-default-100 hover:text-foreground lg:hidden"
           >
             <X className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Divider */}
-        <div className="mx-4 border-t border-gray-200 dark:border-white/10" />
+        <div className="mx-4 border-t border-kwik-border" />
 
         {/* Navigation */}
-        <nav className="mt-2 grid gap-0.5 px-2 pb-4">
-          {navItems.map((item) => {
-            const active = isNavActive(pathname, item.href);
-            const badge = item.badgeKey ? badgeCounts?.[item.badgeKey] : undefined;
+        <motion.nav
+          variants={listVariants}
+          initial="hidden"
+          animate="show"
+          className="px-2 pb-4 pt-2"
+        >
+          {navGroups.map((group) => (
+            <div key={group.heading} className="mb-2">
+              <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                {group.heading}
+              </p>
+              <div className="grid gap-0.5">
+                {group.items.map((item) => {
+                  const active = isNavActive(pathname, item.href);
+                  const badge = item.badgeKey ? badgeCounts?.[item.badgeKey] : undefined;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => onClose()}
-                className={cn(
-                  "flat-button relative flex h-11 items-center gap-3 rounded-md pl-5 pr-4 text-sm font-medium transition-colors",
-                  active
-                    ? "border-l-[3px] border-gray-900 bg-gray-50 text-gray-900 dark:border-white dark:bg-white/8 dark:text-white"
-                    : "border-l-[3px] border-transparent text-gray-700 hover:bg-gray-50 dark:text-white/70 dark:hover:bg-white/5 dark:hover:text-white",
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "h-5 w-5 shrink-0",
-                    active
-                      ? "text-gray-900 dark:text-white"
-                      : "text-gray-500 dark:text-white/50",
-                  )}
-                  strokeWidth={active ? 2 : 1.5}
-                />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {badge ? (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-medium leading-none text-white">
-                    {badge > 99 ? "99+" : badge}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
+                  return (
+                    <motion.div key={item.href} variants={itemVariants}>
+                      <Link
+                        href={item.href}
+                        onClick={() => onClose()}
+                        className={cn(
+                          "flat-button relative flex h-11 items-center gap-3 rounded-lg pl-4 pr-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-accent/10 text-accent"
+                            : "text-muted-foreground hover:bg-accent/5 hover:text-accent",
+                        )}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="vendor-nav-active"
+                            className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-accent"
+                            transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                          />
+                        )}
+                        <item.icon
+                          className={cn(
+                            "h-5 w-5 shrink-0",
+                            active ? "text-accent" : "text-muted-foreground",
+                          )}
+                          strokeWidth={active ? 2 : 1.5}
+                        />
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {badge ? (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-medium leading-none text-white">
+                            {badge > 99 ? "99+" : badge}
+                          </span>
+                        ) : null}
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </motion.nav>
 
         {/* Divider */}
-        <div className="mx-4 border-t border-gray-200 dark:border-white/10" />
+        <div className="mx-4 border-t border-kwik-border" />
 
         {/* Logout */}
         <div className="px-2 pb-4 pt-2">
           <button
             type="button"
             onClick={onLogout}
-            className="flat-button flex h-11 w-full items-center gap-3 rounded-md pl-5 pr-4 text-sm font-medium text-red-600 transition-colors hover:bg-gray-50 dark:text-red-400 dark:hover:bg-white/5"
+            className="flat-button flex h-11 w-full items-center gap-3 rounded-lg pl-4 pr-3 text-sm font-medium text-danger transition-colors hover:bg-danger/5"
           >
             <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.5} />
             <span>Logout</span>

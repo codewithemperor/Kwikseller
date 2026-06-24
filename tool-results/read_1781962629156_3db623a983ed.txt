@@ -1,0 +1,904 @@
+     1→"use client";
+     2→import React from "react";
+     3→import {
+     4→  MessageSquare,
+     5→  Search,
+     6→  Send,
+     7→  Paperclip,
+     8→  Phone,
+     9→  MoreHorizontal,
+    10→  ArrowLeft,
+    11→  X,
+    12→} from "lucide-react";
+    13→import { Skeleton } from "@kwikseller/ui";
+    14→import { formatDate } from "@/lib/vendor-format";
+    15→
+    16→// ==================== Types ====================
+    17→
+    18→type Message = {
+    19→  id: string;
+    20→  text: string;
+    21→  sender: "vendor" | "customer";
+    22→  timestamp: string;
+    23→};
+    24→
+    25→type Conversation = {
+    26→  id: string;
+    27→  customerName: string;
+    28→  initials: string;
+    29→  avatarColor: string;
+    30→  orderContext: string | null;
+    31→  orderId: string | null;
+    32→  lastMessage: string;
+    33→  lastTimestamp: string;
+    34→  unread: boolean;
+    35→  messages: Message[];
+    36→  isTyping: boolean;
+    37→};
+    38→
+    39→type FilterTab = "all" | "unread" | "orders" | "support";
+    40→
+    41→// ==================== Helpers ====================
+    42→
+    43→const MESSAGES_KEY = "kwikseller_vendor_messages";
+    44→
+    45→const AVATAR_COLORS = [
+    46→  "bg-gray-900",
+    47→  "bg-gray-700",
+    48→  "bg-gray-500",
+    49→  "bg-amber-600",
+    50→  "bg-green-700",
+    51→  "bg-red-700",
+    52→];
+    53→
+    54→function generateId() {
+    55→  return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    56→}
+    57→
+    58→function getRelativeTime(dateStr: string): string {
+    59→  const now = new Date();
+    60→  const date = new Date(dateStr);
+    61→  const diffMs = now.getTime() - date.getTime();
+    62→  const diffMins = Math.floor(diffMs / 60000);
+    63→  const diffHours = Math.floor(diffMs / 3600000);
+    64→  const diffDays = Math.floor(diffMs / 86400000);
+    65→
+    66→  if (diffMins < 1) return "Just now";
+    67→  if (diffMins < 60) return `${diffMins}m ago`;
+    68→  if (diffHours < 24) return `${diffHours}h ago`;
+    69→  if (diffDays < 7) return `${diffDays}d ago`;
+    70→  return formatDate(dateStr);
+    71→}
+    72→
+    73→function getDateSeparator(dateStr: string): string {
+    74→  const now = new Date();
+    75→  const date = new Date(dateStr);
+    76→  const diffDays = Math.floor(
+    77→    (now.getTime() - date.getTime()) / 86400000
+    78→  );
+    79→
+    80→  if (diffDays === 0) return "Today";
+    81→  if (diffDays === 1) return "Yesterday";
+    82→  return formatDate(dateStr);
+    83→}
+    84→
+    85→function formatMessageTime(dateStr: string): string {
+    86→  const date = new Date(dateStr);
+    87→  return date.toLocaleTimeString("en-NG", {
+    88→    hour: "numeric",
+    89→    minute: "2-digit",
+    90→    hour12: true,
+    91→  });
+    92→}
+    93→
+    94→// ==================== Demo Data ====================
+    95→
+    96→function createDemoConversations(): Conversation[] {
+    97→  const now = new Date();
+    98→  const minutesAgo = (m: number) =>
+    99→    new Date(now.getTime() - m * 60000).toISOString();
+   100→  const hoursAgo = (h: number) =>
+   101→    new Date(now.getTime() - h * 3600000).toISOString();
+   102→  const daysAgo = (d: number) =>
+   103→    new Date(now.getTime() - d * 86400000).toISOString();
+   104→
+   105→  return [
+   106→    {
+   107→      id: "conv_1",
+   108→      customerName: "Adebayo Johnson",
+   109→      initials: "AJ",
+   110→      avatarColor: AVATAR_COLORS[0],
+   111→      orderContext: "Order #ORD-1847",
+   112→      orderId: "ORD-1847",
+   113→      lastMessage: "Please, when will my order arrive? I need it urgently.",
+   114→      lastTimestamp: minutesAgo(5),
+   115→      unread: true,
+   116→      isTyping: false,
+   117→      messages: [
+   118→        {
+   119→          id: generateId(),
+   120→          text: "Hello! I placed an order for wireless earbuds 2 days ago.",
+   121→          sender: "customer",
+   122→          timestamp: hoursAgo(3),
+   123→        },
+   124→        {
+   125→          id: generateId(),
+   126→          text: "Hi Adebayo! Let me check your order status right away.",
+   127→          sender: "vendor",
+   128→          timestamp: hoursAgo(2),
+   129→        },
+   130→        {
+   131→          id: generateId(),
+   132→          text: "Your order has been prepared and is out for delivery. The rider should reach you within 2 hours.",
+   133→          sender: "vendor",
+   134→          timestamp: hoursAgo(2),
+   135→        },
+   136→        {
+   137→          id: generateId(),
+   138→          text: "Please, when will my order arrive? I need it urgently.",
+   139→          sender: "customer",
+   140→          timestamp: minutesAgo(5),
+   141→        },
+   142→      ],
+   143→    },
+   144→    {
+   145→      id: "conv_2",
+   146→      customerName: "Chidinma Okafor",
+   147→      initials: "CO",
+   148→      avatarColor: AVATAR_COLORS[1],
+   149→      orderContext: "Order #ORD-1923",
+   150→      orderId: "ORD-1923",
+   151→      lastMessage: "Thank you for the quick response. I appreciate it.",
+   152→      lastTimestamp: minutesAgo(32),
+   153→      unread: true,
+   154→      isTyping: false,
+   155→      messages: [
+   156→        {
+   157→          id: generateId(),
+   158→          text: "Hi, I received the wrong color for the dress I ordered.",
+   159→          sender: "customer",
+   160→          timestamp: hoursAgo(5),
+   161→        },
+   162→        {
+   163→          id: generateId(),
+   164→          text: "I am sorry about that. Could you send a photo of what you received?",
+   165→          sender: "vendor",
+   166→          timestamp: hoursAgo(4),
+   167→        },
+   168→        {
+   169→          id: generateId(),
+   170→          text: "I have attached the photo. I ordered the navy blue one.",
+   171→          sender: "customer",
+   172→          timestamp: hoursAgo(3),
+   173→        },
+   174→        {
+   175→          id: generateId(),
+   176→          text: "We apologize for the mix-up. We will send the correct color immediately at no extra charge. You can keep the other one.",
+   177→          sender: "vendor",
+   178→          timestamp: minutesAgo(35),
+   179→        },
+   180→        {
+   181→          id: generateId(),
+   182→          text: "Thank you for the quick response. I appreciate it.",
+   183→          sender: "customer",
+   184→          timestamp: minutesAgo(32),
+   185→        },
+   186→      ],
+   187→    },
+   188→    {
+   189→      id: "conv_3",
+   190→      customerName: "Emeka Nwankwo",
+   191→      initials: "EN",
+   192→      avatarColor: AVATAR_COLORS[2],
+   193→      orderContext: null,
+   194→      orderId: null,
+   195→      lastMessage: "Do you have this product available in size XL?",
+   196→      lastTimestamp: hoursAgo(2),
+   197→      unread: true,
+   198→      isTyping: false,
+   199→      messages: [
+   200→        {
+   201→          id: generateId(),
+   202→          text: "Hello, I saw your sneakers on the store. Do you have this product available in size XL?",
+   203→          sender: "customer",
+   204→          timestamp: hoursAgo(2),
+   205→        },
+   206→      ],
+   207→    },
+   208→    {
+   209→      id: "conv_4",
+   210→      customerName: "Fatima Bello",
+   211→      initials: "FB",
+   212→      avatarColor: AVATAR_COLORS[3],
+   213→      orderContext: "Order #ORD-1756",
+   214→      orderId: "ORD-1756",
+   215→      lastMessage: "The quality is excellent! Will order again soon.",
+   216→      lastTimestamp: daysAgo(1),
+   217→      unread: false,
+   218→      isTyping: false,
+   219→      messages: [
+   220→        {
+   221→          id: generateId(),
+   222→          text: "Good morning! I just received my order and wanted to say thank you.",
+   223→          sender: "customer",
+   224→          timestamp: daysAgo(1),
+   225→        },
+   226→        {
+   227→          id: generateId(),
+   228→          text: "The quality is excellent! Will order again soon.",
+   229→          sender: "customer",
+   230→          timestamp: daysAgo(1),
+   231→        },
+   232→        {
+   233→          id: generateId(),
+   234→          text: "Thank you so much Fatima! We look forward to serving you again.",
+   235→          sender: "vendor",
+   236→          timestamp: daysAgo(1),
+   237→        },
+   238→      ],
+   239→    },
+   240→    {
+   241→      id: "conv_5",
+   242→      customerName: "Ibrahim Yusuf",
+   243→      initials: "IY",
+   244→      avatarColor: AVATAR_COLORS[4],
+   245→      orderContext: null,
+   246→      orderId: null,
+   247→      lastMessage: "What is your return policy for electronics?",
+   248→      lastTimestamp: daysAgo(2),
+   249→      unread: false,
+   250→      isTyping: false,
+   251→      messages: [
+   252→        {
+   253→          id: generateId(),
+   254→          text: "What is your return policy for electronics?",
+   255→          sender: "customer",
+   256→          timestamp: daysAgo(2),
+   257→        },
+   258→        {
+   259→          id: generateId(),
+   260→          text: "Hi Ibrahim! We offer a 7-day return window for all electronics. The product must be in its original packaging and unused. Would you like more details?",
+   261→          sender: "vendor",
+   262→          timestamp: daysAgo(2),
+   263→        },
+   264→        {
+   265→          id: generateId(),
+   266→          text: "That works. Thanks for the info.",
+   267→          sender: "customer",
+   268→          timestamp: daysAgo(2),
+   269→        },
+   270→      ],
+   271→    },
+   272→    {
+   273→      id: "conv_6",
+   274→      customerName: "Blessing Adeyemi",
+   275→      initials: "BA",
+   276→      avatarColor: AVATAR_COLORS[5],
+   277→      orderContext: "Order #ORD-1604",
+   278→      orderId: "ORD-1604",
+   279→      lastMessage: "Can you confirm if the payment went through?",
+   280→      lastTimestamp: daysAgo(3),
+   281→      unread: false,
+   282→      isTyping: false,
+   283→      messages: [
+   284→        {
+   285→          id: generateId(),
+   286→          text: "Hello, I tried paying for my order but the app crashed.",
+   287→          sender: "customer",
+   288→          timestamp: daysAgo(3),
+   289→        },
+   290→        {
+   291→          id: generateId(),
+   292→          text: "Can you confirm if the payment went through?",
+   293→          sender: "customer",
+   294→          timestamp: daysAgo(3),
+   295→        },
+   296→        {
+   297→          id: generateId(),
+   298→          text: "Let me check your order now. Please share the order number.",
+   299→          sender: "vendor",
+   300→          timestamp: daysAgo(3),
+   301→        },
+   302→        {
+   303→          id: generateId(),
+   304→          text: "It is ORD-1604.",
+   305→          sender: "customer",
+   306→          timestamp: daysAgo(3),
+   307→        },
+   308→        {
+   309→          id: generateId(),
+   310→          text: "I can see your payment was successful. Your order is confirmed and being prepared.",
+   311→          sender: "vendor",
+   312→          timestamp: daysAgo(3),
+   313→        },
+   314→      ],
+   315→    },
+   316→  ];
+   317→}
+   318→
+   319→function loadConversations(): Conversation[] {
+   320→  if (typeof window === "undefined") return [];
+   321→  try {
+   322→    const raw = localStorage.getItem(MESSAGES_KEY);
+   323→    return raw ? JSON.parse(raw) : [];
+   324→  } catch {
+   325→    return [];
+   326→  }
+   327→}
+   328→
+   329→function saveConversations(conversations: Conversation[]) {
+   330→  if (typeof window === "undefined") return;
+   331→  localStorage.setItem(MESSAGES_KEY, JSON.stringify(conversations));
+   332→}
+   333→
+   334→// ==================== Main Component ====================
+   335→
+   336→export default function MessagesPage() {
+   337→  const [conversations, setConversations] =
+   338→    React.useState<Conversation[]>([]);
+   339→  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+   340→  const [searchQuery, setSearchQuery] = React.useState("");
+   341→  const [filterTab, setFilterTab] = React.useState<FilterTab>("all");
+   342→  const [inputText, setInputText] = React.useState("");
+   343→  const [isLoading, setIsLoading] = React.useState(true);
+   344→  const [showMobileChat, setShowMobileChat] = React.useState(false);
+   345→  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+   346→  const inputRef = React.useRef<HTMLInputElement>(null);
+   347→
+   348→  // Load conversations on mount
+   349→  React.useEffect(() => {
+   350→    const load = async () => {
+   351→      setIsLoading(true);
+   352→      try {
+   353→        const { notificationsApi } = await import("@kwikseller/api-client");
+   354→        const response = await notificationsApi.list({ type: "message" });
+   355→        if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
+   356→          // API returned data - transform into conversation format if possible
+   357→          const apiConvos = response.data.map((n: Record<string, unknown>) => ({
+   358→            id: (n.id as string) || generateId(),
+   359→            customerName: (n.title as string) || "Customer",
+   360→            initials: ((n.title as string) || "C")
+   361→              .split(" ")
+   362→              .map((w) => w[0])
+   363→              .join("")
+   364→              .slice(0, 2)
+   365→              .toUpperCase(),
+   366→            avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+   367→            orderContext: null,
+   368→            orderId: null,
+   369→            lastMessage: (n.message as string) || "",
+   370→            lastTimestamp: (n.createdAt as string) || new Date().toISOString(),
+   371→            unread: !(n.isRead as boolean),
+   372→            isTyping: false,
+   373→            messages: [
+   374→              {
+   375→                id: generateId(),
+   376→                text: (n.message as string) || "",
+   377→                sender: "customer" as const,
+   378→                timestamp: (n.createdAt as string) || new Date().toISOString(),
+   379→              },
+   380→            ],
+   381→          }));
+   382→          setConversations(apiConvos);
+   383→        } else {
+   384→          // Fallback to demo data
+   385→          const saved = loadConversations();
+   386→          setConversations(saved || createDemoConversations());
+   387→        }
+   388→      } catch {
+   389→        // API failed - use localStorage or demo data
+   390→        const saved = loadConversations();
+   391→        setConversations(saved || createDemoConversations());
+   392→      } finally {
+   393→        setIsLoading(false);
+   394→      }
+   395→    };
+   396→    load();
+   397→  }, []);
+   398→
+   399→  // Persist conversations when they change
+   400→  React.useEffect(() => {
+   401→    if (conversations.length > 0 && !isLoading) {
+   402→      saveConversations(conversations);
+   403→    }
+   404→  }, [conversations, isLoading]);
+   405→
+   406→  // Auto-scroll to bottom when messages change
+   407→  React.useEffect(() => {
+   408→    if (selectedId && messagesEndRef.current) {
+   409→      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+   410→    }
+   411→  }, [selectedId, conversations]);
+   412→
+   413→  // Derived state
+   414→  const unreadCount = conversations.filter((c) => c.unread).length;
+   415→
+   416→  const filteredConversations = React.useMemo(() => {
+   417→    return conversations.filter((c) => {
+   418→      // Search filter
+   419→      if (searchQuery) {
+   420→        const q = searchQuery.toLowerCase();
+   421→        if (
+   422→          !c.customerName.toLowerCase().includes(q) &&
+   423→          !c.lastMessage.toLowerCase().includes(q) &&
+   424→          !(c.orderContext && c.orderContext.toLowerCase().includes(q))
+   425→        ) {
+   426→          return false;
+   427→        }
+   428→      }
+   429→      // Tab filter
+   430→      if (filterTab === "unread" && !c.unread) return false;
+   431→      if (filterTab === "orders" && !c.orderContext) return false;
+   432→      if (filterTab === "support" && c.orderContext) return false;
+   433→      return true;
+   434→    });
+   435→  }, [conversations, searchQuery, filterTab]);
+   436→
+   437→  const selectedConversation = conversations.find((c) => c.id === selectedId) || null;
+   438→
+   439→  // ==================== Handlers ====================
+   440→
+   441→  const handleSelectConversation = (id: string) => {
+   442→    setSelectedId(id);
+   443→    setShowMobileChat(true);
+   444→    // Mark as read
+   445→    setConversations((prev) =>
+   446→      prev.map((c) => (c.id === id ? { ...c, unread: false } : c))
+   447→    );
+   448→  };
+   449→
+   450→  const handleBackToList = () => {
+   451→    setShowMobileChat(false);
+   452→  };
+   453→
+   454→  const handleSendMessage = () => {
+   455→    if (!inputText.trim() || !selectedId) return;
+   456→
+   457→    const newMessage: Message = {
+   458→      id: generateId(),
+   459→      text: inputText.trim(),
+   460→      sender: "vendor",
+   461→      timestamp: new Date().toISOString(),
+   462→    };
+   463→
+   464→    setConversations((prev) =>
+   465→      prev.map((c) =>
+   466→        c.id === selectedId
+   467→          ? {
+   468→              ...c,
+   469→              lastMessage: newMessage.text,
+   470→              lastTimestamp: newMessage.timestamp,
+   471→              messages: [...c.messages, newMessage],
+   472→            }
+   473→          : c
+   474→      )
+   475→    );
+   476→
+   477→    setInputText("");
+   478→    inputRef.current?.focus();
+   479→
+   480→    // Simulate customer typing and reply after a delay
+   481→    setTimeout(() => {
+   482→      setConversations((prev) =>
+   483→        prev.map((c) =>
+   484→          c.id === selectedId ? { ...c, isTyping: true } : c
+   485→        )
+   486→      );
+   487→    }, 1500);
+   488→
+   489→    setTimeout(() => {
+   490→      const replies = [
+   491→        "Thank you for the update!",
+   492→        "Okay, I understand now.",
+   493→        "That makes sense. Thank you.",
+   494→        "Appreciate your quick response.",
+   495→        "Noted. I will wait for the update.",
+   496→        "Great, thanks for letting me know.",
+   497→      ];
+   498→      const reply: Message = {
+   499→        id: generateId(),
+   500→        text: replies[Math.floor(Math.random() * replies.length)],
+   501→        sender: "customer",
+   502→        timestamp: new Date().toISOString(),
+   503→      };
+   504→
+   505→      setConversations((prev) =>
+   506→        prev.map((c) =>
+   507→          c.id === selectedId
+   508→            ? {
+   509→                ...c,
+   510→                isTyping: false,
+   511→                lastMessage: reply.text,
+   512→                lastTimestamp: reply.timestamp,
+   513→                messages: [...c.messages, reply],
+   514→              }
+   515→            : c
+   516→        )
+   517→      );
+   518→    }, 4000);
+   519→  };
+   520→
+   521→  const handleKeyDown = (e: React.KeyboardEvent) => {
+   522→    if (e.key === "Enter" && !e.shiftKey) {
+   523→      e.preventDefault();
+   524→      handleSendMessage();
+   525→    }
+   526→  };
+   527→
+   528→  // ==================== Render Helpers ====================
+   529→
+   530→  const renderConversationItem = (conv: Conversation) => {
+   531→    const isActive = selectedId === conv.id;
+   532→    return (
+   533→      <button
+   534→        key={conv.id}
+   535→        type="button"
+   536→        onClick={() => handleSelectConversation(conv.id)}
+   537→        className={`w-full text-left transition-colors ${
+   538→          isActive
+   539→            ? "border-l-2 border-gray-900 bg-gray-50"
+   540→            : "border-l-2 border-transparent hover:bg-gray-50"
+   541→        }`}
+   542→      >
+   543→        <div className="flex items-start gap-3 px-4 py-3">
+   544→          {/* Avatar */}
+   545→          <div
+   546→            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${conv.avatarColor}`}
+   547→          >
+   548→            {conv.initials}
+   549→          </div>
+   550→
+   551→          {/* Content */}
+   552→          <div className="min-w-0 flex-1">
+   553→            <div className="flex items-center justify-between gap-2">
+   554→              <p className="truncate text-sm font-medium text-foreground">
+   555→                {conv.customerName}
+   556→              </p>
+   557→              <div className="flex shrink-0 items-center gap-1.5">
+   558→                {conv.unread && (
+   559→                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+   560→                )}
+   561→                <span className="text-xs text-gray-400">
+   562→                  {getRelativeTime(conv.lastTimestamp)}
+   563→                </span>
+   564→              </div>
+   565→            </div>
+   566→            {conv.orderContext && (
+   567→              <p className="mt-0.5 text-xs text-gray-400">
+   568→                {conv.orderContext}
+   569→              </p>
+   570→            )}
+   571→            <p
+   572→              className={`mt-0.5 truncate text-xs ${
+   573→                conv.unread
+   574→                  ? "font-medium text-gray-700"
+   575→                  : "text-gray-500"
+   576→              }`}
+   577→            >
+   578→              {conv.lastMessage}
+   579→            </p>
+   580→          </div>
+   581→        </div>
+   582→      </button>
+   583→    );
+   584→  };
+   585→
+   586→  const renderMessagesList = () => {
+   587→    if (!selectedConversation) return null;
+   588→
+   589→    const msgs = selectedConversation.messages;
+   590→    let lastSeparator = "";
+   591→
+   592→    return msgs.map((msg) => {
+   593→      const separator = getDateSeparator(msg.timestamp);
+   594→      const showSeparator = separator !== lastSeparator;
+   595→      lastSeparator = separator;
+   596→
+   597→      return (
+   598→        <React.Fragment key={msg.id}>
+   599→          {showSeparator && (
+   600→            <div className="flex items-center justify-center py-3">
+   601→              <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+   602→                {separator}
+   603→              </span>
+   604→            </div>
+   605→          )}
+   606→          <div
+   607→            className={`flex ${
+   608→              msg.sender === "vendor" ? "justify-end" : "justify-start"
+   609→            }`}
+   610→          >
+   611→            <div
+   612→              className={`max-w-[75%] rounded-lg px-3 py-2 sm:max-w-[65%] ${
+   613→                msg.sender === "vendor"
+   614→                  ? "bg-gray-900 text-white"
+   615→                  : "bg-gray-100 text-gray-900"
+   616→              }`}
+   617→            >
+   618→              <p className="text-sm leading-relaxed">{msg.text}</p>
+   619→              <p
+   620→                className={`mt-1 text-right text-[10px] ${
+   621→                  msg.sender === "vendor"
+   622→                    ? "text-gray-400"
+   623→                    : "text-gray-400"
+   624→                }`}
+   625→              >
+   626→                {formatMessageTime(msg.timestamp)}
+   627→              </p>
+   628→            </div>
+   629→          </div>
+   630→        </React.Fragment>
+   631→      );
+   632→    });
+   633→  };
+   634→
+   635→  const filterTabs: { key: FilterTab; label: string }[] = [
+   636→    { key: "all", label: "All" },
+   637→    { key: "unread", label: "Unread" },
+   638→    { key: "orders", label: "Orders" },
+   639→    { key: "support", label: "Support" },
+   640→  ];
+   641→
+   642→  // ==================== Main Render ====================
+   643→
+   644→  return (
+   645→    <div className="flex h-[calc(100vh-4rem)] flex-col lg:flex-row">
+   646→      {/* ==================== Left Panel: Conversation List ==================== */}
+   647→      <div
+   648→        className={`flex w-full flex-col border-b border-gray-200 lg:w-1/3 lg:flex-none lg:border-b-0 lg:border-r ${
+   649→          showMobileChat ? "hidden lg:flex" : "flex"
+   650→        }`}
+   651→      >
+   652→        {/* Header */}
+   653→        <div className="border-b border-gray-200 px-4 py-3">
+   654→          <div className="flex items-center justify-between">
+   655→            <div className="flex items-center gap-2">
+   656→              <h1 className="text-lg font-semibold text-foreground">
+   657→                Messages
+   658→              </h1>
+   659→              {unreadCount > 0 && (
+   660→                <span className="text-xs font-medium text-gray-500">
+   661→                  {unreadCount} unread
+   662→                </span>
+   663→              )}
+   664→            </div>
+   665→            <button
+   666→              type="button"
+   667→              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100"
+   668→              aria-label="Compose new message"
+   669→            >
+   670→              <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
+   671→            </button>
+   672→          </div>
+   673→        </div>
+   674→
+   675→        {/* Search */}
+   676→        <div className="px-4 py-2">
+   677→          <div className="relative">
+   678→            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={1.5} />
+   679→            <input
+   680→              type="text"
+   681→              placeholder="Search conversations..."
+   682→              value={searchQuery}
+   683→              onChange={(e) => setSearchQuery(e.target.value)}
+   684→              className="w-full rounded-md border border-gray-300 bg-transparent py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-gray-400 focus:border-gray-500 focus:outline-none"
+   685→            />
+   686→            {searchQuery && (
+   687→              <button
+   688→                type="button"
+   689→                onClick={() => setSearchQuery("")}
+   690→                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+   691→              >
+   692→                <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+   693→              </button>
+   694→            )}
+   695→          </div>
+   696→        </div>
+   697→
+   698→        {/* Filter Tabs */}
+   699→        <div className="flex gap-0 border-b border-gray-200 px-4">
+   700→          {filterTabs.map((tab) => (
+   701→            <button
+   702→              key={tab.key}
+   703→              type="button"
+   704→              onClick={() => setFilterTab(tab.key)}
+   705→              className={`border-b-2 px-3 py-2 text-xs font-medium transition ${
+   706→                filterTab === tab.key
+   707→                  ? "border-gray-900 text-gray-900"
+   708→                  : "border-transparent text-gray-500 hover:text-gray-700"
+   709→              }`}
+   710→            >
+   711→              {tab.label}
+   712→            </button>
+   713→          ))}
+   714→        </div>
+   715→
+   716→        {/* Conversation List */}
+   717→        <div className="flex-1 overflow-y-auto">
+   718→          {isLoading ? (
+   719→            <div className="divide-y divide-gray-100">
+   720→              {Array.from({ length: 5 }).map((_, i) => (
+   721→                <div key={i} className="flex items-start gap-3 px-4 py-3">
+   722→                  <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+   723→                  <div className="flex-1 space-y-1.5">
+   724→                    <Skeleton className="h-3.5 w-28" />
+   725→                    <Skeleton className="h-3 w-48" />
+   726→                  </div>
+   727→                </div>
+   728→              ))}
+   729→            </div>
+   730→          ) : filteredConversations.length === 0 ? (
+   731→            <div className="flex flex-col items-center justify-center py-16">
+   732→              <MessageSquare
+   733→                className="h-10 w-10 text-gray-300"
+   734→                strokeWidth={1.5}
+   735→              />
+   736→              <p className="mt-3 text-sm font-medium text-gray-500">
+   737→                No messages yet
+   738→              </p>
+   739→              <p className="mt-1 text-xs text-gray-400">
+   740→                {searchQuery
+   741→                  ? "No conversations match your search."
+   742→                  : "Customer conversations will appear here."}
+   743→              </p>
+   744→            </div>
+   745→          ) : (
+   746→            <div className="divide-y divide-gray-100">
+   747→              {filteredConversations.map(renderConversationItem)}
+   748→            </div>
+   749→          )}
+   750→        </div>
+   751→      </div>
+   752→
+   753→      {/* ==================== Right Panel: Chat Area ==================== */}
+   754→      <div
+   755→        className={`flex flex-1 flex-col ${
+   756→          showMobileChat ? "flex" : "hidden lg:flex"
+   757→        }`}
+   758→      >
+   759→        {selectedConversation ? (
+   760→          <>
+   761→            {/* Conversation Header */}
+   762→            <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+   763→              {/* Mobile back button */}
+   764→              <button
+   765→                type="button"
+   766→                onClick={handleBackToList}
+   767→                className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 lg:hidden"
+   768→                aria-label="Back to conversations"
+   769→              >
+   770→                <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+   771→              </button>
+   772→
+   773→              {/* Avatar */}
+   774→              <div
+   775→                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${selectedConversation.avatarColor}`}
+   776→              >
+   777→                {selectedConversation.initials}
+   778→              </div>
+   779→
+   780→              <div className="min-w-0 flex-1">
+   781→                <p className="truncate text-sm font-medium text-foreground">
+   782→                  {selectedConversation.customerName}
+   783→                </p>
+   784→                {selectedConversation.orderContext && (
+   785→                  <p className="truncate text-xs text-gray-400">
+   786→                    Re: {selectedConversation.orderContext}
+   787→                  </p>
+   788→                )}
+   789→              </div>
+   790→
+   791→              {/* Actions */}
+   792→              <div className="flex items-center gap-1">
+   793→                <button
+   794→                  type="button"
+   795→                  className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100"
+   796→                  aria-label="Call customer"
+   797→                >
+   798→                  <Phone className="h-4 w-4" strokeWidth={1.5} />
+   799→                </button>
+   800→                <button
+   801→                  type="button"
+   802→                  className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100"
+   803→                  aria-label="More options"
+   804→                >
+   805→                  <MoreHorizontal
+   806→                    className="h-4 w-4"
+   807→                    strokeWidth={1.5}
+   808→                  />
+   809→                </button>
+   810→              </div>
+   811→            </div>
+   812→
+   813→            {/* Messages Area */}
+   814→            <div className="flex-1 overflow-y-auto px-4 py-4">
+   815→              {renderMessagesList()}
+   816→
+   817→              {/* Typing indicator */}
+   818→              {selectedConversation.isTyping && (
+   819→                <div className="flex justify-start">
+   820→                  <div className="rounded-lg bg-gray-100 px-4 py-2.5">
+   821→                    <p className="flex items-center gap-1 text-xs text-gray-500">
+   822→                      <span>Customer is typing</span>
+   823→                      <span className="flex gap-0.5">
+   824→                        <span
+   825→                          className="inline-block h-1 w-1 animate-bounce rounded-full bg-gray-400"
+   826→                          style={{ animationDelay: "0ms" }}
+   827→                        />
+   828→                        <span
+   829→                          className="inline-block h-1 w-1 animate-bounce rounded-full bg-gray-400"
+   830→                          style={{ animationDelay: "150ms" }}
+   831→                        />
+   832→                        <span
+   833→                          className="inline-block h-1 w-1 animate-bounce rounded-full bg-gray-400"
+   834→                          style={{ animationDelay: "300ms" }}
+   835→                        />
+   836→                      </span>
+   837→                    </p>
+   838→                  </div>
+   839→                </div>
+   840→              )}
+   841→
+   842→              <div ref={messagesEndRef} />
+   843→            </div>
+   844→
+   845→            {/* Input Area */}
+   846→            <div className="border-t border-gray-200 px-4 py-3">
+   847→              <div className="flex items-end gap-2">
+   848→                {/* Attachment button */}
+   849→                <button
+   850→                  type="button"
+   851→                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 text-gray-500 transition hover:border-gray-400 hover:text-gray-700"
+   852→                  aria-label="Attach file"
+   853→                >
+   854→                  <Paperclip className="h-4 w-4" strokeWidth={1.5} />
+   855→                </button>
+   856→
+   857→                {/* Text input */}
+   858→                <input
+   859→                  ref={inputRef}
+   860→                  type="text"
+   861→                  placeholder="Type a message..."
+   862→                  value={inputText}
+   863→                  onChange={(e) => setInputText(e.target.value)}
+   864→                  onKeyDown={handleKeyDown}
+   865→                  className="min-w-0 flex-1 rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-gray-400 focus:border-gray-500 focus:outline-none"
+   866→                />
+   867→
+   868→                {/* Send button */}
+   869→                <button
+   870→                  type="button"
+   871→                  onClick={handleSendMessage}
+   872→                  disabled={!inputText.trim()}
+   873→                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition ${
+   874→                    inputText.trim()
+   875→                      ? "bg-gray-900 text-white hover:bg-gray-800"
+   876→                      : "bg-gray-100 text-gray-400"
+   877→                  }`}
+   878→                  aria-label="Send message"
+   879→                >
+   880→                  <Send className="h-4 w-4" strokeWidth={1.5} />
+   881→                </button>
+   882→              </div>
+   883→            </div>
+   884→          </>
+   885→        ) : (
+   886→          /* No chat selected state */
+   887→          <div className="flex flex-1 flex-col items-center justify-center">
+   888→            <MessageSquare
+   889→              className="h-12 w-12 text-gray-300"
+   890→              strokeWidth={1.5}
+   891→            />
+   892→            <p className="mt-4 text-sm font-medium text-gray-500">
+   893→              Select a conversation to start messaging
+   894→            </p>
+   895→            <p className="mt-1 text-xs text-gray-400">
+   896→              Choose a conversation from the list to view messages.
+   897→            </p>
+   898→          </div>
+   899→        )}
+   900→      </div>
+   901→    </div>
+   902→  );
+   903→}
+   904→

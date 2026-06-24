@@ -22,13 +22,15 @@
     "db:generate": "pnpm --filter @kwikseller/api db:generate"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@next/eslint-plugin-next": "^16.2.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "prettier": "^3.7.4",
     "turbo": "^2.8.17",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "typescript-eslint": "^8.57.1"
   },
   "packageManager": "pnpm@10.33.0",
   "engines": {

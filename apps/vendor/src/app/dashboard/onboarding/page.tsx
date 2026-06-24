@@ -23,7 +23,8 @@ import {
   Building2,
   Eye,
 } from "lucide-react";
-import { AppButton, Skeleton } from "@kwikseller/ui";
+import { AppButton, FieldSelect, Skeleton, VendorPageHeader } from "@kwikseller/ui";
+import { motion } from "framer-motion";
 import { kwikToast } from "@kwikseller/utils";
 import { storeApi, uploadApi } from "@kwikseller/api-client";
 
@@ -242,9 +243,9 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
   return (
     <div className="mb-8 sm:mb-10">
       {/* Progress bar */}
-      <div className="mb-4 h-1 w-full overflow-hidden rounded-full bg-gray-100">
+      <div className="mb-4 h-1 w-full overflow-hidden rounded-full bg-default-100">
         <div
-          className="h-full rounded-full bg-gray-900 transition-all duration-500 ease-out"
+          className="h-full rounded-full bg-foreground transition-all duration-500 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -265,17 +266,17 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
                 {isPast ? (
                   <CheckCircle2 className="h-4 w-4 text-green-600" strokeWidth={2} />
                 ) : isCurrent ? (
-                  <Circle className="h-4 w-4 border-2 border-gray-900 fill-gray-900 text-white" strokeWidth={2} />
+                  <Circle className="h-4 w-4 border-2 border-foreground fill-foreground text-background" strokeWidth={2} />
                 ) : (
-                  <Circle className="h-4 w-4 border-gray-300 text-white" strokeWidth={2} />
+                  <Circle className="h-4 w-4 border-kwik-border text-white" strokeWidth={2} />
                 )}
                 <span
                   className={`hidden text-xs font-medium sm:inline ${
                     isPast
                       ? "text-green-600"
                       : isCurrent
-                        ? "border-b-2 border-gray-900 pb-0.5 text-gray-900"
-                        : "text-gray-400"
+                        ? "border-b-2 border-foreground pb-0.5 text-foreground"
+                        : "text-muted-foreground"
                   }`}
                 >
                   {step.label}
@@ -314,7 +315,7 @@ function ImageUploadField({
       </p>
       {preview ? (
         <div className="relative">
-          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-gray-200 sm:h-28 sm:w-28">
+          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-kwik-border sm:h-28 sm:w-28">
             <img
               src={preview}
               alt="Preview"
@@ -324,7 +325,7 @@ function ImageUploadField({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             <Camera className="h-3.5 w-3.5" />
             Change
@@ -334,10 +335,10 @@ function ImageUploadField({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex h-24 w-24 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 transition hover:border-gray-400 hover:bg-gray-50 sm:h-28 sm:w-28"
+          className="flex h-24 w-24 flex-col items-center justify-center rounded-lg border border-dashed border-kwik-border transition hover:border-accent hover:bg-default-100 sm:h-28 sm:w-28"
         >
-          <Upload className="mb-1 h-5 w-5 text-gray-400" strokeWidth={1.5} />
-          <span className="text-xs text-gray-400">Upload</span>
+          <Upload className="mb-1 h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+          <span className="text-xs text-muted-foreground">Upload</span>
         </button>
       )}
       <input
@@ -377,7 +378,7 @@ function BannerUploadField({
       </p>
       {preview ? (
         <div className="relative">
-          <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-lg border border-gray-200 sm:h-40">
+          <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-lg border border-kwik-border sm:h-40">
             <img
               src={preview}
               alt="Banner preview"
@@ -387,7 +388,7 @@ function BannerUploadField({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             <Camera className="h-3.5 w-3.5" />
             Change banner
@@ -397,10 +398,10 @@ function BannerUploadField({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex h-32 w-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 transition hover:border-gray-400 hover:bg-gray-50 sm:h-40"
+          className="flex h-32 w-full flex-col items-center justify-center rounded-lg border border-dashed border-kwik-border transition hover:border-accent hover:bg-default-100 sm:h-40"
         >
-          <Upload className="mb-1 h-5 w-5 text-gray-400" strokeWidth={1.5} />
-          <span className="text-xs text-gray-400">Upload banner image</span>
+          <Upload className="mb-1 h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+          <span className="text-xs text-muted-foreground">Upload banner image</span>
         </button>
       )}
       <input
@@ -435,15 +436,14 @@ function StepWelcome({
     <div className="animate-fade-in">
       {/* Welcome hero */}
       <div className="mb-8 text-center sm:mb-10">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-900 text-white">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground text-background">
           <Sparkles className="h-7 w-7" strokeWidth={1.5} />
         </div>
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-          Welcome to Kwikseller!
-        </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Africa&apos;s Most Powerful Commerce Operating System
-        </p>
+        <VendorPageHeader
+          title="Welcome to Kwikseller!"
+          description="Africa's Most Powerful Commerce Operating System"
+          className="items-center text-center sm:flex-col sm:items-center"
+        />
       </div>
 
       {/* Account type selection */}
@@ -455,34 +455,34 @@ function StepWelcome({
             onClick={() => onChange("accountType", opt.value)}
             className={`flex w-full flex-col items-start gap-1 rounded-lg border px-4 py-4 text-left transition ${
               data.accountType === opt.value
-                ? "border-gray-900 bg-gray-50"
-                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
+                ? "border-foreground bg-default-100"
+                : "border-kwik-border hover:border-kwik-border hover:bg-default-100/50"
             }`}
           >
             <div className="flex items-center gap-2.5">
               <div
                 className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
                   data.accountType === opt.value
-                    ? "border-gray-900 bg-gray-900"
-                    : "border-gray-300"
+                    ? "border-foreground bg-foreground"
+                    : "border-kwik-border"
                 }`}
               >
                 {data.accountType === opt.value && (
-                  <div className="h-2 w-2 rounded-full bg-white" />
+                  <div className="h-2 w-2 rounded-full bg-background" />
                 )}
               </div>
               <span className="text-sm font-semibold text-foreground">
                 {opt.label}
               </span>
             </div>
-            <p className="ml-7.5 text-xs text-gray-500">{opt.desc}</p>
+            <p className="ml-7.5 text-xs text-muted-foreground">{opt.desc}</p>
           </button>
         ))}
       </div>
 
       {/* CTA */}
       <div className="mt-8 flex justify-center">
-        <AppButton variant="primary" size="lg" onClick={onNext} className="bg-gray-900 hover:bg-gray-800">
+        <AppButton variant="primary" size="lg" onClick={onNext} className="bg-foreground hover:bg-foreground/90">
           Get Started
           <ArrowRight className="h-4 w-4" />
         </AppButton>
@@ -525,10 +525,10 @@ function StepStoreBasics({
     <div className="animate-fade-in">
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <Store className="h-5 w-5 text-gray-400" strokeWidth={1.5} />
+          <Store className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
           <h2 className="text-xl font-bold text-foreground">Store Basics</h2>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Tell us about your store. You can always change this later.
         </p>
       </div>
@@ -548,11 +548,11 @@ function StepStoreBasics({
               onChange("storeSlug", generateSlug(e.target.value));
             }}
             placeholder="e.g. My Awesome Store"
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+            className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
           />
           {data.storeSlug && (
-            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="font-medium text-gray-500">URL:</span>
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="font-medium text-muted-foreground">URL:</span>
               {data.storeSlug}.kwik.com
             </p>
           )}
@@ -563,7 +563,7 @@ function StepStoreBasics({
           <div>
             <label htmlFor="store-slug" className="mb-1.5 block text-xs font-semibold text-muted dark:text-white/60">
               Store Slug
-              <span className="ml-1.5 font-normal text-gray-400">(editable)</span>
+              <span className="ml-1.5 font-normal text-muted-foreground">(editable)</span>
             </label>
             <input
               id="store-slug"
@@ -572,7 +572,7 @@ function StepStoreBasics({
               onChange={(e) =>
                 onChange("storeSlug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-"))
               }
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+              className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
             />
           </div>
         )}
@@ -588,7 +588,7 @@ function StepStoreBasics({
             onChange={(e) => onChange("storeDescription", e.target.value)}
             placeholder="What makes your store unique?"
             rows={3}
-            className="min-h-20 w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+            className="min-h-20 w-full resize-none rounded-lg border border-kwik-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
           />
         </div>
 
@@ -597,11 +597,12 @@ function StepStoreBasics({
           <label htmlFor="store-category" className="mb-1.5 block text-xs font-semibold text-muted dark:text-white/60">
             Business Category
           </label>
-          <select
+          <FieldSelect
             id="store-category"
             value={data.storeCategory}
             onChange={(e) => onChange("storeCategory", e.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition focus:border-gray-400"
+            wrapperClassName="mb-0"
+            className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
           >
             <option value="">Select a category</option>
             {CATEGORIES.map((cat) => (
@@ -609,7 +610,7 @@ function StepStoreBasics({
                 {cat}
               </option>
             ))}
-          </select>
+          </FieldSelect>
         </div>
 
         {/* Logo */}
@@ -631,7 +632,7 @@ function StepStoreBasics({
               value={data.contactEmail}
               onChange={(e) => onChange("contactEmail", e.target.value)}
               placeholder="you@example.com"
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+              className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
             />
           </div>
           <div>
@@ -644,14 +645,14 @@ function StepStoreBasics({
               value={data.phoneNumber}
               onChange={(e) => onChange("phoneNumber", e.target.value)}
               placeholder="+234 xxx xxx xxxx"
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+              className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
             />
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
+      <div className="mt-8 flex items-center justify-between border-t border-kwik-border pt-6">
         <AppButton variant="ghost" size="sm" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" />
           Back
@@ -662,7 +663,7 @@ function StepStoreBasics({
           onClick={onNext}
           isLoading={isSubmitting}
           loadingLabel="Saving…"
-          className="bg-gray-900 hover:bg-gray-800"
+          className="bg-foreground hover:bg-foreground/90"
         >
           Continue
           <ChevronRight className="h-4 w-4" />
@@ -709,10 +710,10 @@ function StepAppearance({
     <div className="animate-fade-in">
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <Palette className="h-5 w-5 text-gray-400" strokeWidth={1.5} />
+          <Palette className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
           <h2 className="text-xl font-bold text-foreground">Store Appearance</h2>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Choose your brand colors and fonts to make your store unique.
         </p>
       </div>
@@ -731,8 +732,8 @@ function StepAppearance({
                 onClick={() => onChange("brandColor", color)}
                 className={`h-9 w-9 rounded-full border-2 transition ${
                   data.brandColor === color
-                    ? "border-gray-900 ring-2 ring-gray-900/20"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-foreground ring-2 ring-foreground/20"
+                    : "border-kwik-border hover:border-kwik-border"
                 }`}
                 style={{ backgroundColor: color }}
                 aria-label={`Select color ${color}`}
@@ -744,12 +745,12 @@ function StepAppearance({
                 type="color"
                 value={data.brandColor}
                 onChange={(e) => onChange("brandColor", e.target.value)}
-                className="h-9 w-9 cursor-pointer rounded-full border border-dashed border-gray-300"
+                className="h-9 w-9 cursor-pointer rounded-full border border-dashed border-kwik-border"
                 aria-label="Custom color"
               />
             </div>
           </div>
-          <p className="mt-1.5 font-mono text-xs text-gray-400">{data.brandColor}</p>
+          <p className="mt-1.5 font-mono text-xs text-muted-foreground">{data.brandColor}</p>
         </div>
 
         {/* Heading font */}
@@ -757,18 +758,19 @@ function StepAppearance({
           <label htmlFor="heading-font" className="mb-1.5 block text-xs font-semibold text-muted dark:text-white/60">
             Heading Font
           </label>
-          <select
+          <FieldSelect
             id="heading-font"
             value={data.headingFont}
             onChange={(e) => onChange("headingFont", e.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition focus:border-gray-400"
+            wrapperClassName="mb-0"
+            className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
           >
             {FONT_OPTIONS.map((font) => (
               <option key={font.label} value={font.label} style={{ fontFamily: font.cssVar }}>
                 {font.label}
               </option>
             ))}
-          </select>
+          </FieldSelect>
         </div>
 
         {/* Body font */}
@@ -776,18 +778,19 @@ function StepAppearance({
           <label htmlFor="body-font" className="mb-1.5 block text-xs font-semibold text-muted dark:text-white/60">
             Body Font
           </label>
-          <select
+          <FieldSelect
             id="body-font"
             value={data.bodyFont}
             onChange={(e) => onChange("bodyFont", e.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition focus:border-gray-400"
+            wrapperClassName="mb-0"
+            className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
           >
             {FONT_OPTIONS.map((font) => (
               <option key={font.label} value={font.label} style={{ fontFamily: font.cssVar }}>
                 {font.label}
               </option>
             ))}
-          </select>
+          </FieldSelect>
         </div>
 
         {/* Banner */}
@@ -798,11 +801,11 @@ function StepAppearance({
         />
 
         {/* Preview pane */}
-        <div className="border-t border-gray-100 pt-6">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="border-t border-kwik-border pt-6">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Preview
           </p>
-          <div className="overflow-hidden rounded-lg border border-gray-200">
+          <div className="overflow-hidden rounded-lg border border-kwik-border">
             {/* Banner preview or color bar */}
             <div
               className="flex h-24 items-center justify-center sm:h-32"
@@ -831,7 +834,7 @@ function StepAppearance({
                 {data.storeName || "Your Store Name"}
               </p>
               <p
-                className="mt-1 text-sm text-gray-500"
+                className="mt-1 text-sm text-muted-foreground"
                 style={{ fontFamily: bodyFontCss }}
               >
                 {data.storeDescription || "Your store description appears here..."}
@@ -842,7 +845,7 @@ function StepAppearance({
       </div>
 
       {/* Navigation */}
-      <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
+      <div className="mt-8 flex items-center justify-between border-t border-kwik-border pt-6">
         <AppButton variant="ghost" size="sm" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" />
           Back
@@ -853,7 +856,7 @@ function StepAppearance({
           onClick={onNext}
           isLoading={isSubmitting}
           loadingLabel="Saving…"
-          className="bg-gray-900 hover:bg-gray-800"
+          className="bg-foreground hover:bg-foreground/90"
         >
           Continue
           <ChevronRight className="h-4 w-4" />
@@ -898,18 +901,18 @@ function StepAddProduct({
     <div className="animate-fade-in">
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <Package className="h-5 w-5 text-gray-400" strokeWidth={1.5} />
+          <Package className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
           <h2 className="text-xl font-bold text-foreground">Add Your First Product</h2>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Add a product to get started quickly, or skip this step.
         </p>
       </div>
 
       {/* Info note */}
-      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
-        <p className="text-xs text-gray-500">
+      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-kwik-border bg-default-100 px-4 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+        <p className="text-xs text-muted-foreground">
           You can always add products later from your dashboard.
         </p>
       </div>
@@ -925,7 +928,7 @@ function StepAddProduct({
             value={data.productName}
             onChange={(e) => onChange("productName", e.target.value)}
             placeholder="e.g. Wireless Bluetooth Headphones"
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+            className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
           />
         </div>
 
@@ -941,18 +944,19 @@ function StepAddProduct({
               onChange={(e) => onChange("productPrice", e.target.value)}
               placeholder="0"
               min={0}
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+              className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
             />
           </div>
           <div>
             <label htmlFor="product-category" className="mb-1.5 block text-xs font-semibold text-muted dark:text-white/60">
               Category
             </label>
-            <select
+            <FieldSelect
               id="product-category"
               value={data.productCategory}
               onChange={(e) => onChange("productCategory", e.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition focus:border-gray-400"
+              wrapperClassName="mb-0"
+              className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
             >
               <option value="">Select category</option>
               {PRODUCT_CATEGORIES.map((cat) => (
@@ -960,7 +964,7 @@ function StepAddProduct({
                   {cat}
                 </option>
               ))}
-            </select>
+            </FieldSelect>
           </div>
         </div>
 
@@ -982,13 +986,13 @@ function StepAddProduct({
             onChange={(e) => onChange("productDescription", e.target.value)}
             placeholder="Briefly describe your product"
             rows={3}
-            className="min-h-20 w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+            className="min-h-20 w-full resize-none rounded-lg border border-kwik-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
           />
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="mt-8 flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-8 flex flex-col gap-3 border-t border-kwik-border pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <AppButton variant="ghost" size="sm" onClick={onBack}>
             <ChevronLeft className="h-4 w-4" />
@@ -997,7 +1001,7 @@ function StepAddProduct({
           <button
             type="button"
             onClick={onSkip}
-            className="text-xs font-medium text-gray-400 transition hover:text-gray-600"
+            className="text-xs font-medium text-muted-foreground transition hover:text-muted-foreground"
           >
             Add products later →
           </button>
@@ -1009,7 +1013,7 @@ function StepAddProduct({
           isLoading={isSubmitting}
           loadingLabel="Saving…"
           disabled={!data.productName || !data.productPrice}
-          className="bg-gray-900 hover:bg-gray-800"
+          className="bg-foreground hover:bg-foreground/90"
         >
           Add Product & Continue
           <ChevronRight className="h-4 w-4" />
@@ -1066,18 +1070,18 @@ function StepPayment({
     <div className="animate-fade-in">
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <Wallet className="h-5 w-5 text-gray-400" strokeWidth={1.5} />
+          <Wallet className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
           <h2 className="text-xl font-bold text-foreground">Payment Setup</h2>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Connect your bank account to receive payments from sales.
         </p>
       </div>
 
       {/* Escrow info */}
-      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-kwik-border bg-default-100 px-4 py-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-600" strokeWidth={1.5} />
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Payments are held securely until customers confirm delivery. This protects both buyers and sellers.
         </p>
       </div>
@@ -1088,7 +1092,7 @@ function StepPayment({
           <label htmlFor="bank-name" className="mb-1.5 block text-xs font-semibold text-muted dark:text-white/60">
             Bank Name
           </label>
-          <select
+          <FieldSelect
             id="bank-name"
             value={data.bankCode}
             onChange={(e) => {
@@ -1099,7 +1103,8 @@ function StepPayment({
               onChange("accountName", "");
               onChange("bankVerified", "false");
             }}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition focus:border-gray-400"
+            wrapperClassName="mb-0"
+            className="h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
           >
             <option value="">Select your bank</option>
             {NIGERIAN_BANKS.map((bank) => (
@@ -1107,7 +1112,7 @@ function StepPayment({
                 {bank.name}
               </option>
             ))}
-          </select>
+          </FieldSelect>
         </div>
 
         {/* Account number + verify */}
@@ -1128,7 +1133,7 @@ function StepPayment({
               }}
               placeholder="10-digit account number"
               maxLength={10}
-              className="h-11 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400"
+              className="h-11 flex-1 rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent"
             />
             <AppButton
               variant="secondary"
@@ -1156,8 +1161,8 @@ function StepPayment({
             onChange={(e) => onChange("accountName", e.target.value)}
             placeholder={data.bankVerified ? "" : "Auto-filled after verification"}
             readOnly={data.bankVerified}
-            className={`h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-gray-400 focus:border-gray-400 ${
-              data.bankVerified ? "bg-gray-50" : ""
+            className={`h-11 w-full rounded-lg border border-kwik-border bg-surface px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-accent ${
+              data.bankVerified ? "bg-default-100" : ""
             }`}
           />
           {data.bankVerified && (
@@ -1170,7 +1175,7 @@ function StepPayment({
       </div>
 
       {/* Navigation */}
-      <div className="mt-8 flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-8 flex flex-col gap-3 border-t border-kwik-border pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <AppButton variant="ghost" size="sm" onClick={onBack}>
             <ChevronLeft className="h-4 w-4" />
@@ -1179,7 +1184,7 @@ function StepPayment({
           <button
             type="button"
             onClick={onSkip}
-            className="text-xs font-medium text-gray-400 transition hover:text-gray-600"
+            className="text-xs font-medium text-muted-foreground transition hover:text-muted-foreground"
           >
             Skip this step →
           </button>
@@ -1190,7 +1195,7 @@ function StepPayment({
           onClick={onNext}
           isLoading={isSubmitting}
           loadingLabel="Saving…"
-          className="bg-gray-900 hover:bg-gray-800"
+          className="bg-foreground hover:bg-foreground/90"
         >
           Continue
           <ChevronRight className="h-4 w-4" />
@@ -1224,10 +1229,10 @@ function StepKYC({
     <div className="animate-fade-in">
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="h-5 w-5 text-gray-400" strokeWidth={1.5} />
+          <ShieldCheck className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
           <h2 className="text-xl font-bold text-foreground">Identity Verification (KYC)</h2>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Verify your identity to unlock all platform features.
         </p>
       </div>
@@ -1237,13 +1242,13 @@ function StepKYC({
         {benefits.map((benefit) => (
           <div
             key={benefit.title}
-            className="rounded-lg border border-gray-200 px-4 py-3.5"
+            className="rounded-lg border border-kwik-border px-4 py-3.5"
           >
             <div className="flex items-start gap-3">
               <span className="text-lg">{benefit.icon}</span>
               <div>
                 <p className="text-sm font-semibold text-foreground">{benefit.title}</p>
-                <p className="mt-0.5 text-xs text-gray-500">{benefit.desc}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{benefit.desc}</p>
               </div>
             </div>
           </div>
@@ -1251,15 +1256,15 @@ function StepKYC({
       </div>
 
       {/* Note */}
-      <div className="mb-8 flex items-start gap-2.5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
-        <p className="text-xs text-gray-500">
+      <div className="mb-8 flex items-start gap-2.5 rounded-lg border border-kwik-border bg-default-100 px-4 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+        <p className="text-xs text-muted-foreground">
           Required for paid plans and high-volume sellers.
         </p>
       </div>
 
       {/* Navigation */}
-      <div className="flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-t border-kwik-border pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <AppButton variant="ghost" size="sm" onClick={onBack}>
             <ChevronLeft className="h-4 w-4" />
@@ -1268,7 +1273,7 @@ function StepKYC({
           <button
             type="button"
             onClick={onSkip}
-            className="text-xs font-medium text-gray-400 transition hover:text-gray-600"
+            className="text-xs font-medium text-muted-foreground transition hover:text-muted-foreground"
           >
             Skip for now →
           </button>
@@ -1277,7 +1282,7 @@ function StepKYC({
           <AppButton
             variant="primary"
             size="md"
-            className="bg-gray-900 hover:bg-gray-800"
+            className="bg-foreground hover:bg-foreground/90"
           >
             Complete KYC Verification
             <ArrowRight className="h-4 w-4" />
@@ -1322,22 +1327,22 @@ function StepReady({
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
           Your Store is Ready!
         </h2>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           You&apos;re all set to start selling on Kwikseller.
         </p>
       </div>
 
       {/* Store URL */}
-      <div className="mx-auto mb-8 max-w-md rounded-lg border border-gray-200 px-5 py-4 text-center">
+      <div className="mx-auto mb-8 max-w-md rounded-lg border border-kwik-border px-5 py-4 text-center">
         <p className="text-sm font-semibold text-foreground">
           {data.storeName || "Your Store"}
         </p>
         <div className="mt-2 flex items-center justify-center gap-2">
-          <span className="font-mono text-sm text-gray-500">{storeUrl}</span>
+          <span className="font-mono text-sm text-muted-foreground">{storeUrl}</span>
           <button
             type="button"
             onClick={handleCopyLink}
-            className="inline-flex items-center gap-1 text-xs font-medium text-gray-900 transition hover:text-gray-700"
+            className="inline-flex items-center gap-1 text-xs font-medium text-foreground transition hover:text-foreground"
           >
             Copy
           </button>
@@ -1346,19 +1351,19 @@ function StepReady({
 
       {/* Recommended next steps */}
       <div className="mx-auto max-w-md">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Recommended Next Steps
         </p>
-        <div className="space-y-0 divide-y divide-gray-100">
+        <div className="space-y-0 divide-y divide-kwik-border">
           {nextSteps.map((step) => (
             <div key={step.label} className="flex items-center gap-3 px-1 py-3">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-gray-300">
-                <span className="text-xs text-gray-300">☐</span>
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-kwik-border">
+                <span className="text-xs text-muted-foreground/50">☐</span>
               </div>
               {step.href ? (
                 <Link
                   href={step.href}
-                  className="text-sm text-gray-700 transition hover:text-gray-900 hover:underline"
+                  className="text-sm text-foreground transition hover:text-foreground hover:underline"
                 >
                   {step.label}
                 </Link>
@@ -1366,13 +1371,13 @@ function StepReady({
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="text-sm text-gray-700 transition hover:text-gray-900 hover:underline"
+                  className="text-sm text-foreground transition hover:text-foreground hover:underline"
                 >
                   {step.label}
                 </button>
               )}
               {step.href && (
-                <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-300" />
+                <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
               )}
             </div>
           ))}
@@ -1385,7 +1390,7 @@ function StepReady({
           variant="primary"
           size="lg"
           onClick={onFinish}
-          className="bg-gray-900 hover:bg-gray-800"
+          className="bg-foreground hover:bg-foreground/90"
         >
           <ShoppingBag className="h-4 w-4" />
           Go to Dashboard
@@ -1495,8 +1500,8 @@ export default function OnboardingPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <div className="space-y-6">
-          <div className="h-1 w-full rounded-full bg-gray-100">
-            <div className="h-1 w-0 rounded-full bg-gray-900" />
+          <div className="h-1 w-full rounded-full bg-default-100">
+            <div className="h-1 w-0 rounded-full bg-foreground" />
           </div>
           <div className="space-y-4">
             <Skeleton className="mx-auto h-14 w-14 rounded-2xl" />
@@ -1510,7 +1515,12 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
+    <motion.main
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10"
+    >
       <ProgressIndicator currentStep={data.currentStep} />
 
       {data.currentStep === 1 && (
@@ -1579,6 +1589,6 @@ export default function OnboardingPage() {
           onFinish={handleFinish}
         />
       )}
-    </main>
+    </motion.main>
   );
 }

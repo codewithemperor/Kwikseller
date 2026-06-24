@@ -3,10 +3,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
-import { NotificationService } from '../common/services/notification.service';
-import { AuditService } from '../common/services/audit.service';
+} from "@nestjs/common";
+import { PrismaService } from "../database/prisma.service";
+import { NotificationService } from "../common/services/notification.service";
+import { AuditService } from "../common/services/audit.service";
 
 const DEFAULT_COMMISSION_RATE = 0.05; // 5%
 const DEFAULT_HOLD_HOURS = 24;
@@ -54,7 +54,7 @@ export class EscrowService {
         orderId: order.id,
         vendorId: order.store?.vendorId ?? order.storeId,
         amount: order.totalAmount,
-        status: 'HELD',
+        status: "HELD",
         releaseAt,
       },
     });
@@ -73,7 +73,7 @@ export class EscrowService {
         platformFeePercent: feePercent,
         platformFeeAmount: feeAmount,
         vendorEarnings,
-        plan: 'DEFAULT',
+        plan: "DEFAULT",
       },
     });
 
@@ -81,13 +81,13 @@ export class EscrowService {
     try {
       await this.notificationService.create({
         userId: order.store?.vendorId ?? order.storeId,
-        type: 'PAYMENT_HELD',
-        title: 'Payment Received — Held in Escrow',
+        type: "PAYMENT_HELD",
+        title: "Payment Received — Held in Escrow",
         message: `₦${saleAmount.toLocaleString()} from order #${orderId.slice(-8)} is now held in escrow. Funds will be released after delivery confirmation.`,
         data: { orderId, escrowId: escrow?.id, amount: saleAmount },
       });
     } catch (err) {
-      this.logger.warn('Failed to send payment-held notification', err);
+      this.logger.warn("Failed to send payment-held notification", err);
     }
 
     this.logger.log(`Escrow created for order ${orderId}: ₦${saleAmount}`);
@@ -108,10 +108,10 @@ export class EscrowService {
 
     const escrow = delivery.order?.escrow;
     if (!escrow) {
-      throw new NotFoundException('No escrow found for this order');
+      throw new NotFoundException("No escrow found for this order");
     }
 
-    if (escrow.status !== 'HELD') {
+    if (escrow.status !== "HELD") {
       throw new BadRequestException(
         `Escrow is in ${escrow.status} state — cannot initiate release`,
       );
@@ -120,10 +120,12 @@ export class EscrowService {
     // Mark as pending release (actual credit happens via releaseFunds)
     await db.escrow?.update({
       where: { id: escrow.id },
-      data: { status: 'PENDING_RELEASE', releaseAt: new Date() },
+      data: { status: "PENDING_RELEASE", releaseAt: new Date() },
     });
 
-    this.logger.log(`Escrow ${escrow.id} marked PENDING_RELEASE for delivery ${deliveryId}`);
+    this.logger.log(
+      `Escrow ${escrow.id} marked PENDING_RELEASE for delivery ${deliveryId}`,
+    );
   }
 
   // ─── Release Funds (called by cron job or directly after hold period) ───────
@@ -145,15 +147,17 @@ export class EscrowService {
 
     const escrow = delivery.order?.escrow;
     if (!escrow) {
-      throw new NotFoundException('No escrow found for this order');
+      throw new NotFoundException("No escrow found for this order");
     }
 
-    if (escrow.status === 'RELEASED' || escrow.status === 'REFUNDED') {
-      this.logger.warn(`Escrow ${escrow.id} already ${escrow.status} — skipping release`);
+    if (escrow.status === "RELEASED" || escrow.status === "REFUNDED") {
+      this.logger.warn(
+        `Escrow ${escrow.id} already ${escrow.status} — skipping release`,
+      );
       return;
     }
 
-    if (escrow.status !== 'HELD' && escrow.status !== 'PENDING_RELEASE') {
+    if (escrow.status !== "HELD" && escrow.status !== "PENDING_RELEASE") {
       throw new BadRequestException(
         `Escrow is in ${escrow.status} state — cannot release funds`,
       );
@@ -168,7 +172,7 @@ export class EscrowService {
       // Update escrow to RELEASED
       await tx.escrow?.update({
         where: { id: escrow.id },
-        data: { status: 'RELEASED', releasedAt: new Date() },
+        data: { status: "RELEASED", releasedAt: new Date() },
       });
 
       // Credit vendor wallet
@@ -178,7 +182,9 @@ export class EscrowService {
           where: { vendorId },
           data: {
             availableBalance: { increment: vendorEarnings },
-            pendingBalance: { decrement: Math.min(wallet.pendingBalance ?? 0, vendorEarnings) },
+            pendingBalance: {
+              decrement: Math.min(wallet.pendingBalance ?? 0, vendorEarnings),
+            },
             totalEarned: { increment: vendorEarnings },
           },
         });
@@ -205,26 +211,30 @@ export class EscrowService {
     try {
       await this.notificationService.create({
         userId: vendorId,
-        type: 'FUNDS_RELEASED',
-        title: 'Escrow Funds Released',
+        type: "FUNDS_RELEASED",
+        title: "Escrow Funds Released",
         message: `₦${vendorEarnings.toLocaleString()} has been credited to your wallet from order #${delivery.order?.id?.slice(-8)}.`,
-        data: { escrowId: escrow.id, amount: vendorEarnings, orderId: delivery.order?.id },
+        data: {
+          escrowId: escrow.id,
+          amount: vendorEarnings,
+          orderId: delivery.order?.id,
+        },
       });
     } catch (err) {
-      this.logger.warn('Failed to send funds-released notification', err);
+      this.logger.warn("Failed to send funds-released notification", err);
     }
 
     // Audit log
     await this.auditService.log({
       userId: vendorId,
-      action: 'escrow.release',
-      entity: 'Escrow',
+      action: "escrow.release",
+      entity: "Escrow",
       entityId: escrow.id,
       changes: {
         deliveryId,
         orderId: delivery.order?.id,
         amount: vendorEarnings,
-        status: 'RELEASED',
+        status: "RELEASED",
       },
     });
 
@@ -249,10 +259,10 @@ export class EscrowService {
 
     const escrow = order.escrow;
     if (!escrow) {
-      throw new NotFoundException('No escrow found for this order');
+      throw new NotFoundException("No escrow found for this order");
     }
 
-    if (!['HELD', 'PENDING_RELEASE'].includes(escrow.status)) {
+    if (!["HELD", "PENDING_RELEASE"].includes(escrow.status)) {
       throw new BadRequestException(
         `Cannot freeze escrow in ${escrow.status} state`,
       );
@@ -260,13 +270,13 @@ export class EscrowService {
 
     await db.escrow?.update({
       where: { id: escrow.id },
-      data: { status: 'DISPUTED' },
+      data: { status: "DISPUTED" },
     });
 
     await db.order?.update({
       where: { id: orderId },
       data: {
-        disputeStatus: 'OPENED',
+        disputeStatus: "OPENED",
         disputeReason: reason,
       },
     });
@@ -278,7 +288,7 @@ export class EscrowService {
 
   async resolveDispute(
     deliveryId: string,
-    resolution: 'release_to_vendor' | 'refund_to_customer' | 'partial',
+    resolution: "release_to_vendor" | "refund_to_customer" | "partial",
     vendorAmount?: number,
     refundReason?: string,
   ): Promise<void> {
@@ -298,10 +308,10 @@ export class EscrowService {
 
     const escrow = delivery.order?.escrow;
     if (!escrow) {
-      throw new NotFoundException('No escrow found for this order');
+      throw new NotFoundException("No escrow found for this order");
     }
 
-    if (escrow.status !== 'DISPUTED') {
+    if (escrow.status !== "DISPUTED") {
       throw new BadRequestException(
         `Escrow is in ${escrow.status} state — must be DISPUTED to resolve`,
       );
@@ -313,13 +323,13 @@ export class EscrowService {
     const vendorId = escrow.vendorId;
     const buyerId = order.buyerId;
 
-    if (resolution === 'release_to_vendor') {
+    if (resolution === "release_to_vendor") {
       const vendorEarnings = commission?.vendorEarnings ?? totalAmount;
 
       await db.$transaction(async (tx: any) => {
         await tx.escrow?.update({
           where: { id: escrow.id },
-          data: { status: 'RELEASED', releasedAt: new Date() },
+          data: { status: "RELEASED", releasedAt: new Date() },
         });
 
         // Credit vendor wallet
@@ -329,13 +339,19 @@ export class EscrowService {
             where: { vendorId },
             data: {
               availableBalance: { increment: vendorEarnings },
-              pendingBalance: { decrement: Math.min(wallet.pendingBalance ?? 0, vendorEarnings) },
+              pendingBalance: {
+                decrement: Math.min(wallet.pendingBalance ?? 0, vendorEarnings),
+              },
               totalEarned: { increment: vendorEarnings },
             },
           });
         } else {
           await tx.wallet?.create({
-            data: { vendorId, availableBalance: vendorEarnings, totalEarned: vendorEarnings },
+            data: {
+              vendorId,
+              availableBalance: vendorEarnings,
+              totalEarned: vendorEarnings,
+            },
           });
         }
 
@@ -347,32 +363,45 @@ export class EscrowService {
         }
       });
 
-      await this.notifyDisputeResolution(vendorId, buyerId, order.id, 'release_to_vendor', vendorEarnings);
-    } else if (resolution === 'refund_to_customer') {
+      await this.notifyDisputeResolution(
+        vendorId,
+        buyerId,
+        order.id,
+        "release_to_vendor",
+        vendorEarnings,
+      );
+    } else if (resolution === "refund_to_customer") {
       await db.$transaction(async (tx: any) => {
         await tx.escrow?.update({
           where: { id: escrow.id },
-          data: { status: 'REFUNDED' },
+          data: { status: "REFUNDED" },
         });
 
         await tx.order?.update({
           where: { id: order.id },
-          data: { status: 'REFUNDED', paymentStatus: 'REFUNDED' },
+          data: { status: "REFUNDED", paymentStatus: "REFUNDED" },
         });
       });
 
-      await this.notifyDisputeResolution(vendorId, buyerId, order.id, 'refund_to_customer', totalAmount, refundReason);
-    } else if (resolution === 'partial') {
+      await this.notifyDisputeResolution(
+        vendorId,
+        buyerId,
+        order.id,
+        "refund_to_customer",
+        totalAmount,
+        refundReason,
+      );
+    } else if (resolution === "partial") {
       if (!vendorAmount || vendorAmount <= 0 || vendorAmount >= totalAmount) {
         throw new BadRequestException(
-          'Partial resolution requires vendorAmount between 0 and total escrow amount',
+          "Partial resolution requires vendorAmount between 0 and total escrow amount",
         );
       }
 
       await db.$transaction(async (tx: any) => {
         await tx.escrow?.update({
           where: { id: escrow.id },
-          data: { status: 'PARTIAL', releasedAt: new Date() },
+          data: { status: "PARTIAL", releasedAt: new Date() },
         });
 
         const wallet = await tx.wallet?.findUnique({ where: { vendorId } });
@@ -381,26 +410,40 @@ export class EscrowService {
             where: { vendorId },
             data: {
               availableBalance: { increment: vendorAmount },
-              pendingBalance: { decrement: Math.min(wallet.pendingBalance ?? 0, vendorAmount) },
+              pendingBalance: {
+                decrement: Math.min(wallet.pendingBalance ?? 0, vendorAmount),
+              },
               totalEarned: { increment: vendorAmount },
             },
           });
         } else {
           await tx.wallet?.create({
-            data: { vendorId, availableBalance: vendorAmount, totalEarned: vendorAmount },
+            data: {
+              vendorId,
+              availableBalance: vendorAmount,
+              totalEarned: vendorAmount,
+            },
           });
         }
       });
 
       const refundAmount = Math.round((totalAmount - vendorAmount) * 100) / 100;
-      await this.notifyDisputeResolution(vendorId, buyerId, order.id, 'partial', vendorAmount, refundReason, refundAmount);
+      await this.notifyDisputeResolution(
+        vendorId,
+        buyerId,
+        order.id,
+        "partial",
+        vendorAmount,
+        refundReason,
+        refundAmount,
+      );
     }
 
     // Update order dispute fields
     await db.order?.update({
       where: { id: order.id },
       data: {
-        disputeStatus: 'RESOLVED',
+        disputeStatus: "RESOLVED",
         disputeResolvedAt: new Date(),
         disputeResolution: resolution,
       },
@@ -408,15 +451,19 @@ export class EscrowService {
 
     // Audit log
     await this.auditService.log({
-      action: 'escrow.dispute_resolved',
-      entity: 'Escrow',
+      action: "escrow.dispute_resolved",
+      entity: "Escrow",
       entityId: escrow.id,
-      changes: { resolution, vendorAmount, refundReason, deliveryId, orderId: order.id },
+      changes: {
+        resolution,
+        vendorAmount,
+        refundReason,
+        deliveryId,
+        orderId: order.id,
+      },
     });
 
-    this.logger.log(
-      `Dispute resolved for escrow ${escrow.id}: ${resolution}`,
-    );
+    this.logger.log(`Dispute resolved for escrow ${escrow.id}: ${resolution}`);
   }
 
   // ─── Refund to Customer (cancelled orders, returns) ────────────────────────
@@ -434,19 +481,23 @@ export class EscrowService {
 
     const escrow = order.escrow;
     if (!escrow) {
-      this.logger.warn(`No escrow for order ${orderId} — updating order status only`);
+      this.logger.warn(
+        `No escrow for order ${orderId} — updating order status only`,
+      );
       await db.order?.update({
         where: { id: orderId },
-        data: { status: 'REFUNDED', paymentStatus: 'REFUNDED' },
+        data: { status: "REFUNDED", paymentStatus: "REFUNDED" },
       });
       return;
     }
 
-    if (escrow.status === 'RELEASED') {
-      throw new BadRequestException('Cannot refund — funds already released to vendor');
+    if (escrow.status === "RELEASED") {
+      throw new BadRequestException(
+        "Cannot refund — funds already released to vendor",
+      );
     }
 
-    if (escrow.status === 'REFUNDED') {
+    if (escrow.status === "REFUNDED") {
       this.logger.warn(`Escrow ${escrow.id} already REFUNDED`);
       return;
     }
@@ -455,14 +506,14 @@ export class EscrowService {
       await tx.escrow?.update({
         where: { id: escrow.id },
         data: {
-          status: 'REFUNDED',
+          status: "REFUNDED",
           disputeReason: reason ?? escrow.disputeReason,
         },
       });
 
       await tx.order?.update({
         where: { id: orderId },
-        data: { status: 'REFUNDED', paymentStatus: 'REFUNDED' },
+        data: { status: "REFUNDED", paymentStatus: "REFUNDED" },
       });
     });
 
@@ -470,19 +521,19 @@ export class EscrowService {
     try {
       await this.notificationService.create({
         userId: escrow.vendorId,
-        type: 'ORDER_REFUNDED',
-        title: 'Order Refunded',
-        message: `Order #${orderId.slice(-8)} has been refunded${reason ? ` (${reason})` : ''}. Escrow funds returned to customer.`,
+        type: "ORDER_REFUNDED",
+        title: "Order Refunded",
+        message: `Order #${orderId.slice(-8)} has been refunded${reason ? ` (${reason})` : ""}. Escrow funds returned to customer.`,
         data: { orderId, escrowId: escrow.id, amount: escrow.amount },
       });
     } catch (err) {
-      this.logger.warn('Failed to send refund notification', err);
+      this.logger.warn("Failed to send refund notification", err);
     }
 
     await this.auditService.log({
       userId: escrow.vendorId,
-      action: 'escrow.refund',
-      entity: 'Escrow',
+      action: "escrow.refund",
+      entity: "Escrow",
       entityId: escrow.id,
       changes: { orderId, reason, amount: escrow.amount },
     });
@@ -497,7 +548,7 @@ export class EscrowService {
     return db.escrow?.findMany({
       where: {
         vendorId,
-        status: { in: ['HELD', 'PENDING_RELEASE', 'DISPUTED'] },
+        status: { in: ["HELD", "PENDING_RELEASE", "DISPUTED"] },
       },
       include: {
         order: {
@@ -508,7 +559,7 @@ export class EscrowService {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -568,28 +619,30 @@ export class EscrowService {
     const db = this.db();
     return db.escrow?.findMany({
       where: {
-        status: 'PENDING_RELEASE',
+        status: "PENDING_RELEASE",
         releaseAt: { lte: new Date() },
       },
       include: {
         order: { include: { delivery: true, commission: true } },
       },
-      orderBy: { releaseAt: 'asc' },
+      orderBy: { releaseAt: "asc" },
     });
   }
 
   // ─── List Disputes ─────────────────────────────────────────────────────────
 
-  async listDisputes(params: { page?: number; limit?: number; status?: string } = {}) {
+  async listDisputes(
+    params: { page?: number; limit?: number; status?: string } = {},
+  ) {
     const db = this.db();
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 100);
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {
-      disputeStatus: { not: 'NONE' },
+      disputeStatus: { not: "NONE" },
     };
-    if (params.status && params.status !== 'all') {
+    if (params.status && params.status !== "all") {
       where.disputeStatus = params.status;
     }
 
@@ -602,7 +655,7 @@ export class EscrowService {
           escrow: true,
           delivery: true,
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { updatedAt: "desc" },
         skip,
         take: limit,
       }),
@@ -611,8 +664,74 @@ export class EscrowService {
 
     return {
       data: orders ?? [],
-      meta: { page, limit, total: total ?? 0, totalPages: Math.ceil((total ?? 0) / limit) },
+      meta: {
+        page,
+        limit,
+        total: total ?? 0,
+        totalPages: Math.ceil((total ?? 0) / limit),
+      },
     };
+  }
+
+  // ─── Process Escrows Pending Auto-Release (called by cron) ────────────────
+  async processEscrowAutoRelease(): Promise<{
+    processed: number;
+    failed: number;
+  }> {
+    const db = this.db();
+    let processed = 0;
+    let failed = 0;
+
+    // 1) Release PENDING_RELEASE escrows whose releaseAt has passed
+    const pendingRelease = await db.escrow?.findMany({
+      where: { status: "PENDING_RELEASE", releaseAt: { lte: new Date() } },
+      include: { order: { include: { delivery: true } } },
+    });
+
+    for (const escrow of pendingRelease ?? []) {
+      const deliveryId = escrow.order?.delivery?.id;
+      if (!deliveryId) {
+        this.logger.warn(
+          `Escrow ${escrow.id} PENDING_RELEASE but no delivery — skipping`,
+        );
+        continue;
+      }
+      try {
+        await this.releaseFunds(deliveryId);
+        processed++;
+      } catch (err) {
+        failed++;
+        this.logger.warn(
+          `Failed to auto-release escrow ${escrow.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 2) Release HELD escrows whose delivery was customer-confirmed
+    const confirmedHeld = await db.escrow?.findMany({
+      where: { status: "HELD" },
+      include: { order: { include: { delivery: true } } },
+    });
+
+    for (const escrow of confirmedHeld ?? []) {
+      const delivery = escrow.order?.delivery;
+      if (!delivery || !delivery.customerConfirmed) continue;
+      try {
+        await db.escrow?.update({
+          where: { id: escrow.id },
+          data: { status: "PENDING_RELEASE", releaseAt: new Date() },
+        });
+        await this.releaseFunds(delivery.id);
+        processed++;
+      } catch (err) {
+        failed++;
+        this.logger.warn(
+          `Failed to release confirmed escrow ${escrow.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return { processed, failed };
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
@@ -629,43 +748,66 @@ export class EscrowService {
     const shortOrderId = orderId.slice(-8);
     const notifications: Promise<unknown>[] = [];
 
-    const sendNotif = (userId: string, title: string, message: string, data: Record<string, unknown>) =>
+    const sendNotif = (
+      userId: string,
+      title: string,
+      message: string,
+      data: Record<string, unknown>,
+    ) =>
       this.notificationService
-        .create({ userId, type: 'DISPUTE_RESOLVED', title, message, data })
+        .create({ userId, type: "DISPUTE_RESOLVED", title, message, data })
         .catch(() => undefined);
 
-    if (resolution === 'release_to_vendor') {
+    if (resolution === "release_to_vendor") {
       notifications.push(
-        sendNotif(vendorId, 'Dispute Resolved — Funds Released',
+        sendNotif(
+          vendorId,
+          "Dispute Resolved — Funds Released",
           `The dispute for order #${shortOrderId} has been resolved in your favour. ₦${amount.toLocaleString()} has been credited to your wallet.`,
-          { orderId, amount, resolution }),
+          { orderId, amount, resolution },
+        ),
       );
       notifications.push(
-        sendNotif(buyerId, 'Dispute Resolved',
+        sendNotif(
+          buyerId,
+          "Dispute Resolved",
           `The dispute for order #${shortOrderId} has been resolved. Funds have been released to the vendor.`,
-          { orderId, resolution }),
+          { orderId, resolution },
+        ),
       );
-    } else if (resolution === 'refund_to_customer') {
+    } else if (resolution === "refund_to_customer") {
       notifications.push(
-        sendNotif(vendorId, 'Dispute Resolved — Refund Issued',
-          `The dispute for order #${shortOrderId} has been resolved. A full refund of ₦${amount.toLocaleString()} has been issued to the customer.${reason ? ` Reason: ${reason}` : ''}`,
-          { orderId, amount, resolution, reason }),
+        sendNotif(
+          vendorId,
+          "Dispute Resolved — Refund Issued",
+          `The dispute for order #${shortOrderId} has been resolved. A full refund of ₦${amount.toLocaleString()} has been issued to the customer.${reason ? ` Reason: ${reason}` : ""}`,
+          { orderId, amount, resolution, reason },
+        ),
       );
       notifications.push(
-        sendNotif(buyerId, 'Dispute Resolved — Refund Issued',
+        sendNotif(
+          buyerId,
+          "Dispute Resolved — Refund Issued",
           `The dispute for order #${shortOrderId} has been resolved in your favour. A refund of ₦${amount.toLocaleString()} will be processed.`,
-          { orderId, amount, resolution }),
+          { orderId, amount, resolution },
+        ),
       );
-    } else if (resolution === 'partial') {
+    } else if (resolution === "partial") {
       notifications.push(
-        sendNotif(vendorId, 'Dispute Resolved — Partial Release',
+        sendNotif(
+          vendorId,
+          "Dispute Resolved — Partial Release",
           `The dispute for order #${shortOrderId} has been partially resolved. ₦${amount.toLocaleString()} has been credited to your wallet.`,
-          { orderId, amount, resolution }),
+          { orderId, amount, resolution },
+        ),
       );
       notifications.push(
-        sendNotif(buyerId, 'Dispute Resolved — Partial Refund',
+        sendNotif(
+          buyerId,
+          "Dispute Resolved — Partial Refund",
           `The dispute for order #${shortOrderId} has been partially resolved. A refund of ₦${refundAmount?.toLocaleString()} will be processed.`,
-          { orderId, refundAmount, resolution }),
+          { orderId, refundAmount, resolution },
+        ),
       );
     }
 

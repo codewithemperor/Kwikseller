@@ -15,7 +15,6 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
-import { Toast } from "@heroui/react";
 
 const fontHeading = Sora({
   subsets: ["latin"],
@@ -108,6 +107,13 @@ export const metadata: Metadata = {
   description:
     "Manage your online store, products, orders, and grow your business with KWIKSELLER Vendor Dashboard.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: [{ url: "/icon.png", sizes: "180x180" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -142,8 +148,26 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               {children}
-              <Toast.Provider placement="top end" maxVisibleToasts={3} />
-              <Toaster position="top-right" richColors closeButton />
+              <Toaster
+                position="top-right"
+                richColors
+                closeButton
+                toastOptions={{
+                  unstyled: false,
+                  classNames: {
+                    toast: "!rounded-2xl !border !border-kwik-border/60 !shadow-xl !backdrop-blur-xl !bg-background/95",
+                    title: "!text-sm !font-semibold !text-foreground",
+                    description: "!text-xs !text-muted-foreground",
+                    actionButton: "!rounded-lg !bg-accent !px-3 !py-1.5 !text-xs !font-semibold !text-accent-foreground",
+                    cancelButton: "!rounded-lg !bg-surface !px-3 !py-1.5 !text-xs !font-medium !text-muted-foreground",
+                    success: "!border-success/30",
+                    error: "!border-danger/30",
+                    info: "!border-kwik-blue/30",
+                    warning: "!border-warning/30",
+                    closeButton: "!top-3 !right-3 !left-auto !bg-surface !border-kwik-border !text-muted-foreground hover:!text-foreground hover:!bg-default-100",
+                  },
+                }}
+              />
             </ThemeProvider>
           </AuthProvider>
         </HeroUIProviderWrapper>

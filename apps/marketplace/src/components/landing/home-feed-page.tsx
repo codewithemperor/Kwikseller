@@ -564,7 +564,7 @@ export function MarketplaceHomeFeedPage() {
                 <div className="flex gap-3">
                   <Link
                     href="/search"
-                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-kwik-dark px-4 text-sm font-semibold text-white transition hover:bg-black"
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-kwik-dark px-4 text-sm font-semibold text-white transition dark:bg-black"
                   >
                     Browse
                     <ArrowRight className="h-4 w-4" />

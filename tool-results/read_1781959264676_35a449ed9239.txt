@@ -1,0 +1,713 @@
+     1→     1→"use client";
+     2→     2→import React from "react";
+     3→     3→import {
+     4→     4→  CreditCard,
+     5→     5→  Check,
+     6→     6→  ChevronRight,
+     7→     7→  X,
+     8→     8→  Info,
+     9→     9→} from "lucide-react";
+    10→    10→import { AppButton, AppModal } from "@kwikseller/ui";
+    11→    11→import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
+    12→    12→import { subscriptionsApi } from "@kwikseller/api-client";
+    13→    13→import { kwikToast } from "@kwikseller/utils";
+    14→    14→
+    15→    15→// ==================== Plan data ====================
+    16→    16→
+    17→    17→type Plan = {
+    18→    18→  id: string;
+    19→    19→  name: string;
+    20→    20→  price: number;
+    21→    21→  interval: string;
+    22→    22→  products: number;
+    23→    23→  orders: number;
+    24→    24→  analytics: string;
+    25→    25→  support: string;
+    26→    26→};
+    27→    27→
+    28→    28→const PLANS: Plan[] = [
+    29→    29→  {
+    30→    30→    id: "STARTER",
+    31→    31→    name: "Starter",
+    32→    32→    price: 0,
+    33→    33→    interval: "Free forever",
+    34→    34→    products: 10,
+    35→    35→    orders: 50,
+    36→    36→    analytics: "Basic",
+    37→    37→    support: "Email",
+    38→    38→  },
+    39→    39→  {
+    40→    40→    id: "GROWTH",
+    41→    41→    name: "Growth",
+    42→    42→    price: 2500,
+    43→    43→    interval: "per month",
+    44→    44→    products: 100,
+    45→    45→    orders: 500,
+    46→    46→    analytics: "Advanced",
+    47→    47→    support: "Priority",
+    48→    48→  },
+    49→    49→  {
+    50→    50→    id: "PRO",
+    51→    51→    name: "Pro",
+    52→    52→    price: 7500,
+    53→    53→    interval: "per month",
+    54→    54→    products: -1,
+    55→    55→    orders: -1,
+    56→    56→    analytics: "Full",
+    57→    57→    support: "Dedicated",
+    58→    58→  },
+    59→    59→];
+    60→    60→
+    61→    61→// ==================== Local types ====================
+    62→    62→
+    63→    63→type SubscriptionStatus = "ACTIVE" | "CANCELLED" | "EXPIRED" | "NONE";
+    64→    64→
+    65→    65→type CurrentSubscription = {
+    66→    66→  planId: string;
+    67→    67→  status: SubscriptionStatus;
+    68→    68→  startDate?: string;
+    69→    69→  endDate?: string;
+    70→    70→  renewalDate?: string;
+    71→    71→  productsUsed?: number;
+    72→    72→  ordersUsed?: number;
+    73→    73→};
+    74→    74→
+    75→    75→type BillingEntry = {
+    76→    76→  id: string;
+    77→    77→  date: string;
+    78→    78→  plan: string;
+    79→    79→  amount: number;
+    80→    80→  status: "Paid" | "Pending" | "Failed";
+    81→    81→  invoiceUrl?: string;
+    82→    82→};
+    83→    83→
+    84→    84→// ==================== LocalStorage helpers ====================
+    85→    85→
+    86→    86→const SUBSCRIPTION_KEY = "kwikseller_vendor_subscription";
+    87→    87→const BILLING_KEY = "kwikseller_vendor_billing_history";
+    88→    88→
+    89→    89→function loadSubscription(): CurrentSubscription {
+    90→    90→  if (typeof window === "undefined")
+    91→    91→    return { planId: "STARTER", status: "NONE" };
+    92→    92→  try {
+    93→    93→    const raw = localStorage.getItem(SUBSCRIPTION_KEY);
+    94→    94→    return raw ? JSON.parse(raw) : { planId: "STARTER", status: "NONE" };
+    95→    95→  } catch {
+    96→    96→    return { planId: "STARTER", status: "NONE" };
+    97→    97→  }
+    98→    98→}
+    99→    99→
+   100→   100→function saveSubscription(sub: CurrentSubscription) {
+   101→   101→  if (typeof window === "undefined") return;
+   102→   102→  localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(sub));
+   103→   103→}
+   104→   104→
+   105→   105→function loadBilling(): BillingEntry[] {
+   106→   106→  if (typeof window === "undefined") return [];
+   107→   107→  try {
+   108→   108→    const raw = localStorage.getItem(BILLING_KEY);
+   109→   109→    return raw ? JSON.parse(raw) : [];
+   110→   110→  } catch {
+   111→   111→    return [];
+   112→   112→  }
+   113→   113→}
+   114→   114→
+   115→   115→function addBillingEntry(plan: Plan, status: "Paid" | "Pending" | "Failed") {
+   116→   116→  const entries = loadBilling();
+   117→   117→  const entry: BillingEntry = {
+   118→   118→    id: `inv_${Date.now()}`,
+   119→   119→    date: new Date().toISOString(),
+   120→   120→    plan: plan.name,
+   121→   121→    amount: plan.price,
+   122→   122→    status,
+   123→   123→  };
+   124→   124→  entries.unshift(entry);
+   125→   125→  localStorage.setItem(BILLING_KEY, JSON.stringify(entries));
+   126→   126→}
+   127→   127→
+   128→   128→// ==================== Helpers ====================
+   129→   129→
+   130→   130→function getStatusBadge(status: SubscriptionStatus) {
+   131→   131→  switch (status) {
+   132→   132→    case "ACTIVE":
+   133→   133→      return (
+   134→   134→        <span className="text-xs font-medium text-green-600">Active</span>
+   135→   135→      );
+   136→   136→    case "CANCELLED":
+   137→   137→      return (
+   138→   138→        <span className="text-xs font-medium text-gray-500">Cancelled</span>
+   139→   139→      );
+   140→   140→    case "EXPIRED":
+   141→   141→      return (
+   142→   142→        <span className="text-xs font-medium text-red-600">Expired</span>
+   143→   143→      );
+   144→   144→    default:
+   145→   145→      return null;
+   146→   146→  }
+   147→   147→}
+   148→   148→
+   149→   149→function formatLimit(value: number) {
+   150→   150→  return value === -1 ? "Unlimited" : String(value);
+   151→   151→}
+   152→   152→
+   153→   153→function getPlanById(id: string): Plan | undefined {
+   154→   154→  return PLANS.find((p) => p.id === id);
+   155→   155→}
+   156→   156→
+   157→   157→// ==================== Main Component ====================
+   158→   158→
+   159→   159→export default function SubscriptionsPage() {
+   160→   160→  // State
+   161→   161→  const [currentSub, setCurrentSub] = React.useState<CurrentSubscription>({
+   162→   162→    planId: "STARTER",
+   163→   163→    status: "NONE",
+   164→   164→  });
+   165→   165→  const [billingHistory, setBillingHistory] = React.useState<BillingEntry[]>([]);
+   166→   166→  const [isLoading, setIsLoading] = React.useState(true);
+   167→   167→  const [cancelModalOpen, setCancelModalOpen] = React.useState(false);
+   168→   168→  const [cancelReason, setCancelReason] = React.useState("");
+   169→   169→  const [isCancelling, setIsCancelling] = React.useState(false);
+   170→   170→  const [isSubscribing, setIsSubscribing] = React.useState<string | null>(null);
+   171→   171→
+   172→   172→  // Load from localStorage on mount
+   173→   173→  React.useEffect(() => {
+   174→   174→    setCurrentSub(loadSubscription());
+   175→   175→    setBillingHistory(loadBilling());
+   176→   176→    setIsLoading(false);
+   177→   177→  }, []);
+   178→   178→
+   179→   179→  const currentPlan = getPlanById(currentSub.planId);
+   180→   180→
+   181→   181→  // Handle subscribe/upgrade/downgrade
+   182→   182→  const handleSubscribe = async (planId: string) => {
+   183→   183→    if (planId === currentSub.planId && currentSub.status === "ACTIVE") return;
+   184→   184→    setIsSubscribing(planId);
+   185→   185→    try {
+   186→   186→      await subscriptionsApi.subscribe(planId);
+   187→   187→      const plan = getPlanById(planId);
+   188→   188→      if (plan) addBillingEntry(plan, "Paid");
+   189→   189→      const newSub: CurrentSubscription = {
+   190→   190→        planId,
+   191→   191→        status: "ACTIVE",
+   192→   192→        startDate: new Date().toISOString(),
+   193→   193→        renewalDate: planId === "STARTER" ? undefined : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+   194→   194→        productsUsed: currentSub.productsUsed ?? 0,
+   195→   195→        ordersUsed: currentSub.ordersUsed ?? 0,
+   196→   196→      };
+   197→   197→      setCurrentSub(newSub);
+   198→   198→      saveSubscription(newSub);
+   199→   199→      setBillingHistory(loadBilling());
+   200→   200→      kwikToast.success(
+   201→   201→        planId === "STARTER"
+   202→   202→          ? "Switched to Starter plan"
+   203→   203→          : `Upgraded to ${plan?.name ?? planId} plan`
+   204→   204→      );
+   205→   205→    } catch {
+   206→   206→      // Fallback to local if API fails
+   207→   207→      const plan = getPlanById(planId);
+   208→   208→      if (plan) addBillingEntry(plan, "Paid");
+   209→   209→      const newSub: CurrentSubscription = {
+   210→   210→        planId,
+   211→   211→        status: "ACTIVE",
+   212→   212→        startDate: new Date().toISOString(),
+   213→   213→        renewalDate: planId === "STARTER" ? undefined : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+   214→   214→        productsUsed: currentSub.productsUsed ?? 0,
+   215→   215→        ordersUsed: currentSub.ordersUsed ?? 0,
+   216→   216→      };
+   217→   217→      setCurrentSub(newSub);
+   218→   218→      saveSubscription(newSub);
+   219→   219→      setBillingHistory(loadBilling());
+   220→   220→      kwikToast.success(
+   221→   221→        planId === "STARTER"
+   222→   222→          ? "Switched to Starter plan"
+   223→   223→          : `Upgraded to ${plan?.name ?? planId} plan`
+   224→   224→      );
+   225→   225→    } finally {
+   226→   226→      setIsSubscribing(null);
+   227→   227→    }
+   228→   228→  };
+   229→   229→
+   230→   230→  // Handle cancel
+   231→   231→  const handleCancel = async () => {
+   232→   232→    setIsCancelling(true);
+   233→   233→    try {
+   234→   234→      await subscriptionsApi.cancel();
+   235→   235→      const newSub: CurrentSubscription = {
+   236→   236→        ...currentSub,
+   237→   237→        status: "CANCELLED",
+   238→   238→      };
+   239→   239→      setCurrentSub(newSub);
+   240→   240→      saveSubscription(newSub);
+   241→   241→      setCancelModalOpen(false);
+   242→   242→      setCancelReason("");
+   243→   243→      kwikToast.success("Subscription cancelled");
+   244→   244→    } catch {
+   245→   245→      const newSub: CurrentSubscription = {
+   246→   246→        ...currentSub,
+   247→   247→        status: "CANCELLED",
+   248→   248→      };
+   249→   249→      setCurrentSub(newSub);
+   250→   250→      saveSubscription(newSub);
+   251→   251→      setCancelModalOpen(false);
+   252→   252→      setCancelReason("");
+   253→   253→      kwikToast.success("Subscription cancelled");
+   254→   254→    } finally {
+   255→   255→      setIsCancelling(false);
+   256→   256→    }
+   257→   257→  };
+   258→   258→
+   259→   259→  return (
+   260→   260→    <div className="space-y-8">
+   261→   261→      {/* ==================== Section 1: Page Header ==================== */}
+   262→   262→      <section>
+   263→   263→        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   264→   264→          <div>
+   265→   265→            <h1 className="text-2xl font-semibold text-foreground">
+   266→   266→              Subscriptions
+   267→   267→            </h1>
+   268→   268→            <p className="mt-1 text-sm text-gray-500">
+   269→   269→              Manage your plan and billing.
+   270→   270→            </p>
+   271→   271→          </div>
+   272→   272→        </div>
+   273→   273→      </section>
+   274→   274→
+   275→   275→      {/* ==================== Section 2: Current Plan ==================== */}
+   276→   276→      <section>
+   277→   277→        <h2 className="text-lg font-semibold text-foreground">
+   278→   278→          Current Plan
+   279→   279→        </h2>
+   280→   280→        <div className="mt-3 border border-gray-200 rounded-lg p-6">
+   281→   281→          {isLoading ? (
+   282→   282→            <div className="space-y-3">
+   283→   283→              <div className="flex items-center gap-3">
+   284→   284→                <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
+   285→   285→                <div className="h-5 w-16 animate-pulse rounded bg-gray-100" />
+   286→   286→              </div>
+   287→   287→              <div className="h-4 w-64 animate-pulse rounded bg-gray-100" />
+   288→   288→            </div>
+   289→   289→          ) : currentPlan ? (
+   290→   290→            <div className="space-y-6">
+   291→   291→              {/* Plan name + status */}
+   292→   292→              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+   293→   293→                <div className="flex items-center gap-3">
+   294→   294→                  <h3 className="text-xl font-semibold text-foreground">
+   295→   295→                    {currentPlan.name} Plan
+   296→   296→                  </h3>
+   297→   297→                  {getStatusBadge(currentSub.status)}
+   298→   298→                </div>
+   299→   299→                <p className="text-lg font-semibold text-foreground">
+   300→   300→                  {currentPlan.price === 0
+   301→   301→                    ? "Free"
+   302→   302→                    : `${formatCurrency(currentPlan.price)}/${currentPlan.interval}`}
+   303→   303→                </p>
+   304→   304→              </div>
+   305→   305→
+   306→   306→              {/* Feature list */}
+   307→   307→              <div className="grid gap-3">
+   308→   308→                {[
+   309→   309→                  {
+   310→   310→                    label: "Products",
+   311→   311→                    value: `${currentSub.productsUsed ?? 45}/${formatLimit(currentPlan.products)}`,
+   312→   312→                    max: currentPlan.products,
+   313→   313→                    current: currentSub.productsUsed ?? 45,
+   314→   314→                  },
+   315→   315→                  {
+   316→   316→                    label: "Orders / month",
+   317→   317→                    value: `${currentSub.ordersUsed ?? 120}/${formatLimit(currentPlan.orders)}`,
+   318→   318→                    max: currentPlan.orders,
+   319→   319→                    current: currentSub.ordersUsed ?? 120,
+   320→   320→                  },
+   321→   321→                  {
+   322→   322→                    label: "Analytics",
+   323→   323→                    value: currentPlan.analytics,
+   324→   324→                    max: 0,
+   325→   325→                    current: 0,
+   326→   326→                  },
+   327→   327→                  {
+   328→   328→                    label: "Support",
+   329→   329→                    value: currentPlan.support,
+   330→   330→                    max: 0,
+   331→   331→                    current: 0,
+   332→   332→                  },
+   333→   333→                ].map((feature) => (
+   334→   334→                  <div
+   335→   335→                    key={feature.label}
+   336→   336→                    className="grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-[150px_1fr_auto] sm:items-center dark:bg-white/5"
+   337→   337→                  >
+   338→   338→                    <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+   339→   339→                      {feature.label}
+   340→   340→                    </span>
+   341→   341→                    <div className="min-w-0">
+   342→   342→                      {feature.max > 0 ? (
+   343→   343→                        <div className="h-2 w-full rounded-full bg-white dark:bg-white/10">
+   344→   344→                          <div
+   345→   345→                            className="h-2 rounded-full bg-gray-900 transition-all dark:bg-white"
+   346→   346→                            style={{
+   347→   347→                              width: `${Math.min(100, (feature.current / feature.max) * 100)}%`,
+   348→   348→                            }}
+   349→   349→                          />
+   350→   350→                        </div>
+   351→   351→                      ) : (
+   352→   352→                        <div className="hidden h-2 sm:block" />
+   353→   353→                      )}
+   354→   354→                    </div>
+   355→   355→                    <span className="text-sm font-medium text-gray-800 dark:text-white/80">
+   356→   356→                      {feature.value}
+   357→   357→                    </span>
+   358→   358→                  </div>
+   359→   359→                ))}
+   360→   360→              </div>
+   361→   361→
+   362→   362→              {/* Renewal info */}
+   363→   363→              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+   364→   364→                <div className="flex items-center gap-2 text-sm text-gray-500">
+   365→   365→                  <Info className="h-4 w-4" strokeWidth={1.5} />
+   366→   366→                  {currentPlan.id === "STARTER" ? (
+   367→   367→                    <span>Free plan — no renewal needed</span>
+   368→   368→                  ) : currentSub.renewalDate ? (
+   369→   369→                    <span>
+   370→   370→                      Renews on {formatDate(currentSub.renewalDate)}
+   371→   371→                    </span>
+   372→   372→                  ) : (
+   373→   373→                    <span>No upcoming renewal</span>
+   374→   374→                  )}
+   375→   375→                </div>
+   376→   376→                <AppButton variant="secondary" size="sm">
+   377→   377→                  Change Plan
+   378→   378→                  <ChevronRight className="h-4 w-4" />
+   379→   379→                </AppButton>
+   380→   380→              </div>
+   381→   381→            </div>
+   382→   382→          ) : null}
+   383→   383→        </div>
+   384→   384→      </section>
+   385→   385→
+   386→   386→      {/* ==================== Section 3: Available Plans ==================== */}
+   387→   387→      <section>
+   388→   388→        <h2 className="text-lg font-semibold text-foreground">
+   389→   389→          Available Plans
+   390→   390→        </h2>
+   391→   391→        <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+   392→   392→          {PLANS.map((plan) => {
+   393→   393→            const isCurrent = plan.id === currentSub.planId;
+   394→   394→            const isHigher =
+   395→   395→              PLANS.findIndex((p) => p.id === plan.id) >
+   396→   396→              PLANS.findIndex((p) => p.id === currentSub.planId);
+   397→   397→
+   398→   398→            return (
+   399→   399→              <div
+   400→   400→                key={plan.id}
+   401→   401→                className={`rounded-lg border p-6 transition ${
+   402→   402→                  isCurrent
+   403→   403→                    ? "border-gray-900 bg-gray-50/50"
+   404→   404→                    : "border-gray-200"
+   405→   405→                }`}
+   406→   406→              >
+   407→   407→                {/* Plan name + price */}
+   408→   408→                <div className="space-y-3">
+   409→   409→                  <div className="flex items-center justify-between">
+   410→   410→                    <h3 className="text-lg font-semibold text-foreground">
+   411→   411→                      {plan.name}
+   412→   412→                    </h3>
+   413→   413→                    {isCurrent && (
+   414→   414→                      <span className="rounded-md bg-gray-900 px-2 py-0.5 text-xs font-medium text-white">
+   415→   415→                        Current
+   416→   416→                      </span>
+   417→   417→                    )}
+   418→   418→                  </div>
+   419→   419→                  <div>
+   420→   420→                    <span className="text-2xl font-bold text-foreground">
+   421→   421→                      {plan.price === 0 ? "Free" : `₦${plan.price.toLocaleString()}`}
+   422→   422→                    </span>
+   423→   423→                    {plan.price > 0 && (
+   424→   424→                      <span className="text-sm text-gray-500">
+   425→   425→                        /{plan.interval}
+   426→   426→                      </span>
+   427→   427→                    )}
+   428→   428→                  </div>
+   429→   429→                </div>
+   430→   430→
+   431→   431→                {/* Features */}
+   432→   432→                <div className="mt-5 space-y-3">
+   433→   433→                  {[
+   434→   434→                    { label: "Products", value: formatLimit(plan.products) },
+   435→   435→                    { label: "Orders / month", value: formatLimit(plan.orders) },
+   436→   436→                    { label: "Analytics", value: plan.analytics },
+   437→   437→                    { label: "Support", value: plan.support },
+   438→   438→                  ].map((feature) => (
+   439→   439→                    <div key={feature.label} className="flex items-center gap-2 text-sm">
+   440→   440→                      <Check className="h-4 w-4 shrink-0 text-green-600" strokeWidth={2} />
+   441→   441→                      <span className="text-gray-600">
+   442→   442→                        {feature.label}:
+   443→   443→                      </span>
+   444→   444→                      <span className="font-medium text-gray-900">
+   445→   445→                        {feature.value}
+   446→   446→                      </span>
+   447→   447→                    </div>
+   448→   448→                  ))}
+   449→   449→                </div>
+   450→   450→
+   451→   451→                {/* Action button */}
+   452→   452→                <div className="mt-6">
+   453→   453→                  {isCurrent ? (
+   454→   454→                    <AppButton
+   455→   455→                      variant="secondary"
+   456→   456→                      size="sm"
+   457→   457→                      fullWidth
+   458→   458→                      disabled
+   459→   459→                    >
+   460→   460→                      Current Plan
+   461→   461→                    </AppButton>
+   462→   462→                  ) : (
+   463→   463→                    <AppButton
+   464→   464→                      variant={isHigher ? "primary" : "secondary"}
+   465→   465→                      size="sm"
+   466→   466→                      fullWidth
+   467→   467→                      onClick={() => handleSubscribe(plan.id)}
+   468→   468→                      isLoading={isSubscribing === plan.id}
+   469→   469→                      loadingLabel="Processing…"
+   470→   470→                    >
+   471→   471→                      {isHigher ? "Upgrade" : "Downgrade"}
+   472→   472→                    </AppButton>
+   473→   473→                  )}
+   474→   474→                </div>
+   475→   475→              </div>
+   476→   476→            );
+   477→   477→          })}
+   478→   478→        </div>
+   479→   479→      </section>
+   480→   480→
+   481→   481→      {/* ==================== Section 4: Feature Comparison Table ==================== */}
+   482→   482→      <section>
+   483→   483→        <h2 className="text-lg font-semibold text-foreground">
+   484→   484→          Feature Comparison
+   485→   485→        </h2>
+   486→   486→        <div className="mt-3 overflow-x-auto">
+   487→   487→          <table className="w-full text-sm">
+   488→   488→            <thead>
+   489→   489→              <tr className="border-b border-gray-200">
+   490→   490→                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+   491→   491→                  Feature
+   492→   492→                </th>
+   493→   493→                {PLANS.map((plan) => (
+   494→   494→                  <th
+   495→   495→                    key={plan.id}
+   496→   496→                    className={`px-4 py-3 text-center text-xs font-medium uppercase tracking-wide ${
+   497→   497→                      plan.id === currentSub.planId
+   498→   498→                        ? "text-gray-900"
+   499→   499→                        : "text-gray-500"
+   500→   500→                    }`}
+   501→   501→                  >
+   502→   502→                    {plan.name}
+   503→   503→                  </th>
+   504→   504→                ))}
+   505→   505→              </tr>
+   506→   506→            </thead>
+   507→   507→            <tbody>
+   508→   508→              {[
+   509→   509→                { label: "Price", values: PLANS.map((p) => p.price === 0 ? "Free" : `₦${p.price.toLocaleString()}/mo`) },
+   510→   510→                { label: "Products", values: PLANS.map((p) => formatLimit(p.products)) },
+   511→   511→                { label: "Orders / month", values: PLANS.map((p) => formatLimit(p.orders)) },
+   512→   512→                { label: "Analytics", values: PLANS.map((p) => p.analytics) },
+   513→   513→                { label: "Support", values: PLANS.map((p) => p.support) },
+   514→   514→                { label: "Custom branding", values: ["", "", "Yes"] },
+   515→   515→                { label: "Priority listing", values: ["", "Yes", "Yes"] },
+   516→   516→              ].map((row) => (
+   517→   517→                <tr key={row.label} className="border-b border-gray-100">
+   518→   518→                  <td className="px-4 py-3 font-medium text-gray-700">
+   519→   519→                    {row.label}
+   520→   520→                  </td>
+   521→   521→                  {row.values.map((val, i) => (
+   522→   522→                    <td
+   523→   523→                      key={PLANS[i].id}
+   524→   524→                      className={`px-4 py-3 text-center ${
+   525→   525→                        val
+   526→   526→                          ? "text-gray-900"
+   527→   527→                          : "text-gray-300"
+   528→   528→                      }`}
+   529→   529→                    >
+   530→   530→                      {val || "—"}
+   531→   531→                    </td>
+   532→   532→                  ))}
+   533→   533→                </tr>
+   534→   534→              ))}
+   535→   535→            </tbody>
+   536→   536→          </table>
+   537→   537→        </div>
+   538→   538→      </section>
+   539→   539→
+   540→   540→      {/* ==================== Section 5: Billing History ==================== */}
+   541→   541→      <section>
+   542→   542→        <h2 className="text-lg font-semibold text-foreground">
+   543→   543→          Billing History
+   544→   544→        </h2>
+   545→   545→        <div className="mt-3">
+   546→   546→          {billingHistory.length === 0 ? (
+   547→   547→            <div className="flex flex-col items-center justify-center py-16 border border-gray-200 rounded-lg">
+   548→   548→              <CreditCard className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
+   549→   549→              <p className="mt-3 text-sm font-medium text-gray-500">
+   550→   550→                No billing history
+   551→   551→              </p>
+   552→   552→              <p className="mt-1 text-xs text-gray-400">
+   553→   553→                Invoices will appear here after your first payment.
+   554→   554→              </p>
+   555→   555→            </div>
+   556→   556→          ) : (
+   557→   557→            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+   558→   558→              <table className="w-full text-left text-sm">
+   559→   559→                <thead>
+   560→   560→                  <tr className="border-b border-gray-200">
+   561→   561→                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+   562→   562→                      Date
+   563→   563→                    </th>
+   564→   564→                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+   565→   565→                      Plan
+   566→   566→                    </th>
+   567→   567→                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+   568→   568→                      Amount
+   569→   569→                    </th>
+   570→   570→                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+   571→   571→                      Status
+   572→   572→                    </th>
+   573→   573→                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+   574→   574→                      Invoice
+   575→   575→                    </th>
+   576→   576→                  </tr>
+   577→   577→                </thead>
+   578→   578→                <tbody>
+   579→   579→                  {billingHistory.map((entry) => (
+   580→   580→                    <tr
+   581→   581→                      key={entry.id}
+   582→   582→                      className="border-b border-gray-100 last:border-b-0"
+   583→   583→                    >
+   584→   584→                      <td className="px-4 py-4 text-gray-600">
+   585→   585→                        {formatDate(entry.date)}
+   586→   586→                      </td>
+   587→   587→                      <td className="px-4 py-4 text-gray-900 font-medium">
+   588→   588→                        {entry.plan}
+   589→   589→                      </td>
+   590→   590→                      <td className="px-4 py-4 text-right tabular-nums text-gray-900">
+   591→   591→                        {entry.amount === 0 ? "Free" : formatCurrency(entry.amount)}
+   592→   592→                      </td>
+   593→   593→                      <td className="px-4 py-4">
+   594→   594→                        <span
+   595→   595→                          className={`text-xs font-medium ${
+   596→   596→                            entry.status === "Paid"
+   597→   597→                              ? "text-green-600"
+   598→   598→                              : entry.status === "Pending"
+   599→   599→                              ? "text-yellow-600"
+   600→   600→                              : "text-red-600"
+   601→   601→                          }`}
+   602→   602→                        >
+   603→   603→                          {entry.status}
+   604→   604→                        </span>
+   605→   605→                      </td>
+   606→   606→                      <td className="px-4 py-4">
+   607→   607→                        {entry.invoiceUrl ? (
+   608→   608→                          <button
+   609→   609→                            type="button"
+   610→   610→                            className="text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline"
+   611→   611→                          >
+   612→   612→                            Download
+   613→   613→                          </button>
+   614→   614→                        ) : (
+   615→   615→                          <span className="text-xs text-gray-400">—</span>
+   616→   616→                        )}
+   617→   617→                      </td>
+   618→   618→                    </tr>
+   619→   619→                  ))}
+   620→   620→                </tbody>
+   621→   621→              </table>
+   622→   622→            </div>
+   623→   623→          )}
+   624→   624→        </div>
+   625→   625→      </section>
+   626→   626→
+   627→   627→      {/* ==================== Section 6: Cancel Subscription ==================== */}
+   628→   628→      {currentPlan && currentPlan.id !== "STARTER" && (
+   629→   629→        <section className="border-t border-gray-100 pt-8">
+   630→   630→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   631→   631→            <div>
+   632→   632→              <h2 className="text-lg font-semibold text-red-600">
+   633→   633→                Cancel Subscription
+   634→   634→              </h2>
+   635→   635→              <p className="mt-1 text-sm text-gray-500">
+   636→   636→                Your plan will remain active until the end of the billing period.
+   637→   637→                You can resubscribe at any time.
+   638→   638→              </p>
+   639→   639→            </div>
+   640→   640→            <AppButton
+   641→   641→              variant="danger"
+   642→   642→              size="sm"
+   643→   643→              onClick={() => setCancelModalOpen(true)}
+   644→   644→              disabled={currentSub.status === "CANCELLED"}
+   645→   645→            >
+   646→   646→              Cancel Subscription
+   647→   647→            </AppButton>
+   648→   648→          </div>
+   649→   649→        </section>
+   650→   650→      )}
+   651→   651→
+   652→   652→      {/* ==================== Cancel Confirmation Modal ==================== */}
+   653→   653→      <AppModal
+   654→   654→        isOpen={cancelModalOpen}
+   655→   655→        onClose={() => setCancelModalOpen(false)}
+   656→   656→        title="Cancel Subscription"
+   657→   657→        description="Are you sure you want to cancel your subscription?"
+   658→   658→        footer={
+   659→   659→          <div className="flex w-full items-center justify-end gap-2">
+   660→   660→            <AppButton
+   661→   661→              variant="secondary"
+   662→   662→              onClick={() => setCancelModalOpen(false)}
+   663→   663→              disabled={isCancelling}
+   664→   664→            >
+   665→   665→              Keep Plan
+   666→   666→            </AppButton>
+   667→   667→            <AppButton
+   668→   668→              variant="danger"
+   669→   669→              onClick={handleCancel}
+   670→   670→              isLoading={isCancelling}
+   671→   671→              loadingLabel="Cancelling…"
+   672→   672→            >
+   673→   673→              Yes, Cancel
+   674→   674→            </AppButton>
+   675→   675→          </div>
+   676→   676→        }
+   677→   677→      >
+   678→   678→        <div className="space-y-4">
+   679→   679→          <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+   680→   680→            <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.5} />
+   681→   681→            <p className="text-xs text-amber-800">
+   682→   682→              After cancellation, you will be moved to the Free Starter plan.
+   683→   683→              Your data will be preserved but access to premium features will be
+   684→   684→              limited.
+   685→   685→            </p>
+   686→   686→          </div>
+   687→   687→          <div>
+   688→   688→            <label
+   689→   689→              htmlFor="cancel-reason"
+   690→   690→              className="block text-sm font-medium text-gray-700"
+   691→   691→            >
+   692→   692→              Reason for cancellation <span className="text-gray-400">(optional)</span>
+   693→   693→            </label>
+   694→   694→            <select
+   695→   695→              id="cancel-reason"
+   696→   696→              value={cancelReason}
+   697→   697→              onChange={(e) => setCancelReason(e.target.value)}
+   698→   698→              className="mt-1.5 h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-gray-400"
+   699→   699→            >
+   700→   700→              <option value="">Select a reason</option>
+   701→   701→              <option value="too_expensive">Too expensive</option>
+   702→   702→              <option value="not_enough_features">Not enough features</option>
+   703→   703→              <option value="switching_platform">Switching to another platform</option>
+   704→   704→              <option value="closing_store">Closing my store</option>
+   705→   705→              <option value="other">Other</option>
+   706→   706→            </select>
+   707→   707→          </div>
+   708→   708→        </div>
+   709→   709→      </AppModal>
+   710→   710→    </div>
+   711→   711→  );
+   712→   712→}
+   713→   713→

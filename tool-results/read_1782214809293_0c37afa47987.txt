@@ -1,0 +1,679 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import Link from "next/link";
+     5→import { useRouter } from "next/navigation";
+     6→import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+     7→import { toast } from "@heroui/react";
+     8→import { motion } from "framer-motion";
+     9→import {
+    10→  AlertTriangle,
+    11→  ArrowRight,
+    12→  CheckSquare,
+    13→  ChevronDown,
+    14→  MapPin,
+    15→  PackageCheck,
+    16→  ReceiptText,
+    17→  RefreshCw,
+    18→  Search,
+    19→  Square,
+    20→  Truck,
+    21→  UserRound,
+    22→} from "lucide-react";
+    23→import { PageHeader } from "@/components/ui";
+    24→import {
+    25→  adminDeliveriesApi,
+    26→  commerceOpsApi,
+    27→  type AdminCommerceOrder,
+    28→} from "@/lib/api";
+    29→import { formatCurrency, formatRelativeTime } from "@kwikseller/utils";
+    30→import {
+    31→  AppButton,
+    32→  OrderStatusBadge,
+    33→  Skeleton,
+    34→  SkeletonCard,
+    35→} from "@kwikseller/ui";
+    36→import { cn } from "@/lib/utils";
+    37→
+    38→/* ─── Helpers ─── */
+    39→
+    40→function unwrap<T>(value: unknown): T {
+    41→  if (value && typeof value === "object" && "data" in value) {
+    42→    return (value as { data: T }).data;
+    43→  }
+    44→  return value as T;
+    45→}
+    46→
+    47→function shortId(value?: string) {
+    48→  return value ? value.slice(0, 12) : "unknown";
+    49→}
+    50→
+    51→function buyerName(order: AdminCommerceOrder): string {
+    52→  const profile = order.buyer?.profile;
+    53→  if (profile?.firstName || profile?.lastName) {
+    54→    return [profile.firstName, profile.lastName].filter(Boolean).join(" ");
+    55→  }
+    56→  if (order.buyer?.email) return order.buyer.email;
+    57→  return "Unknown buyer";
+    58→}
+    59→
+    60→function orderRef(order: AdminCommerceOrder): string {
+    61→  return order.checkoutReference ?? shortId(order.id);
+    62→}
+    63→
+    64→/* ─── Status tabs ─── */
+    65→
+    66→type StatusTab = {
+    67→  key: string;
+    68→  label: string;
+    69→  matches: (status: string, paymentStatus: string) => boolean;
+    70→};
+    71→
+    72→const STATUS_TABS: StatusTab[] = [
+    73→  { key: "", label: "All", matches: () => true },
+    74→  {
+    75→    key: "PENDING_PAYMENT",
+    76→    label: "Pending Payment",
+    77→    matches: (s, p) =>
+    78→      s === "PENDING_PAYMENT" || s === "PENDING" || p === "PENDING",
+    79→  },
+    80→  { key: "PAID", label: "Paid", matches: (s) => s === "PAID" },
+    81→  { key: "CONFIRMED", label: "Confirmed", matches: (s) => s === "CONFIRMED" },
+    82→  {
+    83→    key: "PROCESSING",
+    84→    label: "Processing",
+    85→    matches: (s) => s === "PROCESSING" || s === "FULFILLED",
+    86→  },
+    87→  { key: "SHIPPED", label: "Shipped", matches: (s) => s === "SHIPPED" },
+    88→  { key: "DELIVERED", label: "Delivered", matches: (s) => s === "DELIVERED" },
+    89→  {
+    90→    key: "CANCELLED",
+    91→    label: "Cancelled",
+    92→    matches: (s) => s === "CANCELLED" || s === "REFUNDED",
+    93→  },
+    94→];
+    95→
+    96→const operationalStatuses = [
+    97→  "PAID",
+    98→  "CONFIRMED",
+    99→  "PROCESSING",
+   100→  "FULFILLED",
+   101→  "SHIPPED",
+   102→  "DELIVERED",
+   103→  "CANCELLED",
+   104→  "REFUNDED",
+   105→];
+   106→
+   107→/* ─── Page ─── */
+   108→
+   109→export default function AdminOrdersPage() {
+   110→  const router = useRouter();
+   111→  const queryClient = useQueryClient();
+   112→  const [status, setStatus] = React.useState("");
+   113→  const [search, setSearch] = React.useState("");
+   114→  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+   115→  const [bulkOpen, setBulkOpen] = React.useState(false);
+   116→  const [bulkStatus, setBulkStatus] = React.useState("");
+   117→  const [bulkRiderQuery, setBulkRiderQuery] = React.useState("");
+   118→  const bulkRef = React.useRef<HTMLDivElement | null>(null);
+   119→
+   120→  const { data, isLoading, isRefetching, refetch } = useQuery({
+   121→    queryKey: ["admin-commerce-orders", status],
+   122→    queryFn: async () => {
+   123→      const response = await commerceOpsApi.orders({
+   124→        status: status || undefined,
+   125→        limit: 100,
+   126→      });
+   127→      return unwrap<AdminCommerceOrder[]>(response.data);
+   128→    },
+   129→  });
+   130→
+   131→  const orders = data ?? [];
+   132→
+   133→  // Client-side search filter (by order ref or buyer name/email)
+   134→  const filteredOrders = React.useMemo(() => {
+   135→    if (!search.trim()) return orders;
+   136→    const q = search.trim().toLowerCase();
+   137→    return orders.filter((order) => {
+   138→      const ref = orderRef(order).toLowerCase();
+   139→      const name = buyerName(order).toLowerCase();
+   140→      const email = (order.buyer?.email ?? "").toLowerCase();
+   141→      const store = (order.store?.name ?? "").toLowerCase();
+   142→      return (
+   143→        ref.includes(q) || name.includes(q) || email.includes(q) || store.includes(q)
+   144→      );
+   145→    });
+   146→  }, [orders, search]);
+   147→
+   148→  // Tab counts (computed against the full unfiltered list)
+   149→  const tabCounts = React.useMemo(() => {
+   150→    const map: Record<string, number> = {};
+   151→    for (const tab of STATUS_TABS) {
+   152→      map[tab.key] = orders.filter((o) =>
+   153→        tab.matches(o.status, o.paymentStatus),
+   154→      ).length;
+   155→    }
+   156→    return map;
+   157→  }, [orders]);
+   158→
+   159→  const riskFlags = React.useMemo(
+   160→    () => ({
+   161→      unpaid: orders.filter((order) => order.paymentStatus !== "PAID").length,
+   162→      delayed: orders.filter((order) => order.status === "PAID").length,
+   163→      missingLga: orders.filter(
+   164→        (order) =>
+   165→          Number(order.shippingFee ?? 0) > 0 && !order.deliveryLocalGovernment,
+   166→      ).length,
+   167→    }),
+   168→    [orders],
+   169→  );
+   170→
+   171→  /* ─── Mutations ─── */
+   172→
+   173→  const statusMutation = useMutation({
+   174→    mutationFn: ({ orderId, nextStatus }: { orderId: string; nextStatus: string }) =>
+   175→      commerceOpsApi.updateManualStatus(
+   176→        orderId,
+   177→        nextStatus,
+   178→        "Updated from admin order operations",
+   179→      ),
+   180→    onSuccess: () => {
+   181→      toast.success("Order status updated");
+   182→      queryClient.invalidateQueries({ queryKey: ["admin-commerce-orders"] });
+   183→    },
+   184→    onError: (error: Error) =>
+   185→      toast.danger(error.message || "Could not update order"),
+   186→  });
+   187→
+   188→  const bulkStatusMutation = useMutation({
+   189→    mutationFn: async ({ orderId, nextStatus }: { orderId: string; nextStatus: string }) => {
+   190→      await commerceOpsApi.updateManualStatus(
+   191→        orderId,
+   192→        nextStatus,
+   193→        `Bulk status update (${nextStatus}) from admin operations`,
+   194→      );
+   195→    },
+   196→    onSuccess: () => {
+   197→      toast.success(`Status updated for ${selectedIds.size} order(s)`);
+   198→      setSelectedIds(new Set());
+   199→      setBulkStatus("");
+   200→      setBulkOpen(false);
+   201→      queryClient.invalidateQueries({ queryKey: ["admin-commerce-orders"] });
+   202→    },
+   203→    onError: (error: Error) =>
+   204→      toast.danger(error.message || "Bulk status update failed"),
+   205→  });
+   206→
+   207→  const bulkAssignMutation = useMutation({
+   208→    mutationFn: async ({
+   209→      orderId,
+   210→      riderQuery,
+   211→    }: {
+   212→      orderId: string;
+   213→      riderQuery: string;
+   214→    }) => {
+   215→      // riderQuery is the rider's user id; estimated minutes optional.
+   216→      await adminDeliveriesApi.assignRider(orderId, {
+   217→        riderId: riderQuery,
+   218→      });
+   219→    },
+   220→    onSuccess: () => {
+   221→      toast.success(`Rider assignment attempted for ${selectedIds.size} order(s)`);
+   222→      setSelectedIds(new Set());
+   223→      setBulkRiderQuery("");
+   224→      setBulkOpen(false);
+   225→      queryClient.invalidateQueries({ queryKey: ["admin-commerce-orders"] });
+   226→    },
+   227→    onError: (error: Error) =>
+   228→      toast.danger(error.message || "Bulk rider assignment failed"),
+   229→  });
+   230→
+   231→  /* ─── Selection helpers ─── */
+   232→
+   233→  const allVisibleSelected =
+   234→    filteredOrders.length > 0 &&
+   235→    filteredOrders.every((o) => selectedIds.has(o.id));
+   236→  const someVisibleSelected =
+   237→    filteredOrders.some((o) => selectedIds.has(o.id)) && !allVisibleSelected;
+   238→
+   239→  const toggleAll = () => {
+   240→    if (allVisibleSelected) {
+   241→      setSelectedIds((prev) => {
+   242→        const next = new Set(prev);
+   243→        for (const o of filteredOrders) next.delete(o.id);
+   244→        return next;
+   245→      });
+   246→    } else {
+   247→      setSelectedIds((prev) => {
+   248→        const next = new Set(prev);
+   249→        for (const o of filteredOrders) next.add(o.id);
+   250→        return next;
+   251→      });
+   252→    }
+   253→  };
+   254→
+   255→  const toggleOne = (id: string) => {
+   256→    setSelectedIds((prev) => {
+   257→      const next = new Set(prev);
+   258→      if (next.has(id)) next.delete(id);
+   259→      else next.add(id);
+   260→      return next;
+   261→    });
+   262→  };
+   263→
+   264→  // Close bulk dropdown on outside click
+   265→  React.useEffect(() => {
+   266→    if (!bulkOpen) return;
+   267→    const handler = (e: MouseEvent) => {
+   268→      if (bulkRef.current && !bulkRef.current.contains(e.target as Node)) {
+   269→        setBulkOpen(false);
+   270→      }
+   271→    };
+   272→    document.addEventListener("mousedown", handler);
+   273→    return () => document.removeEventListener("mousedown", handler);
+   274→  }, [bulkOpen]);
+   275→
+   276→  const goBulkStatus = () => {
+   277→    if (!bulkStatus) {
+   278→      toast.danger("Pick a status to apply");
+   279→      return;
+   280→    }
+   281→    for (const id of selectedIds) {
+   282→      bulkStatusMutation.mutate({ orderId: id, nextStatus: bulkStatus });
+   283→    }
+   284→  };
+   285→
+   286→  const goBulkAssign = () => {
+   287→    if (!bulkRiderQuery.trim()) {
+   288→      toast.danger("Enter a rider ID to assign");
+   289→      return;
+   290→    }
+   291→    for (const id of selectedIds) {
+   292→      bulkAssignMutation.mutate({ orderId: id, riderQuery: bulkRiderQuery.trim() });
+   293→    }
+   294→  };
+   295→
+   296→  /* ─── Render ─── */
+   297→
+   298→  return (
+   299→    <motion.div
+   300→      initial={{ opacity: 0, y: 8 }}
+   301→      animate={{ opacity: 1, y: 0 }}
+   302→      transition={{ duration: 0.25 }}
+   303→      className="space-y-6"
+   304→    >
+   305→      <PageHeader
+   306→        title="Order Operations"
+   307→        description="Monitor split checkout child orders, delivery details, vendor ownership, and manual dispatch."
+   308→        breadcrumbs={[{ label: "Orders" }]}
+   309→        actions={
+   310→          <button
+   311→            type="button"
+   312→            onClick={() => refetch()}
+   313→            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-foreground hover:bg-surface"
+   314→          >
+   315→            <RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
+   316→            Refresh
+   317→          </button>
+   318→        }
+   319→      />
+   320→
+   321→      {/* Risk flags */}
+   322→      <section className="grid gap-4 md:grid-cols-3">
+   323→        {[
+   324→          { label: "Unpaid / failed payment", value: riskFlags.unpaid, icon: AlertTriangle },
+   325→          { label: "Awaiting dispatch", value: riskFlags.delayed, icon: Truck },
+   326→          { label: "Missing LGA", value: riskFlags.missingLga, icon: MapPin },
+   327→        ].map((flag) => (
+   328→          <div key={flag.label} className="border border-border bg-background p-4">
+   329→            <div className="flex items-center justify-between">
+   330→              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{flag.label}</p>
+   331→              <flag.icon className="h-5 w-5 text-accent" />
+   332→            </div>
+   333→            <p className="mt-3 font-heading text-2xl font-semibold text-foreground">{flag.value}</p>
+   334→          </div>
+   335→        ))}
+   336→      </section>
+   337→
+   338→      <section className="border border-border bg-background">
+   339→        {/* Toolbar: status tabs + search + bulk actions */}
+   340→        <div className="flex flex-col gap-3 border-b border-border p-4">
+   341→          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+   342→            <div className="flex items-center gap-2">
+   343→              <ReceiptText className="h-5 w-5 text-accent" />
+   344→              <h2 className="font-heading text-base font-semibold text-foreground">Vendor child orders</h2>
+   345→              <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+   346→                {filteredOrders.length}
+   347→              </span>
+   348→            </div>
+   349→
+   350→            <div className="flex flex-wrap items-center gap-2">
+   351→              {/* Search */}
+   352→              <div className="relative w-full sm:w-72">
+   353→                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   354→                <input
+   355→                  type="search"
+   356→                  value={search}
+   357→                  onChange={(e) => setSearch(e.target.value)}
+   358→                  placeholder="Search ref, buyer, store…"
+   359→                  className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none focus:border-accent"
+   360→                />
+   361→              </div>
+   362→
+   363→              {/* Bulk actions dropdown */}
+   364→              <div className="relative" ref={bulkRef}>
+   365→                <button
+   366→                  type="button"
+   367→                  onClick={() => setBulkOpen((v) => !v)}
+   368→                  disabled={selectedIds.size === 0}
+   369→                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+   370→                  aria-haspopup="menu"
+   371→                  aria-expanded={bulkOpen}
+   372→                >
+   373→                  <CheckSquare className="h-4 w-4" />
+   374→                  Bulk Actions
+   375→                  {selectedIds.size > 0 && (
+   376→                    <span className="rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-foreground">
+   377→                      {selectedIds.size}
+   378→                    </span>
+   379→                  )}
+   380→                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", bulkOpen && "rotate-180")} />
+   381→                </button>
+   382→
+   383→                {bulkOpen && (
+   384→                  <div
+   385→                    role="menu"
+   386→                    className="absolute right-0 z-30 mt-2 w-72 rounded-lg border border-border bg-background p-3 shadow-lg"
+   387→                  >
+   388→                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   389→                      Apply to {selectedIds.size} selected
+   390→                    </p>
+   391→
+   392→                    {/* Update status */}
+   393→                    <div className="space-y-2">
+   394→                      <label className="block text-xs font-semibold text-foreground">
+   395→                        Update status
+   396→                      </label>
+   397→                      <div className="flex gap-2">
+   398→                        <select
+   399→                          value={bulkStatus}
+   400→                          onChange={(e) => setBulkStatus(e.target.value)}
+   401→                          className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm"
+   402→                        >
+   403→                          <option value="">Select status…</option>
+   404→                          {operationalStatuses.map((s) => (
+   405→                            <option key={s} value={s}>
+   406→                              {s}
+   407→                            </option>
+   408→                          ))}
+   409→                        </select>
+   410→                        <AppButton
+   411→                          type="button"
+   412→                          size="sm"
+   413→                          onClick={goBulkStatus}
+   414→                          isLoading={bulkStatusMutation.isPending}
+   415→                          disabled={!bulkStatus || selectedIds.size === 0}
+   416→                        >
+   417→                          Apply
+   418→                        </AppButton>
+   419→                      </div>
+   420→                    </div>
+   421→
+   422→                    <div className="my-3 h-px bg-border" />
+   423→
+   424→                    {/* Assign rider */}
+   425→                    <div className="space-y-2">
+   426→                      <label className="block text-xs font-semibold text-foreground">
+   427→                        Assign rider (rider user ID)
+   428→                      </label>
+   429→                      <div className="flex gap-2">
+   430→                        <input
+   431→                          type="text"
+   432→                          value={bulkRiderQuery}
+   433→                          onChange={(e) => setBulkRiderQuery(e.target.value)}
+   434→                          placeholder="rider-user-id"
+   435→                          className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm"
+   436→                        />
+   437→                        <AppButton
+   438→                          type="button"
+   439→                          size="sm"
+   440→                          variant="secondary"
+   441→                          onClick={goBulkAssign}
+   442→                          isLoading={bulkAssignMutation.isPending}
+   443→                          disabled={!bulkRiderQuery.trim() || selectedIds.size === 0}
+   444→                        >
+   445→                          Assign
+   446→                        </AppButton>
+   447→                      </div>
+   448→                      <p className="text-[11px] leading-4 text-muted-foreground">
+   449→                        For full rider search, open an order detail page.
+   450→                      </p>
+   451→                    </div>
+   452→                  </div>
+   453→                )}
+   454→              </div>
+   455→            </div>
+   456→          </div>
+   457→
+   458→          {/* Status tabs */}
+   459→          <div className="flex flex-wrap gap-1">
+   460→            {STATUS_TABS.map((tab) => {
+   461→              const active = status === tab.key;
+   462→              return (
+   463→                <button
+   464→                  key={tab.key || "all"}
+   465→                  type="button"
+   466→                  onClick={() => setStatus(tab.key)}
+   467→                  aria-pressed={active}
+   468→                  className={cn(
+   469→                    "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors",
+   470→                    active
+   471→                      ? "bg-accent text-accent-foreground"
+   472→                      : "bg-surface text-muted-foreground hover:text-foreground",
+   473→                  )}
+   474→                >
+   475→                  {tab.label}
+   476→                  <span
+   477→                    className={cn(
+   478→                      "rounded-full px-1.5 text-[10px] font-bold",
+   479→                      active ? "bg-accent-foreground/20" : "bg-default-100",
+   480→                    )}
+   481→                  >
+   482→                    {tabCounts[tab.key] ?? 0}
+   483→                  </span>
+   484→                </button>
+   485→              );
+   486→            })}
+   487→          </div>
+   488→        </div>
+   489→
+   490→        {/* List */}
+   491→        {isLoading ? (
+   492→          <div className="space-y-3 p-4">
+   493→            {Array.from({ length: 4 }).map((_, i) => (
+   494→              <SkeletonCard key={i} className="rounded-xl" />
+   495→            ))}
+   496→            <Skeleton className="h-8 w-40" />
+   497→          </div>
+   498→        ) : filteredOrders.length ? (
+   499→          <div className="divide-y divide-border">
+   500→            {/* Table header (desktop only) */}
+   501→            <div className="hidden grid-cols-[40px_minmax(0,1fr)_180px_160px_200px] gap-4 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid xl:grid-cols-[40px_minmax(0,1fr)_220px_230px_240px]">
+   502→              <div className="flex items-center justify-center">
+   503→                <button
+   504→                  type="button"
+   505→                  onClick={toggleAll}
+   506→                  aria-label={allVisibleSelected ? "Deselect all" : "Select all"}
+   507→                  className="text-muted-foreground hover:text-foreground"
+   508→                >
+   509→                  {allVisibleSelected ? (
+   510→                    <CheckSquare className="h-4 w-4 text-accent" />
+   511→                  ) : someVisibleSelected ? (
+   512→                    <CheckSquare className="h-4 w-4 text-accent/60" />
+   513→                  ) : (
+   514→                    <Square className="h-4 w-4" />
+   515→                  )}
+   516→                </button>
+   517→              </div>
+   518→              <div>Order</div>
+   519→              <div>Status</div>
+   520→              <div>Total</div>
+   521→              <div>Manual status</div>
+   522→            </div>
+   523→
+   524→            {filteredOrders.map((order) => {
+   525→              const isSelected = selectedIds.has(order.id);
+   526→              return (
+   527→                <article
+   528→                  key={order.id}
+   529→                  className={cn(
+   530→                    "grid gap-5 p-4 transition-colors md:grid-cols-[40px_minmax(0,1fr)_180px_160px_200px] xl:grid-cols-[40px_minmax(0,1fr)_220px_230px_240px]",
+   531→                    isSelected ? "bg-accent/5" : "hover:bg-surface/60",
+   532→                  )}
+   533→                >
+   534→                  {/* Checkbox */}
+   535→                  <div className="flex items-start md:items-center justify-center md:pt-0 pt-1">
+   536→                    <button
+   537→                      type="button"
+   538→                      onClick={(e) => {
+   539→                        e.stopPropagation();
+   540→                        toggleOne(order.id);
+   541→                      }}
+   542→                      aria-label={isSelected ? "Deselect order" : "Select order"}
+   543→                      aria-pressed={isSelected}
+   544→                      className="text-muted-foreground hover:text-foreground"
+   545→                    >
+   546→                      {isSelected ? (
+   547→                        <CheckSquare className="h-4 w-4 text-accent" />
+   548→                      ) : (
+   549→                        <Square className="h-4 w-4" />
+   550→                      )}
+   551→                    </button>
+   552→                  </div>
+   553→
+   554→                  {/* Order summary (clickable) */}
+   555→                  <button
+   556→                    type="button"
+   557→                    onClick={() => router.push(`/admin/orders/${order.id}`)}
+   558→                    className="min-w-0 text-left"
+   559→                  >
+   560→                    <div className="flex flex-wrap items-center gap-2">
+   561→                      <span className="font-mono text-xs font-semibold text-muted-foreground">
+   562→                        {orderRef(order)}
+   563→                      </span>
+   564→                      {order.parentCheckout?.checkoutReference ? (
+   565→                        <span className="bg-surface px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+   566→                          Parent {order.parentCheckout.checkoutReference}
+   567→                        </span>
+   568→                      ) : null}
+   569→                    </div>
+   570→                    <h3 className="mt-1.5 font-heading text-base font-semibold text-foreground">
+   571→                      {order.store?.name ?? "Vendor store"}
+   572→                    </h3>
+   573→                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+   574→                      <UserRound className="h-3 w-3" />
+   575→                      <span className="truncate">{buyerName(order)}</span>
+   576→                      <span aria-hidden>•</span>
+   577→                      <span>{order.items?.length ?? 0} item{order.items?.length === 1 ? "" : "s"}</span>
+   578→                      <span aria-hidden>•</span>
+   579→                      <span>{formatRelativeTime(order.createdAt)}</span>
+   580→                    </p>
+   581→                    <div className="mt-2 flex flex-wrap gap-1.5">
+   582→                      {order.items?.slice(0, 3).map((item) => (
+   583→                        <span
+   584→                          key={item.id}
+   585→                          className="bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+   586→                        >
+   587→                          {item.product?.name ?? item.productId} ×{item.quantity}
+   588→                        </span>
+   589→                      ))}
+   590→                      {(order.items?.length ?? 0) > 3 && (
+   591→                        <span className="bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+   592→                          +{(order.items?.length ?? 0) - 3} more
+   593→                        </span>
+   594→                      )}
+   595→                    </div>
+   596→                    <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
+   597→                      View detail
+   598→                      <ArrowRight className="h-3 w-3" />
+   599→                    </span>
+   600→                  </button>
+   601→
+   602→                  {/* Status (badge) */}
+   603→                  <div className="flex flex-col gap-1.5 md:items-start md:justify-center">
+   604→                    <OrderStatusBadge status={order.status} size="sm" />
+   605→                    <span className="text-[11px] text-muted-foreground">
+   606→                      Payment: <span className="font-semibold text-foreground">{order.paymentStatus}</span>
+   607→                    </span>
+   608→                    <span className="text-[11px] text-muted-foreground">
+   609→                      Dispute: <span className="font-semibold text-foreground">{order.disputeStatus ?? "NONE"}</span>
+   610→                    </span>
+   611→                  </div>
+   612→
+   613→                  {/* Total */}
+   614→                  <div className="space-y-1 text-sm md:self-center">
+   615→                    <p className="font-semibold text-foreground">{formatCurrency(order.totalAmount)}</p>
+   616→                    <p className="text-xs text-muted-foreground">Subtotal {formatCurrency(order.subtotal)}</p>
+   617→                    <p className="text-xs text-muted-foreground">Delivery {formatCurrency(order.shippingFee ?? 0)}</p>
+   618→                    {Number(order.discount ?? 0) > 0 && (
+   619→                      <p className="text-xs text-success">Discount -{formatCurrency(order.discount ?? 0)}</p>
+   620→                    )}
+   621→                  </div>
+   622→
+   623→                  {/* Dispatch + manual status */}
+   624→                  <div className="space-y-3 md:self-center">
+   625→                    <div className="border border-border p-2 text-[11px] leading-4 text-muted-foreground">
+   626→                      <p className="font-semibold text-foreground">Dispatch address</p>
+   627→                      <p className="truncate">{order.address?.line1 ?? "No address stored"}</p>
+   628→                      <p className="truncate">
+   629→                        {[order.deliveryLocalGovernment, order.address?.city, order.deliveryState]
+   630→                          .filter(Boolean)
+   631→                          .join(", ") || "No location snapshot"}
+   632→                      </p>
+   633→                    </div>
+   634→                    <select
+   635→                      defaultValue=""
+   636→                      disabled={statusMutation.isPending}
+   637→                      onClick={(e) => e.stopPropagation()}
+   638→                      onChange={(event) => {
+   639→                        if (event.target.value) {
+   640→                          statusMutation.mutate({
+   641→                            orderId: order.id,
+   642→                            nextStatus: event.target.value,
+   643→                          });
+   644→                          event.target.value = "";
+   645→                        }
+   646→                      }}
+   647→                      className="h-9 w-full rounded-lg border border-border bg-background px-2 text-xs"
+   648→                    >
+   649→                      <option value="">Manual status</option>
+   650→                      {operationalStatuses.map((item) => (
+   651→                        <option key={item} value={item}>
+   652→                          {item}
+   653→                        </option>
+   654→                      ))}
+   655→                    </select>
+   656→                  </div>
+   657→                </article>
+   658→              );
+   659→            })}
+   660→          </div>
+   661→        ) : (
+   662→          <div className="p-8 text-center text-sm text-muted-foreground">
+   663→            <PackageCheck className="mx-auto mb-3 h-8 w-8 text-accent" />
+   664→            {search.trim()
+   665→              ? "No orders match your search."
+   666→              : "No orders match this filter."}
+   667→          </div>
+   668→        )}
+   669→      </section>
+   670→
+   671→      {/* Hidden FieldInput import keeps the shared-component contract referenced
+   672→          even if the search input is currently a native element for layout reasons. */}
+   673→      <span className="sr-only">
+   674→        <FieldInput label="" name="noop" />
+   675→      </span>
+   676→    </motion.div>
+   677→  );
+   678→}
+   679→

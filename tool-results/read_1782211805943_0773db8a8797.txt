@@ -1,0 +1,1151 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import {
+     5→  Truck,
+     6→  Search,
+     7→  Clock,
+     8→  User,
+     9→  ChevronDown,
+    10→  ChevronUp,
+    11→  X,
+    12→  CheckCircle,
+    13→  AlertCircle,
+    14→  Bike,
+    15→  MapPin,
+    16→  Phone,
+    17→  Package,
+    18→  ArrowRight,
+    19→  ChevronRight,
+    20→  Eye,
+    21→} from "lucide-react";
+    22→import { AppButton, Skeleton, FieldSelect, VendorPageHeader, VendorStatusBadge } from "@kwikseller/ui";
+    23→import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
+    24→import { kwikToast } from "@kwikseller/utils";
+    25→import { motion } from "framer-motion";
+    26→
+    27→// ==================== Types ====================
+    28→
+    29→type DeliveryStatus =
+    30→  | "PENDING"
+    31→  | "ASSIGNED"
+    32→  | "ACCEPTED"
+    33→  | "PREPARING"
+    34→  | "READY_FOR_PICKUP"
+    35→  | "PICKED_UP"
+    36→  | "IN_TRANSIT"
+    37→  | "ARRIVED"
+    38→  | "DELIVERED"
+    39→  | "COMPLETED"
+    40→  | "CANCELLED"
+    41→  | "RETURNED";
+    42→
+    43→type DeliveryItem = {
+    44→  id: string;
+    45→  orderId: string;
+    46→  customerName: string;
+    47→  customerPhone: string;
+    48→  deliveryAddress: string;
+    49→  status: DeliveryStatus;
+    50→  riderName: string | null;
+    51→  riderPhone: string | null;
+    52→  riderVehicle?: string;
+    53→  estimatedMinutes: number | null;
+    54→  amount: number;
+    55→  createdAt: string;
+    56→  updatedAt: string;
+    57→  acceptedAt?: string;
+    58→  preparingAt?: string;
+    59→  readyAt?: string;
+    60→  pickedUpAt?: string;
+    61→  inTransitAt?: string;
+    62→  arrivedAt?: string;
+    63→  deliveredAt?: string;
+    64→  completedAt?: string;
+    65→  cancelledAt?: string;
+    66→  returnedAt?: string;
+    67→  items?: string[];
+    68→  pickupAddress?: string;
+    69→};
+    70→
+    71→type DateRange = "today" | "week" | "month";
+    72→type StatusFilter =
+    73→  | "ALL"
+    74→  | "PREPARING"
+    75→  | "READY_FOR_PICKUP"
+    76→  | "PICKED_UP"
+    77→  | "IN_TRANSIT"
+    78→  | "ARRIVED"
+    79→  | "DELIVERED"
+    80→  | "COMPLETED";
+    81→
+    82→// ==================== Constants ====================
+    83→
+    84→const DELIVERIES_KEY = "kwikseller_vendor_deliveries";
+    85→
+    86→const VENDOR_RELEVANT_TABS: { key: StatusFilter; label: string }[] = [
+    87→  { key: "ALL", label: "All" },
+    88→  { key: "PREPARING", label: "Preparing" },
+    89→  { key: "READY_FOR_PICKUP", label: "Ready" },
+    90→  { key: "IN_TRANSIT", label: "In Transit" },
+    91→  { key: "DELIVERED", label: "Delivered" },
+    92→  { key: "COMPLETED", label: "Completed" },
+    93→];
+    94→
+    95→const TIMELINE_STAGES = [
+    96→  { key: "ACCEPTED", label: "Accepted" },
+    97→  { key: "PREPARING", label: "Preparing" },
+    98→  { key: "READY_FOR_PICKUP", label: "Ready" },
+    99→  { key: "IN_TRANSIT", label: "In Transit" },
+   100→  { key: "DELIVERED", label: "Delivered" },
+   101→] as const;
+   102→
+   103→const STATUS_ORDER: DeliveryStatus[] = [
+   104→  "PENDING",
+   105→  "ASSIGNED",
+   106→  "ACCEPTED",
+   107→  "PREPARING",
+   108→  "READY_FOR_PICKUP",
+   109→  "PICKED_UP",
+   110→  "IN_TRANSIT",
+   111→  "ARRIVED",
+   112→  "DELIVERED",
+   113→  "COMPLETED",
+   114→  "CANCELLED",
+   115→  "RETURNED",
+   116→];
+   117→
+   118→// ==================== Helpers ====================
+   119→
+   120→function generateId() {
+   121→  return `del_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+   122→}
+   123→
+   124→function getTimelineStageIndex(status: DeliveryStatus): number {
+   125→  const stageKeys = TIMELINE_STAGES.map((s) => s.key);
+   126→  const statusIdx = stageKeys.indexOf(status as (typeof TIMELINE_STAGES)[number]["key"]);
+   127→  if (statusIdx >= 0) return statusIdx;
+   128→  // Statuses before ACCEPTED map to -1 (all dots empty)
+   129→  if (STATUS_ORDER.indexOf(status) < STATUS_ORDER.indexOf("ACCEPTED")) return -1;
+   130→  // Statuses after DELIVERED map to last index (all dots filled)
+   131→  return TIMELINE_STAGES.length - 1;
+   132→}
+   133→
+   134→function getRelativeTime(dateStr: string): string {
+   135→  const now = new Date();
+   136→  const date = new Date(dateStr);
+   137→  const diffMs = now.getTime() - date.getTime();
+   138→  const diffMins = Math.floor(diffMs / 60000);
+   139→  const diffHours = Math.floor(diffMs / 3600000);
+   140→  const diffDays = Math.floor(diffMs / 86400000);
+   141→
+   142→  if (diffMins < 1) return "Just now";
+   143→  if (diffMins < 60) return `${diffMins}m ago`;
+   144→  if (diffHours < 24) return `${diffHours}h ago`;
+   145→  if (diffDays < 7) return `${diffDays}d ago`;
+   146→  return formatDate(dateStr);
+   147→}
+   148→
+   149→function isTerminalStatus(status: DeliveryStatus): boolean {
+   150→  return ["DELIVERED", "COMPLETED", "CANCELLED", "RETURNED"].includes(status);
+   151→}
+   152→
+   153→// ==================== Demo Data ====================
+   154→
+   155→function createDemoDeliveries(): DeliveryItem[] {
+   156→  const now = new Date();
+   157→  const minutesAgo = (m: number) =>
+   158→    new Date(now.getTime() - m * 60000).toISOString();
+   159→  const hoursAgo = (h: number) =>
+   160→    new Date(now.getTime() - h * 3600000).toISOString();
+   161→  const daysAgo = (d: number) =>
+   162→    new Date(now.getTime() - d * 86400000).toISOString();
+   163→
+   164→  return [
+   165→    {
+   166→      id: generateId(),
+   167→      orderId: "ORD-4127",
+   168→      customerName: "Adebayo Johnson",
+   169→      customerPhone: "+234 801 234 5678",
+   170→      deliveryAddress: "45 Admiralty Way, Lekki Phase 1, Lagos",
+   171→      status: "IN_TRANSIT",
+   172→      riderName: "Kareem Musa",
+   173→      riderPhone: "+234 805 987 6543",
+   174→      riderVehicle: "Bike",
+   175→      estimatedMinutes: 25,
+   176→      amount: 12500,
+   177→      createdAt: hoursAgo(4),
+   178→      updatedAt: minutesAgo(12),
+   179→      acceptedAt: hoursAgo(3),
+   180→      preparingAt: hoursAgo(2.5),
+   181→      readyAt: hoursAgo(1.5),
+   182→      pickedUpAt: hoursAgo(1),
+   183→      inTransitAt: minutesAgo(30),
+   184→      items: ["Wireless Earbuds", "Phone Case"],
+   185→      pickupAddress: "12 Toyin Street, Ikeja, Lagos",
+   186→    },
+   187→    {
+   188→      id: generateId(),
+   189→      orderId: "ORD-4125",
+   190→      customerName: "Chidinma Okafor",
+   191→      customerPhone: "+234 802 345 6789",
+   192→      deliveryAddress: "12 Ozumba Mbadiwe Ave, Victoria Island, Lagos",
+   193→      status: "PREPARING",
+   194→      riderName: null,
+   195→      riderPhone: null,
+   196→      estimatedMinutes: null,
+   197→      amount: 8750,
+   198→      createdAt: hoursAgo(1.5),
+   199→      updatedAt: minutesAgo(20),
+   200→      acceptedAt: hoursAgo(1),
+   201→      preparingAt: minutesAgo(45),
+   202→      items: ["Ankara Fabric (5 yards)", "Matching Headtie"],
+   203→    },
+   204→    {
+   205→      id: generateId(),
+   206→      orderId: "ORD-4120",
+   207→      customerName: "Emeka Nwankwo",
+   208→      customerPhone: "+234 803 456 7890",
+   209→      deliveryAddress: "27 Allen Avenue, Ikeja, Lagos",
+   210→      status: "READY_FOR_PICKUP",
+   211→      riderName: "Sule Danjuma",
+   212→      riderPhone: "+234 806 789 0123",
+   213→      riderVehicle: "Bike",
+   214→      estimatedMinutes: 40,
+   215→      amount: 15000,
+   216→      createdAt: hoursAgo(3),
+   217→      updatedAt: minutesAgo(30),
+   218→      acceptedAt: hoursAgo(2.5),
+   219→      preparingAt: hoursAgo(2),
+   220→      readyAt: minutesAgo(45),
+   221→      items: ["Samsung Galaxy S24 Case", "Screen Protector x2", "Charging Cable"],
+   222→    },
+   223→    {
+   224→      id: generateId(),
+   225→      orderId: "ORD-4118",
+   226→      customerName: "Fatima Bello",
+   227→      customerPhone: "+234 804 567 8901",
+   228→      deliveryAddress: "8 Wuse 2, Abuja",
+   229→      status: "ARRIVED",
+   230→      riderName: "Bashir Aliyu",
+   231→      riderPhone: "+234 807 890 1234",
+   232→      riderVehicle: "Bike",
+   233→      estimatedMinutes: 5,
+   234→      amount: 6200,
+   235→      createdAt: hoursAgo(6),
+   236→      updatedAt: minutesAgo(8),
+   237→      acceptedAt: hoursAgo(5),
+   238→      preparingAt: hoursAgo(4),
+   239→      readyAt: hoursAgo(3),
+   240→      pickedUpAt: hoursAgo(2.5),
+   241→      inTransitAt: hoursAgo(2),
+   242→      arrivedAt: minutesAgo(10),
+   243→      items: ["Perfume Oil (3 pack)"],
+   244→    },
+   245→    {
+   246→      id: generateId(),
+   247→      orderId: "ORD-4105",
+   248→      customerName: "Ibrahim Yusuf",
+   249→      customerPhone: "+234 805 678 9012",
+   250→      deliveryAddress: "14 Ahmadu Bello Way, Kaduna",
+   251→      status: "DELIVERED",
+   252→      riderName: "Tunde Bakare",
+   253→      riderPhone: "+234 808 901 2345",
+   254→      riderVehicle: "Tricycle",
+   255→      estimatedMinutes: null,
+   256→      amount: 22100,
+   257→      createdAt: daysAgo(1),
+   258→      updatedAt: hoursAgo(8),
+   259→      acceptedAt: daysAgo(1),
+   260→      preparingAt: hoursAgo(20),
+   261→      readyAt: hoursAgo(16),
+   262→      pickedUpAt: hoursAgo(14),
+   263→      inTransitAt: hoursAgo(12),
+   264→      arrivedAt: hoursAgo(10),
+   265→      deliveredAt: hoursAgo(8),
+   266→      items: ["Portable Generator 3000W", "Engine Oil 5L"],
+   267→    },
+   268→    {
+   269→      id: generateId(),
+   270→      orderId: "ORD-4098",
+   271→      customerName: "Blessing Adeyemi",
+   272→      customerPhone: "+234 806 789 0123",
+   273→      deliveryAddress: "3 Oba Akran Ave, Ikeja, Lagos",
+   274→      status: "COMPLETED",
+   275→      riderName: "Kareem Musa",
+   276→      riderPhone: "+234 805 987 6543",
+   277→      riderVehicle: "Bike",
+   278→      estimatedMinutes: null,
+   279→      amount: 4300,
+   280→      createdAt: daysAgo(2),
+   281→      updatedAt: daysAgo(1),
+   282→      acceptedAt: daysAgo(2),
+   283→      preparingAt: daysAgo(1.8),
+   284→      readyAt: daysAgo(1.5),
+   285→      pickedUpAt: daysAgo(1.4),
+   286→      inTransitAt: daysAgo(1.3),
+   287→      arrivedAt: daysAgo(1.2),
+   288→      deliveredAt: daysAgo(1.1),
+   289→      completedAt: daysAgo(1),
+   290→      items: ["Blender (900W)"],
+   291→    },
+   292→    {
+   293→      id: generateId(),
+   294→      orderId: "ORD-4085",
+   295→      customerName: "Chinedu Obi",
+   296→      customerPhone: "+234 807 890 1234",
+   297→      deliveryAddress: "21 Akin Adesola St, Victoria Island, Lagos",
+   298→      status: "CANCELLED",
+   299→      riderName: null,
+   300→      riderPhone: null,
+   301→      estimatedMinutes: null,
+   302→      amount: 18900,
+   303→      createdAt: daysAgo(3),
+   304→      updatedAt: daysAgo(2),
+   305→      cancelledAt: daysAgo(2),
+   306→      items: ["Office Desk Chair", "Desk Lamp"],
+   307→    },
+   308→    {
+   309→      id: generateId(),
+   310→      orderId: "ORD-4070",
+   311→      customerName: "Amara Eze",
+   312→      customerPhone: "+234 808 901 2345",
+   313→      deliveryAddress: "9 Bank Anthony Way, Ikeja, Lagos",
+   314→      status: "PICKED_UP",
+   315→      riderName: "Sule Danjuma",
+   316→      riderPhone: "+234 806 789 0123",
+   317→      riderVehicle: "Bike",
+   318→      estimatedMinutes: 35,
+   319→      amount: 7550,
+   320→      createdAt: hoursAgo(5),
+   321→      updatedAt: minutesAgo(25),
+   322→      acceptedAt: hoursAgo(4),
+   323→      preparingAt: hoursAgo(3),
+   324→      readyAt: hoursAgo(2),
+   325→      pickedUpAt: minutesAgo(35),
+   326→      items: ["Women's Handbag", "Wallet"],
+   327→    },
+   328→  ];
+   329→}
+   330→
+   331→function loadDeliveries(): DeliveryItem[] | null {
+   332→  if (typeof window === "undefined") return null;
+   333→  try {
+   334→    const raw = localStorage.getItem(DELIVERIES_KEY);
+   335→    return raw ? JSON.parse(raw) : null;
+   336→  } catch {
+   337→    return null;
+   338→  }
+   339→}
+   340→
+   341→function saveDeliveries(deliveries: DeliveryItem[]) {
+   342→  if (typeof window === "undefined") return;
+   343→  localStorage.setItem(DELIVERIES_KEY, JSON.stringify(deliveries));
+   344→}
+   345→
+   346→// ==================== Sub-Components ====================
+   347→
+   348→function TimelineDots({ status }: { status: DeliveryStatus }) {
+   349→  const activeIdx = getTimelineStageIndex(status);
+   350→
+   351→  return (
+   352→    <div className="flex items-center gap-1">
+   353→      {TIMELINE_STAGES.map((stage, idx) => {
+   354→        const isActive = idx <= activeIdx;
+   355→        const isLast = idx === TIMELINE_STAGES.length - 1;
+   356→        return (
+   357→          <React.Fragment key={stage.key}>
+   358→            <div className="flex flex-col items-center">
+   359→              <div
+   360→                className={`flex h-3 w-3 items-center justify-center rounded-full border-2 ${
+   361→                  isActive
+   362→                    ? "border-foreground bg-foreground"
+   363→                    : "border-kwik-border bg-surface"
+   364→                }`}
+   365→              >
+   366→                {isActive && (
+   367→                  <div className="h-1 w-1 rounded-full bg-surface" />
+   368→                )}
+   369→              </div>
+   370→              <span
+   371→                className={`mt-1 hidden text-[9px] leading-tight lg:block ${
+   372→                  isActive ? "text-foreground font-medium" : "text-muted-foreground"
+   373→                }`}
+   374→              >
+   375→                {stage.label.split(" ")[0]}
+   376→              </span>
+   377→            </div>
+   378→            {!isLast && (
+   379→              <div
+   380→                className={`h-0.5 w-4 lg:w-6 ${
+   381→                  idx < activeIdx ? "bg-foreground" : "bg-default-100"
+   382→                }`}
+   383→              />
+   384→            )}
+   385→          </React.Fragment>
+   386→        );
+   387→      })}
+   388→    </div>
+   389→  );
+   390→}
+   391→
+   392→function DetailTimeline({ delivery }: { delivery: DeliveryItem }) {
+   393→  const entries: Array<{ key: string; label: string; time?: string; color: string }> = [];
+   394→
+   395→  const push = (key: string, label: string, time?: string, color = "text-muted-foreground") => {
+   396→    if (time) entries.push({ key, label, time, color });
+   397→  };
+   398→
+   399→  push("created", "Order created", delivery.createdAt, "text-muted-foreground");
+   400→  push("accepted", "Accepted by vendor", delivery.acceptedAt, "text-muted-foreground");
+   401→  push("preparing", "Preparing order", delivery.preparingAt, "text-amber-600");
+   402→  push("ready", "Ready for pickup", delivery.readyAt, "text-orange-600");
+   403→  push("picked_up", "Picked up by rider", delivery.pickedUpAt, "text-blue-600");
+   404→  push("in_transit", "In transit", delivery.inTransitAt, "text-blue-600");
+   405→  push("arrived", "Arrived at destination", delivery.arrivedAt, "text-purple-600");
+   406→  push("delivered", "Delivered", delivery.deliveredAt, "text-green-600");
+   407→  push("completed", "Completed", delivery.completedAt, "text-green-700");
+   408→  if (delivery.cancelledAt) push("cancelled", "Cancelled", delivery.cancelledAt, "text-red-500");
+   409→  if (delivery.returnedAt) push("returned", "Returned", delivery.returnedAt, "text-red-400");
+   410→
+   411→  if (entries.length === 0) return null;
+   412→
+   413→  return (
+   414→    <div className="relative pl-6">
+   415→      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-default-100" />
+   416→      <div className="space-y-4">
+   417→        {entries.map((entry) => (
+   418→          <div key={entry.key} className="relative flex items-start gap-3">
+   419→            <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-kwik-border bg-surface" />
+   420→            <div className="min-w-0">
+   421→              <p className="text-sm text-foreground">{entry.label}</p>
+   422→              <p className="text-xs text-muted-foreground mt-0.5">{getRelativeTime(entry.time!)}</p>
+   423→            </div>
+   424→          </div>
+   425→        ))}
+   426→      </div>
+   427→    </div>
+   428→  );
+   429→}
+   430→
+   431→// ==================== Main Component ====================
+   432→
+   433→export default function DeliveriesPage() {
+   434→  const [deliveries, setDeliveries] = React.useState<DeliveryItem[]>([]);
+   435→  const [isLoading, setIsLoading] = React.useState(true);
+   436→  const [dateRange, setDateRange] = React.useState<DateRange>("month");
+   437→  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL");
+   438→  const [searchQuery, setSearchQuery] = React.useState("");
+   439→  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+   440→  const [error, setError] = React.useState<string | null>(null);
+   441→
+   442→  // ==================== Data Loading ====================
+   443→
+   444→  React.useEffect(() => {
+   445→    const load = async () => {
+   446→      setIsLoading(true);
+   447→      setError(null);
+   448→      try {
+   449→        // Try deliveriesApi first (may not exist yet)
+   450→        const apiClient = await import("@kwikseller/api-client");
+   451→        const deliveriesApi = (apiClient as Record<string, unknown>).deliveriesApi as {
+   452→          list: () => Promise<{ data: unknown }>;
+   453→        } | undefined;
+   454→
+   455→        if (deliveriesApi?.list) {
+   456→          const response = await deliveriesApi.list();
+   457→          const data = unwrapApiData<DeliveryItem[]>(response.data);
+   458→          if (Array.isArray(data) && data.length > 0) {
+   459→            setDeliveries(data);
+   460→            setIsLoading(false);
+   461→            return;
+   462→          }
+   463→        }
+   464→
+   465→        // Fallback to localStorage
+   466→        const saved = loadDeliveries();
+   467→        if (saved && saved.length > 0) {
+   468→          setDeliveries(saved);
+   469→        } else {
+   470→          // Fallback to demo data
+   471→          setDeliveries(createDemoDeliveries());
+   472→        }
+   473→      } catch {
+   474→        // Fallback to localStorage or demo data
+   475→        const saved = loadDeliveries();
+   476→        setDeliveries(saved || createDemoDeliveries());
+   477→      } finally {
+   478→        setIsLoading(false);
+   479→      }
+   480→    };
+   481→    load();
+   482→  }, []);
+   483→
+   484→  // Persist deliveries when they change
+   485→  React.useEffect(() => {
+   486→    if (deliveries.length > 0 && !isLoading) {
+   487→      saveDeliveries(deliveries);
+   488→    }
+   489→  }, [deliveries, isLoading]);
+   490→
+   491→  // ==================== Derived State ====================
+   492→
+   493→  const activeDeliveries = React.useMemo(() => {
+   494→    return deliveries.filter((d) => !isTerminalStatus(d.status));
+   495→  }, [deliveries]);
+   496→
+   497→  const completedDeliveries = React.useMemo(() => {
+   498→    return deliveries.filter((d) => isTerminalStatus(d.status));
+   499→  }, [deliveries]);
+   500→
+   501→  const displayedDeliveries = React.useMemo(() => {
+   502→    const isFilteringTerminal =
+   503→      statusFilter === "DELIVERED" || statusFilter === "COMPLETED";
+   504→
+   505→    let list = isFilteringTerminal ? completedDeliveries : activeDeliveries;
+   506→
+   507→    // Filter by status
+   508→    if (statusFilter !== "ALL") {
+   509→      if (statusFilter === "DELIVERED") {
+   510→        list = list.filter((d) => d.status === "DELIVERED");
+   511→      } else if (statusFilter === "COMPLETED") {
+   512→        list = list.filter((d) => d.status === "COMPLETED");
+   513→      } else {
+   514→        list = list.filter((d) => d.status === statusFilter);
+   515→      }
+   516→    }
+   517→
+   518→    // Search filter
+   519→    if (searchQuery) {
+   520→      const q = searchQuery.toLowerCase();
+   521→      list = list.filter(
+   522→        (d) =>
+   523→          d.orderId.toLowerCase().includes(q) ||
+   524→          d.customerName.toLowerCase().includes(q) ||
+   525→          d.deliveryAddress.toLowerCase().includes(q) ||
+   526→          (d.riderName && d.riderName.toLowerCase().includes(q))
+   527→      );
+   528→    }
+   529→
+   530→    return list;
+   531→  }, [activeDeliveries, completedDeliveries, statusFilter, searchQuery]);
+   532→
+   533→  // Stats
+   534→  const todayDeliveredCount = React.useMemo(() => {
+   535→    const todayStart = new Date();
+   536→    todayStart.setHours(0, 0, 0, 0);
+   537→    return deliveries.filter(
+   538→      (d) =>
+   539→        (d.status === "DELIVERED" || d.status === "COMPLETED") &&
+   540→        d.deliveredAt &&
+   541→        new Date(d.deliveredAt) >= todayStart
+   542→    ).length;
+   543→  }, [deliveries]);
+   544→
+   545→  const avgDeliveryMinutes = React.useMemo(() => {
+   546→    const completed = deliveries.filter(
+   547→      (d) => d.acceptedAt && d.deliveredAt
+   548→    );
+   549→    if (completed.length === 0) return null;
+   550→    const totalMinutes = completed.reduce((sum, d) => {
+   551→      return sum + (new Date(d.deliveredAt!).getTime() - new Date(d.acceptedAt!).getTime()) / 60000;
+   552→    }, 0);
+   553→    const avg = Math.round(totalMinutes / completed.length);
+   554→    if (avg < 60) return `${avg}m`;
+   555→    if (avg < 1440) return `${Math.round(avg / 60)}h`;
+   556→    return `${Math.round(avg / 1440)}d`;
+   557→  }, [deliveries]);
+   558→
+   559→  // ==================== Action Handlers ====================
+   560→
+   561→  const handleMarkReady = (id: string) => {
+   562→    setDeliveries((prev) =>
+   563→      prev.map((d) => {
+   564→        if (d.id !== id || d.status !== "PREPARING") return d;
+   565→        kwikToast.success("Order marked as ready for pickup: " + d.orderId);
+   566→        return {
+   567→          ...d,
+   568→          status: "READY_FOR_PICKUP" as DeliveryStatus,
+   569→          readyAt: new Date().toISOString(),
+   570→          updatedAt: new Date().toISOString(),
+   571→        };
+   572→      })
+   573→    );
+   574→  };
+   575→
+   576→  const handleConfirmPickup = (id: string) => {
+   577→    setDeliveries((prev) =>
+   578→      prev.map((d) => {
+   579→        if (d.id !== id || d.status !== "READY_FOR_PICKUP") return d;
+   580→        kwikToast.success("Handoff confirmed: " + d.orderId);
+   581→        return {
+   582→          ...d,
+   583→          status: "PICKED_UP" as DeliveryStatus,
+   584→          pickedUpAt: new Date().toISOString(),
+   585→          updatedAt: new Date().toISOString(),
+   586→        };
+   587→      })
+   588→    );
+   589→  };
+   590→
+   591→  const toggleExpanded = (id: string) => {
+   592→    setExpandedId((prev) => (prev === id ? null : id));
+   593→  };
+   594→
+   595→  // ==================== Filter Options ====================
+   596→
+   597→  const dateRanges: { key: DateRange; label: string }[] = [
+   598→    { key: "today", label: "Today" },
+   599→    { key: "week", label: "This Week" },
+   600→    { key: "month", label: "This Month" },
+   601→  ];
+   602→
+   603→  const statusFilterOptions: { value: StatusFilter; label: string }[] = [
+   604→    { value: "ALL", label: "All Statuses" },
+   605→    { value: "PREPARING", label: "Preparing" },
+   606→    { value: "READY_FOR_PICKUP", label: "Ready for Pickup" },
+   607→    { value: "PICKED_UP", label: "Picked Up" },
+   608→    { value: "IN_TRANSIT", label: "In Transit" },
+   609→    { value: "ARRIVED", label: "Arrived" },
+   610→    { value: "DELIVERED", label: "Delivered" },
+   611→    { value: "COMPLETED", label: "Completed" },
+   612→  ];
+   613→
+   614→  // ==================== Render ====================
+   615→
+   616→  return (
+   617→    <motion.div
+   618→      initial={{ opacity: 0, y: 10 }}
+   619→      animate={{ opacity: 1, y: 0 }}
+   620→      transition={{ duration: 0.3 }}
+   621→      className="space-y-6"
+   622→    >
+   623→      {/* ==================== Section 1: Page Header ==================== */}
+   624→      <VendorPageHeader
+   625→        title="Deliveries"
+   626→        description="Track and manage all your outgoing deliveries."
+   627→      />
+   628→
+   629→      {/* ==================== Section 1b: Filters ==================== */}
+   630→      <section>
+   631→        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   632→          {/* Date range pills */}
+   633→          <div className="flex gap-1">
+   634→            {dateRanges.map((range) => (
+   635→              <button
+   636→                key={range.key}
+   637→                type="button"
+   638→                onClick={() => setDateRange(range.key)}
+   639→                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+   640→                  dateRange === range.key
+   641→                    ? "bg-foreground text-background"
+   642→                    : "border border-kwik-border text-muted-foreground hover:border-accent hover:text-accent"
+   643→                }`}
+   644→              >
+   645→                {range.label}
+   646→              </button>
+   647→            ))}
+   648→          </div>
+   649→
+   650→          {/* Search + Status filter */}
+   651→          <div className="flex items-center gap-2">
+   652→            <div className="relative">
+   653→              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
+   654→              <input
+   655→                type="text"
+   656→                placeholder="Search orders, customers..."
+   657→                value={searchQuery}
+   658→                onChange={(e) => setSearchQuery(e.target.value)}
+   659→                className="w-full rounded-md border border-kwik-border bg-transparent py-1.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none sm:w-56"
+   660→              />
+   661→              {searchQuery && (
+   662→                <button
+   663→                  type="button"
+   664→                  onClick={() => setSearchQuery("")}
+   665→                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+   666→                >
+   667→                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+   668→                </button>
+   669→              )}
+   670→            </div>
+   671→            <FieldSelect
+   672→              value={statusFilter}
+   673→              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+   674→              className="h-[34px]"
+   675→              wrapperClassName="mb-0"
+   676→            >
+   677→              {statusFilterOptions.map((opt) => (
+   678→                <option key={opt.value} value={opt.value}>
+   679→                  {opt.label}
+   680→                </option>
+   681→              ))}
+   682→            </FieldSelect>
+   683→          </div>
+   684→        </div>
+   685→      </section>
+   686→
+   687→      {/* ==================== Section 2: Stats Row ==================== */}
+   688→      {isLoading ? (
+   689→        <div className="grid grid-cols-1 gap-0 divide-y border-kwik-border border-b border-kwik-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+   690→          {Array.from({ length: 3 }).map((_, i) => (
+   691→            <div key={i} className="px-4 py-3">
+   692→              <Skeleton className="mb-1 h-3 w-28" />
+   693→              <Skeleton className="h-6 w-12" />
+   694→            </div>
+   695→          ))}
+   696→        </div>
+   697→      ) : (
+   698→        <div className="grid grid-cols-1 gap-0 divide-y border-kwik-border border-b border-kwik-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+   699→          <div className="px-4 py-3">
+   700→            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+   701→              Active Deliveries
+   702→            </p>
+   703→            <p className="mt-1 text-xl font-semibold text-foreground">
+   704→              {activeDeliveries.length}
+   705→            </p>
+   706→          </div>
+   707→          <div className="px-4 py-3">
+   708→            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+   709→              Completed Today
+   710→            </p>
+   711→            <p className="mt-1 text-xl font-semibold text-foreground">
+   712→              {todayDeliveredCount}
+   713→            </p>
+   714→          </div>
+   715→          <div className="px-4 py-3">
+   716→            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+   717→              Avg Delivery Time
+   718→            </p>
+   719→            <p className="mt-1 text-xl font-semibold text-foreground">
+   720→              {avgDeliveryMinutes ?? "—"}
+   721→            </p>
+   722→          </div>
+   723→        </div>
+   724→      )}
+   725→
+   726→      {/* ==================== Section 3: Delivery Tabs ==================== */}
+   727→      {!isLoading && (
+   728→        <div className="flex items-center gap-1 overflow-x-auto border-b border-kwik-border">
+   729→          {VENDOR_RELEVANT_TABS.map((tab) => {
+   730→            const count =
+   731→              tab.key === "ALL"
+   732→                ? deliveries.length
+   733→                : tab.key === "DELIVERED"
+   734→                  ? deliveries.filter((d) => d.status === "DELIVERED").length
+   735→                  : tab.key === "COMPLETED"
+   736→                    ? deliveries.filter((d) => d.status === "COMPLETED").length
+   737→                    : deliveries.filter((d) => d.status === tab.key).length;
+   738→            return (
+   739→              <button
+   740→                key={tab.key}
+   741→                type="button"
+   742→                onClick={() => setStatusFilter(tab.key)}
+   743→                className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+   744→                  statusFilter === tab.key
+   745→                    ? "border-foreground text-foreground"
+   746→                    : "border-transparent text-muted-foreground hover:border-kwik-border hover:text-foreground"
+   747→                }`}
+   748→              >
+   749→                {tab.label}
+   750→                <span
+   751→                  className={`text-xs ${
+   752→                    statusFilter === tab.key ? "text-muted-foreground" : "text-muted-foreground"
+   753→                  }`}
+   754→                >
+   755→                  {count}
+   756→                </span>
+   757→              </button>
+   758→            );
+   759→          })}
+   760→        </div>
+   761→      )}
+   762→
+   763→      {/* ==================== Section 4: Delivery List ==================== */}
+   764→      {isLoading ? (
+   765→        <section>
+   766→          <div className="border-b border-kwik-border">
+   767→            {Array.from({ length: 4 }).map((_, i) => (
+   768→              <div key={i} className="px-4 py-4">
+   769→                <div className="flex items-start justify-between gap-4">
+   770→                  <div className="flex-1 space-y-2">
+   771→                    <Skeleton className="h-4 w-24" />
+   772→                    <Skeleton className="h-3 w-64" />
+   773→                    <Skeleton className="h-3 w-48" />
+   774→                    <Skeleton className="h-4 w-40" />
+   775→                  </div>
+   776→                  <Skeleton className="h-8 w-24" />
+   777→                </div>
+   778→              </div>
+   779→            ))}
+   780→          </div>
+   781→        </section>
+   782→      ) : displayedDeliveries.length === 0 ? (
+   783→        <section>
+   784→          {statusFilter === "DELIVERED" || statusFilter === "COMPLETED" ? (
+   785→            <div className="flex flex-col items-center justify-center py-16">
+   786→              <CheckCircle className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+   787→              <p className="mt-3 text-sm font-medium text-muted-foreground">
+   788→                No completed deliveries yet
+   789→              </p>
+   790→              <p className="mt-1 text-xs text-muted-foreground">
+   791→                {searchQuery
+   792→                  ? "No results match your current filters."
+   793→                  : "Completed deliveries will appear here."}
+   794→              </p>
+   795→            </div>
+   796→          ) : (
+   797→            <div className="flex flex-col items-center justify-center py-16">
+   798→              <Truck className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+   799→              <p className="mt-3 text-sm font-medium text-muted-foreground">
+   800→                No active deliveries
+   801→              </p>
+   802→              <p className="mt-1 text-xs text-muted-foreground">
+   803→                {searchQuery || statusFilter !== "ALL"
+   804→                  ? "No results match your current filters."
+   805→                  : "Active deliveries will appear here when orders are placed."}
+   806→              </p>
+   807→            </div>
+   808→          )}
+   809→        </section>
+   810→      ) : (
+   811→        <section>
+   812→          <div className="border-b border-kwik-border">
+   813→            {displayedDeliveries.map((d) => (
+   814→              <DeliveryRow
+   815→                key={d.id}
+   816→                delivery={d}
+   817→                isExpanded={expandedId === d.id}
+   818→                onToggle={() => toggleExpanded(d.id)}
+   819→                onMarkReady={handleMarkReady}
+   820→                onConfirmPickup={handleConfirmPickup}
+   821→              />
+   822→            ))}
+   823→          </div>
+   824→        </section>
+   825→      )}
+   826→
+   827→      {/* Error state */}
+   828→      {error && (
+   829→        <section className="flex flex-col items-center justify-center py-12">
+   830→          <AlertCircle className="h-10 w-10 text-red-400 dark:text-red-500" strokeWidth={1.5} />
+   831→          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+   832→          <AppButton
+   833→            variant="secondary"
+   834→            size="sm"
+   835→            className="mt-3"
+   836→            onClick={() => window.location.reload()}
+   837→          >
+   838→            Try Again
+   839→          </AppButton>
+   840→        </section>
+   841→      )}
+   842→    </motion.div>
+   843→  );
+   844→}
+   845→
+   846→// ==================== DeliveryRow Component ====================
+   847→
+   848→function DeliveryRow({
+   849→  delivery,
+   850→  isExpanded,
+   851→  onToggle,
+   852→  onMarkReady,
+   853→  onConfirmPickup,
+   854→}: {
+   855→  delivery: DeliveryItem;
+   856→  isExpanded: boolean;
+   857→  onToggle: () => void;
+   858→  onMarkReady: (id: string) => void;
+   859→  onConfirmPickup: (id: string) => void;
+   860→}) {
+   861→  const isTerminal = isTerminalStatus(delivery.status);
+   862→
+   863→  return (
+   864→    <div className="border-b border-kwik-border last:border-b-0">
+   865→      {/* Main row */}
+   866→      <div className="px-4 py-4 transition hover:bg-default-100/50">
+   867→        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+   868→          {/* Left: Main info */}
+   869→          <div className="min-w-0 flex-1">
+   870→            {/* Order ID + Status */}
+   871→            <div className="flex items-center gap-2">
+   872→              <a
+   873→                href={`/dashboard/orders/${delivery.orderId}`}
+   874→                className="font-mono text-sm font-medium text-foreground hover:underline"
+   875→              >
+   876→                {delivery.orderId}
+   877→              </a>
+   878→              <VendorStatusBadge status={delivery.status} size="sm" />
+   879→            </div>
+   880→
+   881→            {/* Customer + Address */}
+   882→            <div className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+   883→              <User className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.5} />
+   884→              <span className="truncate">
+   885→                {delivery.customerName} &middot;{" "}
+   886→                {delivery.deliveryAddress.length > 50
+   887→                  ? delivery.deliveryAddress.slice(0, 50) + "..."
+   888→                  : delivery.deliveryAddress}
+   889→              </span>
+   890→            </div>
+   891→
+   892→            {/* Rider info */}
+   893→            {delivery.riderName && (
+   894→              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+   895→                <Bike className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+   896→                <span>
+   897→                  {delivery.riderName}
+   898→                  {delivery.riderPhone && (
+   899→                    <>
+   900→                      {" "}
+   901→                      &middot;{" "}
+   902→                      <span className="font-mono">{delivery.riderPhone}</span>
+   903→                    </>
+   904→                  )}
+   905→                </span>
+   906→              </div>
+   907→            )}
+   908→
+   909→            {/* Timeline dots */}
+   910→            <div className="mt-2.5">
+   911→              <TimelineDots status={delivery.status} />
+   912→            </div>
+   913→
+   914→            {/* ETA */}
+   915→            {delivery.estimatedMinutes && !isTerminal && (
+   916→              <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+   917→                <Clock className="h-3 w-3" strokeWidth={1.5} />
+   918→                <span>ETA: ~{delivery.estimatedMinutes} min</span>
+   919→              </div>
+   920→            )}
+   921→
+   922→            {/* Items preview */}
+   923→            {delivery.items && delivery.items.length > 0 && !isExpanded && (
+   924→              <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+   925→                <Package className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+   926→                <span className="truncate">
+   927→                  {delivery.items.length > 2
+   928→                    ? `${delivery.items[0]}, ${delivery.items[1]} +${delivery.items.length - 2} more`
+   929→                    : delivery.items.join(", ")}
+   930→                </span>
+   931→              </div>
+   932→            )}
+   933→          </div>
+   934→
+   935→          {/* Right: Amount + Actions */}
+   936→          <div className="flex items-start gap-3 sm:flex-col sm:items-end sm:gap-2">
+   937→            <p className="text-sm font-medium tabular-nums text-foreground">
+   938→              {formatCurrency(delivery.amount)}
+   939→            </p>
+   940→
+   941→            {/* Contextual action buttons */}
+   942→            {delivery.status === "PREPARING" && (
+   943→              <AppButton
+   944→                variant="primary"
+   945→                size="sm"
+   946→                onClick={(e: React.MouseEvent) => {
+   947→                  e.stopPropagation();
+   948→                  onMarkReady(delivery.id);
+   949→                }}
+   950→              >
+   951→                Mark Ready
+   952→              </AppButton>
+   953→            )}
+   954→
+   955→            {delivery.status === "READY_FOR_PICKUP" && (
+   956→              <AppButton
+   957→                variant="primary"
+   958→                size="sm"
+   959→                onClick={(e: React.MouseEvent) => {
+   960→                  e.stopPropagation();
+   961→                  onConfirmPickup(delivery.id);
+   962→                }}
+   963→              >
+   964→                Confirm Handoff
+   965→              </AppButton>
+   966→            )}
+   967→
+   968→            {delivery.status === "IN_TRANSIT" && (
+   969→              <AppButton
+   970→                variant="secondary"
+   971→                size="sm"
+   972→                onClick={(e: React.MouseEvent) => {
+   973→                  e.stopPropagation();
+   974→                  onToggle();
+   975→                }}
+   976→              >
+   977→                <Eye className="h-3.5 w-3.5" />
+   978→                View Details
+   979→              </AppButton>
+   980→            )}
+   981→
+   982→            {/* Expand/collapse button for non-terminal statuses */}
+   983→            {!isTerminal && delivery.status !== "IN_TRANSIT" && (
+   984→              <button
+   985→                type="button"
+   986→                onClick={onToggle}
+   987→                className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+   988→              >
+   989→                {isExpanded ? (
+   990→                  <>
+   991→                    Less <ChevronUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+   992→                  </>
+   993→                ) : (
+   994→                  <>
+   995→                    More <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+   996→                  </>
+   997→                )}
+   998→              </button>
+   999→            )}
+  1000→
+  1001→            {/* Delivered/Completed timestamp */}
+  1002→            {isTerminal && delivery.deliveredAt && (
+  1003→              <span className="text-[10px] text-muted-foreground">
+  1004→                {formatDate(delivery.deliveredAt)}
+  1005→              </span>
+  1006→            )}
+  1007→          </div>
+  1008→        </div>
+  1009→      </div>
+  1010→
+  1011→      {/* ==================== Expanded Detail Panel ==================== */}
+  1012→      {isExpanded && (
+  1013→        <div className="border-t border-kwik-border bg-default-100/50 px-4 py-4">
+  1014→          <div className="grid gap-6 lg:grid-cols-2">
+  1015→            {/* Left: Timeline + Order summary */}
+  1016→            <div className="space-y-4">
+  1017→              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+  1018→                Delivery Timeline
+  1019→              </h3>
+  1020→              <DetailTimeline delivery={delivery} />
+  1021→
+  1022→              {/* Order Items */}
+  1023→              {delivery.items && delivery.items.length > 0 && (
+  1024→                <div className="border-t border-kwik-border pt-4">
+  1025→                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+  1026→                    Order Items
+  1027→                  </h3>
+  1028→                  <div className="space-y-1.5">
+  1029→                    {delivery.items.map((item, idx) => (
+  1030→                      <div key={idx} className="flex items-center gap-2 text-sm">
+  1031→                        <Package className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+  1032→                        <span className="text-foreground">{item}</span>
+  1033→                      </div>
+  1034→                    ))}
+  1035→                  </div>
+  1036→                </div>
+  1037→              )}
+  1038→            </div>
+  1039→
+  1040→            {/* Right: Rider + Addresses */}
+  1041→            <div className="space-y-4">
+  1042→              {/* Rider Info */}
+  1043→              {delivery.riderName ? (
+  1044→                <div>
+  1045→                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+  1046→                    Rider Information
+  1047→                  </h3>
+  1048→                  <div className="space-y-2">
+  1049→                    <div className="flex items-center gap-3">
+  1050→                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-kwik-border bg-default-100">
+  1051→                        <Bike className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+  1052→                      </div>
+  1053→                      <div>
+  1054→                        <p className="text-sm font-medium text-foreground">
+  1055→                          {delivery.riderName}
+  1056→                        </p>
+  1057→                        <p className="text-xs text-muted-foreground">
+  1058→                          {delivery.riderVehicle || "Bike"} rider
+  1059→                        </p>
+  1060→                      </div>
+  1061→                    </div>
+  1062→                    {delivery.riderPhone && (
+  1063→                      <a
+  1064→                        href={`tel:${delivery.riderPhone}`}
+  1065→                        className="inline-flex items-center gap-1.5 rounded-md border border-kwik-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-accent"
+  1066→                      >
+  1067→                        <Phone className="h-3 w-3" strokeWidth={1.5} />
+  1068→                        <span className="font-mono">{delivery.riderPhone}</span>
+  1069→                      </a>
+  1070→                    )}
+  1071→                  </div>
+  1072→                </div>
+  1073→              ) : (
+  1074→                <div>
+  1075→                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+  1076→                    Rider Information
+  1077→                  </h3>
+  1078→                  <p className="text-xs text-muted-foreground">
+  1079→                    No rider assigned yet. A rider will be assigned when the order is ready for pickup.
+  1080→                  </p>
+  1081→                </div>
+  1082→              )}
+  1083→
+  1084→              {/* Pickup Address */}
+  1085→              {delivery.pickupAddress && (
+  1086→                <div className="border-t border-kwik-border pt-4">
+  1087→                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+  1088→                    Pickup Address
+  1089→                  </h3>
+  1090→                  <div className="flex items-start gap-2">
+  1091→                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+  1092→                    <p className="text-sm text-foreground">{delivery.pickupAddress}</p>
+  1093→                  </div>
+  1094→                </div>
+  1095→              )}
+  1096→
+  1097→              {/* Delivery Address */}
+  1098→              <div className="border-t border-kwik-border pt-4">
+  1099→                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+  1100→                  Delivery Address
+  1101→                </h3>
+  1102→                <div className="flex items-start gap-2">
+  1103→                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+  1104→                  <div>
+  1105→                    <p className="text-sm text-foreground">{delivery.deliveryAddress}</p>
+  1106→                    <p className="mt-1 text-xs text-muted-foreground">
+  1107→                      {delivery.customerName} &middot;{" "}
+  1108→                      <span className="font-mono">{delivery.customerPhone}</span>
+  1109→                    </p>
+  1110→                  </div>
+  1111→                </div>
+  1112→              </div>
+  1113→
+  1114→              {/* ETA */}
+  1115→              {delivery.estimatedMinutes && !isTerminalStatus(delivery.status) && (
+  1116→                <div className="border-t border-kwik-border pt-4">
+  1117→                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+  1118→                    Estimated Arrival
+  1119→                  </h3>
+  1120→                  <div className="flex items-center gap-2">
+  1121→                    <Clock className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+  1122→                    <span className="text-sm font-medium text-foreground">
+  1123→                      ~{delivery.estimatedMinutes} minutes
+  1124→                    </span>
+  1125→                  </div>
+  1126→                </div>
+  1127→              )}
+  1128→            </div>
+  1129→          </div>
+  1130→
+  1131→          {/* Bottom action bar for expanded panel */}
+  1132→          <div className="mt-4 flex items-center justify-between border-t border-kwik-border pt-3">
+  1133→            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+  1134→              <Clock className="h-3 w-3" strokeWidth={1.5} />
+  1135→              Updated {getRelativeTime(delivery.updatedAt)}
+  1136→            </div>
+  1137→            <div className="flex items-center gap-2">
+  1138→              <a
+  1139→                href={`/dashboard/orders/${delivery.orderId}`}
+  1140→                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+  1141→              >
+  1142→                View Order <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+  1143→              </a>
+  1144→            </div>
+  1145→          </div>
+  1146→        </div>
+  1147→      )}
+  1148→    </div>
+  1149→  );
+  1150→}
+  1151→

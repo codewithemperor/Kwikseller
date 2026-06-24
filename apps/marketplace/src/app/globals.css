@@ -51,6 +51,10 @@
   --accent-soft: oklch(0.95 0.06 48);
   --accent-soft-foreground: oklch(0.4 0.12 48);
 
+  /* ── Primary alias (maps to accent — HeroUI v3 uses --accent) ── */
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+
   /* ── Default / neutral ────────────────────────────────── */
   --default: oklch(0.96 0.005 264);
   --default-foreground: oklch(0.22 0.12 264);
@@ -123,6 +127,10 @@
   --accent-foreground: oklch(0.1 0.02 48);
   --accent-soft: oklch(0.25 0.06 48);
   --accent-soft-foreground: oklch(0.88 0.08 48);
+
+  /* ── Primary alias (maps to accent — HeroUI v3 uses --accent) ── */
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
 
   /* ── Default / neutral ────────────────────────────────── */
   --default: oklch(0.18 0.005 0); /* #1e1e1e dark card */
@@ -199,6 +207,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
   --color-accent-soft-foreground: var(--accent-soft-foreground);
+
+  /* Primary alias (so text-primary / bg-primary classes resolve correctly) */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
 
   /* Neutral */
   --color-default: var(--default);

@@ -39,9 +39,10 @@ import {
   FieldSelect,
   FieldTextarea,
   Skeleton,
+  VendorPageHeader,
 } from "@kwikseller/ui";
 import { unwrapApiData } from "@/lib/vendor-format";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
+import { motion } from "framer-motion";
 
 /* ─── Constants ──────────────────────────────────────────────── */
 
@@ -156,7 +157,7 @@ function PhoneMockup({
       {/* Phone frame */}
       <div className="rounded-[2.5rem] border-[3px] border-gray-800 bg-gray-900 p-2">
         {/* Screen */}
-        <div className="relative overflow-hidden rounded-[2rem] bg-white" style={{ fontFamily: bodyFont }}>
+        <div className="relative overflow-hidden rounded-[2rem] bg-surface" style={{ fontFamily: bodyFont }}>
           {/* Notch */}
           <div className="absolute left-1/2 top-0 z-10 h-6 w-24 -translate-x-1/2 rounded-b-2xl bg-gray-900" />
           {/* Status bar spacer */}
@@ -241,13 +242,13 @@ function PhoneMockup({
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="overflow-hidden rounded-sm border border-gray-100">
+                  <div key={i} className="overflow-hidden rounded-sm border border-kwik-border">
                     <div
                       className="h-16"
                       style={{ backgroundColor: design.primaryColor, opacity: 0.08 + i * 0.02 }}
                     />
                     <div className="p-1.5">
-                      <div className="mb-1 h-1.5 w-3/4 rounded-sm bg-gray-200" />
+                      <div className="mb-1 h-1.5 w-3/4 rounded-sm bg-default-200" />
                       <div
                         className="h-1 w-1/2 rounded-sm"
                         style={{ backgroundColor: design.accentColor, opacity: 0.6 }}
@@ -261,7 +262,7 @@ function PhoneMockup({
 
           {/* Pool Section */}
           {visibleSections.includes("pool") && (
-            <div className="border-t border-gray-100 px-4 py-3">
+            <div className="border-t border-kwik-border px-4 py-3">
               <h3
                 className="mb-2 text-[10px] font-bold uppercase tracking-wider"
                 style={{ fontFamily: headingFont, color: design.primaryColor }}
@@ -270,9 +271,9 @@ function PhoneMockup({
               </h3>
               <div className="flex gap-2">
                 {[1, 2].map((i) => (
-                  <div key={i} className="flex-1 rounded-sm border border-gray-100 p-2">
-                    <div className="mb-1 h-10 rounded-sm bg-gray-50" />
-                    <div className="h-1.5 w-2/3 rounded-sm bg-gray-200" />
+                  <div key={i} className="flex-1 rounded-sm border border-kwik-border p-2">
+                    <div className="mb-1 h-10 rounded-sm bg-default-100" />
+                    <div className="h-1.5 w-2/3 rounded-sm bg-default-200" />
                   </div>
                 ))}
               </div>
@@ -281,7 +282,7 @@ function PhoneMockup({
 
           {/* Policies Section */}
           {visibleSections.includes("policies") && (
-            <div className="border-t border-gray-100 px-4 py-3">
+            <div className="border-t border-kwik-border px-4 py-3">
               <h3
                 className="mb-1.5 text-[10px] font-bold uppercase tracking-wider"
                 style={{ fontFamily: headingFont, color: design.primaryColor }}
@@ -290,7 +291,7 @@ function PhoneMockup({
               </h3>
               <div className="space-y-1">
                 {["Return Policy", "Shipping Info", "Terms of Service"].map((t) => (
-                  <div key={t} className="flex items-center gap-1.5 text-[8px] text-gray-500">
+                  <div key={t} className="flex items-center gap-1.5 text-[8px] text-muted-foreground">
                     <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: design.accentColor }} />
                     {t}
                   </div>
@@ -301,7 +302,7 @@ function PhoneMockup({
 
           {/* Reviews Section */}
           {visibleSections.includes("reviews") && (
-            <div className="border-t border-gray-100 px-4 py-3">
+            <div className="border-t border-kwik-border px-4 py-3">
               <h3
                 className="mb-1.5 text-[10px] font-bold uppercase tracking-wider"
                 style={{ fontFamily: headingFont, color: design.primaryColor }}
@@ -313,31 +314,31 @@ function PhoneMockup({
                   <div key={i} className="text-[8px]" style={{ color: design.accentColor }}>★</div>
                 ))}
               </div>
-              <p className="mt-1 text-[7px] text-gray-400">Based on 48 reviews</p>
+              <p className="mt-1 text-[7px] text-muted-foreground">Based on 48 reviews</p>
             </div>
           )}
 
           {/* About Section */}
           {visibleSections.includes("about") && (
-            <div className="border-t border-gray-100 px-4 py-3">
+            <div className="border-t border-kwik-border px-4 py-3">
               <h3
                 className="mb-1.5 text-[10px] font-bold uppercase tracking-wider"
                 style={{ fontFamily: headingFont, color: design.primaryColor }}
               >
                 About
               </h3>
-              <p className="text-[7px] leading-relaxed text-gray-400">
+              <p className="text-[7px] leading-relaxed text-muted-foreground">
                 Your store description will appear here. Add a compelling story about your brand.
               </p>
             </div>
           )}
 
           {/* Bottom nav */}
-          <div className="flex items-center justify-around border-t border-gray-100 px-4 py-2">
+          <div className="flex items-center justify-around border-t border-kwik-border px-4 py-2">
             {["Home", "Shop", "Cart", "Profile"].map((t) => (
               <div key={t} className="text-center">
-                <div className="mx-auto mb-0.5 h-3 w-3 rounded-full bg-gray-200" />
-                <span className="text-[6px] text-gray-400">{t}</span>
+                <div className="mx-auto mb-0.5 h-3 w-3 rounded-full bg-default-200" />
+                <span className="text-[6px] text-muted-foreground">{t}</span>
               </div>
             ))}
           </div>
@@ -387,24 +388,24 @@ function SectionsManager({
         return (
           <div
             key={section.id}
-            className="flex items-center gap-3 border-t border-gray-200 py-3 first:border-t-0"
+            className="flex items-center gap-3 border-t border-kwik-border py-3 first:border-t-0"
           >
             {/* Drag handle (decorative) */}
-            <GripVertical className="h-4 w-4 shrink-0 text-gray-300" />
+            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
 
             {/* Icon */}
-            <IconComp className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+            <IconComp className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
 
             {/* Label + expand toggle */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{section.label}</span>
                 {isVisible && (
-                  <span className="text-[10px] font-mono text-gray-400">#{visibleIndex + 1}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">#{visibleIndex + 1}</span>
                 )}
               </div>
               {isExpanded && (
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {isVisible
                     ? "Visible in storefront. Use arrows to reorder."
                     : "Hidden from storefront. Toggle to show."}
@@ -419,7 +420,7 @@ function SectionsManager({
                   type="button"
                   onClick={() => moveSection(visibleIndex, "up")}
                   disabled={visibleIndex === 0}
-                  className="rounded p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-20 disabled:hover:bg-transparent"
+                  className="rounded p-0.5 text-muted-foreground transition hover:bg-default-100 hover:text-muted-foreground disabled:opacity-20 disabled:hover:bg-transparent"
                   aria-label="Move up"
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
@@ -428,7 +429,7 @@ function SectionsManager({
                   type="button"
                   onClick={() => moveSection(visibleIndex, "down")}
                   disabled={visibleIndex === sections.length - 1}
-                  className="rounded p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-20 disabled:hover:bg-transparent"
+                  className="rounded p-0.5 text-muted-foreground transition hover:bg-default-100 hover:text-muted-foreground disabled:opacity-20 disabled:hover:bg-transparent"
                   aria-label="Move down"
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
@@ -440,7 +441,7 @@ function SectionsManager({
             <button
               type="button"
               onClick={() => setExpandedId(isExpanded ? null : section.id)}
-              className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+              className="rounded p-1 text-muted-foreground transition hover:bg-default-100 hover:text-muted-foreground"
               aria-label="Toggle info"
             >
               <Info className="h-3.5 w-3.5" />
@@ -494,7 +495,7 @@ function ColorPresetsPicker({
             key={color}
             type="button"
             onClick={() => onChange(color)}
-            className="group relative h-9 w-9 rounded-sm border border-gray-200 transition hover:scale-105"
+            className="group relative h-9 w-9 rounded-sm border border-kwik-border transition hover:scale-105"
             style={{ backgroundColor: color }}
             aria-label={`Color ${color}`}
           >
@@ -511,7 +512,7 @@ function ColorPresetsPicker({
             setShowCustom(!showCustom);
             setCustomHex(value);
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-sm border border-dashed border-gray-300 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-600"
+          className="flex h-9 w-9 items-center justify-center rounded-sm border border-dashed border-kwik-border text-xs text-muted-foreground transition hover:border-accent hover:text-muted-foreground"
           aria-label="Custom color"
         >
           #
@@ -525,7 +526,7 @@ function ColorPresetsPicker({
             onChange={(e) => setCustomHex(e.target.value)}
             placeholder="#000000"
             maxLength={7}
-            className="h-9 w-28 rounded-sm border border-gray-300 bg-white px-2 text-sm font-mono text-foreground outline-none focus:border-gray-500"
+            className="h-9 w-28 rounded-sm border border-kwik-border bg-surface px-2 text-sm font-mono text-foreground outline-none focus:border-accent"
           />
           <AppButton size="sm" onClick={applyCustom}>
             Apply
@@ -534,7 +535,7 @@ function ColorPresetsPicker({
       )}
       <div className="flex items-center gap-2">
         <AppColorPicker label="" value={value} onChange={onChange} />
-        <span className="font-mono text-xs text-gray-400">{value.toUpperCase()}</span>
+        <span className="font-mono text-xs text-muted-foreground">{value.toUpperCase()}</span>
       </div>
     </div>
   );
@@ -565,7 +566,7 @@ function LayoutSelector<T extends string>({
             className={`flex items-center gap-2 rounded-sm border px-4 py-2.5 text-sm font-medium transition ${
               value === opt.value
                 ? "border-gray-900 bg-gray-900 text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:border-gray-400"
+                : "border-kwik-border bg-surface text-muted-foreground hover:border-accent"
             }`}
           >
             {opt.icon && (
@@ -716,38 +717,38 @@ export default function StorefrontDesignerPage() {
   ];
 
   return (
-    <div className="safe-container space-y-5 p-4 md:p-6">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5 p-4 md:p-6"
+    >
       {/* ─── Page Header ─────────────────────────────────── */}
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-heading text-[22px] font-semibold leading-tight text-foreground">
-            Storefront Designer
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Customize your public store appearance — colors, fonts, layout, and sections.
-            Changes are saved locally and synced when you click Save.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <AppButton variant="ghost" size="sm" onClick={previewStore}>
-            <ExternalLink className="h-3.5 w-3.5" />
-            Preview
-          </AppButton>
-          <AppButton variant="ghost" size="sm" onClick={resetToDefault}>
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </AppButton>
-          <AppButton
-            variant="primary"
-            size="sm"
-            onClick={saveDesign}
-            isLoading={isSaving}
-          >
-            <Save className="h-3.5 w-3.5" />
-            Save Changes
-          </AppButton>
-        </div>
-      </section>
+      <VendorPageHeader
+        title="Storefront Designer"
+        description="Customize your public store appearance — colors, fonts, layout, and sections. Changes are saved locally and synced when you click Save."
+        actions={
+          <>
+            <AppButton variant="ghost" size="sm" onClick={previewStore}>
+              <ExternalLink className="h-3.5 w-3.5" />
+              Preview
+            </AppButton>
+            <AppButton variant="ghost" size="sm" onClick={resetToDefault}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </AppButton>
+            <AppButton
+              variant="primary"
+              size="sm"
+              onClick={saveDesign}
+              isLoading={isSaving}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save Changes
+            </AppButton>
+          </>
+        }
+      />
 
       {/* ─── Main Content: Split Panel ────────────────────── */}
       <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
@@ -756,7 +757,7 @@ export default function StorefrontDesignerPage() {
           {/* Store Info */}
           <div className="space-y-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Store className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+              <Store className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
               Store Information
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -800,11 +801,11 @@ export default function StorefrontDesignerPage() {
                 hidden
                 onChange={(e) => setBannerFile(e.target.files?.[0] ?? null)}
               />
-              <div className="flex min-h-[68px] items-center gap-3 rounded-md border border-gray-200 px-3 py-2.5">
-                <ImageIcon className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+              <div className="flex min-h-[68px] items-center gap-3 rounded-md border border-kwik-border px-3 py-2.5">
+                <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">Logo</p>
-                  <p className="line-clamp-1 text-xs text-gray-400">
+                  <p className="line-clamp-1 text-xs text-muted-foreground">
                     {logoFile
                       ? logoFile.name
                       : store?.logoUrl
@@ -818,7 +819,7 @@ export default function StorefrontDesignerPage() {
                       href={store.logoUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex h-8 w-8 items-center justify-center rounded-sm border border-gray-200 text-gray-500 transition hover:border-gray-400"
+                      className="flex h-8 w-8 items-center justify-center rounded-sm border border-kwik-border text-muted-foreground transition hover:border-accent"
                       aria-label="View logo"
                     >
                       <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -833,11 +834,11 @@ export default function StorefrontDesignerPage() {
                   </button>
                 </div>
               </div>
-              <div className="flex min-h-[68px] items-center gap-3 rounded-md border border-gray-200 px-3 py-2.5">
-                <ImageIcon className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+              <div className="flex min-h-[68px] items-center gap-3 rounded-md border border-kwik-border px-3 py-2.5">
+                <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">Banner</p>
-                  <p className="line-clamp-1 text-xs text-gray-400">
+                  <p className="line-clamp-1 text-xs text-muted-foreground">
                     {bannerFile
                       ? bannerFile.name
                       : store?.bannerUrl
@@ -851,7 +852,7 @@ export default function StorefrontDesignerPage() {
                       href={store.bannerUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex h-8 w-8 items-center justify-center rounded-sm border border-gray-200 text-gray-500 transition hover:border-gray-400"
+                      className="flex h-8 w-8 items-center justify-center rounded-sm border border-kwik-border text-muted-foreground transition hover:border-accent"
                       aria-label="View banner"
                     >
                       <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -870,10 +871,10 @@ export default function StorefrontDesignerPage() {
           </div>
 
           {/* Divider */}
-          <div className="border-t border-gray-200" />
+          <div className="border-t border-kwik-border" />
 
           {/* Tab Navigation */}
-          <div className="flex gap-0 overflow-x-auto border-b border-gray-200 scrollbar-hide">
+          <div className="flex gap-0 overflow-x-auto border-b border-kwik-border scrollbar-hide">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -882,7 +883,7 @@ export default function StorefrontDesignerPage() {
                 className={`flex shrink-0 items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition ${
                   activeTab === tab.id
                     ? "border-b-2 border-gray-900 text-foreground"
-                    : "text-gray-400 hover:text-gray-600"
+                    : "text-muted-foreground hover:text-muted-foreground"
                 }`}
               >
                 {tab.icon}
@@ -904,7 +905,7 @@ export default function StorefrontDesignerPage() {
                   onChange={(v) => updateDesign("primaryColor", v)}
                 />
 
-                <div className="border-t border-gray-200" />
+                <div className="border-t border-kwik-border" />
 
                 {/* Accent Color */}
                 <ColorPresetsPicker
@@ -914,12 +915,12 @@ export default function StorefrontDesignerPage() {
                   onChange={(v) => updateDesign("accentColor", v)}
                 />
 
-                <div className="border-t border-gray-200" />
+                <div className="border-t border-kwik-border" />
 
                 {/* Font Pairing */}
                 <div className="space-y-3">
                   <span className="text-xs font-semibold text-muted">Font Pairing</span>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     Choose heading and body fonts for your storefront. Preview updates in the phone mockup.
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -951,11 +952,11 @@ export default function StorefrontDesignerPage() {
                     </FieldSelect>
                   </div>
                   {/* Font preview */}
-                  <div className="rounded-md border border-gray-200 p-4" style={{ fontFamily: getFontCss(design.headingFont) }}>
+                  <div className="rounded-md border border-kwik-border p-4" style={{ fontFamily: getFontCss(design.headingFont) }}>
                     <p className="text-lg font-bold text-foreground">
                       Heading Preview
                     </p>
-                    <p className="mt-1 text-sm text-gray-500" style={{ fontFamily: getFontCss(design.bodyFont) }}>
+                    <p className="mt-1 text-sm text-muted-foreground" style={{ fontFamily: getFontCss(design.bodyFont) }}>
                       Body text preview — The quick brown fox jumps over the lazy dog.
                     </p>
                   </div>
@@ -979,7 +980,7 @@ export default function StorefrontDesignerPage() {
                   placeholder="Short promise for buyers"
                   rows={3}
                 />
-                <div className="border-t border-gray-200" />
+                <div className="border-t border-kwik-border" />
                 <LayoutSelector
                   label="Hero Layout"
                   options={HERO_LAYOUTS}
@@ -998,9 +999,9 @@ export default function StorefrontDesignerPage() {
                   value={design.navbarTemplate as typeof NAVBAR_TEMPLATES[number]["value"]}
                   onChange={(v) => updateDesign("navbarTemplate", v)}
                 />
-                <div className="rounded-md border border-gray-200 p-4">
+                <div className="rounded-md border border-kwik-border p-4">
                   <p className="text-xs font-medium text-foreground">Navbar Preview</p>
-                  <div className="mt-3 flex items-center gap-3 rounded-sm border border-gray-100 p-3">
+                  <div className="mt-3 flex items-center gap-3 rounded-sm border border-kwik-border p-3">
                     <div
                       className="h-8 w-8 rounded-sm"
                       style={{
@@ -1028,9 +1029,9 @@ export default function StorefrontDesignerPage() {
                       {store?.name || "STORE NAME"}
                     </div>
                     <div className="ml-auto flex gap-2">
-                      <div className="h-5 w-12 rounded-sm bg-gray-100" />
-                      <div className="h-5 w-12 rounded-sm bg-gray-100" />
-                      <div className="h-5 w-12 rounded-sm bg-gray-100" />
+                      <div className="h-5 w-12 rounded-sm bg-default-100" />
+                      <div className="h-5 w-12 rounded-sm bg-default-100" />
+                      <div className="h-5 w-12 rounded-sm bg-default-100" />
                     </div>
                   </div>
                 </div>
@@ -1048,11 +1049,11 @@ export default function StorefrontDesignerPage() {
                   }
                   onChange={(v) => updateDesign("productCardStyle", v)}
                 />
-                <div className="rounded-md border border-gray-200 p-4">
+                <div className="rounded-md border border-kwik-border p-4">
                   <p className="text-xs font-medium text-foreground mb-3">Card Preview</p>
                   <div className="grid grid-cols-3 gap-3">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="overflow-hidden rounded-sm border border-gray-200">
+                      <div key={i} className="overflow-hidden rounded-sm border border-kwik-border">
                         <div
                           className="h-20"
                           style={{
@@ -1062,7 +1063,7 @@ export default function StorefrontDesignerPage() {
                         />
                         <div className={`p-${design.productCardStyle === "COMPACT_GRID" ? "1.5" : "2.5"}`}>
                           <div
-                            className="mb-1 rounded-sm bg-gray-200"
+                            className="mb-1 rounded-sm bg-default-200"
                             style={{
                               height: design.productCardStyle === "COMPACT_GRID" ? 4 : 6,
                               width: "75%",
@@ -1079,8 +1080,8 @@ export default function StorefrontDesignerPage() {
                           />
                           {design.productCardStyle === "DETAILED_GRID" && (
                             <div className="mt-2 flex gap-1">
-                              <div className="h-1.5 w-1.5 rounded-full bg-gray-200" />
-                              <div className="h-1.5 w-12 rounded-sm bg-gray-100" />
+                              <div className="h-1.5 w-1.5 rounded-full bg-default-200" />
+                              <div className="h-1.5 w-12 rounded-sm bg-default-100" />
                             </div>
                           )}
                         </div>
@@ -1097,11 +1098,11 @@ export default function StorefrontDesignerPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-semibold text-muted">Store Sections</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       Toggle visibility and reorder sections in your storefront.
                     </p>
                   </div>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-muted-foreground">
                     {design.sections?.length ?? 0} active
                   </span>
                 </div>
@@ -1117,7 +1118,7 @@ export default function StorefrontDesignerPage() {
         {/* RIGHT: Phone Mockup (sticky on desktop) */}
         <div className="flex items-start justify-center lg:sticky lg:top-6">
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <Smartphone className="h-3.5 w-3.5" strokeWidth={1.5} />
               Live Preview
             </div>
@@ -1130,7 +1131,7 @@ export default function StorefrontDesignerPage() {
       </section>
 
       {/* ─── Bottom Actions (mobile) ─────────────────────── */}
-      <section className="border-t border-gray-200 pt-4 lg:hidden">
+      <section className="border-t border-kwik-border pt-4 lg:hidden">
         <div className="flex items-center gap-2">
           <AppButton
             variant="ghost"
@@ -1154,8 +1155,6 @@ export default function StorefrontDesignerPage() {
         </div>
       </section>
 
-      {/* ─── Saving Overlay ──────────────────────────────── */}
-      {isSaving && <KwiksellerLoader overlay />}
-    </div>
+    </motion.div>
   );
 }

@@ -8,6 +8,7 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building2,
   Search,
   RefreshCw,
@@ -17,13 +18,13 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react";
-import { SummaryCard } from "@/components/dashboard/vendor-dashboard-ui";
-import { AppButton, AppModal, FieldInput, FieldSelect, FieldTextarea, Skeleton } from "@kwikseller/ui";
+import { motion } from "framer-motion";
+import { AppButton, AppModal, FieldInput, FieldSelect, FieldTextarea, Skeleton, VendorPageHeader, VendorStatCard } from "@kwikseller/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorWalletStore } from "@/stores/vendor-wallet-store";
 import type { WalletTransaction, EscrowHolding } from "@/stores/vendor-wallet-store";
 import { paymentsApi, escrowApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { cn, kwikToast } from "@kwikseller/utils";
 
 // ==================== Local types ====================
 
@@ -72,30 +73,30 @@ function getAmountColor(tx: WalletTransaction) {
   switch (tx.status) {
     case "HELD":
     case "PENDING":
-      return "text-gray-500";
+      return "text-muted-foreground";
     case "FAILED":
-      return "text-red-600";
+      return "text-red-600 dark:text-red-400";
     default:
       // Positive amounts = incoming (green), negative = outgoing (red)
-      if (tx.amount < 0) return "text-red-600";
-      return "text-green-600";
+      if (tx.amount < 0) return "text-red-600 dark:text-red-400";
+      return "text-green-600 dark:text-green-400";
   }
 }
 
 function getStatusColor(status: string) {
   switch (status) {
     case "COMPLETED":
-      return "text-green-600";
+      return "text-green-600 dark:text-green-400";
     case "PROCESSING":
-      return "text-yellow-600";
+      return "text-yellow-600 dark:text-yellow-400";
     case "HELD":
-      return "text-gray-500";
+      return "text-muted-foreground";
     case "PENDING":
-      return "text-yellow-600";
+      return "text-yellow-600 dark:text-yellow-400";
     case "FAILED":
-      return "text-red-600";
+      return "text-red-600 dark:text-red-400";
     default:
-      return "text-gray-500";
+      return "text-muted-foreground";
   }
 }
 
@@ -143,17 +144,17 @@ function getEscrowStatusLabel(status: EscrowHolding["status"]): string {
 function getEscrowStatusColor(status: EscrowHolding["status"]): string {
   switch (status) {
     case "HELD":
-      return "text-gray-500";
+      return "text-muted-foreground";
     case "PENDING_RELEASE":
-      return "text-amber-600";
+      return "text-amber-600 dark:text-amber-400";
     case "RELEASED":
-      return "text-green-600";
+      return "text-green-600 dark:text-green-400";
     case "DISPUTED":
-      return "text-red-600";
+      return "text-red-600 dark:text-red-400";
     case "PARTIAL":
-      return "text-amber-600";
+      return "text-amber-600 dark:text-amber-400";
     default:
-      return "text-gray-500";
+      return "text-muted-foreground";
   }
 }
 
@@ -192,12 +193,12 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
   }, [targetDate]);
 
   if (!timeLeft) {
-    return <span className="text-xs text-gray-400">...</span>;
+    return <span className="text-xs text-muted-foreground/50">...</span>;
   }
 
   if (timeLeft.expired) {
     return (
-      <span className="text-xs font-medium text-amber-600">
+      <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
         Releasing soon...
       </span>
     );
@@ -206,7 +207,7 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <span className="font-mono text-xs tabular-nums text-amber-600">
+    <span className="font-mono text-xs tabular-nums text-amber-600 dark:text-amber-400">
       Release in {pad(timeLeft.hours)}h {pad(timeLeft.minutes)}m {pad(timeLeft.seconds)}s
     </span>
   );
@@ -239,6 +240,8 @@ export default function WalletPage() {
   const [typeFilter, setTypeFilter] = React.useState<TransactionTypeFilter>("ALL");
   const [statusFilter, setStatusFilter] = React.useState<TransactionStatusFilter>("ALL");
   const [walletTableTab, setWalletTableTab] = React.useState<WalletTableTab>("escrow");
+  const [balanceTab, setBalanceTab] = React.useState<"available" | "escrow" | "lifetime">("available");
+  const [activeAccordion, setActiveAccordion] = React.useState<"balance" | "activity" | "banks" | null>("balance");
 
   // Dispute modal state
   const [disputeModalOpen, setDisputeModalOpen] = React.useState(false);
@@ -246,6 +249,10 @@ export default function WalletPage() {
   const [disputeReason, setDisputeReason] = React.useState("");
   const [disputeEvidence, setDisputeEvidence] = React.useState("");
   const [disputeSubmitting, setDisputeSubmitting] = React.useState(false);
+
+  // Delete bank confirmation state
+  const [deleteBankId, setDeleteBankId] = React.useState<string | null>(null);
+  const [isDeletingBank, setIsDeletingBank] = React.useState(false);
 
   // Track previous escrow statuses for toast notifications
   const prevHoldingsRef = React.useRef<EscrowHolding[]>([]);
@@ -401,6 +408,18 @@ export default function WalletPage() {
     saveBanks(updated);
   };
 
+  const confirmDeleteBank = () => {
+    if (!deleteBankId) return;
+    setIsDeletingBank(true);
+    try {
+      deleteBank(deleteBankId);
+      kwikToast.success("Bank account removed");
+    } finally {
+      setIsDeletingBank(false);
+      setDeleteBankId(null);
+    }
+  };
+
   // Dispute handlers
   const openDisputeModal = (holding: EscrowHolding) => {
     setDisputeHolding(holding);
@@ -457,18 +476,17 @@ export default function WalletPage() {
   const hasEscrowHoldings = activeEscrowHoldings.length > 0;
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* ==================== Section 1: Page Header ==================== */}
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Wallet &amp; Payouts
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Balances, escrow, and payouts.
-            </p>
-          </div>
+      <VendorPageHeader
+        title="Wallet & Payouts"
+        description="Balances, escrow, and payouts."
+        actions={
           <div className="flex items-center gap-2">
             <AppButton
               variant="secondary"
@@ -489,54 +507,97 @@ export default function WalletPage() {
               Request Withdrawal
             </AppButton>
           </div>
-        </div>
-      </section>
+        }
+      />
 
-      {/* ==================== Section 2: Balance Overview ==================== */}
+      {/* ==================== Accordion: Balance Overview ==================== */}
+      <AccordionItem
+        id="balance"
+        activeId={activeAccordion}
+        onToggle={setActiveAccordion}
+        icon={Wallet}
+        title="Balance Overview"
+        subtitle="Available, escrow, and lifetime earnings"
+      >
       <section>
         {isLoading && !balance ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-2xl bg-gray-50 p-5 dark:bg-white/5">
-                <Skeleton className="mb-2 h-8 w-24" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-            ))}
+          <div className="rounded-2xl bg-default-100 p-5 dark:bg-white/5">
+            <Skeleton className="mb-2 h-8 w-24" />
+            <Skeleton className="h-4 w-32" />
           </div>
         ) : balance ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[
-              {
-                label: "Available Balance",
-                value: formatCurrency(balance.available),
-                note: "Ready for withdrawal",
-                gradient: "from-emerald-600 via-teal-600 to-cyan-700",
-              },
-              {
-                label: "Pending Escrow",
-                value: formatCurrency(balance.pending),
-                note: "Awaiting delivery confirmation",
-                gradient: "from-orange-500 via-amber-500 to-yellow-500",
-              },
-              {
-                label: "Lifetime Earnings",
-                value: formatCurrency(balance.total),
-                note: "All time",
-                gradient: "from-slate-900 via-slate-800 to-gray-700",
-              },
-            ].map((card) => (
-              <SummaryCard
-                key={card.label}
-                title={card.label}
-                value={card.value}
-                caption={card.note}
-                gradient={card.gradient}
+          <div className="space-y-4">
+            {/* Balance tabs */}
+            <div className="inline-flex rounded-full bg-default-100 p-1 dark:bg-white/8">
+              {[
+                { id: "available" as const, label: "Available", icon: Wallet },
+                { id: "escrow" as const, label: "In Escrow", icon: Lock },
+                { id: "lifetime" as const, label: "Lifetime", icon: ArrowUpRight },
+              ].map((tab) => {
+                const active = balanceTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setBalanceTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-accent text-accent-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active balance card */}
+            {balanceTab === "available" && (
+              <VendorStatCard
+                label="Available Balance"
+                value={formatCurrency(balance.available)}
+                variant="balance"
+                icon={Wallet}
+                subItems={[
+                  { label: "Status", value: "Ready for withdrawal" },
+                  { label: "In Escrow", value: formatCurrency(balance.pending) },
+                  { label: "Lifetime", value: formatCurrency(balance.total) },
+                ]}
               />
-            ))}
+            )}
+            {balanceTab === "escrow" && (
+              <VendorStatCard
+                label="Pending Escrow"
+                value={formatCurrency(balance.pending)}
+                variant="balance"
+                icon={Lock}
+                subItems={[
+                  { label: "Status", value: "Awaiting delivery confirmation" },
+                  { label: "Available", value: formatCurrency(balance.available) },
+                  { label: "Lifetime", value: formatCurrency(balance.total) },
+                ]}
+              />
+            )}
+            {balanceTab === "lifetime" && (
+              <VendorStatCard
+                label="Lifetime Earnings"
+                value={formatCurrency(balance.total)}
+                variant="balance"
+                icon={ArrowUpRight}
+                subItems={[
+                  { label: "All time", value: "Total payouts" },
+                  { label: "Available", value: formatCurrency(balance.available) },
+                  { label: "In Escrow", value: formatCurrency(balance.pending) },
+                ]}
+              />
+            )}
           </div>
         ) : error ? (
           <div className="border-b border-border px-6 py-8 text-center">
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             <AppButton
               variant="secondary"
               size="sm"
@@ -548,10 +609,19 @@ export default function WalletPage() {
           </div>
         ) : null}
       </section>
+      </AccordionItem>
 
-      {/* ==================== Section 3: Wallet Activity ==================== */}
+      {/* ==================== Accordion: Wallet Activity & Escrow ==================== */}
+      <AccordionItem
+        id="activity"
+        activeId={activeAccordion}
+        onToggle={setActiveAccordion}
+        icon={Clock}
+        title="Wallet Activity & Escrow"
+        subtitle="Escrow holdings, transactions, and dispute history"
+      >
       <section className="space-y-4">
-        <div className="inline-flex rounded-full bg-gray-100 p-1 dark:bg-white/8">
+        <div className="inline-flex rounded-full bg-default-100 p-1 dark:bg-white/8">
           {[
             { id: "escrow" as const, label: "Escrow" },
             { id: "transactions" as const, label: "Transactions" },
@@ -565,7 +635,7 @@ export default function WalletPage() {
                 className={`h-10 rounded-full px-4 text-sm font-medium transition ${
                   active
                     ? "bg-white text-gray-950 dark:bg-white dark:text-gray-950"
-                    : "text-gray-500 hover:text-gray-900 dark:text-white/60 dark:hover:text-white"
+                    : "text-muted-foreground hover:text-foreground dark:text-white/60 dark:hover:text-white"
                 }`}
               >
                 {item.label}
@@ -583,7 +653,7 @@ export default function WalletPage() {
               Escrow Holdings
             </h2>
             {activeEscrowHoldings.length > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-border bg-gray-50 px-1.5 text-xs font-medium text-gray-600">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-border bg-default-100 px-1.5 text-xs font-medium text-muted-foreground">
                 {activeEscrowHoldings.length}
               </span>
             )}
@@ -620,11 +690,11 @@ export default function WalletPage() {
             </div>
           ) : !hasEscrowHoldings ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <Lock className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-gray-500">
+              <Lock className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-muted-foreground">
                 No pending escrow holdings
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground/50">
                 Funds will appear here once orders are confirmed and paid.
               </p>
             </div>
@@ -635,22 +705,22 @@ export default function WalletPage() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Order
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Amount
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Status
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Held Since
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Release
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Action
                       </th>
                     </tr>
@@ -659,12 +729,12 @@ export default function WalletPage() {
                     {activeEscrowHoldings.map((holding) => (
                       <tr
                         key={holding.id}
-                        className="border-b border-border transition-colors last:border-b-0 hover:bg-gray-50/50"
+                        className="border-b border-border transition-colors last:border-b-0 hover:bg-default-100/50"
                       >
                         <td className="px-4 py-4">
                           <a
                             href={`/dashboard/orders/${holding.orderId}`}
-                            className="font-mono text-xs text-foreground transition hover:text-gray-600 hover:underline"
+                            className="font-mono text-xs text-foreground transition hover:text-muted-foreground hover:underline"
                           >
                             {holding.orderRef}
                           </a>
@@ -677,14 +747,14 @@ export default function WalletPage() {
                             {getEscrowStatusLabel(holding.status)}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-xs text-gray-500">
+                        <td className="px-4 py-4 text-xs text-muted-foreground">
                           {formatRelativeTime(holding.heldSince)}
                         </td>
                         <td className="px-4 py-4">
                           {holding.status === "PENDING_RELEASE" && holding.expectedRelease ? (
                             <CountdownTimer targetDate={holding.expectedRelease} />
                           ) : (
-                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-xs text-muted-foreground/50">—</span>
                           )}
                         </td>
                         <td className="px-4 py-4 text-right">
@@ -692,7 +762,7 @@ export default function WalletPage() {
                             <AppButton
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                               onClick={() => openDisputeModal(holding)}
                             >
                               <AlertTriangle className="h-3.5 w-3.5" />
@@ -714,7 +784,7 @@ export default function WalletPage() {
                       <div>
                         <a
                           href={`/dashboard/orders/${holding.orderId}`}
-                          className="font-mono text-sm font-medium text-foreground transition hover:text-gray-600 hover:underline"
+                          className="font-mono text-sm font-medium text-foreground transition hover:text-muted-foreground hover:underline"
                         >
                           {holding.orderRef}
                         </a>
@@ -729,7 +799,7 @@ export default function WalletPage() {
                       </p>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground/50">
                         Held {formatRelativeTime(holding.heldSince)}
                       </p>
                       {holding.status === "PENDING_RELEASE" && holding.expectedRelease ? (
@@ -741,7 +811,7 @@ export default function WalletPage() {
                         <AppButton
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                           onClick={() => openDisputeModal(holding)}
                         >
                           <AlertTriangle className="h-3.5 w-3.5" />
@@ -756,7 +826,7 @@ export default function WalletPage() {
               {/* Full escrow list anchor (includes released holdings) */}
               {escrowHoldings.length > activeEscrowHoldings.length && (
                 <div id="escrow-full-list" className="mt-6">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground/50">
                     Released Holdings
                   </p>
                   <div className="max-h-96 overflow-y-auto">
@@ -771,15 +841,15 @@ export default function WalletPage() {
                             <div className="flex items-center gap-4">
                               <a
                                 href={`/dashboard/orders/${holding.orderId}`}
-                                className="font-mono text-xs text-gray-500 transition hover:text-gray-700 hover:underline"
+                                className="font-mono text-xs text-muted-foreground transition hover:text-foreground hover:underline"
                               >
                                 {holding.orderRef}
                               </a>
-                              <span className="text-xs font-medium text-green-600">
+                              <span className="text-xs font-medium text-green-600 dark:text-green-400">
                                 Released
                               </span>
                             </div>
-                            <p className="text-xs font-medium tabular-nums text-gray-500">
+                            <p className="text-xs font-medium tabular-nums text-muted-foreground">
                               {formatCurrency(holding.amount)}
                             </p>
                           </div>
@@ -850,11 +920,11 @@ export default function WalletPage() {
             </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <Wallet className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-gray-500">
+              <Wallet className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-muted-foreground">
                 No transactions yet
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground/50">
                 Transactions will appear here once you start selling.
               </p>
             </div>
@@ -865,19 +935,19 @@ export default function WalletPage() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Date
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Type
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Reference
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Amount
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Status
                       </th>
                     </tr>
@@ -886,15 +956,15 @@ export default function WalletPage() {
                     {filteredTransactions.map((tx) => (
                       <tr
                         key={tx.id}
-                        className="border-b border-border transition-colors last:border-b-0 hover:bg-gray-50/50"
+                        className="border-b border-border transition-colors last:border-b-0 hover:bg-default-100/50"
                       >
-                        <td className="px-4 py-4 text-gray-600">
+                        <td className="px-4 py-4 text-muted-foreground">
                           {formatDate(tx.createdAt)}
                         </td>
-                        <td className="px-4 py-4 text-gray-900">
+                        <td className="px-4 py-4 text-foreground">
                           {formatTxType(tx.type)}
                         </td>
-                        <td className="px-4 py-4 font-mono text-xs text-gray-500">
+                        <td className="px-4 py-4 font-mono text-xs text-muted-foreground">
                           {tx.reference}
                         </td>
                         <td
@@ -923,7 +993,7 @@ export default function WalletPage() {
                         <p className="text-sm font-medium text-foreground">
                           {formatTxType(tx.type)}
                         </p>
-                        <p className="mt-0.5 font-mono text-xs text-gray-400">
+                        <p className="mt-0.5 font-mono text-xs text-muted-foreground/50">
                           {tx.reference}
                         </p>
                       </div>
@@ -941,10 +1011,10 @@ export default function WalletPage() {
                         </p>
                       </div>
                     </div>
-                    <p className="mt-1.5 text-xs text-gray-400">
+                    <p className="mt-1.5 text-xs text-muted-foreground/50">
                       {formatDate(tx.createdAt)}
                       {tx.description && (
-                        <span className="ml-2 text-gray-300">· {tx.description}</span>
+                        <span className="ml-2 text-muted-foreground/50">· {tx.description}</span>
                       )}
                     </p>
                   </div>
@@ -954,7 +1024,7 @@ export default function WalletPage() {
               {/* Pagination */}
               {transactionsTotalPages > 1 && (
                 <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-border pt-4 sm:flex-row">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Showing {paginationFrom}–{paginationTo} of{" "}
                     {transactionsTotal} transactions
                   </p>
@@ -981,7 +1051,7 @@ export default function WalletPage() {
                           return (
                             <span
                               key={pageNum}
-                              className="px-2 text-xs text-gray-400"
+                              className="px-2 text-xs text-muted-foreground/50"
                             >
                               …
                             </span>
@@ -997,8 +1067,8 @@ export default function WalletPage() {
                           disabled={isTransactionsLoading}
                           className={`inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-sm font-medium transition ${
                             transactionsPage === pageNum
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-border bg-background text-foreground hover:border-gray-300"
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border bg-background text-foreground hover:border-accent"
                           }`}
                         >
                           {pageNum}
@@ -1026,8 +1096,17 @@ export default function WalletPage() {
         </div>
         )}
       </section>
+      </AccordionItem>
 
-      {/* ==================== Section 4: Saved Bank Accounts ==================== */}
+      {/* ==================== Accordion: Bank Accounts ==================== */}
+      <AccordionItem
+        id="banks"
+        activeId={activeAccordion}
+        onToggle={setActiveAccordion}
+        icon={Building2}
+        title="Bank Accounts"
+        subtitle="Saved accounts for withdrawals"
+      >
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Bank Accounts</h2>
@@ -1044,11 +1123,11 @@ export default function WalletPage() {
         <div className="mt-4">
           {savedBanks.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border py-12">
-              <Building2 className="h-8 w-8 text-gray-300" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-gray-500">
+              <Building2 className="h-8 w-8 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-muted-foreground">
                 No bank accounts linked
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground/50">
                 Add a bank account when you request a withdrawal.
               </p>
             </div>
@@ -1060,8 +1139,8 @@ export default function WalletPage() {
                   className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-gray-50">
-                      <Building2 className="h-5 w-5 text-gray-500" strokeWidth={1.5} />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-default-100">
+                      <Building2 className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -1069,13 +1148,13 @@ export default function WalletPage() {
                           {bank.bankName}
                         </p>
                         {bank.isDefault && (
-                          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-yellow-600">
+                          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400">
                             <Star className="h-3 w-3 fill-yellow-500" />
                             Default
                           </span>
                         )}
                       </div>
-                      <p className="mt-0.5 text-xs text-gray-500">
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         <span className="font-mono">{bank.accountNumber}</span>
                         {" · "}
                         {bank.accountName}
@@ -1094,8 +1173,8 @@ export default function WalletPage() {
                     )}
                     <button
                       type="button"
-                      onClick={() => deleteBank(bank.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+                      onClick={() => setDeleteBankId(bank.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground/70 transition hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                       aria-label="Remove bank account"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1107,6 +1186,7 @@ export default function WalletPage() {
           )}
         </div>
       </section>
+      </AccordionItem>
 
       {/* ==================== Withdrawal Modal ==================== */}
       <AppModal
@@ -1144,7 +1224,7 @@ export default function WalletPage() {
         <div className="space-y-6">
           {/* Available balance display */}
           <div className="border-b border-border pb-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Available Balance
             </p>
             <p className="mt-1 text-2xl font-semibold text-foreground">
@@ -1238,16 +1318,16 @@ export default function WalletPage() {
                 type="text"
                 value={withdrawAccountName}
                 readOnly
-                className="bg-gray-50"
+                className="bg-default-100"
               />
             </div>
           )}
 
           {/* Processing time note */}
           <div className="flex items-start gap-2 rounded-md border border-border p-3">
-            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
-            <p className="text-xs text-gray-500">
-              Funds will arrive in <span className="font-medium text-gray-700">1–3 business days</span> after processing.
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" strokeWidth={1.5} />
+            <p className="text-xs text-muted-foreground">
+              Funds will arrive in <span className="font-medium text-foreground">1–3 business days</span> after processing.
             </p>
           </div>
         </div>
@@ -1289,7 +1369,7 @@ export default function WalletPage() {
           {/* Holding info */}
           {disputeHolding && (
             <div className="border-b border-border pb-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Escrow Details
               </p>
               <div className="mt-2 flex items-center justify-between">
@@ -1297,7 +1377,7 @@ export default function WalletPage() {
                   <p className="text-sm text-foreground">
                     Order: <span className="font-mono">{disputeHolding.orderRef}</span>
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Held since {formatRelativeTime(disputeHolding.heldSince)}
                   </p>
                 </div>
@@ -1331,14 +1411,125 @@ export default function WalletPage() {
           </div>
 
           {/* Warning */}
-          <div className="flex items-start gap-2 border border-red-200 bg-red-50 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" strokeWidth={1.5} />
-            <p className="text-xs text-red-700">
+          <div className="flex items-start gap-2 border border-red-500/30 bg-red-500/10 p-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500 dark:text-red-400" strokeWidth={1.5} />
+            <p className="text-xs text-red-700 dark:text-red-300">
               Opening a dispute will freeze this payment until resolved. This action cannot be undone.
             </p>
           </div>
         </div>
       </AppModal>
+
+      {/* ==================== Delete Bank Confirmation Modal ==================== */}
+      <AppModal
+        isOpen={Boolean(deleteBankId)}
+        onClose={() => setDeleteBankId(null)}
+        title="Delete Bank Account?"
+        description="This action is irreversible. Any pending withdrawals to this account will continue to process, but you will not be able to request new withdrawals to it."
+        footer={
+          <div className="flex w-full items-center justify-end gap-2">
+            <AppButton
+              variant="secondary"
+              onClick={() => setDeleteBankId(null)}
+              disabled={isDeletingBank}
+            >
+              Cancel
+            </AppButton>
+            <AppButton
+              variant="danger"
+              onClick={confirmDeleteBank}
+              isLoading={isDeletingBank}
+              loadingLabel="Deleting…"
+            >
+              Delete Account
+            </AppButton>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          {(() => {
+            const bank = savedBanks.find((b) => b.id === deleteBankId);
+            if (!bank) return null;
+            return (
+              <div className="flex items-start gap-3 rounded-md border border-kwik-border bg-surface p-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-kwik-border bg-default-100">
+                  <Building2 className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    {bank.bankName}
+                    {bank.isDefault ? (
+                      <span className="ml-2 inline-flex items-center gap-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400">
+                        <Star className="h-3 w-3 fill-yellow-500" />
+                        Default
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    <span className="font-mono">{bank.accountNumber}</span>
+                    {" · "}
+                    {bank.accountName}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </AppModal>
+    </motion.div>
+  );
+}
+
+// ─── Accordion Item (local helper) ──────────────────────────────────────────
+
+function AccordionItem({
+  id,
+  activeId,
+  onToggle,
+  icon: Icon,
+  title,
+  subtitle,
+  children,
+}: {
+  id: "balance" | "activity" | "banks";
+  activeId: "balance" | "activity" | "banks" | null;
+  onToggle: (id: "balance" | "activity" | "banks" | null) => void;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  const isOpen = activeId === id;
+  return (
+    <div className="overflow-hidden rounded-2xl border border-kwik-border bg-surface">
+      <button
+        type="button"
+        onClick={() => onToggle(isOpen ? null : id)}
+        className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-default-100/50"
+        aria-expanded={isOpen}
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
+        <motion.span animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+        </motion.span>
+      </button>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2 }}
+          className="overflow-hidden"
+        >
+          <div className="border-t border-kwik-border p-4">{children}</div>
+        </motion.div>
+      )}
     </div>
   );
 }

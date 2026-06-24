@@ -1,17 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import React from "react";
-import {
-  ArrowUpRight,
-  Boxes,
-  Home,
-  PackageSearch,
-  ShoppingBag,
-  UserRound,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SummaryCardProps {
@@ -36,7 +28,7 @@ const metricToneMap: Record<MetricTone, string> = {
   success: "bg-[#ecfdf5] text-[#065f46] dark:bg-[#052e16] dark:text-[#bbf7d0]",
   warning: "bg-[#fffbeb] text-[#92400e] dark:bg-[#451a03] dark:text-[#fde68a]",
   danger: "bg-[#fff1f0] text-[#b42318] dark:bg-[#7f1d1d] dark:text-[#fecaca]",
-  neutral: "bg-white text-[#111827] dark:bg-[#0f1115] dark:text-white",
+  neutral: "bg-surface text-foreground dark:bg-white/5 dark:text-white",
 };
 
 const metricIconToneMap: Record<MetricTone, string> = {
@@ -48,27 +40,11 @@ const metricIconToneMap: Record<MetricTone, string> = {
   neutral: "bg-[#f3f4f6] text-[#374151] dark:bg-white/8 dark:text-white/80",
 };
 
-export type VendorTabItem = {
-  label: string;
-  href: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  badge?: number;
-};
-
-export const vendorPrimaryTabs: VendorTabItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: Home },
-  { label: "Pool", href: "/dashboard/pool", icon: PackageSearch },
-  { label: "Products", href: "/dashboard/products", icon: Boxes },
-  { label: "Orders", href: "/dashboard/orders", icon: ShoppingBag },
-  { label: "Profile", href: "/dashboard/profile", icon: UserRound },
-];
-
-const vendorBottomTabs = vendorPrimaryTabs.filter((item) => item.label !== "Profile");
-
-export function isVendorTabActive(pathname: string, href: string) {
-  if (href === "/dashboard") return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+// NOTE: The dead exports (VendorDesktopNav, VendorBottomTabs, VendorSolidCard,
+// vendorPrimaryTabs, isVendorTabActive, VendorTabItem) have been removed.
+// The shared VendorDrawer + VendorMobileNav now handle navigation.
+// The live exports below are retained until all dashboard pages migrate to
+// the shared @kwikseller/ui Vendor* components.
 
 export function VendorPageHeader({
   title,
@@ -82,18 +58,18 @@ export function VendorPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
+    <section className="flex min-w-0 flex-col gap-3 border-b border-kwik-border pb-4 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 text-xl font-semibold leading-tight text-foreground md:text-[22px]">
+        <h1 className="mt-1 font-heading text-xl font-semibold leading-tight text-foreground md:text-[22px]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-2xl text-sm font-normal leading-5 text-muted">
+          <p className="mt-1 max-w-2xl text-sm font-normal leading-5 text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -113,53 +89,12 @@ export function VendorToolbar({
   return (
     <section
       className={cn(
-        "flex min-w-0 flex-col gap-3 border border-border bg-background p-3 dark:bg-white/5 sm:flex-row sm:items-end",
+        "flex min-w-0 flex-col gap-3 rounded-2xl border border-kwik-border bg-surface p-3 sm:flex-row sm:items-end",
         className,
       )}
     >
       {children}
     </section>
-  );
-}
-
-export function VendorSolidCard({
-  title,
-  value,
-  suffix,
-  primaryAction,
-  secondaryAction,
-}: {
-  title: string;
-  value: string;
-  suffix?: string;
-  primaryAction?: React.ReactNode;
-  secondaryAction?: React.ReactNode;
-}) {
-  return (
-    <article className="relative min-h-40 overflow-hidden rounded-xl bg-[#111827] p-5 text-white">
-      <div className="relative z-10">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-white/78">{title}</p>
-            <div className="mt-3 flex flex-wrap items-end gap-2">
-              <p className="text-3xl font-semibold leading-tight md:text-4xl">
-                {value}
-              </p>
-              {suffix ? <span className="pb-1 text-sm font-medium text-white/78">{suffix}</span> : null}
-            </div>
-          </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white">
-            <ArrowUpRight className="h-5 w-5" strokeWidth={1.5} />
-          </div>
-        </div>
-        {(primaryAction || secondaryAction) ? (
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            {primaryAction}
-            {secondaryAction}
-          </div>
-        ) : null}
-      </div>
-    </article>
   );
 }
 
@@ -199,7 +134,7 @@ export function SummaryCard({
         </div>
 
         <div className="mt-5">
-          <p className="text-4xl font-bold font-display leading-none tracking-normal">
+          <p className="text-4xl font-bold leading-none tracking-normal">
             {value}
           </p>
           {caption ? (
@@ -260,7 +195,7 @@ export function DashboardMetricCard({
               "flex h-9 w-9 items-center justify-center rounded-full border transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
               isBrand
                 ? "border-white/30 text-white"
-                : "border-black/10 text-[#111827] dark:border-white/10 dark:text-white",
+                : "border-black/10 text-foreground dark:border-white/10 dark:text-white",
             )}
           >
             <ArrowUpRight className="h-4 w-4" strokeWidth={1.7} />
@@ -278,7 +213,7 @@ export function DashboardMetricCard({
   );
 
   const cardClass = cn(
-    "group block rounded-2xl border border-black/10 p-5 transition hover:-translate-y-0.5 hover:shadow-sm dark:border-white/10",
+    "group block rounded-2xl border border-kwik-border bg-surface p-5 transition hover:-translate-y-0.5 hover:shadow-sm",
     metricToneMap[tone],
     className,
   );
@@ -343,7 +278,7 @@ export function VendorSoftPanel({
       {(title || description || action) ? (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            {title ? <h2 className="text-lg font-semibold leading-snug text-foreground">{title}</h2> : null}
+            {title ? <h2 className="font-heading text-lg font-semibold leading-snug text-foreground">{title}</h2> : null}
             {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p> : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
@@ -351,111 +286,5 @@ export function VendorSoftPanel({
       ) : null}
       {children}
     </section>
-  );
-}
-
-export function VendorBottomTabs({ orderCount = 0 }: { orderCount?: number }) {
-  const pathname = usePathname();
-
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 max-w-[100vw] overflow-hidden border-t border-[#E5E7EB] bg-white px-2 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1 dark:border-white/10 dark:bg-[#0f1115] lg:hidden">
-      <div className="grid h-14 grid-cols-4 gap-0">
-        {vendorBottomTabs.map((item) => {
-          const active = isVendorTabActive(pathname, item.href);
-          const badge = item.label === "Orders" ? orderCount : item.badge;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "relative flex min-w-0 flex-col items-center justify-center gap-0.5 text-[10px] transition",
-                active
-                  ? "font-medium text-[#111827] dark:text-white"
-                  : "font-normal text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white",
-              )}
-            >
-              <span className="relative">
-                <item.icon className="h-[22px] w-[22px]" strokeWidth={active ? 2 : 1.5} />
-                {badge ? (
-                  <span className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-medium leading-none text-danger-foreground">
-                    {badge > 99 ? "99+" : badge}
-                  </span>
-                ) : null}
-              </span>
-              <span className="max-w-full truncate leading-none">{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
-export function VendorDesktopNav({
-  vendorName,
-  storeLogoUrl,
-  orderCount = 0,
-  onLogout,
-}: {
-  vendorName: string;
-  storeLogoUrl?: string;
-  orderCount?: number;
-  onLogout: () => void;
-}) {
-  const pathname = usePathname();
-
-  return (
-    <aside className="vendor-sidebar-blue fixed inset-y-0 left-0 hidden w-72 border-r border-white/15 p-4 text-white backdrop-blur-xl lg:flex lg:flex-col">
-      <Link href="/dashboard" className="flex items-center gap-3 px-2 py-2">
-        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/18 text-white ring-1 ring-white/20">
-          {storeLogoUrl ? (
-            <img src={storeLogoUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Home className="h-5 w-5" />
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate font-heading text-base font-semibold text-white">{vendorName}</p>
-          <p className="truncate text-xs font-medium text-white/72">Vendor workspace</p>
-        </div>
-      </Link>
-
-      <nav className="mt-8 grid gap-1">
-        {vendorPrimaryTabs.map((item) => {
-          const active = isVendorTabActive(pathname, item.href);
-          const badge = item.label === "Orders" ? orderCount : item.badge;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "relative flex h-12 items-center gap-3 rounded-lg px-4 text-sm font-medium transition",
-                active
-                  ? "bg-white text-kwik-blue"
-                  : "text-white/78 hover:bg-white/12 hover:text-white",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {badge ? (
-                <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-medium text-danger-foreground">
-                  {badge > 99 ? "99+" : badge}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="mt-auto">
-        <button
-          type="button"
-          onClick={onLogout}
-          className="flex h-11 w-full items-center justify-center rounded-lg bg-danger text-sm font-medium text-danger-foreground transition hover:brightness-110"
-        >
-          Sign out
-        </button>
-      </div>
-    </aside>
   );
 }

@@ -37,7 +37,8 @@ import {
   Download,
   XCircle,
 } from "lucide-react";
-import { AppButton, Skeleton } from "@kwikseller/ui";
+import { AppButton, Skeleton, VendorPageHeader } from "@kwikseller/ui";
+import { motion } from "framer-motion";
 
 // ==================== Types ====================
 
@@ -1369,7 +1370,7 @@ function getCategoryIcon(category: CategoryId) {
 function getCategoryColor(category: CategoryId) {
   switch (category) {
     case "getting-started":
-      return "text-gray-700 bg-gray-100";
+      return "text-foreground bg-default-100";
     case "selling":
       return "text-green-700 bg-green-50";
     case "orders-shipping":
@@ -1487,24 +1488,23 @@ export default function HelpPage() {
   const totalArticles = filteredArticles.length;
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* ==================== Section 1: Page Header ==================== */}
-      <section>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Help Center
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Browse FAQs, search articles, and get support for your Kwikseller store.
-          </p>
-        </div>
-      </section>
+      <VendorPageHeader
+        title="Help Center"
+        description="Browse FAQs, search articles, and get support for your Kwikseller store."
+      />
 
       {/* ==================== Section 2: Search Bar ==================== */}
       <section>
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             strokeWidth={1.5}
           />
           <input
@@ -1512,13 +1512,13 @@ export default function HelpPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search help articles..."
-            className="h-10 w-full rounded-md border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-gray-500"
+            className="h-10 w-full rounded-md border border-kwik-border bg-surface pl-10 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-accent"
           />
           {searchInput && (
             <button
               type="button"
               onClick={() => setSearchInput("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
             >
               <XCircle className="h-4 w-4" strokeWidth={1.5} />
             </button>
@@ -1535,19 +1535,19 @@ export default function HelpPage() {
               <Link
                 key={link.title}
                 href={link.href}
-                className="group flex flex-col gap-3 border border-gray-200 p-4 transition hover:border-gray-300"
+                className="group flex flex-col gap-3 border border-kwik-border p-4 transition hover:border-kwik-border"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gray-100">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-default-100">
                   <IconComponent
-                    className="h-4 w-4 text-gray-600"
+                    className="h-4 w-4 text-muted-foreground"
                     strokeWidth={1.5}
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {link.title}
                   </p>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {link.description}
                   </p>
                 </div>
@@ -1568,7 +1568,7 @@ export default function HelpPage() {
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
                 activeCategory === "all"
                   ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700"
+                  : "border-kwik-border text-muted-foreground hover:border-accent hover:text-foreground"
               }`}
             >
               <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1585,7 +1585,7 @@ export default function HelpPage() {
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
                     isActive
                       ? "border-gray-900 bg-gray-900 text-white"
-                      : "border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700"
+                      : "border-kwik-border text-muted-foreground hover:border-accent hover:text-foreground"
                   }`}
                 >
                   <CatIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1599,7 +1599,7 @@ export default function HelpPage() {
         {/* Search result info */}
         {searchQuery && (
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {totalArticles} {totalArticles === 1 ? "result" : "results"} for &ldquo;{searchInput}&rdquo;
             </p>
             <button
@@ -1608,7 +1608,7 @@ export default function HelpPage() {
                 setSearchInput("");
                 setActiveCategory("all");
               }}
-              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               Clear search
             </button>
@@ -1617,7 +1617,7 @@ export default function HelpPage() {
 
         {/* Articles */}
         {isLoading ? (
-          <div className="mt-6 space-y-0 divide-y divide-gray-100">
+          <div className="mt-6 space-y-0 divide-y divide-kwik-border">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="py-4">
                 <Skeleton className="mb-2 h-4 w-56" />
@@ -1627,11 +1627,11 @@ export default function HelpPage() {
           </div>
         ) : totalArticles === 0 ? (
           <div className="mt-12 flex flex-col items-center justify-center">
-            <HelpCircle className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-            <p className="mt-3 text-sm font-medium text-gray-500">
+            <HelpCircle className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+            <p className="mt-3 text-sm font-medium text-muted-foreground">
               No articles found
             </p>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               {searchQuery
                 ? "Try different keywords or clear your search."
                 : "No articles in this category yet."}
@@ -1647,15 +1647,15 @@ export default function HelpPage() {
                 {/* Category heading */}
                 <div className="flex items-center gap-2 pb-3">
                   <CatIconComponent catId={cat.id} />
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     {cat.label}
                   </h3>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-muted-foreground">
                     ({groupedArticles[cat.id].length})
                   </span>
                 </div>
                 {/* Articles list */}
-                <div className="divide-y divide-gray-100 border-t border-gray-100">
+                <div className="divide-y divide-kwik-border border-t border-kwik-border">
                   {groupedArticles[cat.id].map((article) => (
                     <ArticleItem
                       key={article.id}
@@ -1672,7 +1672,7 @@ export default function HelpPage() {
         ) : (
           // Single category view
           <div className="mt-6">
-            <div className="divide-y divide-gray-100 border-t border-gray-100">
+            <div className="divide-y divide-kwik-border border-t border-kwik-border">
               {(groupedArticles[activeCategory] || []).map((article) => (
                 <ArticleItem
                   key={article.id}
@@ -1688,13 +1688,13 @@ export default function HelpPage() {
       </section>
 
       {/* ==================== Section 5: Contact Support ==================== */}
-      <section className="border-t border-gray-100 pt-8">
+      <section className="border-t border-kwik-border pt-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-lg">
             <h2 className="text-lg font-semibold text-foreground">
               Still need help?
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Could not find what you were looking for? Our support team is here to
               help. We typically respond within 24 hours.
             </p>
@@ -1713,7 +1713,7 @@ export default function HelpPage() {
           </div>
         </div>
       </section>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1749,18 +1749,18 @@ function ArticleItem({
         aria-expanded={isExpanded}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900">{article.title}</p>
+          <p className="text-sm font-semibold text-foreground">{article.title}</p>
         </div>
         {isExpanded ? (
-          <ChevronUp className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+          <ChevronUp className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
         ) : (
-          <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
+          <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
         )}
       </button>
 
       {isExpanded && (
         <div className="pb-5">
-          <div className="prose-content text-sm leading-relaxed text-gray-600">
+          <div className="prose-content text-sm leading-relaxed text-muted-foreground">
             {article.content.split("\n\n").map((paragraph, idx) => (
               <React.Fragment key={idx}>
                 {paragraph.split("\n").map((line, lineIdx) => {
@@ -1772,7 +1772,7 @@ function ArticleItem({
                       {parts.map((part, partIdx) => {
                         if (part.startsWith("**") && part.endsWith("**")) {
                           return (
-                            <strong key={partIdx} className="font-semibold text-gray-800">
+                            <strong key={partIdx} className="font-semibold text-foreground">
                               {part.slice(2, -2)}
                             </strong>
                           );
@@ -1782,7 +1782,7 @@ function ArticleItem({
                         if (listItemMatch && partIdx === 0 && lineIdx === 0 && paragraph.match(/^\d+\./)) {
                           return (
                             <span key={partIdx}>
-                              <span className="font-medium text-gray-800">{listItemMatch[1]}.</span>
+                              <span className="font-medium text-foreground">{listItemMatch[1]}.</span>
                               {part.slice(listItemMatch[0].length)}
                             </span>
                           );
@@ -1801,26 +1801,26 @@ function ArticleItem({
 
           {/* Links */}
           {article.links && article.links.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-3">
+            <div className="mt-4 flex flex-wrap gap-3 border-t border-kwik-border pt-3">
               {article.links.map((link) =>
                 link.href ? (
                   <Link
                     key={link.label}
                     href={link.href}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                   >
                     {link.label}
-                    <span className="text-gray-400">&rarr;</span>
+                    <span className="text-muted-foreground">&rarr;</span>
                   </Link>
                 ) : link.articleId ? (
                   <button
                     key={link.label}
                     type="button"
                     onClick={() => onNavigate(link.articleId!)}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                   >
                     {link.label}
-                    <span className="text-gray-400">&rarr;</span>
+                    <span className="text-muted-foreground">&rarr;</span>
                   </button>
                 ) : null
               )}

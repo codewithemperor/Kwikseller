@@ -3,17 +3,23 @@
 import React from "react";
 import { AlertTriangle, Boxes, PackageCheck, PlusCircle } from "lucide-react";
 import {
-  VendorMetricCard,
-  VendorPageHeader,
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
-import { KwiksellerLoader } from "@/components/kwikseller-loader";
-import { VendorEmptyState } from "@/components/vendor-empty-state";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product } from "@kwikseller/types";
-import { AppButton, AppModal, FieldInput, FieldSelect } from "@kwikseller/ui";
+import {
+  AppButton,
+  AppModal,
+  EmptyState,
+  FieldInput,
+  FieldSelect,
+  Skeleton,
+  VendorMetricCard,
+  VendorPageHeader,
+} from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
+import { motion } from "framer-motion";
 
 export default function VendorInventoryPage() {
   const [products, setProducts] = React.useState<Product[]>([]);
@@ -70,11 +76,16 @@ export default function VendorInventoryPage() {
   const reserved = physicalProducts.reduce((total, product) => total + Number(product.inventoryItems?.[0]?.reserved ?? 0), 0);
 
   return (
-    <div className="safe-container space-y-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="safe-container space-y-5"
+    >
       <VendorPageHeader
         title="Inventory"
         description="Owned stock, reservations, and low-stock alerts."
-        action={
+        actions={
           <AppButton type="button" size="lg" onClick={() => setIsAdjustOpen(true)} disabled={!physicalProducts.length}>
             <PlusCircle className="h-4 w-4" />
             Adjust stock
@@ -83,14 +94,28 @@ export default function VendorInventoryPage() {
       />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <VendorMetricCard label="Tracked products" value={String(physicalProducts.length)} note="Owned physical products with stock tracking." icon={Boxes} />
-        <VendorMetricCard label="Reserved" value={String(reserved)} note="Stock units currently held by checkout." icon={PackageCheck} tone="accent" />
-        <VendorMetricCard label="Low stock" value={String(lowStockProducts.length)} note="Owned products below the safety threshold." icon={AlertTriangle} tone="warning" />
+        <VendorMetricCard title="Tracked products" value={String(physicalProducts.length)} description="Owned physical products with stock tracking." icon={Boxes} />
+        <VendorMetricCard title="Reserved" value={String(reserved)} description="Stock units currently held by checkout." icon={PackageCheck} />
+        <VendorMetricCard title="Low stock" value={String(lowStockProducts.length)} description="Owned products below the safety threshold." icon={AlertTriangle} />
       </section>
 
       <VendorSoftPanel title="Stock ledger" description="Available, reserved, and low-stock thresholds.">
         {isLoading ? (
-          <KwiksellerLoader />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="grid gap-3 rounded-2xl border border-kwik-border bg-surface p-4 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-4 w-1/3" />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <Skeleton className="h-10 w-16" />
+                  <Skeleton className="h-10 w-16" />
+                  <Skeleton className="h-10 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : physicalProducts.length ? (
           <div className="space-y-3">
             {physicalProducts.map((product) => {
@@ -130,7 +155,11 @@ export default function VendorInventoryPage() {
             })}
           </div>
         ) : (
-          <VendorEmptyState title="No owned stock" text="Create a physical product before managing inventory." />
+          <EmptyState
+            variant="products"
+            title="No owned stock"
+            description="Create a physical product before managing inventory."
+          />
         )}
       </VendorSoftPanel>
 
@@ -153,7 +182,6 @@ export default function VendorInventoryPage() {
           </AppButton>
         </form>
       </AppModal>
-      {isSaving ? <KwiksellerLoader overlay /> : null}
-    </div>
+    </motion.div>
   );
 }

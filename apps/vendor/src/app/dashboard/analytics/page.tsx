@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { motion } from "framer-motion";
 import {
   BarChart3,
   TrendingUp,
@@ -10,9 +11,9 @@ import {
   ArrowUpRight,
   RefreshCw,
   AlertCircle,
+  type LucideIcon,
 } from "lucide-react";
-import { DashboardMetricCard } from "@/components/dashboard/vendor-dashboard-ui";
-import { AppButton, Skeleton } from "@kwikseller/ui";
+import { AppButton, Skeleton, VendorMetricCard, VendorPageHeader } from "@kwikseller/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { vendorCommerceApi } from "@kwikseller/api-client";
 
@@ -201,13 +202,13 @@ function getOrderStatusColor(status: string) {
     case "PROCESSING":
       return "text-yellow-600";
     case "PENDING":
-      return "text-gray-500";
+      return "text-muted-foreground";
     case "CANCELLED":
       return "text-red-600";
     case "DELIVERED":
       return "text-green-600";
     default:
-      return "text-gray-500";
+      return "text-muted-foreground";
   }
 }
 
@@ -305,16 +306,17 @@ export default function AnalyticsPage() {
   }, [fetchAnalytics]);
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-8"
+    >
       {/* Page Header */}
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Live store metrics and sales trends.
-            </p>
-          </div>
+      <VendorPageHeader
+        title="Analytics"
+        description="Live store metrics and sales trends."
+        actions={
           <AppButton
             variant="secondary"
             size="sm"
@@ -324,8 +326,8 @@ export default function AnalyticsPage() {
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </AppButton>
-        </div>
-      </section>
+        }
+      />
 
       {/* Date Range Selector */}
       <section>
@@ -337,8 +339,8 @@ export default function AnalyticsPage() {
               onClick={() => setDateRange(range.id)}
               className={`inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium transition ${
                 dateRange === range.id
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-kwik-border bg-surface text-foreground hover:border-accent hover:bg-default-100"
               }`}
             >
               {range.label}
@@ -350,7 +352,7 @@ export default function AnalyticsPage() {
         {dateRange === "custom" && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <label htmlFor="date-from" className="text-xs text-gray-500">
+              <label htmlFor="date-from" className="text-xs text-muted-foreground">
                 From
               </label>
               <input
@@ -358,11 +360,11 @@ export default function AnalyticsPage() {
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="h-9 rounded-md border border-gray-300 px-3 text-sm text-gray-700 outline-none focus:border-gray-500"
+                className="h-9 rounded-md border border-kwik-border px-3 text-sm text-foreground outline-none focus:border-accent"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label htmlFor="date-to" className="text-xs text-gray-500">
+              <label htmlFor="date-to" className="text-xs text-muted-foreground">
                 To
               </label>
               <input
@@ -370,7 +372,7 @@ export default function AnalyticsPage() {
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="h-9 rounded-md border border-gray-300 px-3 text-sm text-gray-700 outline-none focus:border-gray-500"
+                className="h-9 rounded-md border border-kwik-border px-3 text-sm text-foreground outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -408,8 +410,8 @@ export default function AnalyticsPage() {
         </div>
       ) : error && !data ? (
         <div className="flex flex-col items-center justify-center py-16">
-          <BarChart3 className="h-10 w-10 text-gray-300" strokeWidth={1.5} />
-          <p className="mt-3 text-sm font-medium text-gray-500">{error}</p>
+          <BarChart3 className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">{error}</p>
           <AppButton
             variant="secondary"
             size="sm"
@@ -420,7 +422,7 @@ export default function AnalyticsPage() {
           </AppButton>
         </div>
       ) : data ? (
-        <div className="space-y-0 divide-y divide-gray-100">
+        <div className="space-y-0 divide-y divide-kwik-border">
           {/* ==================== Key Metrics ==================== */}
           <section className="pb-8 pt-2 first:pt-0">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -470,22 +472,21 @@ export default function AnalyticsPage() {
               />
 
               {/* Top Product */}
-              <DashboardMetricCard
+              <VendorMetricCard
                 title="Top Selling Product"
                 value={data.topProduct ? data.topProduct.name : "None"}
                 description={data.topProduct ? `${data.topProduct.unitsSold} units sold in this period.` : "No top product yet from live sales."}
-                tone="neutral"
-                icon={<Package className="h-5 w-5" strokeWidth={1.5} />}
+                icon={Package}
               />
             </div>
           </section>
 
           {/* ==================== Revenue Over Time (Bar Chart) ==================== */}
           <section className="py-8">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               Revenue Over Time
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Weekly revenue breakdown for the selected period.
             </p>
             <div className="mt-4">
@@ -495,10 +496,10 @@ export default function AnalyticsPage() {
 
           {/* ==================== Orders Over Time (Horizontal) ==================== */}
           <section className="py-8">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               Orders Over Time
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Weekly order volume for the selected period.
             </p>
             <div className="mt-4">
@@ -508,24 +509,24 @@ export default function AnalyticsPage() {
 
           {/* ==================== Sales by Category ==================== */}
           <section className="py-8">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               Sales by Category
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Revenue distribution across product categories.
             </p>
             <div className="mt-4 space-y-3">
               {data.salesByCategory.map((cat) => (
                 <div key={cat.category} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-700">{cat.category}</span>
-                    <span className="font-mono text-xs text-gray-500">
+                    <span className="font-medium text-foreground">{cat.category}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
                       {formatCurrency(cat.amount)} ({cat.percentage}%)
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-default-100">
                     <div
-                      className="h-full rounded-full bg-gray-900 transition-all duration-500"
+                      className="h-full rounded-full bg-foreground transition-all duration-500"
                       style={{ width: `${cat.percentage}%` }}
                     />
                   </div>
@@ -536,24 +537,24 @@ export default function AnalyticsPage() {
 
           {/* ==================== Traffic Sources ==================== */}
           <section className="py-8">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               Traffic Sources
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Where your store visitors are coming from.
             </p>
             <div className="mt-4 space-y-3">
               {data.trafficSources.map((src) => (
                 <div key={src.source} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-700">{src.source}</span>
-                    <span className="font-mono text-xs text-gray-500">
+                    <span className="font-medium text-foreground">{src.source}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
                       {src.visits.toLocaleString()} visits ({src.percentage}%)
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-default-100">
                     <div
-                      className="h-full rounded-full bg-gray-700 transition-all duration-500"
+                      className="h-full rounded-full bg-muted-foreground transition-all duration-500"
                       style={{ width: `${src.percentage}%` }}
                     />
                   </div>
@@ -564,33 +565,33 @@ export default function AnalyticsPage() {
 
           {/* ==================== Top Products Table ==================== */}
           <section className="py-8">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               Top Products
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Best performing products by units sold.
             </p>
             <div className="mt-4">
               <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr className="border-b border-kwik-border">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Rank
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Product
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Units Sold
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Revenue
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Views
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 text-right">
+                      <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground text-right">
                         Conversion
                       </th>
                     </tr>
@@ -599,24 +600,24 @@ export default function AnalyticsPage() {
                     {data.topProducts.map((product) => (
                       <tr
                         key={product.rank}
-                        className="border-b border-gray-100 transition-colors last:border-b-0 hover:bg-gray-50/50"
+                        className="border-b border-kwik-border transition-colors last:border-b-0 hover:bg-default-100/50"
                       >
-                        <td className="px-4 py-4 font-mono text-xs text-gray-500">
+                        <td className="px-4 py-4 font-mono text-xs text-muted-foreground">
                           #{product.rank}
                         </td>
-                        <td className="px-4 py-4 font-medium text-gray-900">
+                        <td className="px-4 py-4 font-medium text-foreground">
                           {product.name}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm text-gray-700">
+                        <td className="px-4 py-4 text-right font-mono text-sm text-foreground">
                           {product.unitsSold}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm text-gray-700">
+                        <td className="px-4 py-4 text-right font-mono text-sm text-foreground">
                           {formatCurrency(product.revenue)}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm text-gray-500">
+                        <td className="px-4 py-4 text-right font-mono text-sm text-muted-foreground">
                           {product.views.toLocaleString()}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-sm text-gray-700">
+                        <td className="px-4 py-4 text-right font-mono text-sm text-foreground">
                           {product.conversion}%
                         </td>
                       </tr>
@@ -626,23 +627,23 @@ export default function AnalyticsPage() {
               </div>
 
               {/* Mobile Cards */}
-              <div className="space-y-0 divide-y divide-gray-100 sm:hidden">
+              <div className="space-y-0 divide-y divide-kwik-border sm:hidden">
                 {data.topProducts.map((product) => (
                   <div key={product.rank} className="px-1 py-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-gray-400">#{product.rank}</span>
-                        <p className="text-sm font-medium text-gray-900">{product.name}</p>
+                        <span className="font-mono text-xs text-muted-foreground">#{product.rank}</span>
+                        <p className="text-sm font-medium text-foreground">{product.name}</p>
                       </div>
-                      <p className="font-mono text-sm font-medium text-gray-700">
+                      <p className="font-mono text-sm font-medium text-foreground">
                         {formatCurrency(product.revenue)}
                       </p>
                     </div>
-                    <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-500">
+                    <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
                       <span>{product.unitsSold} sold</span>
-                      <span className="text-gray-300">|</span>
+                      <span className="text-muted-foreground/50">|</span>
                       <span>{product.views.toLocaleString()} views</span>
-                      <span className="text-gray-300">|</span>
+                      <span className="text-muted-foreground/50">|</span>
                       <span>{product.conversion}% conv.</span>
                     </div>
                   </div>
@@ -653,33 +654,33 @@ export default function AnalyticsPage() {
 
           {/* ==================== Recent Orders Feed ==================== */}
           <section className="py-8">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               Recent Orders
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Latest orders across your store.
             </p>
             <div className="mt-4">
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-kwik-border">
                 {data.recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-gray-50/50"
+                    className="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-default-100/50"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gray-100">
-                        <ShoppingCart className="h-3.5 w-3.5 text-gray-400" strokeWidth={1.5} />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-default-100">
+                        <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-mono text-xs text-gray-500">{order.id}</p>
-                          <p className="text-sm text-gray-700">{order.customer}</p>
+                          <p className="font-mono text-xs text-muted-foreground">{order.id}</p>
+                          <p className="text-sm text-foreground">{order.customer}</p>
                         </div>
-                        <p className="text-xs text-gray-400">{formatDate(order.date)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(order.date)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <p className="font-mono text-sm font-medium text-gray-700">
+                      <p className="font-mono text-sm font-medium text-foreground">
                         {formatCurrency(order.amount)}
                       </p>
                       <span className={`text-xs font-medium ${getOrderStatusColor(order.status)}`}>
@@ -693,7 +694,7 @@ export default function AnalyticsPage() {
           </section>
         </div>
       ) : null}
-    </div>
+    </motion.div>
   );
 }
 
@@ -704,21 +705,19 @@ function MetricBlock({
   value,
   icon: Icon,
   subtext,
-  tone,
 }: {
   label: string;
   value: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   subtext?: string;
   tone: "brand" | "accent" | "success" | "warning" | "danger" | "neutral";
 }) {
   return (
-    <DashboardMetricCard
+    <VendorMetricCard
       title={label}
       value={value}
+      icon={Icon}
       description={subtext ?? ""}
-      tone={tone}
-      icon={<Icon className="h-5 w-5" strokeWidth={1.5} />}
     />
   );
 }
@@ -747,13 +746,13 @@ function BarChart({
               className="group relative flex flex-1 flex-col items-center justify-end"
             >
               {/* Tooltip */}
-              <div className="absolute bottom-full mb-2 hidden rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 group-hover:block">
+              <div className="absolute bottom-full mb-2 hidden rounded border border-kwik-border bg-surface px-2 py-1 text-xs text-foreground group-hover:block">
                 {formatShortDate(item.date)}
                 <br />
                 <span className="font-mono">{formatValue(item.revenue)}</span>
               </div>
               {/* Bar */}
-              <div className="w-full max-w-[48px] rounded-t bg-gray-900 transition-all duration-500" style={{ height: `${height}%` }} />
+              <div className="w-full max-w-[48px] rounded-t bg-foreground transition-all duration-500" style={{ height: `${height}%` }} />
             </div>
           );
         })}
@@ -762,7 +761,7 @@ function BarChart({
       <div className="flex gap-1">
         {data.map((item, i) => (
           <div key={i} className="flex-1 text-center">
-            <span className="text-[10px] text-gray-400">{formatShortDate(item.date)}</span>
+            <span className="text-[10px] text-muted-foreground">{formatShortDate(item.date)}</span>
           </div>
         ))}
       </div>
@@ -787,15 +786,15 @@ function HorizontalBarChart({
         return (
           <div key={i} className="space-y-1">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-xs text-gray-500">{formatShortDate(item.date)}</span>
-              <span className="font-mono text-xs text-gray-700">{item.orders} orders</span>
+              <span className="text-xs text-muted-foreground">{formatShortDate(item.date)}</span>
+              <span className="font-mono text-xs text-foreground">{item.orders} orders</span>
             </div>
-            <div className="h-5 w-full overflow-hidden rounded-sm bg-gray-100">
+            <div className="h-5 w-full overflow-hidden rounded-sm bg-default-100">
               <div
-                className="flex h-full items-center rounded-sm bg-gray-900 pl-2 transition-all duration-500"
+                className="flex h-full items-center rounded-sm bg-foreground pl-2 transition-all duration-500"
                 style={{ width: `${Math.max(width, 2)}%` }}
               >
-                <span className="text-[10px] font-medium text-white">
+                <span className="text-[10px] font-medium text-background">
                   {item.orders}
                 </span>
               </div>

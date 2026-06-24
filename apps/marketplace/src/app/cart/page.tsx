@@ -710,7 +710,7 @@ export default function CartPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex min-w-0 items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <span className={`inline-flex items-center gap-1 bg-[#f3f5f2] px-1.5 py-0.5 text-[10px] font-semibold ${meta.color}`}>
+                                  <span className={`inline-flex items-center gap-1 bg-default px-1.5 py-0.5 text-[10px] font-semibold ${meta.color}`}>
                                     <MetaIcon className="h-3 w-3" />
                                     {meta.label}
                                   </span>
