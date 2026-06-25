@@ -44,6 +44,7 @@ export interface SearchAutoSuggestProps {
   footerLabel?: string;
   showTrending?: boolean;
   trendingItems?: SearchAutoSuggestItem[];
+  idleItems?: SearchAutoSuggestItem[];
   loadSuggestions?: (query: string) => Promise<SearchAutoSuggestItem[]>;
   onSearch: (query: string) => void;
   onSelect?: (item: SearchAutoSuggestItem, query: string) => void;
@@ -106,6 +107,7 @@ export function SearchAutoSuggest({
   footerLabel = "Press Enter to search",
   showTrending = true,
   trendingItems = [],
+  idleItems = [],
   loadSuggestions,
   onSearch,
   onSelect,
@@ -265,8 +267,9 @@ export function SearchAutoSuggest({
 
   const visibleItems = React.useMemo<SearchAutoSuggestItem[]>(() => {
     if (query.trim()) return suggestions;
+    if (idleItems.length) return idleItems.slice(0, 8);
     return history.map((term) => ({ type: "recent", text: term }));
-  }, [history, query, suggestions]);
+  }, [history, idleItems, query, suggestions]);
 
   if (!isOpen) return null;
 

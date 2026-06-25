@@ -2210,6 +2210,12 @@ textarea {
    components that haven't been migrated to shared patterns yet)
    ============================================================ */
 @layer utilities {
+  select,
+  select option {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
   .pool-description-html :where(p, ul, ol, blockquote) {
     margin-block: 0.75rem;
   }
@@ -2229,6 +2235,48 @@ textarea {
   .pool-description-html :where(strong, b) {
     color: var(--foreground);
     font-weight: 600;
+  }
+
+  .rich-text-editor :where(p, ul, ol, blockquote) {
+    margin-block: 0.65rem;
+  }
+  .rich-text-editor :where(h1, h2, h3, h4, h5, h6) {
+    margin-block: 0.85rem 0.45rem;
+    font-family: var(--font-sora), var(--font-figtree), system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .rich-text-editor :where(h1) {
+    font-size: 1.5rem;
+  }
+  .rich-text-editor :where(h2) {
+    font-size: 1.25rem;
+  }
+  .rich-text-editor :where(h3) {
+    font-size: 1.05rem;
+  }
+  .rich-text-editor :where(h4) {
+    font-size: 0.95rem;
+  }
+  .rich-text-editor :where(h5) {
+    font-size: 0.875rem;
+  }
+  .rich-text-editor :where(h6) {
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .rich-text-editor :where(ul, ol) {
+    padding-left: 1.25rem;
+  }
+  .rich-text-editor :where(ul) {
+    list-style: disc;
+  }
+  .rich-text-editor :where(ol) {
+    list-style: decimal;
+  }
+  .rich-text-editor :where(strong, b) {
+    font-weight: 700;
   }
 
   .vendor-loader-dot {

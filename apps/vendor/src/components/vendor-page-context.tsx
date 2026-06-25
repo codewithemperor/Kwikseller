@@ -9,8 +9,10 @@ export type VendorPageSearchSubmit = (query: string) => void;
 type VendorPageContextValue = {
   searchProvider?: VendorPageSearchProvider;
   searchSubmit?: VendorPageSearchSubmit;
+  idleSearchItems: SearchAutoSuggestItem[];
   setSearchProvider: React.Dispatch<React.SetStateAction<VendorPageSearchProvider | undefined>>;
   setSearchSubmit: React.Dispatch<React.SetStateAction<VendorPageSearchSubmit | undefined>>;
+  setIdleSearchItems: React.Dispatch<React.SetStateAction<SearchAutoSuggestItem[]>>;
 };
 
 const VendorPageContext = React.createContext<VendorPageContextValue | null>(null);
@@ -18,10 +20,11 @@ const VendorPageContext = React.createContext<VendorPageContextValue | null>(nul
 export function VendorPageProvider({ children }: { children: React.ReactNode }) {
   const [searchProvider, setSearchProvider] = React.useState<VendorPageSearchProvider | undefined>();
   const [searchSubmit, setSearchSubmit] = React.useState<VendorPageSearchSubmit | undefined>();
+  const [idleSearchItems, setIdleSearchItems] = React.useState<SearchAutoSuggestItem[]>([]);
 
   const value = React.useMemo(
-    () => ({ searchProvider, searchSubmit, setSearchProvider, setSearchSubmit }),
-    [searchProvider, searchSubmit],
+    () => ({ searchProvider, searchSubmit, idleSearchItems, setSearchProvider, setSearchSubmit, setIdleSearchItems }),
+    [idleSearchItems, searchProvider, searchSubmit],
   );
 
   return (
@@ -39,16 +42,22 @@ export function useVendorPageContext() {
   return context;
 }
 
-export function useVendorPageSearch(provider: VendorPageSearchProvider, onSearch?: VendorPageSearchSubmit) {
-  const { setSearchProvider, setSearchSubmit } = useVendorPageContext();
+export function useVendorPageSearch(
+  provider: VendorPageSearchProvider,
+  onSearch?: VendorPageSearchSubmit,
+  idleItems: SearchAutoSuggestItem[] = [],
+) {
+  const { setSearchProvider, setSearchSubmit, setIdleSearchItems } = useVendorPageContext();
 
   React.useEffect(() => {
     setSearchProvider(() => provider);
     if (onSearch) setSearchSubmit(() => onSearch);
+    setIdleSearchItems(idleItems);
 
     return () => {
       setSearchProvider(undefined);
       setSearchSubmit(undefined);
+      setIdleSearchItems([]);
     };
-  }, [onSearch, provider, setSearchProvider, setSearchSubmit]);
+  }, [idleItems, onSearch, provider, setIdleSearchItems, setSearchProvider, setSearchSubmit]);
 }

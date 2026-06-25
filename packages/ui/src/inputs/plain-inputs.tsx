@@ -211,7 +211,14 @@ export function FieldSelect({
           {label}
         </span>
       )}
-      <select {...props} className={cn(baseControl, className)}>
+      <select
+        {...props}
+        className={cn(
+          baseControl,
+          "[&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-neutral-900 dark:[&>option]:text-white",
+          className,
+        )}
+      >
         {children}
       </select>
       {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}

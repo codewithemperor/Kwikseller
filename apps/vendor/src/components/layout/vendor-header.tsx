@@ -65,7 +65,7 @@ export function VendorHeader({
   const [activeSearchAnchor, setActiveSearchAnchor] = React.useState<"desktop" | "icon">("icon");
   const desktopSearchRef = React.useRef<HTMLButtonElement>(null);
   const iconSearchRef = React.useRef<HTMLButtonElement>(null);
-  const { searchProvider, searchSubmit } = useVendorPageContext();
+  const { searchProvider, searchSubmit, idleSearchItems } = useVendorPageContext();
 
   const userName =
     vendorNameProp ||
@@ -193,6 +193,7 @@ export function VendorHeader({
           placeholder="Search products, orders, inventory..."
           historyKey="kwikseller-vendor-search-history"
           showTrending={false}
+          idleItems={idleSearchItems}
           emptyLabel="No matching products, orders, or inventory."
           footerLabel="Search your vendor workspace"
           loadSuggestions={loadVendorSuggestions}

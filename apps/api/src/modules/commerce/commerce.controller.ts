@@ -275,8 +275,9 @@ export class VendorCommerceController {
     @Query('limit') limit?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('dateRange') dateRange?: string,
   ) {
-    return this.commerce.listVendorOrders(user, { page, limit, status, search });
+    return this.commerce.listVendorOrders(user, { page, limit, status, search, dateRange });
   }
 
   @Get('orders/:orderId')

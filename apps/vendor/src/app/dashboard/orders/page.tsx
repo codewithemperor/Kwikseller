@@ -165,13 +165,14 @@ export default function VendorOrdersPage() {
   }, [deferredSearch, statusTab]);
 
   const ordersQuery = useQuery({
-    queryKey: ["vendor-orders", page, activeTab.queryStatus ?? "ALL", deferredSearch],
+    queryKey: ["vendor-orders", page, activeTab.queryStatus ?? "ALL", deferredSearch, dateRange],
     queryFn: async () => {
       const response = await vendorCommerceApi.listOrders({
         page,
         limit: PAGE_SIZE,
         status: activeTab.queryStatus ?? "ALL",
         search: deferredSearch || undefined,
+        dateRange,
       });
       return unwrapApiData<OrderListResponse>(response.data);
     },
@@ -210,9 +211,10 @@ export default function VendorOrdersPage() {
       limit: 8,
       status: activeTab.queryStatus ?? "ALL",
       search: query,
+      dateRange,
     });
     return unwrapApiData<OrderListResponse>(response.data).items.map(orderSearchItem);
-  }, [activeTab.queryStatus, orders]);
+  }, [activeTab.queryStatus, dateRange, orders]);
 
   const applyHeaderSearch = React.useCallback((query: string) => {
     setSearch(query);
@@ -387,7 +389,7 @@ export default function VendorOrdersPage() {
           <select
             value={dateRange}
             onChange={(event) => setDateRange(event.target.value)}
-            className="h-10 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition focus:border-accent"
+            className="h-9 w-36 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition focus:border-accent"
           >
             {dateRangeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -455,9 +457,13 @@ export default function VendorOrdersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-16 text-center">
-                    <p className="text-base font-semibold text-foreground">No orders found</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Try another status or search term.</p>
+                  <td colSpan={columns.length} className="px-4 py-16">
+                    <div className="sticky left-0 flex w-[calc(100vw-3rem)] max-w-full justify-center text-center md:w-full">
+                      <div>
+                        <p className="text-base font-semibold text-foreground">No orders found</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Try another status or search term.</p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               )}

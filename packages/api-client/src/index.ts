@@ -687,7 +687,7 @@ export const vendorCommerceApi = {
   addDigitalAsset: (productId: string, data: Partial<DigitalAsset>) =>
     api.post<DigitalAsset>('/vendor/digital-assets', { productId, ...data }),
 
-  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number }) =>
+  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number; dateRange?: string }) =>
     api.get('/vendor/orders', { params }),
 
   getOrder: (orderId: string) =>

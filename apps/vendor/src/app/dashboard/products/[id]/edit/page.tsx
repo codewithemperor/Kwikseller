@@ -2,29 +2,35 @@
 
 import React from "react";
 import {
-  ChevronRight,
+  Bold,
   ImageIcon,
+  Italic,
+  List,
+  ListOrdered,
   Loader2,
+  RefreshCw,
   Upload,
   X,
   GripVertical,
 } from "lucide-react";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
+import { VendorSecondaryTabs } from "@/components/vendor-secondary-tabs";
 import { vendorCommerceApi, uploadApi } from "@kwikseller/api-client";
 import type { ProductType, ProductStatus } from "@kwikseller/types";
 import {
   AppButton,
+  AppImage,
   AppModal,
   AppSwitch,
   FieldInput,
   FieldSelect,
-  FieldTextarea,
   Skeleton,
   SkeletonText,
   VendorPageHeader,
 } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use } from "react";
 import { motion } from "framer-motion";
 
@@ -79,12 +85,103 @@ function uploadedUrl(response: any) {
 
 /* ─── Page ─── */
 
+function RichTextEditor({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const editorRef = React.useRef<HTMLDivElement>(null);
+  const lastValueRef = React.useRef(value);
+
+  React.useEffect(() => {
+    if (editorRef.current && value !== lastValueRef.current) {
+      editorRef.current.innerHTML = value;
+      lastValueRef.current = value;
+    }
+  }, [value]);
+
+  const runCommand = (command: string, commandValue?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, commandValue);
+    const next = editorRef.current?.innerHTML ?? "";
+    lastValueRef.current = next;
+    onChange(next);
+  };
+
+  const styleOptions = [
+    { value: "p", label: "Paragraph" },
+    { value: "h1", label: "Heading 1" },
+    { value: "h2", label: "Heading 2" },
+    { value: "h3", label: "Heading 3" },
+    { value: "h4", label: "Heading 4" },
+    { value: "h5", label: "Heading 5" },
+    { value: "h6", label: "Heading 6" },
+  ];
+
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      <div className="mt-1 overflow-hidden rounded-2xl border border-border bg-background">
+        <div className="flex min-w-0 items-center gap-1 border-b border-border p-2">
+          <select
+            aria-label="Text style"
+            defaultValue="p"
+            onChange={(event) => runCommand("formatBlock", event.target.value)}
+            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none dark:border-white/10 dark:bg-neutral-900 dark:text-white [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-neutral-900 dark:[&>option]:text-white"
+          >
+            {styleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => runCommand("bold")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-default hover:text-foreground" aria-label="Bold">
+            <Bold className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" onClick={() => runCommand("italic")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-default hover:text-foreground" aria-label="Italic">
+            <Italic className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" onClick={() => runCommand("insertUnorderedList")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-default hover:text-foreground" aria-label="Bullet list">
+            <List className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" onClick={() => runCommand("insertOrderedList")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-default hover:text-foreground" aria-label="Numbered list">
+            <ListOrdered className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-label={label}
+          data-placeholder={placeholder}
+          dangerouslySetInnerHTML={{ __html: value }}
+          onInput={(event) => {
+            const next = event.currentTarget.innerHTML;
+            lastValueRef.current = next;
+            onChange(next);
+          }}
+          className="rich-text-editor min-h-40 px-4 py-3 text-sm leading-6 text-foreground outline-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]"
+        />
+      </div>
+    </label>
+  );
+}
+
 export default function EditProductPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
+  const isCreateMode = id === "new";
 
   // Tab state
   const [activeTab, setActiveTab] = React.useState<TabKey>("basic");
@@ -137,9 +234,20 @@ export default function EditProductPage({
   const [isUploading, setIsUploading] = React.useState(false);
   const [productFound, setProductFound] = React.useState(true);
   const [isCancelModalOpen, setIsCancelModalOpen] = React.useState(false);
+  const [pendingTab, setPendingTab] = React.useState<TabKey | null>(null);
+  const [isTabGuardOpen, setIsTabGuardOpen] = React.useState(false);
+  const [createdProductId, setCreatedProductId] = React.useState<string | null>(null);
+  const [highestReachedTab, setHighestReachedTab] = React.useState<TabKey>("basic");
 
   // Dirty tracking
   const initialDataRef = React.useRef<string>("");
+  const initialSectionDataRef = React.useRef<Record<TabKey, string>>({
+    basic: "",
+    pricing: "",
+    inventory: "",
+    images: "",
+    visibility: "",
+  });
 
   const buildFormDataString = React.useCallback(() => {
     return JSON.stringify({
@@ -200,6 +308,104 @@ export default function EditProductPage({
   const isDirty = React.useMemo(() => {
     return buildFormDataString() !== initialDataRef.current;
   }, [buildFormDataString]);
+
+  const buildSectionDataString = React.useCallback((tab: TabKey) => {
+    const sectionData = {
+      basic: { name, description, category, tags, sku },
+      pricing: { price, comparePrice, costPrice, currency, taxable },
+      inventory: { stock, lowStock, allowBackorders, trackInventory, unlimitedStock },
+      images: { images, mainImageAlt },
+      visibility: { status, featured, publishDate, poolEnabled, poolBasePrice, poolMinSalePrice, poolMaxSelectableQuantity },
+    }[tab];
+    return JSON.stringify(sectionData);
+  }, [
+    name,
+    description,
+    category,
+    tags,
+    sku,
+    price,
+    comparePrice,
+    costPrice,
+    currency,
+    taxable,
+    stock,
+    lowStock,
+    allowBackorders,
+    trackInventory,
+    unlimitedStock,
+    images,
+    mainImageAlt,
+    status,
+    featured,
+    publishDate,
+    poolEnabled,
+    poolBasePrice,
+    poolMinSalePrice,
+    poolMaxSelectableQuantity,
+  ]);
+
+  const isActiveSectionDirty = React.useMemo(
+    () => buildSectionDataString(activeTab) !== initialSectionDataRef.current[activeTab],
+    [activeTab, buildSectionDataString],
+  );
+
+  const syncInitialSnapshots = React.useCallback(() => {
+    initialDataRef.current = buildFormDataString();
+    initialSectionDataRef.current = {
+      basic: buildSectionDataString("basic"),
+      pricing: buildSectionDataString("pricing"),
+      inventory: buildSectionDataString("inventory"),
+      images: buildSectionDataString("images"),
+      visibility: buildSectionDataString("visibility"),
+    };
+  }, [buildFormDataString, buildSectionDataString]);
+
+  const textFromHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+  const validateSection = React.useCallback((tab: TabKey) => {
+    if (tab === "basic") {
+      if (!name.trim()) {
+        kwikToast.error("Product name is required");
+        return false;
+      }
+      if (!textFromHtml(description)) {
+        kwikToast.error("Product description is required");
+        return false;
+      }
+      if (!category) {
+        kwikToast.error("Select a product category");
+        return false;
+      }
+    }
+    if (tab === "pricing" && Number(price) <= 0) {
+      kwikToast.error("Price must be greater than zero");
+      return false;
+    }
+    if (tab === "inventory" && productType === "PHYSICAL" && trackInventory && !unlimitedStock) {
+      if (Number(stock) < 0 || Number(lowStock) < 0) {
+        kwikToast.error("Inventory values cannot be negative");
+        return false;
+      }
+    }
+    if (tab === "images" && images.length === 0) {
+      kwikToast.error("Add at least one product image");
+      return false;
+    }
+    if (tab === "visibility" && !status) {
+      kwikToast.error("Select a product status");
+      return false;
+    }
+    return true;
+  }, [category, description, images.length, lowStock, name, price, productType, status, stock, trackInventory, unlimitedStock]);
+
+  const validateBeforeTab = React.useCallback((nextTab: TabKey) => {
+    const nextIndex = TABS.findIndex((tab) => tab.key === nextTab);
+    for (let index = 0; index < nextIndex; index += 1) {
+      if (!validateSection(TABS[index].key)) return false;
+    }
+    return true;
+  }, [validateSection]);
 
   // Persist to localStorage on tab change
   const persistToLocalStorage = React.useCallback(() => {
@@ -274,6 +480,14 @@ export default function EditProductPage({
     const loadProduct = async () => {
       setIsLoading(true);
 
+      if (isCreateMode) {
+        setIsLoading(false);
+        setTimeout(() => {
+          syncInitialSnapshots();
+        }, 0);
+        return;
+      }
+
       // Try localStorage first
       try {
         const saved = localStorage.getItem(`kwikseller_product_edit_${id}`);
@@ -307,6 +521,9 @@ export default function EditProductPage({
             setPoolMaxSelectableQuantity(data.poolMaxSelectableQuantity || 0);
             setProductSource(data.productSource || "VENDOR_STOCK");
             setIsLoading(false);
+            setTimeout(() => {
+              syncInitialSnapshots();
+            }, 0);
             return;
           }
         }
@@ -352,7 +569,7 @@ export default function EditProductPage({
 
         // Store initial data for dirty tracking after load
         setTimeout(() => {
-          initialDataRef.current = buildFormDataString();
+          syncInitialSnapshots();
         }, 0);
       } catch (error) {
         kwikToast.error(
@@ -363,8 +580,7 @@ export default function EditProductPage({
       }
     };
     loadProduct();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, isCreateMode]);
 
   // Persist on tab change
   React.useEffect(() => {
@@ -418,18 +634,64 @@ export default function EditProductPage({
   };
 
   // Save handler
-  const handleSave = async (saveAsDraft = false) => {
-    if (!name.trim()) {
-      kwikToast.error("Product name is required");
-      return;
-    }
-    if (Number(price) <= 0) {
-      kwikToast.error("Price must be greater than zero");
-      return;
-    }
+  const handleSave = async (saveAsDraft = false): Promise<boolean> => {
+    if (!validateSection(activeTab)) return false;
 
     setIsSaving(true);
     try {
+      if (isCreateMode) {
+        if (activeTab === "basic") {
+          initialSectionDataRef.current[activeTab] = buildSectionDataString(activeTab);
+          kwikToast.success(`${activeTabLabel} saved`);
+          moveToNextTabAfterSave();
+          return true;
+        }
+
+        const payload = {
+          name: name.trim(),
+          description: description || undefined,
+          price: Number(price),
+          comparePrice: comparePrice ? Number(comparePrice) : undefined,
+          sku: sku || undefined,
+          categoryId: category || undefined,
+          productType,
+          status: activeTab === "visibility" ? (saveAsDraft ? "DRAFT" : status) : "DRAFT",
+          requiresShipping: productType === "PHYSICAL",
+          trackInventory: productType === "PHYSICAL" ? trackInventory : false,
+          initialStock: productType === "PHYSICAL" && !unlimitedStock ? Number(stock) : undefined,
+          lowStock: productType === "PHYSICAL" ? Number(lowStock) : undefined,
+          images,
+          poolEnabled: productType === "PHYSICAL" ? poolEnabled : false,
+          poolBasePrice: poolEnabled ? Number(poolBasePrice || price) : undefined,
+          poolMinSalePrice: poolEnabled
+            ? Number(poolMinSalePrice || poolBasePrice || price)
+            : undefined,
+          poolMaxSelectableQuantity:
+            poolEnabled && poolMaxSelectableQuantity
+              ? Number(poolMaxSelectableQuantity)
+              : undefined,
+        };
+
+        if (createdProductId) {
+          await vendorCommerceApi.updateProduct(createdProductId, payload);
+        } else {
+          const response = await vendorCommerceApi.createProduct(payload);
+          const created = unwrapApiData<any>(response.data);
+          if (created?.id) setCreatedProductId(created.id);
+        }
+
+        initialDataRef.current = buildFormDataString();
+        initialSectionDataRef.current[activeTab] = buildSectionDataString(activeTab);
+        if (activeTab === "visibility") {
+          kwikToast.success("Product created");
+          router.push("/dashboard/products");
+        } else {
+          kwikToast.success(`${activeTabLabel} saved`);
+          moveToNextTabAfterSave();
+        }
+        return true;
+      }
+
       if (productSource === "POOL_RESALE") {
         await vendorCommerceApi.updateProduct(id, {
           price: Number(price),
@@ -440,7 +702,9 @@ export default function EditProductPage({
         } catch {
           // ignore
         }
-        return;
+        initialDataRef.current = buildFormDataString();
+        initialSectionDataRef.current[activeTab] = buildSectionDataString(activeTab);
+        return true;
       }
 
       await vendorCommerceApi.updateProduct(id, {
@@ -449,6 +713,7 @@ export default function EditProductPage({
         price: Number(price),
         comparePrice: comparePrice ? Number(comparePrice) : undefined,
         sku: sku || undefined,
+        categoryId: category || undefined,
         productType,
         status: saveAsDraft ? "DRAFT" : status,
         images,
@@ -469,14 +734,57 @@ export default function EditProductPage({
       } catch {
         // ignore
       }
+      initialDataRef.current = buildFormDataString();
+      initialSectionDataRef.current[activeTab] = buildSectionDataString(activeTab);
+      return true;
     } catch (error) {
       kwikToast.error(
         error instanceof Error ? error.message : "Failed to update product"
       );
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleTabChange = (nextTab: string) => {
+    const typedTab = nextTab as TabKey;
+    if (typedTab === activeTab) return;
+    if (isCreateMode && !validateBeforeTab(typedTab)) return;
+    if (isActiveSectionDirty) {
+      setPendingTab(typedTab);
+      setIsTabGuardOpen(true);
+      return;
+    }
+    setActiveTab(typedTab);
+    setHighestReachedTab(typedTab);
+  };
+
+  const saveAndSwitchTab = async () => {
+    const saved = await handleSave(false);
+    if (!saved || !pendingTab) return;
+    setActiveTab(pendingTab);
+    setHighestReachedTab(pendingTab);
+    setPendingTab(null);
+    setIsTabGuardOpen(false);
+  };
+
+  const continueTabSwitch = () => {
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setHighestReachedTab(pendingTab);
+    }
+    setPendingTab(null);
+    setIsTabGuardOpen(false);
+  };
+
+  const moveToNextTabAfterSave = React.useCallback(() => {
+    const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
+    const nextTab = TABS[currentIndex + 1]?.key;
+    if (nextTab) {
+      setHighestReachedTab(nextTab);
+    }
+  }, [activeTab]);
 
   // Warn on navigation if dirty
   const handleCancel = () => {
@@ -506,11 +814,11 @@ export default function EditProductPage({
     return (
       <div className="safe-container pb-24">
         <VendorPageHeader
-          title="Edit Product"
-          description="Update product details, pricing, and inventory."
+          title={isCreateMode ? "Add Product" : "Edit Product"}
+          description={isCreateMode ? "Create product details, pricing, and inventory." : "Update product details, pricing, and inventory."}
           breadcrumbs={[
             { label: "Products", href: "/dashboard/products" },
-            { label: "Edit Product" },
+            { label: isCreateMode ? "Add Product" : "Edit Product" },
           ]}
         />
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl">
@@ -634,11 +942,10 @@ export default function EditProductPage({
         />
       </div>
       <div className="sm:col-span-2">
-        <FieldTextarea
+        <RichTextEditor
           label="Description"
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={6}
+          onChange={setDescription}
           placeholder="Describe your product in detail..."
         />
         <p className="mt-1 text-xs text-muted-foreground text-right">
@@ -848,10 +1155,11 @@ export default function EditProductPage({
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             ) : images.length > 0 ? (
               <div className="relative h-full w-full">
-                <img
+                <AppImage
                   src={images[0]}
                   alt="Main product"
                   className="max-h-40 w-auto mx-auto object-contain"
+                  objectFit="contain"
                 />
               </div>
             ) : (
@@ -899,10 +1207,11 @@ export default function EditProductPage({
                 <div className="absolute left-1 top-1 z-10 cursor-grab text-muted-foreground opacity-0 group-hover:opacity-100 transition">
                   <GripVertical className="h-4 w-4" />
                 </div>
-                <img
+                <AppImage
                   src={url}
                   alt={mainImageAlt || `Gallery image ${idx + 2}`}
                   className="h-full w-full object-cover"
+                  objectFit="cover"
                 />
                 <button
                   type="button"
@@ -987,6 +1296,8 @@ export default function EditProductPage({
     images: renderImages,
     visibility: renderVisibility,
   };
+  const activeTabLabel = TABS.find((tab) => tab.key === activeTab)?.label ?? "Section";
+  const highestReachedIndex = TABS.findIndex((tab) => tab.key === highestReachedTab);
 
   return (
     <motion.div
@@ -997,49 +1308,42 @@ export default function EditProductPage({
     >
       {/* Page Header */}
       <VendorPageHeader
-        title="Edit Product"
-        description="Update product details, pricing, and inventory."
+        title={isCreateMode ? "Add Product" : "Edit Product"}
+        description={isCreateMode ? "Create product details, pricing, and inventory." : "Update product details, pricing, and inventory."}
         breadcrumbs={[
           { label: "Products", href: "/dashboard/products" },
-          { label: "Edit Product" },
+          { label: isCreateMode ? "Add Product" : "Edit Product" },
         ]}
         actions={
-          <div className="hidden lg:flex gap-2">
-            <AppButton
+          <>
+            <button
               type="button"
-              variant="secondary"
-              onClick={() => setProductType(productType)}
-              disabled
+              onClick={() => window.location.reload()}
+              className="inline-flex h-9 items-center gap-2 px-1 text-sm font-semibold text-foreground transition hover:text-accent"
             >
-              {productType === "PHYSICAL" ? "Physical" : "Digital"} Product
-            </AppButton>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
             {isDirty && (
               <span className="inline-flex items-center text-xs text-amber-600 dark:text-amber-400">
                 Unsaved changes
               </span>
             )}
-          </div>
+          </>
         }
       />
 
-      {/* Tab Navigation */}
-      <div className="mt-6 border-b border-kwik-border mb-6">
-        <div className="flex gap-0 overflow-x-auto scrollbar-hide -mb-px">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`shrink-0 px-4 py-3 text-sm font-medium transition border-b-2 whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-accent"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="sticky top-20 z-20 -mx-1 mb-6 mt-6 bg-kwik-bg-page px-1 py-2">
+        <VendorSecondaryTabs
+          items={TABS.map((tab, index) => ({
+            label: tab.label,
+            value: tab.key,
+            disabled: isCreateMode && index > highestReachedIndex,
+          }))}
+          value={activeTab}
+          onChange={handleTabChange}
+          ariaLabel="Product edit sections"
+        />
       </div>
 
       {/* Tab Content */}
@@ -1100,40 +1404,18 @@ export default function EditProductPage({
         </section>
       )}
 
-      {/* Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-kwik-border bg-surface lg:static lg:border-t lg:mt-8 lg:pt-6">
-        <div className="safe-container flex items-center justify-between gap-3 py-3 lg:py-0">
+      <div className="mt-8 flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <AppButton type="button" variant="ghost" onClick={handleCancel}>
+          Cancel
+        </AppButton>
           <AppButton
-            type="button"
-            variant="ghost"
-            onClick={handleCancel}
-            className="hidden lg:inline-flex"
-          >
-            Cancel
-          </AppButton>
-          <div className="flex w-full gap-2 lg:w-auto">
-            <AppButton
-              type="button"
-              variant="secondary"
-              onClick={() => handleSave(true)}
-              isLoading={isSaving}
-              fullWidth
-              className="lg:w-auto"
-            >
-              Save as Draft
-            </AppButton>
-            <AppButton
-              type="button"
-              variant="primary"
-              onClick={() => handleSave(false)}
-              isLoading={isSaving}
-              fullWidth
-              className="lg:w-auto"
-            >
-              Save Changes
-            </AppButton>
-          </div>
-        </div>
+          type="button"
+          variant="primary"
+          onClick={() => handleSave(false)}
+          isLoading={isSaving}
+        >
+          {isCreateMode && activeTab === "visibility" ? "Create Product" : `Save ${activeTabLabel}`}
+        </AppButton>
       </div>
 
       <AppModal
@@ -1149,6 +1431,26 @@ export default function EditProductPage({
           </AppButton>
           <AppButton type="button" variant="danger" onClick={confirmCancel}>
             Discard & leave
+          </AppButton>
+        </div>
+      </AppModal>
+
+      <AppModal
+        isOpen={isTabGuardOpen}
+        onClose={() => {
+          setIsTabGuardOpen(false);
+          setPendingTab(null);
+        }}
+        title="Save changes first?"
+        description="You have unsaved changes in this product. Save before moving to another section, or continue anyway."
+        className="sm:max-w-md"
+      >
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <AppButton type="button" variant="secondary" onClick={continueTabSwitch}>
+            Continue anyway
+          </AppButton>
+          <AppButton type="button" variant="primary" onClick={saveAndSwitchTab} isLoading={isSaving}>
+            Save
           </AppButton>
         </div>
       </AppModal>

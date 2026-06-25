@@ -59,8 +59,8 @@ function HeaderActionMenu({ children }: { children: React.ReactNode }) {
         <MoreVertical className="h-5 w-5" strokeWidth={1.9} />
       </button>
       {open ? (
-        <div className="absolute right-0 top-full z-30 mt-2 min-w-56 rounded-xl border border-border bg-background p-2 shadow-xl">
-          <div className="flex min-w-0 flex-col gap-2">
+        <div className="absolute right-0 top-full z-30 mt-2 min-w-44 rounded-xl border border-border bg-background p-2 shadow-xl">
+          <div className="flex min-w-0 flex-col gap-1 [&>a]:justify-start [&>a]:rounded-lg [&>a]:px-2 [&>a]:py-2 [&>button]:justify-start [&>button]:rounded-lg [&>button]:px-2 [&>button]:py-2">
             {children}
           </div>
         </div>

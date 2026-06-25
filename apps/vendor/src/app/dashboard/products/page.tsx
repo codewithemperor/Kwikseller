@@ -5,38 +5,34 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Package,
   PackagePlus,
-  Pencil,
   Plus,
   RefreshCw,
-  Search,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
-import { VendorToolbar } from "@/components/dashboard/vendor-dashboard-ui";
-import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
+import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
+import { useVendorPageSearch } from "@/components/vendor-page-context";
 import { useVendorProductsStore } from "@/stores/vendor-products-store";
 import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
 import type { Product, ProductType } from "@kwikseller/types";
 import {
   AppButton,
+  AppImage,
   AppModal,
   AppSwitch,
   EmptyState,
   FieldInput,
   FieldSelect,
   FieldTextarea,
-  ProductCard as SharedProductCard,
   Skeleton,
   VendorMetricCard,
   VendorPageHeader,
+  type SearchAutoSuggestItem,
 } from "@kwikseller/ui";
-import type { Product as SharedProduct } from "@kwikseller/ui";
 import { kwikToast } from "@kwikseller/utils";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { VendorProductCard as VendorMarketplaceProductCard } from "@/components/vendor-product-card";
 import { motion } from "framer-motion";
@@ -67,6 +63,16 @@ const STATUS_OPTIONS = [
   { value: "DRAFT", label: "Draft" },
   { value: "ARCHIVED", label: "Archived" },
 ];
+
+function productSearchItem(product: Product): SearchAutoSuggestItem {
+  return {
+    id: product.id,
+    type: "product",
+    text: product.name,
+    subtext: `${product.category?.name ?? product.productType ?? "Product"} · ${product.status}`,
+    href: `/dashboard/products/${product.id}/edit`,
+  };
+}
 
 const blankForm = {
   name: "",
@@ -108,13 +114,6 @@ function isPoolResaleProduct(product: Product) {
   return product.productSource === "POOL_RESALE";
 }
 
-function statusColor(status: string) {
-  if (status === "ACTIVE") return "text-emerald-600 dark:text-emerald-400";
-  if (status === "DRAFT") return "text-amber-600 dark:text-amber-400";
-  if (status === "ARCHIVED") return "text-muted-foreground";
-  return "text-muted-foreground";
-}
-
 /* ─── Skeleton Card ─── */
 
 function ProductSkeletonCard() {
@@ -132,130 +131,6 @@ function ProductSkeletonCard() {
         </div>
       </div>
     </div>
-  );
-}
-
-/* ─── Product Card ─── */
-
-function VendorProductCard({
-  product,
-  selected,
-  onToggleSelect,
-  onView,
-  onDelete,
-}: {
-  product: Product;
-  selected: boolean;
-  onToggleSelect: () => void;
-  onView: () => void;
-  onDelete: () => void;
-}) {
-  const image = productImageSrc(product);
-  const inventory = product.inventoryItems?.[0];
-  const stock = inventory?.available ?? product.stock ?? 0;
-  const poolResale = isPoolResaleProduct(product);
-  const sharedProduct: SharedProduct = {
-    id: product.id,
-    name: product.name,
-    description: product.description ?? undefined,
-    price: Number(product.price ?? 0),
-    comparePrice: product.comparePrice ?? undefined,
-    images: image ? [image] : [],
-    stock,
-    store: product.store ? { name: product.store.name, slug: product.store.slug ?? "" } : undefined,
-    isPoolProduct: product.poolEnabled || poolResale,
-  };
-
-  return (
-    <article className="relative overflow-hidden border border-border bg-background dark:bg-white/5">
-      {/* Image area */}
-      <div className="relative">
-        <SharedProductCard
-          product={sharedProduct}
-          variant="compact"
-          showStore={false}
-          showRating={false}
-          showQuickActions={false}
-          onClick={onView}
-          className="w-full border-0 shadow-none"
-        />
-        {/* Checkbox overlay */}
-        {!poolResale ? (
-          <button
-            type="button"
-            onClick={onToggleSelect}
-            className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition"
-            aria-label={selected ? "Deselect" : "Select"}
-          >
-            {selected ? (
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground">
-                <Check className="h-3.5 w-3.5 text-white" />
-              </span>
-            ) : (
-              <span className="h-4 w-4 rounded-sm border border-muted bg-background" />
-            )}
-          </button>
-        ) : null}
-        {/* Status badge */}
-        <span className={`absolute right-2 top-2 z-10 rounded-full bg-background/90 px-2 py-1 text-[11px] font-semibold shadow-sm ${statusColor(product.status)}`}>
-          {product.status}
-        </span>
-      </div>
-
-      {/* Info area */}
-      <div className="border-t border-border p-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-muted">Stock: {stock}</span>
-          <span className="text-xs font-semibold text-foreground">{formatCurrency(product.price)}</span>
-        </div>
-
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted">
-          <span>{product.productType ?? "PHYSICAL"}</span>
-          <span>•</span>
-          <span>{product.sku ?? product.id.slice(0, 8)}</span>
-          {(product.poolEnabled || poolResale) && (
-            <>
-              <span>•</span>
-              <span className={poolResale ? "text-orange-600" : "text-emerald-600"}>
-                {poolResale ? "Pool sourced" : "Pool"}
-              </span>
-            </>
-          )}
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <Link
-            href={`/dashboard/products/${product.id}/edit`}
-            className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-foreground transition hover:border-accent hover:text-accent"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            {poolResale ? "Edit price" : "Edit"}
-          </Link>
-          <AppButton
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={onView}
-            className="h-9 px-2"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            View
-          </AppButton>
-          {!poolResale ? (
-            <AppButton
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={onDelete}
-              className="h-9 px-2 hover:border-danger hover:text-danger"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </AppButton>
-          ) : null}
-        </div>
-      </div>
-    </article>
   );
 }
 
@@ -287,7 +162,7 @@ function DeleteConfirmModal({
         <AppButton type="button" variant="secondary" onClick={onClose}>
           Cancel
         </AppButton>
-        <AppButton type="button" variant="danger" onClick={onConfirm} isLoading={isDeleting}>
+        <AppButton type="button" variant="danger" onClick={onConfirm} isLoading={isDeleting} className="bg-red-600 text-white hover:bg-red-700">
           <Trash2 className="h-4 w-4" />
           Delete
         </AppButton>
@@ -446,7 +321,7 @@ function CreateProductModal({
               <div className="grid grid-cols-5 gap-2">
                 {form.images.map((url) => (
                   <button key={url} type="button" onClick={() => setForm((c) => ({ ...c, images: c.images.filter((img) => img !== url) }))} className="aspect-square overflow-hidden rounded-lg border border-kwik-border bg-default-100" title="Remove image">
-                    <img src={url} alt="" className="h-full w-full object-cover" />
+                    <AppImage src={url} alt="" className="h-full w-full object-cover" objectFit="cover" />
                   </button>
                 ))}
               </div>
@@ -598,7 +473,6 @@ export default function VendorProductsPage() {
   // Filters
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("");
-  const [categoryFilter, setCategoryFilter] = React.useState("");
 
   // Pagination
   const [page, setPage] = React.useState(1);
@@ -610,12 +484,8 @@ export default function VendorProductsPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // Create
-  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
-
   // Bulk actions
   const [bulkStatus, setBulkStatus] = React.useState("");
-  const [bulkCategory, setBulkCategory] = React.useState("");
   const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
 
   React.useEffect(() => {
@@ -628,7 +498,66 @@ export default function VendorProductsPage() {
   React.useEffect(() => {
     setPage(1);
     setSelectedIds(new Set());
-  }, [searchQuery, statusFilter, categoryFilter]);
+  }, [searchQuery, statusFilter]);
+
+  const headerSearchItems = React.useMemo<SearchAutoSuggestItem[]>(() => {
+    const categoryItems = CATEGORIES.slice(0, 6).map((category) => ({
+      id: category,
+      type: "category",
+      text: category,
+      subtext: "Product category",
+    }));
+    const statusItems = STATUS_OPTIONS.filter((item) => item.value).map((item) => ({
+      id: item.value,
+      type: "page",
+      text: item.label,
+      subtext: "Product status",
+    }));
+    return [...categoryItems, ...statusItems].slice(0, 8);
+  }, []);
+
+  const searchProductsFromHeader = React.useCallback((query: string): SearchAutoSuggestItem[] => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return headerSearchItems;
+
+    const categoryMatches = CATEGORIES
+      .filter((category) => category.toLowerCase().includes(normalized))
+      .slice(0, 4)
+      .map((category) => ({
+        id: category,
+        type: "category",
+        text: category,
+        subtext: "Product category",
+      }));
+
+    const productMatches = products
+      .filter((product) =>
+        [
+          product.name,
+          product.sku,
+          product.description,
+          product.status,
+          product.category?.name,
+          product.productType,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalized)),
+      )
+      .slice(0, 8 - categoryMatches.length)
+      .map(productSearchItem);
+
+    return [...categoryMatches, ...productMatches];
+  }, [headerSearchItems, products]);
+
+  const applyHeaderSearch = React.useCallback((query: string) => {
+    const normalized = query.trim().toLowerCase();
+    const matchedStatus = STATUS_OPTIONS.find((item) => item.value && item.label.toLowerCase() === normalized);
+    setStatusFilter(matchedStatus?.value ?? "");
+    setSearchQuery(matchedStatus ? "" : query);
+    setPage(1);
+  }, []);
+
+  useVendorPageSearch(searchProductsFromHeader, applyHeaderSearch, headerSearchItems);
 
   // Derived data
   const filteredProducts = React.useMemo(() => {
@@ -636,17 +565,23 @@ export default function VendorProductsPage() {
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       result = result.filter((p) =>
-        [p.name, p.sku, p.description].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+        [
+          p.name,
+          p.sku,
+          p.description,
+          p.status,
+          p.category?.name,
+          p.productType,
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
       );
     }
     if (statusFilter) {
       result = result.filter((p) => p.status === statusFilter);
     }
-    if (categoryFilter) {
-      result = result.filter((p) => p.category?.name === categoryFilter);
-    }
     return result;
-  }, [products, searchQuery, statusFilter, categoryFilter]);
+  }, [products, searchQuery, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
   const paginatedProducts = filteredProducts.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -731,17 +666,15 @@ export default function VendorProductsPage() {
     } finally {
       setIsBulkProcessing(false);
       setBulkStatus("");
-      setBulkCategory("");
     }
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilter("");
-    setCategoryFilter("");
   };
 
-  const hasActiveFilters = searchQuery || statusFilter || categoryFilter;
+  const hasActiveFilters = searchQuery || statusFilter;
 
   return (
     <motion.div
@@ -755,21 +688,25 @@ export default function VendorProductsPage() {
         title="Products"
         description="Create, review, and manage your store products."
         actions={
-          <div className="flex gap-2">
-          <AppButton
+          <>
+          <button
             type="button"
-            variant="secondary"
             onClick={() => refreshProducts().catch((e) => kwikToast.error(e instanceof Error ? e.message : "Could not refresh"))}
             disabled={isLoading}
+            className="inline-flex h-9 items-center gap-2 px-1 text-sm font-semibold text-foreground transition hover:text-accent disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
-          </AppButton>
-          <AppButton type="button" onClick={() => setIsCreateOpen(true)}>
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/products/new/edit")}
+            className="inline-flex h-9 items-center gap-2 px-1 text-sm font-semibold text-foreground transition hover:text-accent"
+          >
             <Plus className="h-4 w-4" />
             Add Product
-          </AppButton>
-          </div>
+          </button>
+          </>
         }
       />
 
@@ -778,7 +715,7 @@ export default function VendorProductsPage() {
         variants={{ show: { transition: { staggerChildren: 0.05 } } }}
         initial="hidden"
         animate="show"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-3"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
       >
         <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
           <VendorMetricCard
@@ -786,6 +723,7 @@ export default function VendorProductsPage() {
             value={String(stats.total)}
             description="All owned and Pool-sourced products in your store."
             icon={Package}
+            variant="solid"
           />
         </motion.div>
         <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}>
@@ -806,42 +744,16 @@ export default function VendorProductsPage() {
         </motion.div>
       </motion.section>
 
-      {/* Filters / Search Bar */}
-      <VendorToolbar>
-        <div className="flex-1">
-          <FieldInput
-            placeholder="Search by name or SKU..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="!mt-0"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-[1fr_1fr_auto]">
-          <FieldSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="!mt-0">
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </FieldSelect>
-          <FieldSelect value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="!mt-0">
-            <option value="">All Categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </FieldSelect>
-          {hasActiveFilters && (
-            <AppButton
-              type="button"
-              variant="ghost"
-              size="md"
-              onClick={clearFilters}
-              className="h-11"
-            >
-              <X className="h-3.5 w-3.5" />
-              Clear
-            </AppButton>
-          )}
-        </div>
-      </VendorToolbar>
+      {hasActiveFilters ? (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-accent"
+        >
+          <X className="h-3.5 w-3.5" />
+          Clear product search
+        </button>
+      ) : null}
 
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
@@ -931,12 +843,12 @@ export default function VendorProductsPage() {
         </>
       ) : (
         <EmptyState
-          variant={searchQuery || statusFilter || categoryFilter ? "search" : "products"}
-          title={searchQuery || statusFilter || categoryFilter ? "No matching products" : "No products yet"}
-          description={searchQuery || statusFilter || categoryFilter ? "Try adjusting your filters." : "Create your first product to get started."}
-          action={!searchQuery && !statusFilter && !categoryFilter ? {
+          variant={searchQuery || statusFilter ? "search" : "products"}
+          title={searchQuery || statusFilter ? "No matching products" : "No products yet"}
+          description={searchQuery || statusFilter ? "Try adjusting your search." : "Create your first product to get started."}
+          action={!searchQuery && !statusFilter ? {
             label: "Add Product",
-            onClick: () => setIsCreateOpen(true),
+            onClick: () => router.push("/dashboard/products/new/edit"),
           } : undefined}
         />
       )}
@@ -953,11 +865,6 @@ export default function VendorProductsPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         isDeleting={isDeleting}
-      />
-      <CreateProductModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={() => refreshProducts().catch(() => undefined)}
       />
     </motion.div>
   );

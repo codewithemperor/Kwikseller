@@ -7,6 +7,7 @@ export type VendorSecondaryTabItem = {
   label: string;
   value: string;
   count?: number;
+  disabled?: boolean;
 };
 
 export function VendorSecondaryTabs({
@@ -25,7 +26,7 @@ export function VendorSecondaryTabs({
   return (
     <section className={cn("scrollbar-hide min-w-0 overflow-x-auto", className)}>
       <div
-        className="inline-flex min-w-max rounded-xl bg-default p-1"
+        className="inline-flex min-w-max rounded-xl bg-background p-1"
         role="tablist"
         aria-label={ariaLabel}
       >
@@ -37,12 +38,14 @@ export function VendorSecondaryTabs({
               type="button"
               role="tab"
               aria-selected={active}
+              disabled={item.disabled}
               onClick={() => onChange(item.value)}
               className={cn(
                 "relative h-10 rounded-lg px-4 text-sm font-semibold transition",
                 active
-                  ? "bg-background text-accent shadow-sm"
+                  ? "text-accent"
                   : "text-muted-foreground hover:text-foreground",
+                item.disabled && "cursor-not-allowed opacity-40 hover:text-muted-foreground",
               )}
             >
               {item.label}

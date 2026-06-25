@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Package, Waves, ShoppingCart, Menu } from "lucide-react";
+import { LayoutDashboard, Package, Waves, ShoppingCart, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface VendorMobileNavProps {
@@ -34,7 +34,7 @@ function isNavActive(pathname: string, href: string) {
  * marketplace's MobileBottomNav pattern (framer-motion layoutId indicator +
  * staggered entrance). Fixed to the bottom on small screens only.
  */
-export function VendorMobileNav({ onMore }: VendorMobileNavProps) {
+export function VendorMobileNav(_props: VendorMobileNavProps) {
   const pathname = usePathname();
 
   return (
@@ -92,17 +92,16 @@ export function VendorMobileNav({ onMore }: VendorMobileNavProps) {
         transition={{ delay: tabs.length * 0.05, type: "spring", stiffness: 300, damping: 25 }}
         className="flex flex-1 items-center justify-center"
       >
-        <button
-          type="button"
-          onClick={onMore}
+        <Link
+          href="/dashboard/profile"
           className="flex w-full flex-col items-center justify-center gap-1 py-1.5"
-          aria-label="Open full menu"
+          aria-label="Open profile"
         >
           <span className="flex h-7 w-7 items-center justify-center">
-            <Menu className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+            <UserRound className={cn("h-5 w-5", isNavActive(pathname, "/dashboard/profile") ? "text-accent" : "text-muted-foreground")} strokeWidth={1.5} />
           </span>
-          <span className="text-[10px] font-medium text-muted-foreground">More</span>
-        </button>
+          <span className={cn("text-[10px] font-medium", isNavActive(pathname, "/dashboard/profile") ? "text-accent" : "text-muted-foreground")}>Profile</span>
+        </Link>
       </motion.div>
     </nav>
   );

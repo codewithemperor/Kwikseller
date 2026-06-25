@@ -23,7 +23,7 @@ export interface VendorMetricCardProps {
 }
 
 const variantSurface: Record<VendorMetricCardVariant, string> = {
-  default: "border border-kwik-border bg-surface text-foreground",
+  default: "border border-border bg-background text-foreground",
   solid: "border border-accent/40 bg-accent text-accent-foreground",
   soft: "border border-accent/20 bg-accent-soft text-accent-soft-foreground",
 };
@@ -57,7 +57,7 @@ export function VendorMetricCard({
       transition={{ duration: 0.3, ease: "easeOut" }}
       whileHover={{ scale: 1.02 }}
       className={cn(
-        "kwik-shadow rounded-2xl p-5 transition-colors",
+        "rounded-xl p-5 transition-colors",
         variantSurface[variant],
         className,
       )}

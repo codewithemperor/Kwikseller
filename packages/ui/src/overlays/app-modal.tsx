@@ -40,12 +40,12 @@ export function AppModal({
       <ModalContainer className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
         <ModalDialog
           className={cn(
-            "max-h-[92dvh] w-full overflow-hidden rounded-t-3xl border border-border bg-background text-foreground shadow-2xl sm:max-w-xl sm:rounded-2xl",
+            "max-h-[92dvh] w-full overflow-hidden rounded-t-2xl border border-border bg-background text-foreground shadow-2xl sm:max-w-xl sm:rounded-2xl",
             className,
           )}
         >
           {(title || description) && (
-            <ModalHeader className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+            <ModalHeader className="relative border-b border-border px-4 py-3 pr-12 sm:px-5 sm:py-4">
               <div className="min-w-0">
                 {title && <h2 className="font-heading text-lg font-semibold">{title}</h2>}
                 {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
@@ -54,16 +54,16 @@ export function AppModal({
                 type="button"
                 aria-label="Close modal"
                 onClick={onClose}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-surface hover:text-foreground"
+                className="absolute right-3 top-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-surface hover:text-foreground"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </ModalHeader>
           )}
-          <ModalBody className="max-h-[calc(92dvh-140px)] overflow-y-auto px-5 py-5">
+          <ModalBody className="max-h-[calc(92dvh-120px)] overflow-y-auto px-4 py-4 sm:px-5">
             {children}
           </ModalBody>
-          {footer && <ModalFooter className="border-t border-border px-5 py-4">{footer}</ModalFooter>}
+          {footer && <ModalFooter className="border-t border-border px-4 py-3 sm:px-5 sm:py-4">{footer}</ModalFooter>}
         </ModalDialog>
       </ModalContainer>
     </Modal>

@@ -66,7 +66,11 @@ export function VendorProductCard({
 
         <div className="absolute left-2 top-2 flex max-w-[calc(100%-56px)] flex-wrap gap-1.5">
           {statusLabel && (
-            <VendorStatusBadge status={statusLabel} size="sm" className="shadow-sm" />
+            <VendorStatusBadge
+              status={statusLabel}
+              size="sm"
+              className="border border-border bg-background/95 shadow-sm backdrop-blur"
+            />
           )}
         </div>
 

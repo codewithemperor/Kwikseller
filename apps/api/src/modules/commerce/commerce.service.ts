@@ -1759,13 +1759,14 @@ export class CommerceService {
 
   async listVendorOrders(
     user: AuthContext,
-    options: { page?: string | number; limit?: string | number; status?: string; search?: string } = {},
+    options: { page?: string | number; limit?: string | number; status?: string; search?: string; dateRange?: string } = {},
   ) {
     const storeId = await this.resolveStoreId(user);
     const page = Math.max(1, Number(options.page ?? 1) || 1);
     const limit = Math.min(100, Math.max(1, Number(options.limit ?? 25) || 25));
     const status = options.status?.trim();
     const search = options.search?.trim();
+    const dateRange = options.dateRange?.trim();
     const where: any = this.vendorOrderWhere(storeId);
 
     if (status && status !== 'ALL') {
@@ -1773,6 +1774,38 @@ export class CommerceService {
         where.status = { in: ['PENDING', 'PAID', 'CONFIRMED', 'PROCESSING', 'FULFILLED', 'SHIPPED'] };
       } else {
         where.status = status;
+      }
+    }
+
+    if (dateRange && dateRange !== 'lifetime') {
+      const now = new Date();
+      let start: Date | undefined;
+      let end: Date | undefined;
+
+      if (dateRange === 'today') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (dateRange === 'this-week') {
+        start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        start.setHours(0, 0, 0, 0);
+      } else if (dateRange === 'this-month') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else if (dateRange === 'last-3-months') {
+        start = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+      } else if (dateRange === 'last-6-months') {
+        start = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+      } else if (dateRange === 'this-year') {
+        start = new Date(now.getFullYear(), 0, 1);
+      } else if (dateRange === 'last-year') {
+        start = new Date(now.getFullYear() - 1, 0, 1);
+        end = new Date(now.getFullYear(), 0, 1);
+      }
+
+      if (start || end) {
+        where.createdAt = {
+          ...(start ? { gte: start } : {}),
+          ...(end ? { lt: end } : {}),
+        };
       }
     }
 
