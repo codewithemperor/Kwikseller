@@ -15,3 +15,12 @@ export type { PriceDisplayProps } from './price-display'
 
 export { QuantitySelector } from './quantity-selector'
 export type { QuantitySelectorProps } from './quantity-selector'
+
+export { OrderSummary } from './order-summary'
+export type { OrderSummaryItem, OrderSummaryProps } from './order-summary'
+
+export { OrderTimeline } from './order-timeline'
+export type { OrderTimelineProps, OrderTimelineStep, OrderTimelineStepStatus } from './order-timeline'
+
+export { StockBadge } from './stock-badge'
+export type { StockBadgeProps } from './stock-badge'

@@ -75,6 +75,9 @@ export type { OTPInputProps, OTPModalProps, SubmitButtonProps } from "./inputs";
 export { AppModal, AppDrawer } from "./overlays";
 export type { AppModalProps, AppDrawerProps } from "./overlays";
 
+export { ImageUpload } from "./media";
+export type { ImageUploadProps, ImageUploadValue } from "./media";
+
 // ==================== Custom Commerce Components ====================
 // These are KWIKSELLER-specific components shared across all apps
 
@@ -100,6 +103,30 @@ export type { PriceDisplayProps } from "./commerce/price-display";
 // Quantity Selector
 export { QuantitySelector } from "./commerce/quantity-selector";
 export type { QuantitySelectorProps } from "./commerce/quantity-selector";
+
+// Order Summary
+export { OrderSummary } from "./commerce/order-summary";
+export type { OrderSummaryItem, OrderSummaryProps } from "./commerce/order-summary";
+
+// Order Timeline
+export { OrderTimeline } from "./commerce/order-timeline";
+export type {
+  OrderTimelineProps,
+  OrderTimelineStep,
+  OrderTimelineStepStatus,
+} from "./commerce/order-timeline";
+
+// Stock Badge
+export { StockBadge } from "./commerce/stock-badge";
+export type { StockBadgeProps } from "./commerce/stock-badge";
+
+// Data Display
+export { DataTable } from "./data-display";
+export type { DataTableProps, DataTableRowAction, ColumnDef } from "./data-display";
+
+// Confirm Dialog
+export { ConfirmDialog } from "./feedback";
+export type { ConfirmDialogProps } from "./feedback";
 
 // ==================== Custom Layout Components ====================
 
@@ -143,6 +170,10 @@ export type { OfflineBannerProps } from "./feedback/offline-banner";
 // Spinner
 export { Spinner } from "./feedback/spinner";
 export type { SpinnerProps } from "./feedback/spinner";
+
+// Progress Bar
+export { ProgressBar } from "./feedback/progress-bar";
+export type { ProgressBarProps } from "./feedback/progress-bar";
 
 // Skeleton components
 export {

@@ -9,7 +9,7 @@ interface PushSubscriptionPayload {
   keys: { p256dh: string; auth: string };
 }
 
-interface UsePushNotificationsReturn {
+export interface UsePushNotificationsReturn {
   /** Whether the browser supports push notifications + service workers */
   isSupported: boolean;
   /** Current permission state: 'default' | 'granted' | 'denied' */

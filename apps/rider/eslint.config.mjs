@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default [
+/** @type {import("eslint").Linter.Config[]} */
+const config = [
   js.configs.recommended,
   ...ts.configs.recommended,
   {
@@ -51,3 +52,5 @@ export default [
     ignores: ['.next/**', 'node_modules/**', 'out/**', 'dist/**'],
   },
 ];
+
+export default config;

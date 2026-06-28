@@ -298,7 +298,8 @@ export {
 export { HeroUIProviderWrapper } from "./providers";
 
 // Export hooks
-export { usePWA } from "./hooks";
+export { usePWA, usePushNotifications } from "./hooks";
+export type { UsePushNotificationsReturn } from "./hooks";
 export { kwikToast } from "./toast";
 
 // Export HTTP client

@@ -448,6 +448,30 @@ export const deliveryRatesApi = {
 
 // ==================== Commerce Operations API ====================
 
+export const adminDeliveriesApi = {
+  assignRider: (
+    orderId: string,
+    data: { riderId: string; estimatedMinutes?: number },
+  ) => api.post(`/admin/deliveries/${orderId}/assign`, data),
+};
+
+export const adminEscrowApi = {
+  releaseEscrow: (deliveryId: string) =>
+    api.post(`/admin/escrow/${deliveryId}/manual-release`),
+
+  refundEscrow: (deliveryId: string) =>
+    api.post(`/admin/escrow/${deliveryId}/refund`),
+
+  resolveDispute: (
+    deliveryId: string,
+    resolution: string,
+    vendorAmount?: number,
+  ) =>
+    api.post(`/admin/escrow/${deliveryId}/dispute/resolve`, {
+      resolution,
+      vendorAmount,
+    }),
+};
 export const commerceOpsApi = {
   orders: (params?: { status?: string; page?: number; limit?: number }) =>
     adminApi.getAllOrders(params),
@@ -463,6 +487,8 @@ export const commerceOpsApi = {
 };
 
 export type AdminCommerceOrder = CommerceOrder & {
+  disputeStatus?: string;
+  disputeReason?: string;
   parentCheckout?: {
     id: string;
     checkoutReference: string;

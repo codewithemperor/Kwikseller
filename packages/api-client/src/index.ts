@@ -645,6 +645,17 @@ export const vendorCommerceApi = {
     poolMaxSelectableQuantity?: number
   }) => api.post('/vendor/products', data),
 
+  bulkImportProducts: (products: Array<{
+    name: string
+    description?: string
+    category?: string
+    price: number
+    comparePrice?: number
+    stock?: number
+    sku?: string
+    tags?: string
+  }>) => api.post('/vendor/products/bulk-import', { products }),
+
   updateProduct: (
     productId: string,
     data: Partial<{
