@@ -91,9 +91,9 @@ function PaymentBadge({
 }) {
   const Icon = icon;
   return (
-    <div className="flex items-center gap-2 border border-white/10 bg-white/5 px-3.5 py-2.5">
-      <Icon className="h-4 w-4 text-white/60" />
-      <span className="text-xs font-medium text-white/75">{name}</span>
+    <div className="flex items-center gap-2 border border-kwik-border bg-kwik-bg-surface px-3.5 py-2.5 dark:border-white/10 dark:bg-white/5">
+      <Icon className="h-4 w-4 text-kwik-gray dark:text-white/60" />
+      <span className="text-xs font-medium text-kwik-dark-medium dark:text-white/75">{name}</span>
     </div>
   );
 }
@@ -134,7 +134,7 @@ export function EnhancedFooter() {
   };
 
   return (
-    <footer className="mt-auto bg-foreground text-background">
+    <footer className="mt-auto bg-kwik-bg-page text-kwik-dark dark:bg-foreground dark:text-background">
       <div className="h-px bg-kwik-orange" />
       <div className="container mx-auto px-4 py-12 md:py-14">
         <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
@@ -145,7 +145,7 @@ export function EnhancedFooter() {
               </div>
               <span className="text-xl font-bold tracking-tight">KWIKSELLER</span>
             </div>
-            <p className="max-w-[300px] text-sm leading-6 text-white/65">
+            <p className="max-w-[300px] text-sm leading-6 text-kwik-gray dark:text-white/65">
               A multi-platform commerce system for vendor stock, digital delivery, Pool resale, and group-buy selling.
             </p>
 
@@ -158,7 +158,7 @@ export function EnhancedFooter() {
                     href={social.href}
                     whileHover={{ y: -1 }}
                     whileTap={{ scale: 0.96 }}
-                    className="flex h-9 w-9 items-center justify-center border border-white/10 text-white/70 transition hover:border-kwik-orange hover:text-kwik-orange"
+                    className="flex h-9 w-9 items-center justify-center border border-kwik-border text-kwik-gray transition hover:border-kwik-orange hover:text-kwik-orange dark:border-white/10 dark:text-white/70"
                     aria-label={social.label}
                   >
                     <Icon className="h-4 w-4" />
@@ -169,14 +169,14 @@ export function EnhancedFooter() {
 
             <form onSubmit={handleNewsletterSubmit} className="mt-7 flex max-w-sm gap-2">
               <div className="relative flex-1">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted dark:text-white/45" />
                 <input
                   type="email"
                   placeholder="Your email address"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   disabled={isSubmitting}
-                  className="h-11 w-full border border-white/10 bg-white/5 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-white/45 focus:border-kwik-orange disabled:opacity-50"
+                  className="h-11 w-full border border-kwik-border bg-kwik-bg-surface pl-10 pr-3 text-sm text-kwik-dark outline-none transition placeholder:text-kwik-muted focus:border-kwik-orange disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/45"
                 />
               </div>
               <button
@@ -203,7 +203,7 @@ export function EnhancedFooter() {
               <ul className="space-y-2">
                 {column.links.map((link) => (
                   <li key={link.label}>
-                    <a href={link.href} className="text-sm text-white/60 transition hover:text-kwik-orange">
+                    <a href={link.href} className="text-sm text-kwik-gray transition hover:text-kwik-orange dark:text-white/60">
                       {link.label}
                     </a>
                   </li>
@@ -213,7 +213,7 @@ export function EnhancedFooter() {
           ))}
         </div>
 
-        <div className="mt-10 flex flex-col gap-6 border-t border-white/10 pt-7 md:flex-row md:items-center md:justify-between">
+        <div className="mt-10 flex flex-col gap-6 border-t border-kwik-border pt-7 dark:border-white/10 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <PaymentBadge name="Paystack" icon={Zap} />
             <PaymentBadge name="Flutterwave" icon={CreditCard} />
@@ -222,7 +222,7 @@ export function EnhancedFooter() {
             <PaymentBadge name="Mobile Money" icon={Smartphone} />
           </div>
 
-          <div className="flex flex-wrap items-center gap-5 text-xs text-white/60">
+          <div className="flex flex-wrap items-center gap-5 text-xs text-kwik-gray dark:text-white/60">
             <span className="inline-flex items-center gap-1.5">
               <Shield className="h-4 w-4 text-kwik-orange" />
               Secure payments
@@ -239,15 +239,15 @@ export function EnhancedFooter() {
         </div>
       </div>
 
-      <div className="border-t border-white/10">
+      <div className="border-t border-kwik-border dark:border-white/10">
         <div className="container mx-auto flex flex-col items-center justify-between gap-3 px-4 py-4 sm:flex-row">
-          <p className="text-xs text-white/55">
+          <p className="text-xs text-kwik-gray dark:text-white/55">
             &copy; {new Date().getFullYear()} KWIKSELLER. Africa&apos;s commerce platform.
           </p>
 
           <div className="flex items-center gap-4">
             {bottomLinks.map((link) => (
-              <a key={link.label} href={link.href} className="text-xs text-white/55 transition hover:text-kwik-orange">
+              <a key={link.label} href={link.href} className="text-xs text-kwik-gray transition hover:text-kwik-orange dark:text-white/55">
                 {link.label}
               </a>
             ))}

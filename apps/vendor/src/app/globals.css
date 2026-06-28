@@ -110,17 +110,17 @@
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
-/* Dark theme uses a black page and raised gray card surfaces. */
+/* Dark theme keeps page and card surfaces black; sidebar carries deep blue brand color. */
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
 
   /* ── Surfaces ─────────────────────────────────────────── */
-  --background: oklch(0.22 0.012 264);
+  --background: #050505;
   --foreground: oklch(0.96 0 0); /* #f5f5f5 off-white */
-  --surface: oklch(0.18 0.012 264);
+  --surface: #050505;
   --surface-foreground: oklch(0.96 0 0);
-  --overlay: oklch(0.22 0.012 264);
+  --overlay: #090909;
   --overlay-foreground: oklch(0.96 0 0);
 
   /* ── HeroUI primary action = Orange (stays vivid in dark) */
@@ -134,7 +134,7 @@
   --primary-foreground: var(--accent-foreground);
 
   /* ── Default / neutral ────────────────────────────────── */
-  --default: oklch(0.22 0.012 264);
+  --default: #050505;
   --default-foreground: oklch(0.96 0 0);
   --muted: oklch(0.6 0.005 0); /* #888 neutral muted */
 
@@ -147,7 +147,7 @@
   --danger-foreground: oklch(0.1 0 0);
 
   /* ── Form fields ──────────────────────────────────────── */
-  --field-background: oklch(0.22 0.012 264);
+  --field-background: #050505;
   --field-foreground: oklch(0.96 0 0);
   --field-placeholder: oklch(0.5 0.005 0);
   --field-border: oklch(1 0 0 / 12%);
@@ -170,14 +170,14 @@
   --kwik-muted-medium: #6b7280;
   --kwik-border: oklch(1 0 0 / 10%);
   --kwik-border-light: oklch(1 0 0 / 15%);
-  --kwik-bg-light: #20242c;
-  --kwik-bg-page: #080a0f;
-  --kwik-bg-surface: #20242c;
+  --kwik-bg-light: #050505;
+  --kwik-bg-page: #050505;
+  --kwik-bg-surface: #050505;
   --kwik-badge-dark: #e5e7eb;
   --kwik-star: #fbbf24;
   --kwik-green: #22c55e;
   --kwik-red: #ef4444;
-  --kwik-blue: #2563eb;
+  --kwik-blue: #1e40af;
   --kwik-amber: #fbbf24;
   --kwik-whatsapp: #25d366;
   --kwik-bg-warm: #1c1815;
