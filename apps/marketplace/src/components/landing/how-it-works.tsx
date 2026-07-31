@@ -2,49 +2,13 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { Search, ShoppingCart, ShieldCheck, Truck } from "lucide-react";
+import { Truck } from "lucide-react";
 import { Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Step Data ───────────────────────────────────────────────
-
-interface StepItem {
-  number: number;
-  icon: React.ElementType;
-  title: string;
-  description: string;
-}
-
-const steps: StepItem[] = [
-  {
-    number: 1,
-    icon: Search,
-    title: "Search & Discover",
-    description:
-      "Browse thousands of products from verified sellers across Africa. Filter by category, price, and location.",
-  },
-  {
-    number: 2,
-    icon: ShoppingCart,
-    title: "Add to Cart",
-    description:
-      "Select your items, compare prices, and add them to your cart. Save favorites for later.",
-  },
-  {
-    number: 3,
-    icon: ShieldCheck,
-    title: "Secure Payment",
-    description:
-      "Pay safely with Paystack, MoMo, bank transfer, or card. All payments are escrow-protected.",
-  },
-  {
-    number: 4,
-    icon: Truck,
-    title: "Fast Delivery",
-    description:
-      "Track your order in real time and receive fast, reliable delivery right to your doorstep.",
-  },
-];
+import {
+  HOW_IT_WORKS_STEPS as steps,
+  type HowItWorksStep as StepItem,
+} from "@/constants/landing";
 
 // ─── Animation Helpers ───────────────────────────────────────
 

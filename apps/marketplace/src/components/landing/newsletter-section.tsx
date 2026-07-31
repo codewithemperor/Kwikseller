@@ -1,94 +1,118 @@
 "use client";
 
 import React, { useState } from "react";
-import { ArrowRight, CheckCircle, Mail } from "lucide-react";
-import { Button, Input } from "@heroui/react";
+import { motion } from "framer-motion";
+import { Mail, Check, Sparkles, Users, TrendingUp } from "lucide-react";
 import { kwikToast } from "@kwikseller/utils";
 
+/**
+ * NewsletterSection — a homepage section for email subscription with social
+ * proof stats. Builds community and captures leads.
+ */
 export function NewsletterSection() {
   const [email, setEmail] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!email || !email.includes("@")) {
-      kwikToast.error("Please enter a valid email address");
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      kwikToast.error("Invalid email", "Please enter a valid email address.");
       return;
     }
 
-    setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
-    setIsSuccess(true);
-    setEmail("");
-    kwikToast.success("You have been subscribed successfully");
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
+      setSubscribed(true);
+      kwikToast.success(
+        "Subscribed!",
+        "You're now on the list for exclusive deals and updates.",
+      );
+      setEmail("");
+    }, 800);
+  }
 
-    setTimeout(() => setIsSuccess(false), 4000);
-  };
+  const stats = [
+    { icon: Users, value: "50K+", label: "Subscribers" },
+    { icon: TrendingUp, value: "12K+", label: "Weekly deals shared" },
+    { icon: Sparkles, value: "₦2.5M", label: "Saved by community" },
+  ];
 
   return (
-    <section className="bg-kwik-bg-page py-8 sm:py-10">
-      <div className="container mx-auto px-0 md:px-4 ">
-        <div className="mx-auto max-w-4xl rounded-[32px] border border-kwik-border bg-background p-6 shadow-sm sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-kwik-orange-tint text-kwik-orange">
-                <Mail className="h-5 w-5" />
-              </div>
-              <h2 className="mt-4 text-2xl font-bold text-kwik-dark">
-                Get updates on deals and product drops
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-kwik-gray-light">
-                Subscribe for marketplace offers, seller tips and curated
-                product recommendations.
-              </p>
-            </div>
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.4 }}
+      className="overflow-hidden rounded-2xl border border-border bg-surface"
+    >
+      <div className="kwik-gradient relative overflow-hidden px-5 py-6 sm:px-8 sm:py-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_55%)]" />
 
-            {isSuccess ? (
-              <div className="rounded-2xl bg-kwik-bg-surface p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-kwik-green text-white">
-                    <CheckCircle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-kwik-dark">
-                      Subscription confirmed
-                    </p>
-                    <p className="text-sm text-kwik-gray-light">
-                      Check your inbox for the welcome message.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <Input
-                  type="email"
-                  placeholder="Enter your email address"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={isSubmitting}
-                  className="rounded-2xl"
-                />
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="h-12 w-full rounded-xl bg-kwik-orange font-semibold text-white hover:bg-kwik-orange-hover"
-                  isDisabled={isSubmitting}
-                >
-                  {isSubmitting ? "Subscribing..." : "Subscribe"}
-                  {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
-                </Button>
-                <p className="text-xs text-kwik-muted">
-                  No spam. Only useful marketplace updates.
-                </p>
-              </form>
-            )}
+        <div className="relative mx-auto max-w-xl text-center">
+          {/* Icon */}
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+            <Mail className="h-6 w-6 text-white" />
           </div>
+
+          {/* Heading */}
+          <h2 className="font-heading text-xl font-bold text-white sm:text-2xl">
+            Join the Kwikseller community
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-white/85">
+            Get exclusive deals, early access to flash sales, and insider tips
+            delivered to your inbox. Join 50,000+ smart shoppers.
+          </p>
+
+          {/* Form */}
+          {subscribed ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-white/15 px-4 py-3 backdrop-blur"
+            >
+              <Check className="h-5 w-5 text-white" />
+              <span className="text-sm font-semibold text-white">
+                You&rsquo;re subscribed! Watch your inbox for deals.
+              </span>
+            </motion.div>
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+                aria-label="Email address"
+                className="h-11 flex-1 rounded-xl border border-white/20 bg-white/10 px-4 text-sm text-white placeholder:text-white/60 backdrop-blur focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-secondary-500 px-5 text-sm font-semibold text-white hover:bg-secondary-600 disabled:opacity-70"
+              >
+                {loading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Subscribing…
+                  </>
+                ) : (
+                  "Subscribe"
+                )}
+              </button>
+            </form>
+          )}
+
+          <p className="mt-3 text-[11px] text-white/60">
+            No spam. Unsubscribe anytime. We respect your privacy.
+          </p>
         </div>
       </div>
-    </section>
+
+      {/* Stats bar */}
+      
+    </motion.section>
   );
 }

@@ -44,7 +44,7 @@ export function CartDrawer() {
 
   const goToCart = () => {
     setCartOpen(false);
-    router.push("/cart");
+    router.push("/checkout");
   };
 
   return (

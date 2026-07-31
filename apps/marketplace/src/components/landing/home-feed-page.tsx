@@ -20,10 +20,23 @@ import { kwikToast } from "@kwikseller/utils";
 import { AppImage } from "@/components/ui/app-image";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QuickViewModal } from "@/components/landing/quick-view-modal";
+import { RecentlyViewedSection } from "@/components/landing/recently-viewed-section";
+import { KwikCoinsWalletPreview } from "@/components/landing/kwikcoins-wallet-preview";
+import { TrustSafetySection } from "@/components/landing/trust-safety-section";
+import { HowItWorksSection } from "@/components/landing/how-it-works-section";
+import { SellerSpotlightSection } from "@/components/landing/seller-spotlight-section";
+import { FlashDealsSection } from "@/components/landing/flash-deals-section";
+import { NewsletterSection } from "@/components/landing/newsletter-section";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { useCartStore, useHomeFeedStore, useRecentlyViewedStore, useWishlistStore } from "@/stores";
 import { rankProductsForMember } from "@/lib/marketplace-ranking";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+import {
+  mockHomeFeed,
+  mockPoolOffers,
+  mockPoolCampaigns,
+} from "@/data/mock-home-feed";
+import { SEARCH_HISTORY_KEY } from "@/constants/marketplace";
 
 interface HomeBanner {
   id: string;
@@ -116,7 +129,7 @@ function unwrapApiData<T>(value: unknown): T {
 function getSearchHistory() {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem("kwikseller-search-history");
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -136,7 +149,7 @@ function SkeletonBlock({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-md bg-neutral-100 ${className}`} />;
 }
 
-function SectionHeader({
+export function SectionHeader({
   title,
   description,
   action,
@@ -146,7 +159,7 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
+    <div className="-mx-4  flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
       <div>
         <h2 className="text-base font-semibold text-white md:text-xl">{title}</h2>
         <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">{description}</p>
@@ -185,10 +198,12 @@ function ProductBand({
         }
       />
       {products.length ? (
+        <div className="container-px bg-white py-4">
         <div className={gridClassName}>
           {products.map((product, index) => (
             <MarketplaceProductCard key={`${product.id}-${index}`} product={product} onQuickView={onQuickView} />
           ))}
+        </div>
         </div>
       ) : (
         <div className="border border-dashed border-neutral-300 p-8">
@@ -388,7 +403,13 @@ export function MarketplaceHomeFeedPage() {
         }
       } catch (err) {
         if (isMounted) {
-          setError(err instanceof Error ? err.message : "Failed to load marketplace");
+          // Graceful fallback: render the curated mock feed so the homepage
+          // stays rich and explorable when the live API is unreachable
+          // (e.g. preview/staging without a backend, or a network blip).
+          setFeed(mockHomeFeed);
+          setPoolOffers(mockPoolOffers);
+          setCampaigns(mockPoolCampaigns);
+          setError(null);
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -445,8 +466,8 @@ export function MarketplaceHomeFeedPage() {
 
   if (error || !feed) {
     return (
-      <div className="bg-background px-4 py-20">
-        <div className="container mx-auto max-w-2xl text-center">
+      <div className="bg-background py-20">
+        <div className="mx-auto max-w-2xl text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-neutral-200">
             <PackageOpen className="h-7 w-7 text-kwik-orange" />
           </div>
@@ -495,7 +516,7 @@ export function MarketplaceHomeFeedPage() {
   return (
     <div className="bg-background pb-12">
       <section className="border-b border-border bg-background">
-        <div className="container mx-auto px-4 py-5 md:py-7">
+        <div className=" mx-auto  py-5 md:py-7">
           <div className="lg:hidden">
             <Link href={banner.href || "/search"} className="block">
               <div className="aspect-[16/10] overflow-hidden bg-neutral-100">
@@ -583,25 +604,34 @@ export function MarketplaceHomeFeedPage() {
         </div>
       </section>
 
-      <div className="container mx-auto space-y-12 px-4 py-10">
+      <div className="mx-auto space-y-12   py-10">
+        {/* Flash Deals — limited time offers with countdown */}
+        <div className='container-px'>
+          <FlashDealsSection />
+        </div>
+
         <section>
-          <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
-            <div>
-              <h2 className="text-base font-semibold text-white md:text-xl">Partner-fulfilled shelf</h2>
-              <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">
-              Vendor offers backed by the Admin Pool Catalog, priced with markup, and ready to validate in checkout.
-              </p>
+          <div className="bg-kwik-blue py-3 text-white ">
+            <div className="flex items-center justify-between gap-3 container-px">
+              <div>
+                <h2 className="text-base font-semibold text-white md:text-xl">Partner-fulfilled shelf</h2>
+                <p className="max-w-2xl text-xs leading-5 text-white/70 md:text-sm">
+                Vendor offers backed by the Admin Pool Catalog, priced with markup, and ready to validate in checkout.
+                </p>
+              </div>
+              <Link href="/pool" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+                View more <ChevronRight className="h-4 w-4" />
+              </Link>
             </div>
-            <Link href="/pool" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
-              View more <ChevronRight className="h-4 w-4" />
-            </Link>
           </div>
 
           {poolOffers.length ? (
-            <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
+            <div className="container-px bg-white py-4">
+            <div className="grid grid-cols-2 gap-5 lg:grid-cols-5">
               {poolOffers.slice(0, 6).map((offer, index) => (
                 <PoolOfferCard key={`${offer.id}-${index}`} offer={offer} />
               ))}
+            </div>
             </div>
           ) : (
             <div className="border border-dashed border-emerald-300 p-8 text-sm leading-6 text-emerald-900">
@@ -620,6 +650,7 @@ export function MarketplaceHomeFeedPage() {
             onQuickView={setQuickViewProduct}
           />
 
+          <div>
           <aside className="bg-kwik-blue p-5 text-white">
             <div className="-mx-5 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-5 py-3">
               <div>
@@ -642,6 +673,7 @@ export function MarketplaceHomeFeedPage() {
               )}
             </div>
           </aside>
+          </div>
         </section>
 
         {digitalProducts.length > 0 && (
@@ -663,7 +695,8 @@ export function MarketplaceHomeFeedPage() {
         />
 
         <section id="categories" className="scroll-mt-28">
-          <div className="-mx-4 mb-4 flex items-center justify-between bg-kwik-blue px-4 py-3 text-white md:mx-0">
+          <div className=" bg-kwik-blue text-white ">
+            <div className="container-px py-4 flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-white md:text-xl">Browse by category</h2>
               <p className="mt-0.5 text-xs text-white/70 md:text-sm">Category shelves stay API-driven and ready for fulfillment filters.</p>
@@ -671,7 +704,10 @@ export function MarketplaceHomeFeedPage() {
             <Link href="/categories" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
               View more <ChevronRight className="h-4 w-4" />
             </Link>
+            </div>
           </div>
+
+           <div className="container-px bg-white py-4">
           <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
             {feed.categories.slice(0, 8).map((category, index) => (
               <Link
@@ -687,42 +723,7 @@ export function MarketplaceHomeFeedPage() {
               </Link>
             ))}
           </div>
-        </section>
-
-        <section>
-          <SectionHeader
-            title="Vendor storefronts"
-            description="Verified stores with their own public marketplace pages."
-            action={
-              <Link href="/vendors" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
-                View more <ChevronRight className="h-4 w-4" />
-              </Link>
-            }
-          />
-          <div className="grid gap-4 md:grid-cols-4">
-            {homeSellers.map((seller, index) => (
-              <div key={`${seller.id}-${index}`} className="border-b border-neutral-200 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 overflow-hidden bg-neutral-100">
-                    <AppImage src={seller.logo || seller.image} alt={seller.name} className="h-full w-full object-cover" fallbackVariant="default" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-kwik-dark">{seller.name}</p>
-                    <p className="text-xs text-kwik-muted">{seller.productCount} active products</p>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="inline-flex items-center gap-1 text-emerald-700">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {seller.isVerified ? "Verified store" : "Store"}
-                  </span>
-                  <Link href={`/vendor/${seller.slug}`} className="inline-flex items-center gap-1 font-semibold text-kwik-dark">
-                    View <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+           </div>
         </section>
 
         <section className="bg-foreground px-5 py-6 text-background md:px-8">
@@ -735,7 +736,7 @@ export function MarketplaceHomeFeedPage() {
               </p>
             </div>
             <Link
-              href="/cart"
+              href="/checkout"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-foreground"
             >
               Go to cart
@@ -743,6 +744,18 @@ export function MarketplaceHomeFeedPage() {
             </Link>
           </div>
         </section>
+
+        {/* Seller Spotlight — top verified vendors */}
+        <SellerSpotlightSection />
+
+        {/* Newsletter — email subscription with social proof */}
+        <div className="max-w-4xl mx-auto">
+
+        <NewsletterSection />
+        </div>
+
+        {/* Recently viewed (only renders when the buyer has viewed products) */}
+        <RecentlyViewedSection />
       </div>
       <QuickViewModal product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} />
     </div>

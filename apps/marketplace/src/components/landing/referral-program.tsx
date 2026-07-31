@@ -3,134 +3,20 @@
 import React, { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import {
-  Coins,
-  Wallet,
-  Gift,
-  Trophy,
-  Link,
-  MessageCircle,
-  Twitter,
-  Mail,
-  Copy,
-  Check,
   ArrowRight,
-  Users,
+  Check,
+  Coins,
+  Copy,
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Earnings Breakdown Data ──────────────────────────────────
-
-interface EarningCard {
-  title: string;
-  value: string;
-  subtitle: string;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-}
-
-const earningsCards: EarningCard[] = [
-  {
-    title: "Referral Reward",
-    value: "₦500",
-    subtitle: "+ 5% commission on their first 5 orders",
-    icon: Wallet,
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-100 dark:bg-emerald-900/40",
-  },
-  {
-    title: "Friend Bonus",
-    value: "₦200",
-    subtitle: "Welcome credit for your friend",
-    icon: Gift,
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-100 dark:bg-blue-900/40",
-  },
-  {
-    title: "Monthly Bonus",
-    value: "₦2,000",
-    subtitle: "For 10+ referrals in a month",
-    icon: Trophy,
-    color: "text-amber-600 dark:text-amber-400",
-    bg: "bg-amber-100 dark:bg-amber-900/40",
-  },
-];
-
-// ─── Share Button Data ────────────────────────────────────────
-
-interface ShareButton {
-  label: string;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-  hoverBg: string;
-}
-
-const shareButtons: ShareButton[] = [
-  {
-    label: "Copy Link",
-    icon: Link,
-    color: "text-default-600 dark:text-default-300",
-    bg: "bg-default-100 dark:bg-default-200/30",
-    hoverBg: "hover:bg-default-200 dark:hover:bg-default-200/50",
-  },
-  {
-    label: "WhatsApp",
-    icon: MessageCircle,
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-100 dark:bg-emerald-900/40",
-    hoverBg: "hover:bg-emerald-200 dark:hover:bg-emerald-900/60",
-  },
-  {
-    label: "Twitter/X",
-    icon: Twitter,
-    color: "text-sky-600 dark:text-sky-400",
-    bg: "bg-sky-100 dark:bg-sky-900/40",
-    hoverBg: "hover:bg-sky-200 dark:hover:bg-sky-900/60",
-  },
-  {
-    label: "Email",
-    icon: Mail,
-    color: "text-rose-600 dark:text-rose-400",
-    bg: "bg-rose-100 dark:bg-rose-900/40",
-    hoverBg: "hover:bg-rose-200 dark:hover:bg-rose-900/60",
-  },
-];
-
-// ─── How It Works Steps ───────────────────────────────────────
-
-interface HowStep {
-  number: number;
-  title: string;
-  description: string;
-}
-
-const howSteps: HowStep[] = [
-  {
-    number: 1,
-    title: "Share Your Link",
-    description: "Send your unique referral code to friends and family",
-  },
-  {
-    number: 2,
-    title: "Friend Signs Up",
-    description: "They register on Kwikseller using your referral code",
-  },
-  {
-    number: 3,
-    title: "Both Earn Rewards",
-    description: "You earn ₦500 and your friend gets ₦200 welcome credit",
-  },
-];
-
-// ─── Referral Stats ───────────────────────────────────────────
-
-const referralStats = [
-  { label: "24 Referrals", icon: Users },
-  { label: "₦12,000 Earned", icon: Wallet },
-  { label: "8 Active", icon: Check },
-];
+import {
+  REFERRAL_EARNINGS_CARDS as earningsCards,
+  REFERRAL_HOW_STEPS as howSteps,
+  REFERRAL_SAMPLE_CODE,
+  REFERRAL_SHARE_BUTTONS as shareButtons,
+  REFERRAL_STATS as referralStats,
+} from "@/constants/landing";
 
 // ─── Animation Variants ───────────────────────────────────────
 

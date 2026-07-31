@@ -14,91 +14,12 @@ import {
 import { Button, Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
 import Link from "next/link";
-
-// ─── Data ───────────────────────────────────────────────────────
-
-type StoryCategory = "All" | "Fashion" | "Electronics" | "Food" | "Services";
-
-interface SellerStory {
-  id: string;
-  name: string;
-  location: string;
-  category: StoryCategory;
-  quote: string;
-  started: number;
-  revenueGrowth: string;
-  products: string;
-  rating: number;
-  avatar: string;
-  avatarColor: string;
-}
-
-const stories: SellerStory[] = [
-  {
-    id: "1",
-    name: "Amina's Fashion Hub",
-    location: "Lagos, Nigeria",
-    category: "Fashion",
-    quote:
-      "From selling in a local market to reaching customers across 8 African countries. KWIKSELLER changed everything for my business.",
-    started: 2022,
-    revenueGrowth: "+340%",
-    products: "200+",
-    rating: 4.9,
-    avatar: "A",
-    avatarColor: "bg-pink-500",
-  },
-  {
-    id: "2",
-    name: "TechConnect",
-    location: "Nairobi, Kenya",
-    category: "Electronics",
-    quote:
-      "The product pool feature lets us offer 500+ items without holding inventory. Our margins doubled in 6 months.",
-    started: 2023,
-    revenueGrowth: "+180%",
-    products: "500+",
-    rating: 4.8,
-    avatar: "T",
-    avatarColor: "bg-cyan-500",
-  },
-  {
-    id: "3",
-    name: "Mama Nkechi's Kitchen",
-    location: "Accra, Ghana",
-    category: "Food",
-    quote:
-      "I started with just 5 products. Now I have a full food brand with delivery across Ghana. The escrow system gives my customers confidence.",
-    started: 2021,
-    revenueGrowth: "+520%",
-    products: "45",
-    rating: 5.0,
-    avatar: "M",
-    avatarColor: "bg-green-500",
-  },
-  {
-    id: "4",
-    name: "QuickFix Services",
-    location: "Kigali, Rwanda",
-    category: "Services",
-    quote:
-      "As a service provider, I never thought an e-commerce platform would work for me. KWIKSELLER proved me wrong with their flexible listing system.",
-    started: 2023,
-    revenueGrowth: "+150%",
-    products: "30+",
-    rating: 4.7,
-    avatar: "Q",
-    avatarColor: "bg-orange-500",
-  },
-];
-
-const tabs: StoryCategory[] = [
-  "All",
-  "Fashion",
-  "Electronics",
-  "Food",
-  "Services",
-];
+import {
+  SELLER_STORIES as stories,
+  SELLER_STORY_TABS as tabs,
+  type SellerStoryCategory as StoryCategory,
+  type SellerStory,
+} from "@/constants/landing";
 
 // ─── Star Rating ────────────────────────────────────────────────
 

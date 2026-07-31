@@ -2,77 +2,14 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { Activity, TrendingUp, Package, Clock, Heart } from "lucide-react";
+import { Activity, TrendingUp } from "lucide-react";
 import { Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Metric Data ─────────────────────────────────────────────
-
-interface MetricData {
-  label: string;
-  value: string;
-  change: string;
-  isPositive: boolean;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  sparkline: number[];
-}
-
-const metrics: MetricData[] = [
-  {
-    label: "Total GMV",
-    value: "₦2.4B",
-    change: "+18.3%",
-    isPositive: true,
-    icon: TrendingUp,
-    iconBg: "bg-success/10",
-    iconColor: "text-success",
-    sparkline: [40, 55, 45, 65, 58, 75, 90],
-  },
-  {
-    label: "Active Orders",
-    value: "12,847",
-    change: "+24.1%",
-    isPositive: true,
-    icon: Package,
-    iconBg: "bg-accent/10",
-    iconColor: "text-accent",
-    sparkline: [30, 42, 50, 38, 62, 70, 85],
-  },
-  {
-    label: "Avg. Delivery Time",
-    value: "2.3 days",
-    change: "-12.5%",
-    isPositive: true, // Negative change in delivery time is good
-    icon: Clock,
-    iconBg: "bg-warning/10",
-    iconColor: "text-warning",
-    sparkline: [80, 72, 65, 58, 50, 45, 38],
-  },
-  {
-    label: "Seller Satisfaction",
-    value: "97.2%",
-    change: "+2.1%",
-    isPositive: true,
-    icon: Heart,
-    iconBg: "bg-danger/10",
-    iconColor: "text-danger",
-    sparkline: [60, 65, 68, 72, 78, 82, 95],
-  },
-];
-
-// ─── Weekly Activity Data ────────────────────────────────────
-
-const weeklyActivity = [
-  { day: "Mon", value: 68 },
-  { day: "Tue", value: 85 },
-  { day: "Wed", value: 72 },
-  { day: "Thu", value: 92 },
-  { day: "Fri", value: 100 },
-  { day: "Sat", value: 78 },
-  { day: "Sun", value: 45 },
-];
+import {
+  MARKETPLACE_METRICS as metrics,
+  WEEKLY_ACTIVITY as weeklyActivity,
+  type MetricData,
+} from "@/constants/landing";
 
 // ─── Sparkline Mini Chart ────────────────────────────────────
 

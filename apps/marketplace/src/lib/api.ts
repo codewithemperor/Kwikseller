@@ -1,43 +1,29 @@
-import axios from 'axios';
+/**
+ * Marketplace API client.
+ *
+ * IMPORTANT: This file NO LONGER creates its own axios instance.
+ * It re-uses the single canonical client from `@kwikseller/api-client`,
+ * which:
+ *   - reads the token from `kwikseller_access_token` (NOT `token`)
+ *   - runs the shared refresh-token queue on 401
+ *   - redirects to the correct login page per host/path
+ *
+ * Previously this file created a second axios instance that read
+ * `localStorage.getItem('token')` — a key nobody else writes — so every
+ * authenticated call ran without an Authorization header. That bug is
+ * fixed by delegating to the shared client.
+ */
+"use client";
 
-const normalizeApiBaseUrl = (value?: string) => {
-  if (!value) return '/api/v1';
+import { api } from "@kwikseller/api-client";
+import type { ApiResponse } from "@kwikseller/api-client";
 
-  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-  const withoutTrailingSlash = withProtocol.replace(/\/+$/, '');
+// Re-export the canonical client for direct use where needed.
+export { api };
 
-  return withoutTrailingSlash.endsWith('/api/v1')
-    ? withoutTrailingSlash
-    : `${withoutTrailingSlash}/api/v1`;
-};
-
-export const api = axios.create({
-  baseURL: normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL),
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 15000,
-});
-
-// Auth token interceptor
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
-  return config;
-});
-
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const message = error.response?.data?.message || error.message || 'An error occurred';
-    return Promise.reject(new Error(message));
-  }
-);
-
-// ==================== Products ====================
+// ==================== Types ====================
+// Kept local for backward compatibility with existing importers
+// (`@/lib/api` consumers expect these named exports).
 
 export interface Product {
   id: string;
@@ -127,7 +113,10 @@ export interface Deal {
   products?: { id: string; dealPrice: number; product: Product }[];
 }
 
-// API Functions
+// ==================== API Functions ====================
+// All calls go through the shared `api` client → correct token +
+// automatic refresh on 401.
+
 export const fetchProducts = async (params?: {
   page?: number;
   limit?: number;
@@ -136,75 +125,110 @@ export const fetchProducts = async (params?: {
   brandId?: string;
   status?: string;
   isFeatured?: boolean;
-}): Promise<PaginatedResponse<Product>> => {
-  const { data } = await api.get('/products', { params });
-  return data;
-};
+}): Promise<PaginatedResponse<Product>> =>
+  api.get<Product[]>("/products", { params }) as Promise<PaginatedResponse<Product>>;
 
-export const fetchProduct = async (id: string): Promise<{ success: boolean; data: Product }> => {
-  const { data } = await api.get(`/products/${id}`);
-  return data;
-};
+export const fetchProduct = async (
+  id: string
+): Promise<{ success: boolean; data: Product }> =>
+  api.get<Product>(`/products/${id}`) as Promise<{ success: boolean; data: Product }>;
 
-export const searchProducts = async (query: string, limit = 20): Promise<PaginatedResponse<Product>> => {
-  const { data } = await api.get('/products/search', { params: { q: query, limit } });
-  return data;
-};
+export const searchProducts = async (
+  query: string,
+  limit = 20
+): Promise<PaginatedResponse<Product>> =>
+  api.get<Product[]>("/products/search", {
+    params: { q: query, limit },
+  }) as Promise<PaginatedResponse<Product>>;
 
-export const fetchTrendingProducts = async (limit = 10): Promise<PaginatedResponse<Product>> => {
-  const { data } = await api.get('/products/trending', { params: { limit } });
-  return data;
-};
+export const fetchTrendingProducts = async (
+  limit = 10
+): Promise<PaginatedResponse<Product>> =>
+  api.get<Product[]>("/products/trending", {
+    params: { limit },
+  }) as Promise<PaginatedResponse<Product>>;
 
-export const fetchTopProducts = async (limit = 10): Promise<PaginatedResponse<Product>> => {
-  const { data } = await api.get('/products/top', { params: { limit } });
-  return data;
-};
+export const fetchTopProducts = async (
+  limit = 10
+): Promise<PaginatedResponse<Product>> =>
+  api.get<Product[]>("/products/top", {
+    params: { limit },
+  }) as Promise<PaginatedResponse<Product>>;
 
-export const fetchDealProducts = async (limit = 10): Promise<PaginatedResponse<Product>> => {
-  const { data } = await api.get('/products/deals', { params: { limit } });
-  return data;
-};
+export const fetchDealProducts = async (
+  limit = 10
+): Promise<PaginatedResponse<Product>> =>
+  api.get<Product[]>("/products/deals", {
+    params: { limit },
+  }) as Promise<PaginatedResponse<Product>>;
 
-export const fetchCategories = async (): Promise<{ success: boolean; data: Category[] }> => {
-  const { data } = await api.get('/categories');
-  return data;
-};
+export const fetchCategories = async (): Promise<{
+  success: boolean;
+  data: Category[];
+}> =>
+  api.get<Category[]>("/categories") as Promise<{
+    success: boolean;
+    data: Category[];
+  }>;
 
-export const fetchCategoryBySlug = async (slug: string): Promise<{ success: boolean; data: Category & { products?: Product[] } }> => {
-  const { data } = await api.get(`/categories/slug/${slug}`);
-  return data;
-};
+export const fetchCategoryBySlug = async (
+  slug: string
+): Promise<{ success: boolean; data: Category & { products?: Product[] } }> =>
+  api.get<Category & { products?: Product[] }>(
+    `/categories/slug/${slug}`
+  ) as Promise<{ success: boolean; data: Category & { products?: Product[] } }>;
 
-export const fetchBrands = async (): Promise<{ success: boolean; data: Brand[] }> => {
-  const { data } = await api.get('/brands');
-  return data;
-};
+export const fetchBrands = async (): Promise<{
+  success: boolean;
+  data: Brand[];
+}> =>
+  api.get<Brand[]>("/brands") as Promise<{ success: boolean; data: Brand[] }>;
 
-export const fetchBanners = async (type?: string): Promise<{ success: boolean; data: Banner[] }> => {
-  const { data } = await api.get('/banners', { params: { type } });
-  return data;
-};
+export const fetchBanners = async (
+  type?: string
+): Promise<{ success: boolean; data: Banner[] }> =>
+  api.get<Banner[]>("/banners", {
+    params: { type },
+  }) as Promise<{ success: boolean; data: Banner[] }>;
 
-export const fetchDeals = async (dealType?: string): Promise<{ success: boolean; data: Deal[] }> => {
-  const { data } = await api.get('/deals', { params: { dealType } });
-  return data;
-};
+export const fetchDeals = async (
+  dealType?: string
+): Promise<{ success: boolean; data: Deal[] }> =>
+  api.get<Deal[]>("/deals", {
+    params: { dealType },
+  }) as Promise<{ success: boolean; data: Deal[] }>;
 
-export const fetchFlashDeals = async (): Promise<{ success: boolean; data: Deal[] }> => {
-  const { data } = await api.get('/deals/flash');
-  return data;
-};
+export const fetchFlashDeals = async (): Promise<{
+  success: boolean;
+  data: Deal[];
+}> => api.get<Deal[]>("/deals/flash") as Promise<{ success: boolean; data: Deal[] }>;
 
-export const fetchFeaturedDeals = async (): Promise<{ success: boolean; data: Deal[] }> => {
-  const { data } = await api.get('/deals/featured');
-  return data;
-};
+export const fetchFeaturedDeals = async (): Promise<{
+  success: boolean;
+  data: Deal[];
+}> =>
+  api.get<Deal[]>("/deals/featured") as Promise<{ success: boolean; data: Deal[] }>;
 
 export const fetchDashboardStats = async (): Promise<{
   success: boolean;
-  data: { totalProducts: number; totalOrders: number; totalUsers: number; totalRevenue: number };
-}> => {
-  const { data } = await api.get('/dashboard/stats');
-  return data;
-};
+  data: {
+    totalProducts: number;
+    totalOrders: number;
+    totalUsers: number;
+    totalRevenue: number;
+  };
+}> =>
+  api.get<{
+    totalProducts: number;
+    totalOrders: number;
+    totalUsers: number;
+    totalRevenue: number;
+  }>("/dashboard/stats") as Promise<{
+    success: boolean;
+    data: {
+      totalProducts: number;
+      totalOrders: number;
+      totalUsers: number;
+      totalRevenue: number;
+    };
+  }>;

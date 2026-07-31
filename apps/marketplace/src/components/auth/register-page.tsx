@@ -18,9 +18,19 @@ import {
   Store,
 } from "lucide-react";
 import { Chip, Checkbox } from "@heroui/react";
-import { AppButton, cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
+import {
+  AppButton,
+  cn,
+  TextInput,
+  PasswordInput,
+  OTPVerification,
+} from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { registerSchema, type RegisterFormData } from "@kwikseller/types";
+import {
+  PASSWORD_RULES,
+  REGISTER_ROLE_OPTIONS as REGISTER_ROLES,
+} from "@/constants/auth";
 
 export interface RegisterPortalConfig {
   name: string;
@@ -47,13 +57,10 @@ function getPasswordStrength(password: string): {
   color: string;
   checks: { label: string; passed: boolean }[];
 } {
-  const checks = [
-    { label: "At least 8 characters", passed: password.length >= 8 },
-    { label: "Uppercase letter", passed: /[A-Z]/.test(password) },
-    { label: "Lowercase letter", passed: /[a-z]/.test(password) },
-    { label: "Number", passed: /\d/.test(password) },
-    { label: "Special character", passed: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
-  ];
+  const checks = PASSWORD_RULES.map((rule) => ({
+    label: rule.label,
+    passed: rule.test(password),
+  }));
 
   const passedCount = checks.filter((c) => c.passed).length;
 
@@ -257,49 +264,43 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
         </div>
 
         <div className="flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={() => handleRoleSelect("BUYER")}
-            className="w-full border border-kwik-border bg-white p-5 text-left transition-colors hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
-          >
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center bg-foreground text-background">
-                <ShoppingBag className="h-6 w-6" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-kwik-dark">I want to shop</h3>
-                  <ChevronRight className="h-5 w-5 text-kwik-muted" />
+          {REGISTER_ROLES.map((roleOption) => {
+            const Icon = roleOption.icon;
+            const isVendor = roleOption.role === "VENDOR";
+            return (
+              <button
+                key={roleOption.role}
+                type="button"
+                onClick={() => handleRoleSelect(roleOption.role)}
+                className="w-full border border-kwik-border bg-white p-5 text-left transition-colors hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-12 w-12 items-center justify-center ${
+                    roleOption.variant === "accent"
+                      ? "bg-kwik-orange text-white"
+                      : "bg-foreground text-background"
+                  }`}>
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-kwik-dark">{roleOption.title}</h3>
+                      {isVendor && roleOption.popularLabel ? (
+                        <Chip size="sm" variant="soft" color="warning">
+                          {roleOption.popularLabel}
+                        </Chip>
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-kwik-muted" />
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-kwik-gray-light">
+                      {roleOption.description}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-kwik-gray-light">
-                  Browse products, track orders, and earn KwikCoins rewards
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleRoleSelect("VENDOR")}
-            className="w-full border border-kwik-border bg-white p-5 text-left transition-colors hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
-          >
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center bg-kwik-orange text-white">
-                <Store className="h-6 w-6" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-kwik-dark">I want to sell</h3>
-                  <Chip size="sm" variant="soft" color="warning">
-                    Popular
-                  </Chip>
-                </div>
-                <p className="mt-1 text-sm text-kwik-gray-light">
-                  Create your store, list products, and grow your business
-                </p>
-              </div>
-            </div>
-          </button>
+              </button>
+            );
+          })}
         </div>
 
         <p className="mt-6 text-center text-sm text-kwik-gray-light">

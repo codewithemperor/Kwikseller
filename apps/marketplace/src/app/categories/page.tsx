@@ -9,34 +9,19 @@ import {
   SlidersHorizontal,
   Search,
   PackageOpen,
-  Package,
-  Smartphone,
-  Laptop,
-  Shirt,
-  Sparkles,
-  Home as HomeIcon,
-  UtensilsCrossed,
-  Car,
-  Trophy,
-  HeartPulse,
-  BookOpen,
-  Gamepad2,
-  Baby,
-  Gem,
-  ShoppingCart,
-  Dumbbell,
-  Music,
-  Camera,
-  Headphones,
-  Watch,
-  Palette,
-  Dog,
-  Clapperboard,
-  type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { productsApi, marketplaceApi } from "@kwikseller/api-client";
 import { cn } from "@kwikseller/ui";
+import {
+  CATEGORY_CARD_ACCENT_COLORS as CARD_ACCENT_COLORS,
+  CATEGORY_CARD_TEXT_COLORS as CARD_TEXT_COLORS,
+  CATEGORY_STYLES,
+  DEFAULT_CATEGORY_STYLE as DEFAULT_STYLE,
+  SORT_OPTIONS,
+  type CategoryStyle,
+  type SortValue,
+} from "@/constants/marketplace";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import type { SearchableProduct } from "@/data/products";
@@ -51,72 +36,6 @@ const QuickViewModal = dynamic(
   { ssr: false },
 );
 
-/* ─── Category Color & Icon Mapping ────────────────────────── */
-
-interface CategoryStyle {
-  color: string;
-  textColor: string;
-  Icon: LucideIcon;
-}
-
-const CATEGORY_STYLES: Record<string, CategoryStyle> = {
-  fashion: { color: "bg-pink-500", textColor: "text-pink-600", Icon: Shirt },
-  electronics: { color: "bg-blue-500", textColor: "text-blue-600", Icon: Smartphone },
-  phones: { color: "bg-cyan-500", textColor: "text-cyan-600", Icon: Smartphone },
-  beauty: { color: "bg-rose-500", textColor: "text-rose-600", Icon: Sparkles },
-  home: { color: "bg-amber-500", textColor: "text-amber-600", Icon: HomeIcon },
-  food: { color: "bg-orange-500", textColor: "text-orange-600", Icon: UtensilsCrossed },
-  automobile: { color: "bg-red-500", textColor: "text-red-600", Icon: Car },
-  sports: { color: "bg-green-500", textColor: "text-green-600", Icon: Trophy },
-  health: { color: "bg-emerald-500", textColor: "text-emerald-600", Icon: HeartPulse },
-  books: { color: "bg-indigo-500", textColor: "text-indigo-600", Icon: BookOpen },
-  gaming: { color: "bg-violet-500", textColor: "text-violet-600", Icon: Gamepad2 },
-  kids: { color: "bg-yellow-500", textColor: "text-yellow-600", Icon: Baby },
-  jewelry: { color: "bg-fuchsia-500", textColor: "text-fuchsia-600", Icon: Gem },
-  groceries: { color: "bg-lime-500", textColor: "text-lime-600", Icon: ShoppingCart },
-  computers: { color: "bg-sky-500", textColor: "text-sky-600", Icon: Laptop },
-  fitness: { color: "bg-teal-500", textColor: "text-teal-600", Icon: Dumbbell },
-  music: { color: "bg-purple-500", textColor: "text-purple-600", Icon: Music },
-  cameras: { color: "bg-slate-500", textColor: "text-slate-600", Icon: Camera },
-  accessories: { color: "bg-stone-500", textColor: "text-stone-600", Icon: Watch },
-  art: { color: "bg-pink-600", textColor: "text-pink-700", Icon: Palette },
-  pets: { color: "bg-orange-600", textColor: "text-orange-700", Icon: Dog },
-  movies: { color: "bg-red-600", textColor: "text-red-700", Icon: Clapperboard },
-  audio: { color: "bg-violet-600", textColor: "text-violet-700", Icon: Headphones },
-};
-
-const DEFAULT_STYLE: CategoryStyle = {
-  color: "bg-gray-500",
-  textColor: "text-gray-600",
-  Icon: Package,
-};
-
-/* Stagger children colors for unstyled categories */
-const CARD_ACCENT_COLORS = [
-  "bg-kwik-orange",
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-violet-500",
-  "bg-pink-500",
-  "bg-amber-500",
-  "bg-cyan-500",
-  "bg-rose-500",
-  "bg-indigo-500",
-  "bg-teal-500",
-];
-
-const CARD_TEXT_COLORS = [
-  "text-kwik-orange",
-  "text-blue-600",
-  "text-emerald-600",
-  "text-violet-600",
-  "text-pink-600",
-  "text-amber-600",
-  "text-cyan-600",
-  "text-rose-600",
-  "text-indigo-600",
-  "text-teal-600",
-];
 
 function getCategoryStyle(name: string, slug: string, index: number): CategoryStyle {
   const key = (slug || "").toLowerCase();
@@ -163,17 +82,6 @@ function StaggerChild({ children, index, className = "" }: { children: React.Rea
   );
 }
 
-/* ─── Sort Options ─────────────────────────────────────────── */
-
-const SORT_OPTIONS = [
-  { value: "relevance", label: "Relevance" },
-  { value: "price-low", label: "Price: Low to High" },
-  { value: "price-high", label: "Price: High to Low" },
-  { value: "rating", label: "Highest Rated" },
-  { value: "newest", label: "Newest" },
-] as const;
-
-type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 
 const withTimeout = async <T,>(promise: Promise<T>, ms = 8000): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -430,7 +430,7 @@ export default function CartPage() {
   const ensureAuthenticated = () => {
     if (tokenManager.isAuthenticated()) return true;
     kwikToast.info("Login to continue checkout.");
-    router.push("/login?redirect=/cart");
+    router.push("/login?redirect=/checkout");
     return false;
   };
 

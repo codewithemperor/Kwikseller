@@ -12,97 +12,10 @@ import {
 } from "lucide-react";
 import { Chip, Card } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Types ───────────────────────────────────────────────────
-
-interface VideoTestimonial {
-  id: string;
-  name: string;
-  role: string;
-  rating: number;
-  quote: string;
-  initials: string;
-  color: string;
-  duration: string;
-  category: string;
-}
-
-// ─── Data ───────────────────────────────────────────────────
-
-const testimonials: VideoTestimonial[] = [
-  {
-    id: "1",
-    name: "Adaeze Okonkwo",
-    role: "Fashion Designer, Lagos",
-    rating: 5,
-    quote:
-      "KWIKSELLER transformed my small Ankara business into a brand serving customers across West Africa. The pool selling feature is genius!",
-    initials: "AO",
-    color: "bg-pink-500",
-    duration: "2:34",
-    category: "Fashion",
-  },
-  {
-    id: "2",
-    name: "Emmanuel Mensah",
-    role: "Electronics Dealer, Accra",
-    rating: 5,
-    quote:
-      "The delivery network is incredible. My customers in Kumasi get their orders same-day. Revenue tripled in 6 months.",
-    initials: "EM",
-    color: "bg-blue-500",
-    duration: "1:58",
-    category: "Electronics",
-  },
-  {
-    id: "3",
-    name: "Fatima Abubakar",
-    role: "Beauty Entrepreneur, Kano",
-    rating: 4,
-    quote:
-      "KwikCoins rewards keep me motivated. I've earned enough coins for free ads that brought in 200 new customers.",
-    initials: "FA",
-    color: "bg-purple-500",
-    duration: "3:12",
-    category: "Beauty",
-  },
-  {
-    id: "4",
-    name: "David Mwangi",
-    role: "Phone Accessories, Nairobi",
-    rating: 5,
-    quote:
-      "Starting with zero inventory was a game-changer. Pool selling let me test products risk-free before stocking them.",
-    initials: "DM",
-    color: "bg-green-500",
-    duration: "2:07",
-    category: "Phones",
-  },
-  {
-    id: "5",
-    name: "Aisha Diallo",
-    role: "Food Vendor, Dakar",
-    rating: 5,
-    quote:
-      "The escrow protection gives my customers confidence. My return rate dropped to near zero since joining KWIKSELLER.",
-    initials: "AD",
-    color: "bg-orange-500",
-    duration: "1:45",
-    category: "Food & Drinks",
-  },
-  {
-    id: "6",
-    name: "Chidi Nwosu",
-    role: "Home Decor, Enugu",
-    rating: 4,
-    quote:
-      "Analytics dashboard shows me exactly what's trending. I adjust my inventory weekly and profits keep growing.",
-    initials: "CN",
-    color: "bg-teal-500",
-    duration: "2:51",
-    category: "Home & Garden",
-  },
-];
+import {
+  VIDEO_TESTIMONIALS as testimonials,
+  type VideoTestimonial,
+} from "@/constants/landing";
 
 // ─── Animation Variants ─────────────────────────────────────
 

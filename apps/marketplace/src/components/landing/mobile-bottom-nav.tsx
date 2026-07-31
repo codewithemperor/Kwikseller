@@ -3,17 +3,11 @@
 import React from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Grid3X3, LayoutGrid, Store, User } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { MOBILE_BOTTOM_NAV_ITEMS as navItems, type MobileNavItem } from '@/constants/navigation'
 
 interface MobileBottomNavProps {
   onNavigateStart?: () => void
-}
-
-interface NavItem {
-  label: string
-  icon: React.ElementType
-  href: string
 }
 
 export function MobileBottomNav({ onNavigateStart }: MobileBottomNavProps) {
@@ -23,29 +17,6 @@ export function MobileBottomNav({ onNavigateStart }: MobileBottomNavProps) {
   React.useEffect(() => {
     setMounted(true)
   }, [])
-
-  const navItems: NavItem[] = [
-    {
-      label: 'Home',
-      icon: LayoutGrid,
-      href: '/',
-    },
-    {
-      label: 'Categories',
-      icon: Grid3X3,
-      href: '/categories',
-    },
-    {
-      label: 'Vendors',
-      icon: Store,
-      href: '/vendors',
-    },
-    {
-      label: 'Profile',
-      icon: User,
-      href: '/profile',
-    },
-  ]
 
   const [activeTab, setActiveTab] = React.useState(() => {
     if (pathname === '/categories') return 'Categories'
@@ -61,7 +32,7 @@ export function MobileBottomNav({ onNavigateStart }: MobileBottomNavProps) {
     else if (pathname === '/') setActiveTab('Home')
   }, [pathname])
 
-  const handleTap = (item: NavItem) => {
+  const handleTap = (item: MobileNavItem) => {
     setActiveTab(item.label)
     if (pathname !== item.href) onNavigateStart?.()
   }

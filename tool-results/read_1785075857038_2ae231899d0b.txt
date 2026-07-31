@@ -1,0 +1,762 @@
+     1→"use client";
+     2→
+     3→import Link from "next/link";
+     4→import React from "react";
+     5→import {
+     6→  ArrowRight,
+     7→  Check,
+     8→  ChevronRight,
+     9→  Clock3,
+    10→  Download,
+    11→  PackageCheck,
+    12→  PackageOpen,
+    13→  ShieldCheck,
+    14→  ShoppingCart,
+    15→  Store,
+    16→  Users,
+    17→} from "lucide-react";
+    18→import { marketplaceApi } from "@kwikseller/api-client";
+    19→import { kwikToast } from "@kwikseller/utils";
+    20→import { AppImage } from "@/components/ui/app-image";
+    21→import { EmptyState } from "@/components/ui/empty-state";
+    22→import { QuickViewModal } from "@/components/landing/quick-view-modal";
+    23→import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+    24→import { useCartStore, useHomeFeedStore, useRecentlyViewedStore, useWishlistStore } from "@/stores";
+    25→import { rankProductsForMember } from "@/lib/marketplace-ranking";
+    26→import type { MarketplaceProduct } from "@/data/marketplace-home";
+    27→import {
+    28→  mockHomeFeed,
+    29→  mockPoolOffers,
+    30→  mockPoolCampaigns,
+    31→} from "@/data/mock-home-feed";
+    32→
+    33→interface HomeBanner {
+    34→  id: string;
+    35→  title: string;
+    36→  subtitle: string;
+    37→  image: string | null;
+    38→  href: string;
+    39→  badge: string;
+    40→}
+    41→
+    42→interface HomeCategory {
+    43→  id: string;
+    44→  name: string;
+    45→  slug: string;
+    46→  image: string | null;
+    47→  itemCount: number;
+    48→}
+    49→
+    50→interface HomeBrand {
+    51→  id: string;
+    52→  name: string;
+    53→  image: string | null;
+    54→  productCount: number;
+    55→}
+    56→
+    57→interface HomeSeller {
+    58→  id: string;
+    59→  name: string;
+    60→  slug: string;
+    61→  image: string | null;
+    62→  logo: string | null;
+    63→  productCount: number;
+    64→  isVerified: boolean;
+    65→}
+    66→
+    67→interface HomeFeedResponse {
+    68→  heroBanners: HomeBanner[];
+    69→  categories: HomeCategory[];
+    70→  brands: HomeBrand[];
+    71→  featuredProducts: MarketplaceProduct[];
+    72→  dealProducts: MarketplaceProduct[];
+    73→  trendingProducts: MarketplaceProduct[];
+    74→}
+    75→
+    76→type PoolOffer = {
+    77→  id: string;
+    78→  retailPrice: number;
+    79→  markup?: number;
+    80→  product?: {
+    81→    id: string;
+    82→    name: string;
+    83→    price: number;
+    84→    images?: Array<{ url: string; isMain?: boolean }>;
+    85→    category?: { name: string };
+    86→  };
+    87→  poolProduct?: {
+    88→    name: string;
+    89→    description?: string;
+    90→    suggestedRetailPrice?: number;
+    91→    images?: string;
+    92→  };
+    93→  store?: { id?: string; name: string; slug?: string };
+    94→};
+    95→
+    96→type PoolCampaign = {
+    97→  id: string;
+    98→  title: string;
+    99→  targetQuantity: number;
+   100→  committedQuantity: number;
+   101→  unitPrice: number;
+   102→  status: string;
+   103→  poolProduct?: { name: string };
+   104→};
+   105→
+   106→function formatCurrency(amount: number) {
+   107→  return new Intl.NumberFormat("en-NG", {
+   108→    style: "currency",
+   109→    currency: "NGN",
+   110→    maximumFractionDigits: 0,
+   111→  }).format(amount);
+   112→}
+   113→
+   114→function unwrapApiData<T>(value: unknown): T {
+   115→  if (value && typeof value === "object" && "data" in value) {
+   116→    return (value as { data: T }).data;
+   117→  }
+   118→  return value as T;
+   119→}
+   120→
+   121→function getSearchHistory() {
+   122→  if (typeof window === "undefined") return [];
+   123→  try {
+   124→    const raw = localStorage.getItem("kwikseller-search-history");
+   125→    return raw ? JSON.parse(raw) : [];
+   126→  } catch {
+   127→    return [];
+   128→  }
+   129→}
+   130→
+   131→function campaignHref(campaign: PoolCampaign) {
+   132→  const slug = campaign.title
+   133→    .toLowerCase()
+   134→    .replace(/[^a-z0-9]+/g, "-")
+   135→    .replace(/(^-|-$)/g, "")
+   136→    .slice(0, 72);
+   137→  return `/group-buy/${slug || "campaign"}-${campaign.id}`;
+   138→}
+   139→
+   140→function SkeletonBlock({ className }: { className: string }) {
+   141→  return <div className={`animate-pulse rounded-md bg-neutral-100 ${className}`} />;
+   142→}
+   143→
+   144→function SectionHeader({
+   145→  title,
+   146→  description,
+   147→  action,
+   148→}: {
+   149→  title: string;
+   150→  description: string;
+   151→  action?: React.ReactNode;
+   152→}) {
+   153→  return (
+   154→    <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
+   155→      <div>
+   156→        <h2 className="text-base font-semibold text-white md:text-xl">{title}</h2>
+   157→        <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">{description}</p>
+   158→      </div>
+   159→      {action}
+   160→    </div>
+   161→  );
+   162→}
+   163→
+   164→function ProductBand({
+   165→  title,
+   166→  description,
+   167→  products,
+   168→  actionHref,
+   169→  gridClassName = "grid grid-cols-2 gap-x-4 gap-y-7 lg:grid-cols-4 xl:grid-cols-5",
+   170→  onQuickView,
+   171→}: {
+   172→  title: string;
+   173→  description: string;
+   174→  products: MarketplaceProduct[];
+   175→  actionHref?: string;
+   176→  gridClassName?: string;
+   177→  onQuickView?: (product: MarketplaceProduct) => void;
+   178→}) {
+   179→  return (
+   180→    <section>
+   181→      <SectionHeader
+   182→        title={title}
+   183→        description={description}
+   184→        action={
+   185→          actionHref ? (
+   186→            <Link href={actionHref} className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+   187→              View more <ChevronRight className="h-4 w-4" />
+   188→            </Link>
+   189→          ) : undefined
+   190→        }
+   191→      />
+   192→      {products.length ? (
+   193→        <div className={gridClassName}>
+   194→          {products.map((product, index) => (
+   195→            <MarketplaceProductCard key={`${product.id}-${index}`} product={product} onQuickView={onQuickView} />
+   196→          ))}
+   197→        </div>
+   198→      ) : (
+   199→        <div className="border border-dashed border-neutral-300 p-8">
+   200→          <EmptyState
+   201→            icon={<PackageOpen className="h-10 w-10" />}
+   202→            title="Nothing listed yet"
+   203→            description="New live products will show up here as vendors publish them."
+   204→          />
+   205→        </div>
+   206→      )}
+   207→    </section>
+   208→  );
+   209→}
+   210→
+   211→function PoolOfferCard({ offer }: { offer: PoolOffer }) {
+   212→  const addItem = useCartStore((state) => state.addItem);
+   213→  const isInCart = useCartStore((state) =>
+   214→    state.items.some((item) => item.productId === offer.product?.id || item.poolOfferId === offer.id),
+   215→  );
+   216→  const productId = offer.product?.id;
+   217→  const image = offer.product?.images?.[0]?.url ?? null;
+   218→  const name = offer.product?.name ?? offer.poolProduct?.name ?? "Partner-fulfilled offer";
+   219→
+   220→  const addToCart = () => {
+   221→    if (!productId) {
+   222→      kwikToast.error("This Pool offer is not ready for checkout yet.");
+   223→      return;
+   224→    }
+   225→
+   226→    addItem({
+   227→      productId,
+   228→      poolOfferId: offer.id,
+   229→      name,
+   230→      price: offer.retailPrice,
+   231→      comparePrice: offer.poolProduct?.suggestedRetailPrice,
+   232→      image: image ?? "",
+   233→      store: offer.store?.name,
+   234→      storeId: offer.store?.id,
+   235→      storeSlug: offer.store?.slug,
+   236→      storeName: offer.store?.name,
+   237→      productType: "PHYSICAL",
+   238→      productSource: "POOL_RESALE",
+   239→      requiresShipping: true,
+   240→    });
+   241→    kwikToast.success("Offer added to cart");
+   242→  };
+   243→
+   244→  return (
+   245→    <article className="group border-b border-neutral-200 pb-4 dark:border-white/10">
+   246→      <div className="relative aspect-[3/4] min-h-[148px] overflow-hidden bg-neutral-100 sm:min-h-[190px] md:aspect-[4/5]">
+   247→        <AppImage src={image} alt={name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" fallbackVariant="product" />
+   248→      </div>
+   249→      <div className="mt-3 space-y-3">
+   250→        <div>
+   251→          <h3 className="line-clamp-2 text-sm font-semibold text-kwik-dark dark:text-white">{name}</h3>
+   252→          <p className="mt-1 line-clamp-1 text-xs text-kwik-muted dark:text-white/55">{offer.store?.name ?? "Verified vendor"}</p>
+   253→        </div>
+   254→        <div className="flex items-end justify-between gap-3">
+   255→          <div>
+   256→            <p className="text-base font-bold text-kwik-dark dark:text-white">{formatCurrency(offer.retailPrice)}</p>
+   257→          </div>
+   258→          <button
+   259→            type="button"
+   260→            onClick={addToCart}
+   261→            className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-white transition ${
+   262→              isInCart ? "bg-emerald-600 hover:bg-emerald-700" : "bg-kwik-orange hover:bg-kwik-orange-hover"
+   263→            }`}
+   264→            aria-label={isInCart ? "Added to cart" : "Add to cart"}
+   265→          >
+   266→            {isInCart ? <Check className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+   267→          </button>
+   268→        </div>
+   269→      </div>
+   270→    </article>
+   271→  );
+   272→}
+   273→
+   274→function CampaignRow({ campaign }: { campaign: PoolCampaign }) {
+   275→  const progress =
+   276→    campaign.targetQuantity > 0
+   277→      ? Math.min(100, Math.round((campaign.committedQuantity / campaign.targetQuantity) * 100))
+   278→      : 0;
+   279→
+   280→  return (
+   281→    <div className="border-b border-white/15 py-4 transition hover:border-white/35">
+   282→      <div className="flex items-start justify-between gap-4">
+   283→        <Link href={campaignHref(campaign)} className="min-w-0 flex-1">
+   284→          <p className="text-xs font-semibold uppercase text-cyan-100">{campaign.status}</p>
+   285→          <h3 className="mt-1 text-sm font-semibold text-white">{campaign.title}</h3>
+   286→          <p className="mt-1 text-xs text-white/65">{campaign.poolProduct?.name ?? "Pool campaign"}</p>
+   287→        </Link>
+   288→        <p className="text-sm font-bold text-white">{formatCurrency(campaign.unitPrice)}</p>
+   289→      </div>
+   290→      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/15">
+   291→        <div className="h-full rounded-full bg-white" style={{ width: `${progress}%` }} />
+   292→      </div>
+   293→      <div className="mt-2 flex justify-between text-xs text-white/65">
+   294→        <span>{campaign.committedQuantity} committed</span>
+   295→        <span>{campaign.targetQuantity} target</span>
+   296→      </div>
+   297→      <div className="mt-3 flex gap-2">
+   298→        <Link
+   299→          href={campaignHref(campaign)}
+   300→          className="inline-flex h-8 flex-1 items-center justify-center rounded-md border border-white/20 text-xs font-semibold text-white transition hover:bg-white/10"
+   301→        >
+   302→          View details
+   303→        </Link>
+   304→        <button
+   305→          type="button"
+   306→          onClick={() => kwikToast.success(`Subscribed to ${campaign.title}`)}
+   307→          className="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-white text-xs font-semibold text-kwik-blue"
+   308→        >
+   309→          Subscribe
+   310→        </button>
+   311→      </div>
+   312→    </div>
+   313→  );
+   314→}
+   315→
+   316→function MarketplaceHomeSkeleton() {
+   317→  return (
+   318→    <div className="bg-white py-4">
+   319→      <div className="container mx-auto space-y-8 px-4">
+   320→        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_380px]">
+   321→          <SkeletonBlock className="h-[240px] md:h-[340px] lg:h-[390px]" />
+   322→          <SkeletonBlock className="hidden h-[390px] lg:block" />
+   323→        </div>
+   324→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+   325→          {Array.from({ length: 10 }, (_, index) => (
+   326→            <SkeletonBlock key={index} className="h-72" />
+   327→          ))}
+   328→        </div>
+   329→      </div>
+   330→    </div>
+   331→  );
+   332→}
+   333→
+   334→export function MarketplaceHomeFeedPage() {
+   335→  const [feed, setFeed] = React.useState<HomeFeedResponse | null>(null);
+   336→  const [poolOffers, setPoolOffers] = React.useState<PoolOffer[]>([]);
+   337→  const [campaigns, setCampaigns] = React.useState<PoolCampaign[]>([]);
+   338→  const [homeSellers, setHomeSellers] = React.useState<HomeSeller[]>([]);
+   339→  const [isLoading, setIsLoading] = React.useState(true);
+   340→  const [error, setError] = React.useState<string | null>(null);
+   341→  const [activeBanner, setActiveBanner] = React.useState(0);
+   342→  const [quickViewProduct, setQuickViewProduct] = React.useState<MarketplaceProduct | null>(null);
+   343→  const setCachedHomeFeed = useHomeFeedStore((state) => state.setHomeFeed);
+   344→  const cartItems = useCartStore((state) => state.items);
+   345→  const wishlistItems = useWishlistStore((state) => state.items);
+   346→  const recentlyViewedItems = useRecentlyViewedStore((state) => state.items);
+   347→
+   348→  React.useEffect(() => {
+   349→    let isMounted = true;
+   350→
+   351→    const loadFeed = async () => {
+   352→      const navEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+   353→      const isPageReload = navEntry?.type === "reload";
+   354→
+   355→      const cachedHome = useHomeFeedStore.getState();
+   356→      if (!isPageReload && cachedHome.isFresh() && cachedHome.feed) {
+   357→        setFeed(cachedHome.feed);
+   358→        setPoolOffers(cachedHome.poolOffers);
+   359→        setCampaigns(cachedHome.campaigns);
+   360→        setIsLoading(false);
+   361→        return;
+   362→      }
+   363→
+   364→      setIsLoading(true);
+   365→      setError(null);
+   366→      try {
+   367→        const [homeResponse, poolResponse, campaignsResponse] = await Promise.allSettled([
+   368→          marketplaceApi.getHomeFeed(),
+   369→          marketplaceApi.getPoolOffers({ limit: 6 }),
+   370→          marketplaceApi.getPoolCampaigns({ limit: 4 }),
+   371→        ]);
+   372→
+   373→        if (!isMounted) return;
+   374→        if (homeResponse.status === "fulfilled") {
+   375→          const nextFeed = unwrapApiData<HomeFeedResponse>(homeResponse.value.data);
+   376→          const nextPoolOffers = poolResponse.status === "fulfilled"
+   377→            ? unwrapApiData<PoolOffer[]>(poolResponse.value.data)
+   378→            : [];
+   379→          const nextCampaigns = campaignsResponse.status === "fulfilled"
+   380→            ? unwrapApiData<PoolCampaign[]>(campaignsResponse.value.data)
+   381→            : [];
+   382→
+   383→          setFeed(nextFeed);
+   384→          setPoolOffers(nextPoolOffers);
+   385→          setCampaigns(nextCampaigns);
+   386→          setCachedHomeFeed({
+   387→            feed: nextFeed,
+   388→            poolOffers: nextPoolOffers,
+   389→            campaigns: nextCampaigns,
+   390→          });
+   391→        } else {
+   392→          throw homeResponse.reason;
+   393→        }
+   394→      } catch (err) {
+   395→        if (isMounted) {
+   396→          // Graceful fallback: render the curated mock feed so the homepage
+   397→          // stays rich and explorable when the live API is unreachable
+   398→          // (e.g. preview/staging without a backend, or a network blip).
+   399→          setFeed(mockHomeFeed);
+   400→          setPoolOffers(mockPoolOffers);
+   401→          setCampaigns(mockPoolCampaigns);
+   402→          setError(null);
+   403→        }
+   404→      } finally {
+   405→        if (isMounted) setIsLoading(false);
+   406→      }
+   407→    };
+   408→
+   409→    loadFeed();
+   410→    return () => {
+   411→      isMounted = false;
+   412→    };
+   413→  }, [setCachedHomeFeed]);
+   414→
+   415→  React.useEffect(() => {
+   416→    let isMounted = true;
+   417→    marketplaceApi.getSellers({ limit: 4 })
+   418→      .then((response) => {
+   419→        if (!isMounted) return;
+   420→        const data = unwrapApiData<any>(response.data);
+   421→        const list = Array.isArray(data) ? data : data?.sellers || [];
+   422→        setHomeSellers(list.map((seller: any, index: number) => {
+   423→          const name = seller.name || seller.storeName || "Kwikseller vendor";
+   424→          const slug = seller.username || seller.slug || seller.storeUsername || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || String(seller.id ?? index);
+   425→          return {
+   426→            id: String(seller.id ?? slug),
+   427→            name,
+   428→            slug,
+   429→            image: seller.banner || seller.bannerUrl || seller.coverUrl || seller.image || null,
+   430→            logo: seller.logo || seller.logoUrl || null,
+   431→            productCount: Number(seller.productCount ?? seller.products ?? 0),
+   432→            isVerified: Boolean(seller.isVerified ?? seller.verified ?? true),
+   433→          };
+   434→        }));
+   435→      })
+   436→      .catch(() => {
+   437→        if (isMounted) setHomeSellers([]);
+   438→      });
+   439→    return () => {
+   440→      isMounted = false;
+   441→    };
+   442→  }, []);
+   443→
+   444→  React.useEffect(() => {
+   445→    const count = feed?.heroBanners.length ?? 0;
+   446→    if (count < 2) return undefined;
+   447→
+   448→    const interval = window.setInterval(() => {
+   449→      setActiveBanner((current) => (current + 1) % count);
+   450→    }, 4500);
+   451→
+   452→    return () => window.clearInterval(interval);
+   453→  }, [feed?.heroBanners.length]);
+   454→
+   455→  if (isLoading) return <MarketplaceHomeSkeleton />;
+   456→
+   457→  if (error || !feed) {
+   458→    return (
+   459→      <div className="bg-background px-4 py-20">
+   460→        <div className="container mx-auto max-w-2xl text-center">
+   461→          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-neutral-200">
+   462→            <PackageOpen className="h-7 w-7 text-kwik-orange" />
+   463→          </div>
+   464→          <h1 className="mt-5 text-2xl font-semibold text-kwik-dark dark:text-white">Marketplace could not load</h1>
+   465→          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-kwik-muted dark:text-white/60">
+   466→            {error || "We could not reach the live catalog right now. Please try again in a moment."}
+   467→          </p>
+   468→          <button
+   469→            type="button"
+   470→            onClick={() => window.location.reload()}
+   471→            className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-kwik-dark px-5 text-sm font-semibold text-white"
+   472→          >
+   473→            Retry marketplace
+   474→          </button>
+   475→        </div>
+   476→      </div>
+   477→    );
+   478→  }
+   479→
+   480→  const banners = feed.heroBanners.length
+   481→    ? feed.heroBanners
+   482→    : [
+   483→        {
+   484→          id: "fallback",
+   485→          title: "Pool-ready marketplace",
+   486→          subtitle: "Shop vendor stock, resale offers, group buys, and digital products in one cart.",
+   487→          image: null,
+   488→          href: "/search",
+   489→          badge: "Kwikseller",
+   490→        },
+   491→      ];
+   492→  const banner = banners[activeBanner % banners.length];
+   493→  const memberSignals = {
+   494→    cartProductIds: cartItems.map((item) => item.productId),
+   495→    wishlistProductIds: wishlistItems.map((item) => item.id),
+   496→    recentlyViewedIds: recentlyViewedItems.map((item) => item.id),
+   497→    searchHistory: getSearchHistory(),
+   498→  };
+   499→  const rankedFeatured = rankProductsForMember(feed.featuredProducts, memberSignals);
+   500→  const rankedTrending = rankProductsForMember(feed.trendingProducts, memberSignals);
+   501→  const stockProducts = rankedFeatured.filter((item) => item.productSource !== "POOL_RESALE");
+   502→  const digitalProducts = [...rankedFeatured, ...rankedTrending].filter(
+   503→    (item) => item.productType === "DIGITAL",
+   504→  );
+   505→
+   506→  return (
+   507→    <div className="bg-background pb-12">
+   508→      <section className="border-b border-border bg-background">
+   509→        <div className="container mx-auto px-4 py-5 md:py-7">
+   510→          <div className="lg:hidden">
+   511→            <Link href={banner.href || "/search"} className="block">
+   512→              <div className="aspect-[16/10] overflow-hidden bg-neutral-100">
+   513→                <AppImage src={banner.image} alt={banner.title} className="h-full w-full object-cover" fallbackVariant="product" />
+   514→              </div>
+   515→            </Link>
+   516→            {banners.length > 1 && (
+   517→              <div className="mt-3 flex justify-center gap-2" aria-label="Marketplace banners">
+   518→                {banners.map((item, index) => (
+   519→                  <button
+   520→                    key={`${item.id}-${index}`}
+   521→                    type="button"
+   522→                    onClick={() => setActiveBanner(index)}
+   523→                    className={`h-1.5 rounded-full transition-all ${index === activeBanner ? "w-6 bg-kwik-dark" : "w-1.5 bg-neutral-300"}`}
+   524→                    aria-label={`Show banner ${index + 1}`}
+   525→                  />
+   526→                ))}
+   527→              </div>
+   528→            )}
+   529→          </div>
+   530→
+   531→          <div className="hidden gap-5 lg:grid lg:grid-cols-[minmax(0,1.45fr)_380px] xl:grid-cols-[minmax(0,1.55fr)_430px]">
+   532→            <Link href={banner.href || "/search"} className="block h-[390px] overflow-hidden bg-neutral-100 xl:h-[430px]">
+   533→              <AppImage src={banner.image} alt={banner.title} className="h-full w-full object-cover transition duration-700 hover:scale-[1.02]" fallbackVariant="product" />
+   534→            </Link>
+   535→
+   536→            <aside className="flex h-[390px] flex-col justify-between border border-neutral-200 p-6 dark:border-white/10 xl:h-[430px]">
+   537→              <div>
+   538→                <p className="text-xs font-semibold uppercase tracking-wide text-kwik-orange">{banner.badge || "Kwikseller Pool"}</p>
+   539→                <h1 className="mt-4 text-3xl font-semibold leading-tight text-kwik-dark dark:text-white xl:text-4xl">{banner.title}</h1>
+   540→                <p className="mt-3 text-sm leading-6 text-kwik-muted dark:text-white/60">{banner.subtitle}</p>
+   541→              </div>
+   542→
+   543→              <div className="space-y-4">
+   544→                <div className="grid grid-cols-3 border-y border-neutral-200 py-4 dark:border-white/10">
+   545→                  <div>
+   546→                    <p className="text-2xl font-semibold text-kwik-dark dark:text-white">{feed.categories.length}</p>
+   547→                    <p className="text-xs text-kwik-muted dark:text-white/55">Categories</p>
+   548→                  </div>
+   549→                  <div className="border-x border-neutral-200 px-4 dark:border-white/10">
+   550→                    <p className="text-2xl font-semibold text-kwik-dark dark:text-white">{poolOffers.length}</p>
+   551→                    <p className="text-xs text-kwik-muted dark:text-white/55">Pool offers</p>
+   552→                  </div>
+   553→                  <div className="pl-4">
+   554→                    <p className="text-2xl font-semibold text-kwik-dark dark:text-white">{campaigns.length}</p>
+   555→                    <p className="text-xs text-kwik-muted dark:text-white/55">Group buys</p>
+   556→                  </div>
+   557→                </div>
+   558→
+   559→                <div className="grid gap-2">
+   560→                  {[
+   561→                    { icon: PackageCheck, title: "Vendor Stock", text: "Physical products with real inventory rules." },
+   562→                    { icon: Users, title: "Partner network", text: "More products fulfilled through verified partners." },
+   563→                    { icon: Download, title: "Digital Delivery", text: "Checkout skips shipping when fulfillment is digital." },
+   564→                  ].map((item) => (
+   565→                    <div key={item.title} className="flex gap-3">
+   566→                      <item.icon className="mt-0.5 h-4 w-4 text-kwik-orange" />
+   567→                      <div>
+   568→                        <p className="text-sm font-semibold text-kwik-dark dark:text-white">{item.title}</p>
+   569→                        <p className="text-xs leading-5 text-kwik-muted dark:text-white/55">{item.text}</p>
+   570→                      </div>
+   571→                    </div>
+   572→                  ))}
+   573→                </div>
+   574→
+   575→                <div className="flex gap-3">
+   576→                  <Link
+   577→                    href="/search"
+   578→                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-kwik-dark px-4 text-sm font-semibold text-white transition dark:bg-black"
+   579→                  >
+   580→                    Browse
+   581→                    <ArrowRight className="h-4 w-4" />
+   582→                  </Link>
+   583→                  <Link
+   584→                    href="/cart"
+   585→                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-neutral-300 px-4 text-sm font-semibold text-kwik-dark transition hover:border-kwik-dark"
+   586→                  >
+   587→                    Cart
+   588→                    <ShoppingCart className="h-4 w-4" />
+   589→                  </Link>
+   590→                </div>
+   591→              </div>
+   592→            </aside>
+   593→          </div>
+   594→        </div>
+   595→      </section>
+   596→
+   597→      <div className="container mx-auto space-y-12 px-4 py-10">
+   598→        <section>
+   599→          <div className="-mx-4 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
+   600→            <div>
+   601→              <h2 className="text-base font-semibold text-white md:text-xl">Partner-fulfilled shelf</h2>
+   602→              <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">
+   603→              Vendor offers backed by the Admin Pool Catalog, priced with markup, and ready to validate in checkout.
+   604→              </p>
+   605→            </div>
+   606→            <Link href="/pool" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+   607→              View more <ChevronRight className="h-4 w-4" />
+   608→            </Link>
+   609→          </div>
+   610→
+   611→          {poolOffers.length ? (
+   612→            <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
+   613→              {poolOffers.slice(0, 6).map((offer, index) => (
+   614→                <PoolOfferCard key={`${offer.id}-${index}`} offer={offer} />
+   615→              ))}
+   616→            </div>
+   617→          ) : (
+   618→            <div className="border border-dashed border-emerald-300 p-8 text-sm leading-6 text-emerald-900">
+   619→              Pool offers will appear as vendors opt into the Admin Pool Catalog.
+   620→            </div>
+   621→          )}
+   622→        </section>
+   623→
+   624→        <section className="grid gap-8 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px]">
+   625→          <ProductBand
+   626→            title="Vendor stock"
+   627→            description="Products fulfilled manually while Rider stays paused."
+   628→            products={(stockProducts.length ? stockProducts : rankedFeatured).slice(0, 8)}
+   629→            actionHref="/search?source=vendor-stock"
+   630→            gridClassName="grid grid-cols-2 gap-x-4 gap-y-7 xl:grid-cols-4"
+   631→            onQuickView={setQuickViewProduct}
+   632→          />
+   633→
+   634→          <aside className="bg-kwik-blue p-5 text-white">
+   635→            <div className="-mx-5 mb-4 flex items-center justify-between gap-3 bg-kwik-blue px-5 py-3">
+   636→              <div>
+   637→                <h2 className="text-base font-semibold md:text-xl">Group-buy desk</h2>
+   638→                <p className="mt-0.5 text-xs leading-5 text-white/70 md:text-sm">Campaigns waiting for buyer commitments.</p>
+   639→              </div>
+   640→              <Link href="/group-buy" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+   641→                View more <ChevronRight className="h-4 w-4" />
+   642→              </Link>
+   643→            </div>
+   644→            <div>
+   645→              {campaigns.length ? (
+   646→                campaigns.slice(0, 4).map((campaign, index) => <CampaignRow key={`${campaign.id}-${index}`} campaign={campaign} />)
+   647→              ) : (
+   648→                <div className="border border-dashed border-white/30 p-6">
+   649→                  <Clock3 className="h-6 w-6 text-white" />
+   650→                  <p className="mt-3 text-sm font-semibold text-white">No live group buys yet</p>
+   651→                  <p className="mt-1 text-xs leading-5 text-white/65">Admin-created campaigns will show here after setup.</p>
+   652→                </div>
+   653→              )}
+   654→            </div>
+   655→          </aside>
+   656→        </section>
+   657→
+   658→        {digitalProducts.length > 0 && (
+   659→          <ProductBand
+   660→            title="Digital delivery"
+   661→            description="Instant-access products that skip shipping."
+   662→            products={digitalProducts.slice(0, 5)}
+   663→            actionHref="/search?type=digital"
+   664→            onQuickView={setQuickViewProduct}
+   665→          />
+   666→        )}
+   667→
+   668→        <ProductBand
+   669→          title="Trending catalog"
+   670→          description="Live active products from stores."
+   671→          products={rankedTrending}
+   672→          actionHref="/search"
+   673→          onQuickView={setQuickViewProduct}
+   674→        />
+   675→
+   676→        <section id="categories" className="scroll-mt-28">
+   677→          <div className="-mx-4 mb-4 flex items-center justify-between bg-kwik-blue px-4 py-3 text-white md:mx-0">
+   678→            <div>
+   679→              <h2 className="text-base font-semibold text-white md:text-xl">Browse by category</h2>
+   680→              <p className="mt-0.5 text-xs text-white/70 md:text-sm">Category shelves stay API-driven and ready for fulfillment filters.</p>
+   681→            </div>
+   682→            <Link href="/categories" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+   683→              View more <ChevronRight className="h-4 w-4" />
+   684→            </Link>
+   685→          </div>
+   686→          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+   687→            {feed.categories.slice(0, 8).map((category, index) => (
+   688→              <Link
+   689→                key={`${category.id}-${index}`}
+   690→                href={`/categories?name=${category.slug}`}
+   691→                className="group border-b border-neutral-200 pb-4"
+   692→              >
+   693→                <div className="aspect-[5/3] overflow-hidden bg-neutral-100">
+   694→                  <AppImage src={category.image} alt={category.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+   695→                </div>
+   696→                <p className="mt-3 text-sm font-semibold text-kwik-dark">{category.name}</p>
+   697→                <p className="text-xs text-kwik-muted">{category.itemCount} products</p>
+   698→              </Link>
+   699→            ))}
+   700→          </div>
+   701→        </section>
+   702→
+   703→        <section>
+   704→          <SectionHeader
+   705→            title="Vendor storefronts"
+   706→            description="Verified stores with their own public marketplace pages."
+   707→            action={
+   708→              <Link href="/vendors" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+   709→                View more <ChevronRight className="h-4 w-4" />
+   710→              </Link>
+   711→            }
+   712→          />
+   713→          <div className="grid gap-4 md:grid-cols-4">
+   714→            {homeSellers.map((seller, index) => (
+   715→              <div key={`${seller.id}-${index}`} className="border-b border-neutral-200 pb-4">
+   716→                <div className="flex items-center gap-3">
+   717→                  <div className="h-12 w-12 overflow-hidden bg-neutral-100">
+   718→                    <AppImage src={seller.logo || seller.image} alt={seller.name} className="h-full w-full object-cover" fallbackVariant="default" />
+   719→                  </div>
+   720→                  <div>
+   721→                    <p className="text-sm font-semibold text-kwik-dark">{seller.name}</p>
+   722→                    <p className="text-xs text-kwik-muted">{seller.productCount} active products</p>
+   723→                  </div>
+   724→                </div>
+   725→                <div className="mt-4 flex items-center justify-between text-xs">
+   726→                  <span className="inline-flex items-center gap-1 text-emerald-700">
+   727→                    <ShieldCheck className="h-3.5 w-3.5" />
+   728→                    {seller.isVerified ? "Verified store" : "Store"}
+   729→                  </span>
+   730→                  <Link href={`/vendor/${seller.slug}`} className="inline-flex items-center gap-1 font-semibold text-kwik-dark">
+   731→                    View <ArrowRight className="h-3.5 w-3.5" />
+   732→                  </Link>
+   733→                </div>
+   734→              </div>
+   735→            ))}
+   736→          </div>
+   737→        </section>
+   738→
+   739→        <section className="bg-foreground px-5 py-6 text-background md:px-8">
+   740→          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+   741→            <div>
+   742→              <Store className="h-7 w-7 text-kwik-orange" />
+   743→              <h2 className="mt-4 text-2xl font-semibold">Checkout is now commerce-aware.</h2>
+   744→              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">
+   745→                The cart validates inventory, shipping requirements, digital delivery, and Pool rules before Paystack checkout.
+   746→              </p>
+   747→            </div>
+   748→            <Link
+   749→              href="/cart"
+   750→              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-foreground"
+   751→            >
+   752→              Go to cart
+   753→              <ArrowRight className="h-4 w-4" />
+   754→            </Link>
+   755→          </div>
+   756→        </section>
+   757→      </div>
+   758→      <QuickViewModal product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} />
+   759→    </div>
+   760→  );
+   761→}
+   762→

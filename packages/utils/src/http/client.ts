@@ -1,332 +1,192 @@
-// KWIKSELLER - HTTP Client
-// Shared axios instance with automatic token handling and refresh
-
-import axios, {
-  type AxiosInstance,
-  type AxiosRequestConfig,
-  type InternalAxiosRequestConfig,
-} from "axios";
-import {
-  TOKEN_STORAGE_KEYS,
-  type ApiResponse,
-  type ApiErrorResponse,
-  type RefreshTokenResponse,
-  type RequestConfig,
-  type ApiClient,
-  type TypedAxiosError,
-  DEFAULT_CONFIG,
-} from "./types";
-
-// ─── Base URL ─────────────────────────────────────────────────────────────────
-
-function getBaseURL(): string {
-  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  return "/api/v1";
-}
-
-// ─── Token helpers ────────────────────────────────────────────────────────────
-
-export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_STORAGE_KEYS.ACCESS_TOKEN);
-}
-
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_STORAGE_KEYS.REFRESH_TOKEN);
-}
-
-export function setTokens(accessToken: string, refreshToken: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(TOKEN_STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-  localStorage.setItem(TOKEN_STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-}
-
-export function clearTokens(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(TOKEN_STORAGE_KEYS.ACCESS_TOKEN);
-  localStorage.removeItem(TOKEN_STORAGE_KEYS.REFRESH_TOKEN);
-  localStorage.removeItem(TOKEN_STORAGE_KEYS.AUTH_STORE);
-}
-
-export function isAuthenticated(): boolean {
-  return !!getAccessToken();
-}
-
-// ─── API Error class ──────────────────────────────────────────────────────────
-
 /**
- * Typed error thrown by the api client for all non-2xx responses.
+ * HTTP client adapter (DEPRECATED — thin shim over @kwikseller/api-client).
  *
- * Preserves every field the server sends so callers (e.g. auth context)
- * can branch on `code` without digging into axios internals.
+ * WHY THIS EXISTS
+ * ──────────────
+ * Historically `@kwikseller/utils` shipped its OWN axios instance with its own
+ * refresh-token queue. Running it alongside `@kwikseller/api-client` meant TWO
+ * axios instances shared the same localStorage tokens — on a 401 both could fire
+ * `POST /auth/refresh` concurrently, and since refresh tokens are single-use the
+ * second call failed and logged the user out.
  *
- * Example 403 body from server:
- *   { success: false, code: "EMAIL_NOT_VERIFIED", message: "...", statusCode: 403 }
+ * This module now delegates EVERYTHING to the single canonical client in
+ * `@kwikseller/api-client`:
+ *   - same axios instance  → single 401 refresh queue
+ *   - same tokenManager    → single token store
  *
- * Callers catch this and read:
- *   err.statusCode   // 403
- *   err.code         // "EMAIL_NOT_VERIFIED"
- *   err.message      // human-readable string
- *   err.data         // any extra payload (e.g. { user: { email } })
+ * The only thing kept here is the RESPONSE SHAPE (`api.post<T>()` returns the
+ * flat `T`, i.e. the inner `data` field) and the `ApiError` class, because the
+ * AuthProvider (`auth-context.tsx`) depends on both. New code should import
+ * directly from `@kwikseller/api-client`.
  */
-export class ApiError extends Error {
+import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
+import {
+  api as canonicalApi,
+  tokenManager,
+  type ApiResponse,
+} from "@kwikseller/api-client";
+
+// ─── ApiError class (for `instanceof` checks in auth-context) ────────────────
+
+export interface ApiErrorResponse {
+  statusCode: number;
+  code?: string;
+  message?: string;
+  data?: unknown;
+  errors?: unknown;
+}
+
+export class ApiError extends Error implements ApiErrorResponse {
   statusCode: number;
   code?: string;
   data?: unknown;
-  originalResponse?: ApiErrorResponse;
+  errors?: unknown;
 
-  constructor(response: ApiErrorResponse, statusCode: number) {
-    super(response.message || "An unexpected error occurred");
+  constructor(
+    message: string,
+    statusCode: number,
+    code?: string,
+    data?: unknown,
+    errors?: unknown,
+  ) {
+    super(message);
     this.name = "ApiError";
     this.statusCode = statusCode;
-    this.code = (response as ApiErrorResponse & { code?: string }).code;
-    this.data = (response as ApiErrorResponse & { data?: unknown }).data;
-    this.originalResponse = response;
+    this.code = code;
+    this.data = data;
+    this.errors = errors;
   }
 }
 
-// ─── Redirect helper ──────────────────────────────────────────────────────────
-
-function redirectToLogin(): void {
-  if (typeof window === "undefined") return;
-  clearTokens();
-  const currentPath = window.location.pathname;
-  window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
-}
-
-// ─── Token refresh queue ──────────────────────────────────────────────────────
-
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (error: Error) => void;
-}> = [];
-
-function processQueue(error: Error | null, token: string | null = null): void {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else if (token) prom.resolve(token);
-  });
-  failedQueue = [];
-}
-
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
-
-  try {
-    const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
-      `${getBaseURL()}/auth/refresh`,
-      { refreshToken },
-      { headers: { "Content-Type": "application/json" } },
+function toApiError(error: unknown): ApiError {
+  if (axios.isAxiosError(error)) {
+    const ae = error as AxiosError<ApiErrorResponse>;
+    const body = ae.response?.data;
+    const message =
+      body?.message || ae.message || "An error occurred";
+    return new ApiError(
+      message,
+      ae.response?.status ?? 0,
+      body?.code,
+      body?.data,
+      body?.errors,
     );
-    const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-    setTokens(accessToken, newRefreshToken);
-    return accessToken;
-  } catch {
-    return null;
   }
+  if (error instanceof Error) {
+    return new ApiError(error.message, 0);
+  }
+  return new ApiError("An unknown error occurred", 0);
 }
 
-// ─── Axios instance ───────────────────────────────────────────────────────────
+// ─── Flat-response api wrapper (delegates to canonical apiClient) ────────────
 
-function createAxiosInstance(): AxiosInstance {
-  const instance = axios.create({
-    baseURL: getBaseURL(),
-    timeout: DEFAULT_CONFIG.timeout,
-    withCredentials: DEFAULT_CONFIG.withCredentials,
-    headers: DEFAULT_CONFIG.headers,
-  });
+type AnyConfig = AxiosRequestConfig & Record<string, unknown>;
 
-  // Request: attach bearer token
-  instance.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-      const token = getAccessToken();
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => Promise.reject(error),
-  );
-
-  // Response: handle 401 refresh + normalize errors
-  instance.interceptors.response.use(
-    (response) => response,
-    async (error: TypedAxiosError) => {
-      const originalRequest = error.config as InternalAxiosRequestConfig & {
-        _retry?: boolean;
-      };
-      const isAuthEndpoint = originalRequest?.url?.includes("/auth/");
-
-      // ── 401 → attempt token refresh ────────────────────────────────────────
-      if (
-        error.response?.status === 401 &&
-        originalRequest &&
-        !originalRequest._retry &&
-        !isAuthEndpoint
-      ) {
-        if (isRefreshing) {
-          return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-          })
-            .then((token) => {
-              if (originalRequest.headers) {
-                originalRequest.headers.Authorization = `Bearer ${token}`;
-              }
-              return instance(originalRequest);
-            })
-            .catch((err) => Promise.reject(err));
-        }
-
-        originalRequest._retry = true;
-        isRefreshing = true;
-
-        try {
-          const newToken = await refreshAccessToken();
-          if (newToken) {
-            processQueue(null, newToken);
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            }
-            return instance(originalRequest);
-          } else {
-            processQueue(new Error("Token refresh failed"), null);
-            redirectToLogin();
-            return Promise.reject(error);
-          }
-        } catch (refreshError) {
-          processQueue(refreshError as Error, null);
-          redirectToLogin();
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
-        }
-      }
-
-      // ── All other errors → throw ApiError ──────────────────────────────────
-      //
-      // We throw ApiError (not a plain Error) so callers can read:
-      //   err.statusCode, err.code, err.message, err.data
-      //
-      // This is critical for auth flows — e.g. a 403 with code
-      // "EMAIL_NOT_VERIFIED" must reach the auth context intact.
-      const serverBody = error.response?.data as
-        | (ApiErrorResponse & {
-            code?: string;
-            data?: unknown;
-          })
-        | undefined;
-
-      throw new ApiError(
-        {
-          success: false,
-          message:
-            serverBody?.message ||
-            error.message ||
-            "An unexpected error occurred",
-          error: serverBody?.error,
-          statusCode: error.response?.status || 500,
-          // Pass code + data through so callers can read them off ApiError
-          ...(serverBody?.code ? { code: serverBody.code } : {}),
-          ...(serverBody?.data !== undefined ? { data: serverBody.data } : {}),
-        } as ApiErrorResponse,
-        error.response?.status || 500,
-      );
-    },
-  );
-
-  return instance;
+/** Unwrap ApiResponse<T> → T (flat). Falls back to the whole body if no data. */
+function unwrap<T>(res: ApiResponse<T>): T {
+  return (res as unknown as { data?: T }).data ?? (res as unknown as T);
 }
 
-export const httpClient: AxiosInstance = createAxiosInstance();
-
-// ─── Typed api client ─────────────────────────────────────────────────────────
-//
-// Each method unwraps response.data.data — the server envelope's inner payload.
-// So callers receive the flat object directly, e.g. { accessToken, user, ... }.
-
-export const api: ApiClient = {
-  async get<T = unknown>(url: string, config?: RequestConfig): Promise<T> {
-    const response = await httpClient.get<ApiResponse<T>>(
-      url,
-      config as AxiosRequestConfig,
-    );
-    return response.data.data;
+export const api = {
+  get: async <T = unknown>(url: string, config?: AnyConfig): Promise<T> => {
+    try {
+      const res = await canonicalApi.get<T>(url, config);
+      return unwrap<T>(res);
+    } catch (e) {
+      throw toApiError(e);
+    }
   },
-
-  async post<T = unknown>(
+  post: async <T = unknown>(
     url: string,
     data?: unknown,
-    config?: RequestConfig,
-  ): Promise<T> {
-    const response = await httpClient.post<ApiResponse<T>>(
-      url,
-      data,
-      config as AxiosRequestConfig,
-    );
-    return response.data.data;
+    config?: AnyConfig,
+  ): Promise<T> => {
+    try {
+      const res = await canonicalApi.post<T>(url, data, config);
+      return unwrap<T>(res);
+    } catch (e) {
+      throw toApiError(e);
+    }
   },
-
-  async put<T = unknown>(
+  put: async <T = unknown>(
     url: string,
     data?: unknown,
-    config?: RequestConfig,
-  ): Promise<T> {
-    const response = await httpClient.put<ApiResponse<T>>(
-      url,
-      data,
-      config as AxiosRequestConfig,
-    );
-    return response.data.data;
+    config?: AnyConfig,
+  ): Promise<T> => {
+    try {
+      const res = await canonicalApi.put<T>(url, data, config);
+      return unwrap<T>(res);
+    } catch (e) {
+      throw toApiError(e);
+    }
   },
-
-  async patch<T = unknown>(
+  patch: async <T = unknown>(
     url: string,
     data?: unknown,
-    config?: RequestConfig,
-  ): Promise<T> {
-    const response = await httpClient.patch<ApiResponse<T>>(
-      url,
-      data,
-      config as AxiosRequestConfig,
-    );
-    return response.data.data;
+    config?: AnyConfig,
+  ): Promise<T> => {
+    try {
+      const res = await canonicalApi.patch<T>(url, data, config);
+      return unwrap<T>(res);
+    } catch (e) {
+      throw toApiError(e);
+    }
   },
-
-  async delete<T = unknown>(url: string, config?: RequestConfig): Promise<T> {
-    const response = await httpClient.delete<ApiResponse<T>>(
-      url,
-      config as AxiosRequestConfig,
-    );
-    return response.data.data;
+  delete: async <T = unknown>(url: string, config?: AnyConfig): Promise<T> => {
+    try {
+      const res = await canonicalApi.delete<T>(url, config);
+      return unwrap<T>(res);
+    } catch (e) {
+      throw toApiError(e);
+    }
   },
 };
 
-// ─── Meta helpers ─────────────────────────────────────────────────────────────
+// ─── Token management (delegated to canonical tokenManager) ──────────────────
 
-export async function getWithMeta<T>(
+export const TOKEN_STORAGE_KEYS = {
+  ACCESS_TOKEN: "kwikseller_access_token",
+  REFRESH_TOKEN: "kwikseller_refresh_token",
+  AUTH_STORE: "kwikseller_auth",
+} as const;
+
+export const setTokens = tokenManager.setTokens.bind(tokenManager);
+export const clearTokens = tokenManager.clearTokens.bind(tokenManager);
+export const getAccessToken = tokenManager.getAccessToken.bind(tokenManager);
+export const getRefreshToken = tokenManager.getRefreshToken.bind(tokenManager);
+export const isAuthenticated = tokenManager.isAuthenticated.bind(tokenManager);
+
+// ─── Convenience helpers (kept for backward compat) ─────────────────────────
+
+export const httpClient = api;
+
+export async function getWithMeta<T = unknown>(
   url: string,
-  config?: RequestConfig,
-): Promise<ApiResponse<T>> {
-  const response = await httpClient.get<ApiResponse<T>>(
-    url,
-    config as AxiosRequestConfig,
-  );
-  return response.data;
+  config?: AnyConfig,
+): Promise<{ data: T; meta?: ApiResponse<T>["meta"] }> {
+  try {
+    const res = await canonicalApi.get<T>(url, config);
+    return { data: unwrap<T>(res), meta: res.meta };
+  } catch (e) {
+    throw toApiError(e);
+  }
 }
 
-export async function getPaginated<T>(
+export async function getPaginated<T = unknown>(
   url: string,
-  page = 1,
-  limit = 20,
-  config?: RequestConfig,
-): Promise<ApiResponse<T[]>> {
-  const params = { ...config?.params, page, limit };
-  return getWithMeta<T[]>(url, { ...config, params });
+  config?: AnyConfig,
+): Promise<{ data: T[]; meta?: ApiResponse<T[]>["meta"] }> {
+  try {
+    const res = await canonicalApi.get<T[]>(url, config);
+    return { data: unwrap<T[]>(res), meta: res.meta };
+  } catch (e) {
+    throw toApiError(e);
+  }
 }
 
-export default httpClient;
+export const DEFAULT_CONFIG = {
+  baseURL: "/api/v1",
+  timeout: 30000,
+} as const;
+
+export default api;

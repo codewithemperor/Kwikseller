@@ -2,97 +2,14 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import { Button, Chip } from "@heroui/react";
 import {
-  Rocket,
-  Users,
-  Package,
-  Coins,
-  ShoppingCart,
-  Globe,
-  Store,
-  TrendingUp,
-  Milestone,
-  ArrowRight,
-} from "lucide-react";
-import { Chip, Button } from "@heroui/react";
+  COMMUNITY_MILESTONES as milestones,
+  COMMUNITY_MILESTONES_CTA_ICON as ArrowRight,
+  COMMUNITY_MILESTONES_HEADER_ICON as Milestone,
+  type MilestoneItem,
+} from "@/constants/landing";
 import { cn } from "@kwikseller/ui";
-
-// ─── Milestone Data ──────────────────────────────────────────
-
-interface MilestoneItem {
-  date: string;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  stat: string;
-  isLatest?: boolean;
-}
-
-const milestones: MilestoneItem[] = [
-  {
-    date: "Jan 2023",
-    title: "Platform Launch",
-    description:
-      "KWIKSELLER was founded with a vision to empower African entrepreneurs",
-    icon: Rocket,
-    stat: "Day 1",
-  },
-  {
-    date: "Jun 2023",
-    title: "1,000 Vendors",
-    description:
-      "Reached our first major milestone with vendors across 5 African countries",
-    icon: Users,
-    stat: "5 Countries",
-  },
-  {
-    date: "Nov 2023",
-    title: "100K Products",
-    description:
-      "Product catalog crossed the 100,000 mark with diverse categories",
-    icon: Package,
-    stat: "100K+ Items",
-  },
-  {
-    date: "Mar 2024",
-    title: "KwikCoins Launch",
-    description: "Introduced our rewards program to incentivize vendor growth",
-    icon: Coins,
-    stat: "Loyalty Rewards",
-  },
-  {
-    date: "Jul 2024",
-    title: "500K Orders",
-    description:
-      "Half a million orders processed through our escrow-protected system",
-    icon: ShoppingCart,
-    stat: "₦2B+ GMV",
-  },
-  {
-    date: "Oct 2024",
-    title: "15 Countries",
-    description:
-      "Expanded operations to 15 African countries with local delivery networks",
-    icon: Globe,
-    stat: "Pan-African",
-  },
-  {
-    date: "Jan 2025",
-    title: "10K Vendors",
-    description:
-      "Community of 10,000+ active vendors building businesses on KWIKSELLER",
-    icon: Store,
-    stat: "10K+ Stores",
-  },
-  {
-    date: "Apr 2025",
-    title: "2M+ Orders",
-    description: "Over 2 million orders delivered with 99.9% satisfaction rate",
-    icon: TrendingUp,
-    stat: "2M+ Delivered",
-    isLatest: true,
-  },
-];
 
 // ─── Animation Variants ──────────────────────────────────────
 

@@ -850,6 +850,9 @@ importers:
       '@heroui/styles':
         specifier: ^3.0.3
         version: 3.0.3(tailwind-merge@3.5.0)(tailwindcss@4.2.4)
+      '@kwikseller/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       axios:
         specifier: ^1.7.7
         version: 1.13.6

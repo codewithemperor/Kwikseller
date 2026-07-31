@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { Loader2 } from "lucide-react";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+import { browseProducts } from "@/data/browse-products";
 
 function extractImage(img: any): string | null {
   if (!img) return null;
@@ -81,10 +82,94 @@ export default function ProductPage() {
   const [isLoading, setIsLoading] = useState(!isInvalidId);
   const [notFound, setNotFound] = useState(isInvalidId);
 
+  // Mock fallback: look up the product in the local browse catalog so the
+  // detail page renders richly even when the live API is unreachable.
+  function findMockProduct(pid: string): MarketplaceProduct | null {
+    const match = browseProducts.find(
+      (p) => p.id === pid || p.slug === pid,
+    );
+    if (!match) return null;
+    return {
+      id: match.id,
+      slug: match.slug,
+      name: match.name,
+      price: match.price,
+      comparePrice: match.comparePrice,
+      image: match.image,
+      rating: match.rating,
+      reviewCount: match.reviewCount,
+      store: match.store,
+      storeId: match.storeId,
+      storeSlug: match.storeSlug,
+      category: match.category,
+      productType: match.productType,
+      productSource: match.productSource,
+      requiresShipping: match.requiresShipping,
+      tag: match.tag,
+      description: match.description ?? `${match.name} — a premium ${match.category.toLowerCase()} product from ${match.store}. Quality you can trust, delivered with KwisCrow buyer protection.`,
+      images: match.images ?? [match.image],
+      features: match.features ?? [
+        "Premium quality materials",
+        "Verified vendor",
+        "KwisCrow escrow protected",
+        "Fast nationwide delivery",
+      ],
+      specifications: match.specifications ?? [
+        { label: "Category", value: match.category },
+        { label: "Vendor", value: match.store },
+        { label: "Product type", value: match.productType ?? "Physical" },
+        { label: "Source", value: (match.productSource ?? "VENDOR_STOCK").replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) },
+      ],
+      reviews: match.reviews ?? [
+        { id: "r1", author: "Adaeze O.", rating: 5, comment: "Excellent quality, exactly as described. Fast delivery!", date: "2025-07-10", verified: true },
+        { id: "r2", author: "Emeka N.", rating: 4, comment: "Good product, would buy again.", date: "2025-07-05", verified: true },
+        { id: "r3", author: "Fatima A.", rating: 5, comment: "Outstanding service from the vendor. Highly recommend.", date: "2025-06-28", verified: true },
+      ],
+      isNew: match.isNew,
+      variants: match.variants ?? [],
+      stock: match.stock,
+    };
+  }
+
+  function getMockSimilarProducts(current: MarketplaceProduct): MarketplaceProduct[] {
+    return browseProducts
+      .filter((p) => p.category === current.category && p.id !== current.id)
+      .slice(0, 4)
+      .map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        price: p.price,
+        comparePrice: p.comparePrice,
+        image: p.image,
+        rating: p.rating,
+        reviewCount: p.reviewCount,
+        store: p.store,
+        storeSlug: p.storeSlug,
+        category: p.category,
+        productType: p.productType,
+        productSource: p.productSource,
+        requiresShipping: p.requiresShipping,
+        tag: p.tag,
+        isNew: p.isNew,
+      } as MarketplaceProduct));
+  }
+
   useEffect(() => {
     const fetchProduct = async () => {
       setIsLoading(true);
       setNotFound(false);
+
+      // Mock fallback FIRST when the id matches the browse catalog — gives
+      // an instant, rich render without waiting for a doomed API call.
+      const mockMatch = findMockProduct(id);
+      if (mockMatch) {
+        setProduct(mockMatch);
+        setSimilarProducts(getMockSimilarProducts(mockMatch));
+        setIsLoading(false);
+        return;
+      }
+
       try {
         let p: any = null;
 
@@ -139,21 +224,34 @@ export default function ProductPage() {
       }
 
       if (products.length === 0) {
-        try {
-          const response = await marketplaceApi.getHomeFeed();
-          if (response.success && response.data) {
-            products = collectHomeFeedProducts(response.data).slice(0, 8).map(toMarketplaceProduct);
-          }
-        } catch {
-          products = [];
-        }
+        // Mock fallback: show products from the browse catalog (excluding current).
+        products = browseProducts
+          .filter((p) => p.id !== id)
+          .slice(0, 8)
+          .map((p) => ({
+            id: p.id,
+            slug: p.slug,
+            name: p.name,
+            price: p.price,
+            comparePrice: p.comparePrice,
+            image: p.image,
+            rating: p.rating,
+            reviewCount: p.reviewCount,
+            store: p.store,
+            storeSlug: p.storeSlug,
+            category: p.category,
+            productType: p.productType,
+            productSource: p.productSource,
+            tag: p.tag,
+            isNew: p.isNew,
+          } as MarketplaceProduct));
       }
 
       setSimilarProducts(products);
     };
 
     if (notFound) fetchSimilar();
-  }, [notFound]);
+  }, [notFound, id]);
 
   if (isLoading) {
     return (

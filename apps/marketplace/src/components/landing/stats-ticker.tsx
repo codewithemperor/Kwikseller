@@ -3,20 +3,10 @@
 import React from 'react'
 import { cn } from '@kwikseller/ui'
 
-const stats = [
-  '12,543 orders processed today',
-  '₦45M+ in transactions this month',
-  '847 new vendors joined this week',
-  '2.3M+ products and counting',
-  '15 countries and growing',
-  'Free delivery on 10K+ orders',
-  '99.9% uptime guaranteed',
-  '24/7 customer support',
-  'Escrow protection on all payments',
-  '15K+ 5-star reviews',
-]
-
-const separator = '  •  '
+import {
+  STATS_TICKER_ITEMS as stats,
+  STATS_TICKER_SEPARATOR as separator,
+} from '@/constants/landing'
 
 export function StatsTicker() {
   const content = stats.join(separator)

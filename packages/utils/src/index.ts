@@ -302,10 +302,12 @@ export { usePWA, usePushNotifications } from "./hooks";
 export type { UsePushNotificationsReturn } from "./hooks";
 export { kwikToast } from "./toast";
 
-// Export HTTP client
+// HTTP client — thin adapter over @kwikseller/api-client (single axios
+// instance, single refresh queue). Kept for AuthProvider + legacy consumers.
 export {
   httpClient,
   api,
+  ApiError,
   getWithMeta,
   getPaginated,
   getAccessToken,

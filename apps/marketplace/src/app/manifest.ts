@@ -58,8 +58,8 @@ export default function manifest(): MetadataRoute.Manifest {
         name: "My Cart",
         short_name: "Cart",
         description: "View your shopping cart",
-        url: "/cart",
-        icons: [{ src: "/icons/cart.png", sizes: "96x96" }],
+        url: "/checkout",
+        icons: [{ src: "/icons/checkout.png", sizes: "96x96" }],
       },
       {
         name: "My Orders",

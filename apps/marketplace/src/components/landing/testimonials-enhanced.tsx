@@ -12,80 +12,14 @@ import {
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Data ───────────────────────────────────────────────────────
-
-interface ReviewData {
-  id: string;
-  name: string;
-  initials: string;
-  location: string;
-  date: string;
-  rating: number;
-  text: string;
-  verified: boolean;
-  helpful: number;
-  unhelpful: number;
-  product: string;
-}
-
-interface RatingRow {
-  stars: number;
-  percentage: number;
-}
-
-const overallRating = 4.8;
-const totalReviews = "2,500+";
-
-const ratingBreakdown: RatingRow[] = [
-  { stars: 5, percentage: 68 },
-  { stars: 4, percentage: 22 },
-  { stars: 3, percentage: 7 },
-  { stars: 2, percentage: 2 },
-  { stars: 1, percentage: 1 },
-];
-
-const reviews: ReviewData[] = [
-  {
-    id: "1",
-    name: "Sarah K.",
-    initials: "SK",
-    location: "Lagos",
-    date: "2 weeks ago",
-    rating: 5,
-    text: "The best marketplace I've used in Africa! Fast delivery and genuine products.",
-    verified: true,
-    helpful: 47,
-    unhelpful: 2,
-    product: "Ankara Print Dress",
-  },
-  {
-    id: "2",
-    name: "Emmanuel T.",
-    initials: "ET",
-    location: "Accra",
-    date: "2 weeks ago",
-    rating: 5,
-    text: "As a seller, Kwikseller has transformed my business. Sales tripled in 3 months!",
-    verified: false,
-    helpful: 35,
-    unhelpful: 1,
-    product: "Electronics Store",
-  },
-  {
-    id: "3",
-    name: "Fatima D.",
-    initials: "FD",
-    location: "Nairobi",
-    date: "2 weeks ago",
-    rating: 4,
-    text: "Great escrow system gives me confidence when buying from new sellers.",
-    verified: false,
-    helpful: 28,
-    unhelpful: 3,
-    product: "Wireless Headphones",
-  },
-];
+import {
+  TESTIMONIALS_OVERALL_RATING as overallRating,
+  TESTIMONIALS_RATING_BREAKDOWN as ratingBreakdown,
+  TESTIMONIALS_REVIEWS as reviews,
+  TESTIMONIALS_TOTAL_REVIEWS as totalReviews,
+  type RatingRow,
+  type ReviewData,
+} from "@/constants/landing";
 
 // ─── Star Rating Display ────────────────────────────────────────
 

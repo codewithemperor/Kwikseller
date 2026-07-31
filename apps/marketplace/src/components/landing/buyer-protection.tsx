@@ -2,76 +2,12 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import {
-  Shield,
-  Wallet,
-  CircleDollarSign,
-  UserCheck,
-  Lock,
-  LifeBuoy,
-  Gem,
-} from "lucide-react";
+import { Shield } from "lucide-react";
 import { Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Protection Features Data ─────────────────────────────────
-
-const protectionFeatures = [
-  {
-    icon: Wallet,
-    title: "Escrow Payment Protection",
-    description:
-      "Your money is held safely in escrow until you confirm delivery. Sellers only get paid when you are satisfied.",
-    iconBg: "bg-accent/10",
-    iconColor: "text-accent",
-    border: "border-accent/10",
-  },
-  {
-    icon: CircleDollarSign,
-    title: "Money-Back Guarantee",
-    description:
-      "Get a full refund if your item does not match the description. No questions asked — your satisfaction comes first.",
-    iconBg: "bg-success/10",
-    iconColor: "text-success",
-    border: "border-success/10",
-  },
-  {
-    icon: UserCheck,
-    title: "Verified Sellers",
-    description:
-      "Every vendor is verified with government-issued ID and business documents so you can shop with confidence.",
-    iconBg: "bg-warning/10",
-    iconColor: "text-warning",
-    border: "border-warning/10",
-  },
-  {
-    icon: Lock,
-    title: "Secure Payments",
-    description:
-      "All transactions are encrypted with industry-standard SSL technology. Your card details are never stored on our servers.",
-    iconBg: "bg-danger/10",
-    iconColor: "text-danger",
-    border: "border-danger/10",
-  },
-  {
-    icon: LifeBuoy,
-    title: "Dispute Resolution",
-    description:
-      "Our dedicated support team is available 24/7 to mediate and resolve any issues between buyers and sellers quickly.",
-    iconBg: "bg-accent/10",
-    iconColor: "text-accent",
-    border: "border-accent/10",
-  },
-  {
-    icon: Gem,
-    title: "Product Authenticity",
-    description:
-      "We guarantee that every product listed is authentic. If you receive a counterfeit item, you get your money back.",
-    iconBg: "bg-success/10",
-    iconColor: "text-success",
-    border: "border-success/10",
-  },
-];
+import {
+  BUYER_PROTECTION_FEATURES as protectionFeatures,
+} from "@/constants/landing";
 
 // ─── Animation Variants ───────────────────────────────────────
 

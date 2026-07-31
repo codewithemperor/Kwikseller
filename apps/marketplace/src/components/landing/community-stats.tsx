@@ -2,104 +2,14 @@
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
-import {
-  Users,
-  Store,
-  Package,
-  Globe,
-  CreditCard,
-  Star,
-  ArrowRight,
-  Activity,
-} from "lucide-react";
 import { Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Stat Data ────────────────────────────────────────────────
-
-interface StatItem {
-  label: string;
-  display: string;
-  /** Numeric target for the counter (e.g. 500 for 500K) */
-  target: number;
-  /** Suffix appended to the counter value (e.g. "K+" or "M+") */
-  suffix: string;
-  /** Decimal places — only used by the rating stat (1) */
-  decimals: number;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  subLabel: string;
-}
-
-const stats: StatItem[] = [
-  {
-    label: "Active Buyers",
-    display: "500K+",
-    target: 500,
-    suffix: "K+",
-    decimals: 0,
-    icon: Users,
-    iconBg: "bg-accent/10",
-    iconColor: "text-accent",
-    subLabel: "and growing daily",
-  },
-  {
-    label: "Verified Sellers",
-    display: "10K+",
-    target: 10,
-    suffix: "K+",
-    decimals: 0,
-    icon: Store,
-    iconBg: "bg-success/10",
-    iconColor: "text-success",
-    subLabel: "verified businesses",
-  },
-  {
-    label: "Products Listed",
-    display: "2M+",
-    target: 2,
-    suffix: "M+",
-    decimals: 0,
-    icon: Package,
-    iconBg: "bg-warning/10",
-    iconColor: "text-warning",
-    subLabel: "across all categories",
-  },
-  {
-    label: "Countries Served",
-    display: "15+",
-    target: 15,
-    suffix: "+",
-    decimals: 0,
-    icon: Globe,
-    iconBg: "bg-accent/10",
-    iconColor: "text-accent",
-    subLabel: "across Africa & beyond",
-  },
-  {
-    label: "Monthly Transactions",
-    display: "50K+",
-    target: 50,
-    suffix: "K+",
-    decimals: 0,
-    icon: CreditCard,
-    iconBg: "bg-danger/10",
-    iconColor: "text-danger",
-    subLabel: "secure payments processed",
-  },
-  {
-    label: "Average Rating",
-    display: "4.8/5",
-    target: 48,
-    suffix: "",
-    decimals: 0,
-    icon: Star,
-    iconBg: "bg-warning/10",
-    iconColor: "text-warning",
-    subLabel: "from verified reviews",
-  },
-];
+import {
+  COMMUNITY_STATS as stats,
+  COMMUNITY_STATS_CTA_ICON as ArrowRight,
+  COMMUNITY_STATS_HEADER_ICON as Activity,
+  type StatItem,
+} from "@/constants/landing";
 
 // ─── Animated Counter Hook ────────────────────────────────────
 

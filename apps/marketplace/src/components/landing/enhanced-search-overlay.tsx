@@ -18,57 +18,17 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@kwikseller/ui'
 import { getSimilarSuggestions } from '@/lib/search-similarity'
-
-// ─── Data ─────────────────────────────────────────────────────────
-
-const TRENDING_SEARCHES = [
-  { term: 'Ankara dresses', count: '12.5K results' },
-  { term: 'Wireless earbuds', count: '8.3K results' },
-  { term: 'iPhone 15', count: '15.2K results' },
-  { term: 'Brazilian hair', count: '6.7K results' },
-  { term: 'Samsung TV', count: '9.1K results' },
-  { term: 'Jordans', count: '11.8K results' },
-]
-
-const POPULAR_CATEGORIES = [
-  { icon: Shirt, name: 'Fashion', count: '12K+', color: 'bg-pink-500/10 text-pink-500' },
-  { icon: Smartphone, name: 'Electronics', count: '8K+', color: 'bg-cyan-500/10 text-cyan-500' },
-  { icon: Gem, name: 'Beauty', count: '6K+', color: 'bg-purple-500/10 text-purple-500' },
-  { icon: Home, name: 'Home & Garden', count: '9K+', color: 'bg-amber-500/10 text-amber-500' },
-  { icon: Smartphone, name: 'Phones', count: '10K+', color: 'bg-emerald-500/10 text-emerald-500' },
-  { icon: UtensilsCrossed, name: 'Food & Drinks', count: '15K+', color: 'bg-orange-500/10 text-orange-500' },
-]
-
-interface ProductSuggestion {
-  name: string
-  price: string
-  category: string
-  initials: string
-  color: string
-}
-
-const PRODUCT_SUGGESTIONS: ProductSuggestion[] = [
-  { name: 'Ankara Maxi Dress', price: '₦8,500', category: 'Fashion', initials: 'AM', color: 'bg-pink-500' },
-  { name: 'iPhone 15 Pro Max', price: '₦850,000', category: 'Phones', initials: 'IP', color: 'bg-gray-800' },
-  { name: 'Samsung 55" Smart TV', price: '₦320,000', category: 'Electronics', initials: 'ST', color: 'bg-blue-600' },
-  { name: 'Brazilian Body Wave Hair', price: '₦45,000', category: 'Beauty', initials: 'BH', color: 'bg-purple-500' },
-  { name: 'AirPods Pro 2nd Gen', price: '₦95,000', category: 'Electronics', initials: 'AP', color: 'bg-gray-700' },
-  { name: 'Jordans Retro 4', price: '₦180,000', category: 'Fashion', initials: 'JR', color: 'bg-red-500' },
-  { name: 'Whitening Face Cream', price: '₦3,500', category: 'Beauty', initials: 'WF', color: 'bg-rose-400' },
-  { name: 'King Size Bed Frame', price: '₦150,000', category: 'Home & Garden', initials: 'KB', color: 'bg-amber-600' },
-  { name: 'Wireless Bluetooth Speaker', price: '₦12,000', category: 'Electronics', initials: 'WS', color: 'bg-teal-500' },
-  { name: 'Orijin Bitter Lemon', price: '₦800', category: 'Food & Drinks', initials: 'OB', color: 'bg-green-600' },
-  { name: 'Samsung Galaxy S24', price: '₦650,000', category: 'Phones', initials: 'SG', color: 'bg-indigo-500' },
-  { name: 'Lace Complete Material', price: '₦25,000', category: 'Fashion', initials: 'LC', color: 'bg-fuchsia-500' },
-  { name: 'Portable Power Bank', price: '₦5,500', category: 'Electronics', initials: 'PP', color: 'bg-slate-600' },
-  { name: 'Coffee Maker Machine', price: '₦35,000', category: 'Home & Garden', initials: 'CM', color: 'bg-yellow-700' },
-  { name: 'MAC Matte Lipstick', price: '₦6,500', category: 'Beauty', initials: 'ML', color: 'bg-red-600' },
-]
+import {
+  POPULAR_SEARCH_CATEGORIES as POPULAR_CATEGORIES,
+  SEARCH_HISTORY_KEY as HISTORY_KEY,
+  SEARCH_HISTORY_MAX as MAX_HISTORY,
+  SEARCH_PRODUCT_SUGGESTIONS as PRODUCT_SUGGESTIONS,
+  TRENDING_SEARCH_TERMS as TRENDING_SEARCHES,
+  type ProductSuggestion,
+} from '@/constants/marketplace'
 
 // ─── History localStorage helpers ────────────────────────────────
 
-const HISTORY_KEY = 'kwikseller-search-history'
-const MAX_HISTORY = 8
 
 // External store for SSR-safe localStorage reads
 const historyListeners = new Set<() => void>()

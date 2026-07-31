@@ -474,11 +474,24 @@ html::-webkit-scrollbar-thumb:hover {
 @layer utilities {
   /* Flat solid orange accent (replaces navy→orange gradient) */
   .kwik-gradient {
-    background-color: oklch(0.7 0.17 48); /* solid orange accent */
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.33 0.13 255) 0%,
+      oklch(0.62 0.19 255) 45%,
+      oklch(0.7 0.17 48) 100%
+    );
   }
 
   .kwik-gradient-text {
-    color: oklch(0.7 0.17 48); /* solid orange accent */
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.55 0.2 255) 0%,
+      oklch(0.72 0.15 255) 40%,
+      oklch(0.7 0.17 48) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   .kwik-shadow {

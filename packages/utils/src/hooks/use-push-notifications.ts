@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '../http/client';
+import { api } from '@kwikseller/api-client';
 
 interface PushSubscriptionPayload {
   endpoint: string;
@@ -75,7 +75,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       const vapidRes = await api.get<{ publicKey: string }>(
         '/notifications/push/vapid-public-key',
       );
-      const publicKey = vapidRes?.publicKey;
+      const publicKey = vapidRes?.data?.publicKey;
       if (!publicKey) return false;
 
       // 3) Convert VAPID key to Uint8Array for subscribe()

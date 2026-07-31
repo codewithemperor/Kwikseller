@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  Check,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -30,6 +31,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { MarketplaceSectionHeader } from "@/components/landing/shared/marketplace-section-header";
 import { ProductVariantSelector } from "@/components/product/product-variant-selector";
+import { ReviewForm } from "@/components/product/review-form";
+import { useReviewStore } from "@/stores/review-store";
 import type { MarketplaceProduct, ProductVariant } from "@/data/marketplace-home";
 
 /* ─── Re-export Loader2 for dynamic loading ─────────────── */
@@ -212,6 +215,74 @@ function DeliveryEstimateWidget({ stock }: { stock: number }) {
           </motion.div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ─── User Reviews (from local store) ───────────────────── */
+function UserReviews({ productId }: { productId: string }) {
+  const [mounted, setMounted] = React.useState(false);
+  // Select the raw reviews array (stable reference) and filter in useMemo
+  // to avoid the "getSnapshot should be cached" infinite loop.
+  const allReviews = useReviewStore((s) => s.reviews);
+  const userReviews = React.useMemo(
+    () => allReviews.filter((r) => r.productId === productId),
+    [allReviews, productId],
+  );
+
+  React.useEffect(() => setMounted(true), []);
+
+  // Avoid hydration mismatch: the persisted store reads from localStorage
+  // (client-only), so render the empty state during SSR.
+  if (!mounted || userReviews.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+          <Star className="h-6 w-6 text-gray-400" />
+        </div>
+        <p className="mt-3 text-sm font-medium text-kwik-dark">No reviews yet</p>
+        <p className="mt-1 text-xs text-kwik-gray-light">Be the first to review this product!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {userReviews.map((review) => (
+        <div
+          key={review.id}
+          className="rounded-xl border border-kwik-border bg-kwik-bg-surface p-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white">
+                {review.author.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-kwik-dark">{review.author}</p>
+                <p className="text-xs text-kwik-gray-light">
+                  {new Date(review.date).toLocaleDateString("en-NG", { dateStyle: "medium" })}
+                </p>
+              </div>
+            </div>
+            {review.verified && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+                <Check className="h-3 w-3" /> Verified
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex gap-0.5">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <Star
+                key={idx}
+                className={`h-3.5 w-3.5 ${idx < review.rating ? "fill-kwik-star text-kwik-star" : "text-kwik-border-light"}`}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-sm font-semibold text-kwik-dark">{review.title}</p>
+          <p className="mt-1 text-sm leading-5 text-kwik-gray">{review.comment}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -944,6 +1015,25 @@ export function ProductDetailPage({
             </div>
           </FadeInUp>
         )}
+
+        {/* User Reviews + Review Form */}
+        <FadeInUp delay={0.1}>
+          <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-kwik-dark sm:text-xl">
+                  Customer Reviews
+                </h2>
+                <p className="text-xs text-kwik-gray-light">
+                  Share your experience with this product
+                </p>
+              </div>
+              <ReviewForm productId={product.id} />
+            </div>
+
+            <UserReviews productId={product.id} />
+          </div>
+        </FadeInUp>
 
         {/* Related Products - "You Might Also Like" with decorative header */}
         <FadeInUp delay={0.1}>

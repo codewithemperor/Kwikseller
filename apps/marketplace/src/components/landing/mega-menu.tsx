@@ -2,101 +2,14 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  ChevronDown,
-  Sparkles,
-  Smartphone,
-  Flower2,
-  Heart,
-  UtensilsCrossed,
-  Home,
-  Car,
-  BookOpen,
-  Wrench,
-  TrendingUp,
-  Package,
-  Star,
-  Zap,
-  Store,
-  UserPlus,
-  Award,
-  Grid3X3,
-  HelpCircle,
-  FileText,
-  MessageSquare,
-  Globe,
-  ArrowRight,
-  LayoutGrid,
-  Monitor,
-  Info,
-  CreditCard,
-  Droplets,
-} from 'lucide-react'
+import { ChevronDown, ArrowRight, LayoutGrid } from 'lucide-react'
 import { cn } from '@kwikseller/ui'
-
-// ─── Data ─────────────────────────────────────────────────────
-
-interface CategoryItem {
-  icon: React.ElementType
-  name: string
-  slug: string
-  count: string
-  href: string
-}
-
-const categories: CategoryItem[] = [
-  { icon: Sparkles, name: 'Fashion', slug: 'fashion', count: '12K+', href: '/categories?fashion' },
-  { icon: Monitor, name: 'Electronics', slug: 'electronics', count: '8K+', href: '/categories?electronics' },
-  { icon: Heart, name: 'Beauty', slug: 'beauty', count: '6K+', href: '/categories?beauty' },
-  { icon: UtensilsCrossed, name: 'Food', slug: 'food', count: '15K+', href: '/categories?food' },
-  { icon: Home, name: 'Home', slug: 'home', count: '9K+', href: '/categories?home' },
-  { icon: Smartphone, name: 'Phones', slug: 'phones', count: '11K+', href: '/categories?phones' },
-  { icon: Car, name: 'Automobiles', slug: 'auto', count: '4K+', href: '/categories?auto' },
-  { icon: BookOpen, name: 'Books', slug: 'books', count: '3K+', href: '/categories?books' },
-  { icon: Wrench, name: 'Services', slug: 'services', count: '7K+', href: '/categories?services' },
-]
-
-interface DropdownLink {
-  icon: React.ElementType
-  label: string
-  description: string
-  href: string
-}
-
-interface NavItemConfig {
-  label: string
-  links: DropdownLink[]
-}
-
-const navItems: NavItemConfig[] = [
-  {
-    label: 'Products',
-    links: [
-      { icon: TrendingUp, label: 'Trending', description: 'Hot products right now', href: '/search?q=trending' },
-      { icon: Package, label: 'New Arrivals', description: 'Just listed items', href: '/search?q=new+arrivals' },
-      { icon: Star, label: 'Top Rated', description: 'Highest rated products', href: '/search?q=top+rated' },
-      { icon: Zap, label: 'Deals of the Day', description: 'Limited-time offers', href: '/search?q=deals' },
-    ],
-  },
-  {
-    label: 'Vendors',
-    links: [
-      { icon: Grid3X3, label: 'Browse Vendors', description: 'Explore all stores', href: '/vendors' },
-      { icon: UserPlus, label: 'Become a Vendor', description: 'Start selling today', href: '/vendors' },
-      { icon: Award, label: 'Top Rated', description: 'Best performing sellers', href: '/vendors' },
-      { icon: LayoutGrid, label: 'Vendor Categories', description: 'Stores by category', href: '/vendors' },
-    ],
-  },
-  {
-    label: 'Resources',
-    links: [
-      { icon: Info, label: 'About Us', description: 'Our story & mission', href: '/about' },
-      { icon: CreditCard, label: 'Pricing', description: 'Simple, fair plans', href: '/pricing' },
-      { icon: Droplets, label: 'Pool Selling', description: 'Sell without inventory', href: '/pool' },
-      { icon: HelpCircle, label: 'Help Center', description: 'FAQs and support', href: '#' },
-    ],
-  },
-]
+import {
+  MEGA_MENU_CATEGORIES as categories,
+  MEGA_MENU_NAV_ITEMS as navItems,
+  type DropdownLink,
+  type NavItemConfig,
+} from '@/constants/navigation'
 
 // ─── Animation variants ───────────────────────────────────────
 

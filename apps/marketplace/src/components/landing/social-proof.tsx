@@ -3,20 +3,7 @@
 import React, { useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 
-const partners = [
-  { name: 'Paystack', logo: 'PS' },
-  { name: 'Flutterwave', logo: 'FW' },
-  { name: 'FedEx', logo: 'FX' },
-  { name: 'DHL', logo: 'DH' },
-  { name: 'GIG Logistics', logo: 'GL' },
-  { name: 'Bolt', logo: 'BL' },
-  { name: 'MTN', logo: 'MT' },
-  { name: 'Airtel', logo: 'AI' },
-  { name: 'MoMo', logo: 'MM' },
-  { name: 'Opay', logo: 'OP' },
-  { name: 'PalmPay', logo: 'PP' },
-  { name: 'Cowrywise', logo: 'CW' },
-]
+import { SOCIAL_PROOF_PARTNERS as partners } from '@/constants/landing'
 
 function MarqueeRow({ items, direction = 'left', speed = 35 }: { items: typeof partners; direction?: 'left' | 'right'; speed?: number }) {
   return (

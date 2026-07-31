@@ -3,24 +3,19 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
-  CreditCard,
-  Droplets,
-  Grid3X3,
   Heart,
-  Info,
   LogOut,
   Menu,
   Search,
   ShoppingCart,
   SlidersHorizontal,
-  Store,
   User,
-  Users,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -28,22 +23,27 @@ import { Button, Separator } from "@heroui/react";
 import { OfflineBanner } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { CartDrawer } from "@/components/landing/cart-drawer";
-import { ComparePanel } from "@/components/landing/compare-panel";
-import { EnhancedFooter } from "@/components/landing/enhanced-footer";
-import { EnhancedSearchOverlay } from "@/components/landing/enhanced-search-overlay";
-import { MegaNav } from "@/components/landing/mega-menu";
+import { NotificationBell } from "@/components/layout/notification-bell";
+// Heavy layout components are lazy-loaded (ssr:false) to reduce the
+// server-side compilation bundle. This prevents Turbopack OOM kills
+// when compiling routes in memory-constrained environments.
+const CartDrawer = dynamic(() => import("@/components/landing/cart-drawer").then(m => ({ default: m.CartDrawer })), { ssr: false });
+const ComparePanel = dynamic(() => import("@/components/landing/compare-panel").then(m => ({ default: m.ComparePanel })), { ssr: false });
+const EnhancedFooter = dynamic(() => import("@/components/landing/enhanced-footer").then(m => ({ default: m.EnhancedFooter })), { ssr: false });
+const EnhancedSearchOverlay = dynamic(() => import("@/components/landing/enhanced-search-overlay").then(m => ({ default: m.EnhancedSearchOverlay })), { ssr: false });
+const MegaNav = dynamic(() => import("@/components/landing/mega-menu").then(m => ({ default: m.MegaNav })), { ssr: false });
+const OrderTrackingWidget = dynamic(() => import("@/components/landing/order-tracking-widget").then(m => ({ default: m.OrderTrackingWidget })), { ssr: false });
+const PageLoader = dynamic(() => import("@/components/landing/page-loader").then(m => ({ default: m.PageLoader })), { ssr: false });
+const PriceDropAlert = dynamic(() => import("@/components/landing/price-drop-alert").then(m => ({ default: m.PriceDropAlert })), { ssr: false });
+const NotificationToastStack = dynamic(() => import("@/components/landing/notification-toast").then(m => ({ default: m.NotificationToastStack })), { ssr: false });
+const WishlistSidebar = dynamic(() => import("@/components/landing/wishlist-sidebar").then(m => ({ default: m.WishlistSidebar })), { ssr: false });
 import { MobileBottomNav } from "@/components/landing/mobile-bottom-nav";
 import { SearchAutoSuggest } from "@/components/landing/search-auto-suggest";
-import { PageLoader } from "@/components/landing/page-loader";
-import { PriceDropAlert } from "@/components/landing/price-drop-alert";
-import { NotificationToastStack } from "@/components/landing/notification-toast";
 import { ScrollProgress } from "@/components/landing/scroll-progress";
-import { OrderTrackingWidget } from "@/components/landing/order-tracking-widget";
-import { WishlistSidebar } from "@/components/landing/wishlist-sidebar";
 import { MarketplaceShellProvider } from "@/components/layout/marketplace-shell-context";
 import { useCartStore, useWishlistStore } from "@/stores";
 import { AppImage } from "@/components/ui/app-image";
+import { MOBILE_DRAWER_LINKS as pageLinks } from "@/constants/navigation";
 
 function MobileDrawerContent({
   onClose,
@@ -63,15 +63,6 @@ function MobileDrawerContent({
   onNavigateStart?: () => void;
 }) {
   const pathname = usePathname();
-
-  const pageLinks = [
-    { label: "Marketplace", href: "/", icon: Store },
-    { label: "Categories", href: "/categories", icon: Grid3X3 },
-    { label: "About", href: "/about", icon: Info },
-    { label: "Pricing", href: "/pricing", icon: CreditCard },
-    { label: "Vendors", href: "/vendors", icon: Users },
-    { label: "Pool Selling", href: "/pool", icon: Droplets },
-  ];
 
   const handleNavClick = (href: string) => {
     onClose();
@@ -467,13 +458,13 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         {!hideTopNav && (
           <>
             <header
-              className={`fixed inset-x-0 top-0 z-[80] bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
+              className={`fixed inset-x-0 top-0 z-80 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
                 isScrolled
                   ? "shadow-md border-b border-kwik-orange/10"
                   : "border-b border-kwik-border"
               }`}
             >
-              <div className="container mx-auto px-0 md:px-4">
+              <div className=" mx-auto px-0 md:px-4">
                 {/* Top row: logo + actions */}
                 <div className="flex py-2 md:h-16 items-center justify-between">
                   <div className="flex min-w-0 items-center gap-1 md:gap-2">
@@ -569,6 +560,9 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
 
                     {/* Wishlist button */}
                     <WishlistNavButton onNavigateStart={startNavigationLoading} />
+
+                    {/* Notifications bell */}
+                    <NotificationBell />
 
                     <ThemeToggle />
 
@@ -700,7 +694,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
           {isVendorStorefrontRoute ? (
             children
           ) : (
-            <div className="mx-auto w-full max-w-[1440px] px-4 md:px-6 lg:px-8">
+            <div className="mx-auto w-full">
               {children}
             </div>
           )}

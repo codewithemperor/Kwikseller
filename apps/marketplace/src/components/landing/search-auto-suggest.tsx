@@ -9,25 +9,11 @@ import {
 import { productsApi } from "@kwikseller/api-client";
 import { getSimilarSuggestions } from "@/lib/search-similarity";
 
-const TRENDING_CATEGORIES: SearchAutoSuggestItem[] = [
-  { type: "category", text: "Fashion", subtext: "12K+ items" },
-  { type: "category", text: "Electronics", subtext: "8K+ items" },
-  { type: "category", text: "Phones", subtext: "10K+ items" },
-  { type: "category", text: "Beauty", subtext: "6K+ items" },
-  { type: "category", text: "Home & Garden", subtext: "9K+ items" },
-  { type: "category", text: "Food & Drinks", subtext: "15K+ items" },
-];
-
-const FALLBACK_SUGGESTIONS = [
-  { name: "Ankara dresses", category: "Fashion", meta: "Popular" },
-  { name: "Wireless earbuds", category: "Electronics", meta: "Trending" },
-  { name: "iPhone 15", category: "Phones", meta: "Popular" },
-  { name: "Brazilian hair", category: "Beauty", meta: "Trending" },
-  { name: "Samsung TV", category: "Electronics", meta: "Popular" },
-  { name: "Jordans", category: "Fashion", meta: "Popular" },
-  { name: "Power bank", category: "Electronics", meta: "Trending" },
-  { name: "Home furniture", category: "Home & Garden", meta: "Popular" },
-];
+import {
+  FALLBACK_SEARCH_SUGGESTIONS as FALLBACK_SUGGESTIONS,
+  SEARCH_HISTORY_KEY,
+  TRENDING_SEARCH_CATEGORIES as TRENDING_CATEGORIES,
+} from "@/constants/marketplace"
 
 interface SearchAutoSuggestProps {
   isOpen: boolean;
@@ -69,7 +55,7 @@ export function SearchAutoSuggest({ isOpen, onClose, anchorRef }: SearchAutoSugg
       onClose={onClose}
       anchorRef={anchorRef}
       placeholder="Search products, brands, categories..."
-      historyKey="kwikseller-search-history"
+      historyKey={SEARCH_HISTORY_KEY}
       trendingItems={TRENDING_CATEGORIES}
       loadSuggestions={loadSuggestions}
       onSearch={(query) => router.push(`/search?q=${encodeURIComponent(query)}`)}

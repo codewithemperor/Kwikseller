@@ -1,0 +1,1114 @@
+     1→/**
+     2→ * stores/order-workflow-store.ts
+     3→ * ────────────────────────────────────────────────────────────────────────────
+     4→ * Zustand store (persisted) holding mock orders + their full workflow state:
+     5→ * status, quotation, escrow, dispute, fulfilment steps, and an audit-trail
+     6→ * timeline.
+     7→ *
+     8→ * The store is the UI's source of truth for the order workflow in this sandbox
+     9→ * (no live API). It delegates escrow mutations to `lib/escrow.ts` so the escrow
+    10→ * service can later be swapped for `escrowApi` from `@kwikseller/api-client`
+    11→ * without changing any component code.
+    12→ *
+    13→ * Seeded with 3 mock orders covering three distinct stages:
+    14→ *   - order-aurora-001: PENDING_QUOTE  → buyer just placed order, vendor hasn't quoted yet
+    15→ *   - order-aurora-002: DELIVERED      → in dispute window (escrow HELD)
+    16→ *   - order-aurora-003: RECEIVED       → escrow RELEASED, terminal-ish state
+    17→ */
+    18→
+    19→import { create } from "zustand";
+    20→import { persist, createJSONStorage } from "zustand/middleware";
+    21→
+    22→import {
+    23→  OrderStatus,
+    24→  EscrowStatus,
+    25→  DisputeStatus,
+    26→  DisputeType,
+    27→  KwisCrow,
+    28→  MOCK_VENDOR,
+    29→  NOTIFICATION_TEMPLATES,
+    30→  type NotificationTemplateKey,
+    31→  type OrderStatusValue,
+    32→  type DisputeTypeValue,
+    33→} from "@/constants/order-workflow";
+    34→import type {
+    35→  Dispute,
+    36→  EscrowRecord,
+    37→  FulfilmentStep,
+    38→  OrderCostBreakdown,
+    39→  OrderLineItem,
+    40→  OrderTimelineEvent,
+    41→  OrderWorkflowState,
+    42→  Quotation,
+    43→} from "@/types/order-workflow";
+    44→import {
+    45→  holdInEscrow,
+    46→  releaseToVendor,
+    47→  refundToBuyer,
+    48→  enterDisputeWindow,
+    49→  autoReleaseIfWindowExpired,
+    50→  registerEscrowChangeListener,
+    51→  hydrateEscrowStore,
+    52→  snapshotEscrowStore,
+    53→} from "@/lib/escrow";
+    54→
+    55→// ─── Helpers ───────────────────────────────────────────────────────────────
+    56→
+    57→function nowIso(): string {
+    58→  return new Date().toISOString();
+    59→}
+    60→
+    61→function isoDaysFromNow(days: number): string {
+    62→  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    63→}
+    64→
+    65→function isoHoursFromNow(hours: number): string {
+    66→  return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    67→}
+    68→
+    69→function isoHoursAgo(hours: number): string {
+    70→  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    71→}
+    72→
+    73→function isoDaysAgo(days: number): string {
+    74→  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    75→}
+    76→
+    77→function makeId(prefix: string): string {
+    78→  return `${prefix}-${Math.random().toString(36).slice(2, 10)}${Date.now()
+    79→    .toString(36)
+    80→    .slice(-4)}`;
+    81→}
+    82→
+    83→function makeRef(): string {
+    84→  return Math.random().toString(36).slice(2, 10).toUpperCase();
+    85→}
+    86→
+    87→/**
+    88→ * Compute the cost breakdown from items + quotation.
+    89→ * Returns zeros for deliveryFee/discount when no quotation exists.
+    90→ */
+    91→export function computeCostBreakdown(
+    92→  items: OrderLineItem[],
+    93→  quotation?: Quotation,
+    94→): OrderCostBreakdown {
+    95→  const subtotal = items.reduce(
+    96→    (sum, item) => sum + item.unitPrice * item.quantity,
+    97→    0,
+    98→  );
+    99→  const deliveryFee = quotation?.deliveryFee ?? 0;
+   100→  const discount = quotation?.discount ?? 0;
+   101→  const total = Math.max(0, subtotal + deliveryFee - discount);
+   102→  return { subtotal, deliveryFee, discount, total };
+   103→}
+   104→
+   105→/**
+   106→ * Build the canonical fulfilment-step array for a given status.
+   107→ * Steps before the current one are marked `reached: true` with the order's
+   108→ * timeline timestamps; the current step is also reached.
+   109→ */
+   110→function buildFulfilmentSteps(
+   111→  status: OrderStatusValue,
+   112→  timeline: OrderTimelineEvent[],
+   113→): FulfilmentStep[] {
+   114→  const ordered: OrderStatusValue[] = [
+   115→    OrderStatus.PAID,
+   116→    OrderStatus.PROCESSING,
+   117→    OrderStatus.SHIPPED,
+   118→    OrderStatus.OUT_FOR_DELIVERY,
+   119→    OrderStatus.DELIVERED,
+   120→    OrderStatus.RECEIVED,
+   121→    OrderStatus.COMPLETED,
+   122→  ];
+   123→  const currentIndex = ordered.indexOf(status);
+   124→  return ordered.map((stepStatus) => {
+   125→    const reached =
+   126→      currentIndex >= 0 && ordered.indexOf(stepStatus) <= currentIndex;
+   127→    // Best-effort timestamp lookup from the timeline (by title match).
+   128→    const reachedAt = reached
+   129→      ? timeline.find((e) =>
+   130→          e.title.toLowerCase().includes(stepStatus.toLowerCase().replace(/_/g, " ")),
+   131→        )?.at
+   132→      : undefined;
+   133→    return { status: stepStatus, reached, reachedAt };
+   134→  });
+   135→}
+   136→
+   137→/**
+   138→ * Interpolate {{orderRef}} / {{vendorName}} / {{amount}} placeholders.
+   139→ */
+   140→function interpolate(
+   141→  template: string,
+   142→  ctx: { orderRef?: string; vendorName?: string; amount?: string },
+   143→): string {
+   144→  return template
+   145→    .replace(/\{\{orderRef\}\}/g, ctx.orderRef ?? "")
+   146→    .replace(/\{\{vendorName\}\}/g, ctx.vendorName ?? "")
+   147→    .replace(/\{\{amount\}\}/g, ctx.amount ?? "");
+   148→}
+   149→
+   150→function formatCurrency(amount: number): string {
+   151→  return new Intl.NumberFormat("en-NG", {
+   152→    style: "currency",
+   153→    currency: "NGN",
+   154→    maximumFractionDigits: 0,
+   155→  }).format(amount);
+   156→}
+   157→
+   158→// ─── Notification helpers ──────────────────────────────────────────────────
+   159→//
+   160→// We piggyback on the existing notification-store via a module-level listener
+   161→// so we don't pull it into the persistence graph (it would create a cycle).
+   162→// The component layer is responsible for actually rendering these — the store
+   163→// just exposes the latest list.
+   164→
+   165→export interface WorkflowNotification {
+   166→  id: string;
+   167→  templateKey: NotificationTemplateKey;
+   168→  title: string;
+   169→  body: string;
+   170→  at: string;
+   171→  orderId: string;
+   172→  orderRef: string;
+   173→  read: boolean;
+   174→}
+   175→
+   176→// ─── Store shape ───────────────────────────────────────────────────────────
+   177→
+   178→interface PlaceOrderInput {
+   179→  items: Array<
+   180→    Pick<OrderLineItem, "productId" | "name" | "unitPrice" | "quantity" | "image">
+   181→  >;
+   182→  vendorId?: string;
+   183→  vendorName?: string;
+   184→  deliveryAddress?: string;
+   185→}
+   186→
+   187→interface OrderWorkflowStateStore {
+   188→  orders: OrderWorkflowState[];
+   189→  notifications: WorkflowNotification[];
+   190→  hydrated: boolean;
+   191→
+   192→  // ── Selectors (via getters in zustand) ──
+   193→  getOrder: (orderId: string) => OrderWorkflowState | undefined;
+   194→  getCostBreakdown: (orderId: string) => OrderCostBreakdown | null;
+   195→
+   196→  // ── Lifecycle actions ──
+   197→  placeOrder: (input: PlaceOrderInput) => OrderWorkflowState;
+   198→  submitQuotation: (orderId: string, quotation: Quotation) => void;
+   199→  markToPay: (orderId: string) => void;
+   200→  payOrder: (orderId: string) => void;
+   201→  advanceFulfilment: (orderId: string) => void;
+   202→  confirmReceipt: (orderId: string) => void;
+   203→  cancelOrder: (orderId: string) => void;
+   204→  openDispute: (
+   205→    orderId: string,
+   206→    type: DisputeTypeValue,
+   207→    reason: string,
+   208→    description?: string,
+   209→  ) => void;
+   210→  resolveDispute: (
+   211→    orderId: string,
+   212→    outcome: "VENDOR" | "BUYER",
+   213→    note?: string,
+   214→  ) => void;
+   215→  autoReleaseEscrow: () => void;
+   216→
+   217→  // ── Notifications ──
+   218→  markNotificationRead: (id: string) => void;
+   219→  clearNotifications: () => void;
+   220→
+   221→  // ── Internal: hydrate escrow mirror + register listener ──
+   222→  _init: () => () => void;
+   223→
+   224→  // ── Demo helpers ──
+   225→  resetToSeed: () => void;
+   226→}
+   227→
+   228→// ─── Seed data ─────────────────────────────────────────────────────────────
+   229→
+   230→function seedOrders(): OrderWorkflowState[] {
+   231→  // ── Order 1: TO_PAY (vendor quoted, waiting for payment) ────────────────
+   232→  // Demonstrates the central 1688 flow: vendor has submitted a quotation
+   233→  // (delivery fee, discount, ETA) and the buyer now sees the QuotationCard
+   234→  // with the "Pay now" CTA.
+   235→  const order1Items: OrderLineItem[] = [
+   236→    {
+   237→      id: "li-001",
+   238→      productId: "prod-001",
+   239→      name: "Ankara Cotton Print (6 yards)",
+   240→      unitPrice: 12500,
+   241→      quantity: 2,
+   242→      image: null,
+   243→    },
+   244→    {
+   245→      id: "li-002",
+   246→      productId: "prod-002",
+   247→      name: "Kente Stole — Handwoven",
+   248→      unitPrice: 8500,
+   249→      quantity: 1,
+   250→      image: null,
+   251→    },
+   252→  ];
+   253→  const order1Quotation: Quotation = {
+   254→    deliveryFee: 2000,
+   255→    discount: 1500,
+   256→    deliveryDateMin: isoDaysFromNow(3),
+   257→    deliveryDateMax: isoDaysFromNow(6),
+   258→    note: "Free gift wrapping included. Express dispatch available on request.",
+   259→    createdAt: isoHoursAgo(1),
+   260→  };
+   261→  const order1Timeline: OrderTimelineEvent[] = [
+   262→    {
+   263→      id: "ev-001",
+   264→      at: isoHoursAgo(2),
+   265→      title: "Order placed",
+   266→      description:
+   267→        "Order sent to Aurora General Trading. Waiting for the vendor's quotation (delivery fee, ETA).",
+   268→      tone: "warning",
+   269→    },
+   270→    {
+   271→      id: "ev-002",
+   272→      at: isoHoursAgo(1),
+   273→      title: "Quotation received",
+   274→      description:
+   275→        "Delivery fee ₦2,000 • Discount ₦1,500 • ETA 3–6 days. Vendor note: 'Free gift wrapping included…'",
+   276→      tone: "primary",
+   277→    },
+   278→    {
+   279→      id: "ev-003",
+   280→      at: isoHoursAgo(1),
+   281→      title: "Marked To Pay",
+   282→      description: "Order is ready for payment.",
+   283→      tone: "accent",
+   284→    },
+   285→  ];
+   286→
+   287→  // ── Order 2: DELIVERED (in dispute window, escrow HELD) ─────────────────
+   288→  const order2Items: OrderLineItem[] = [
+   289→    {
+   290→      id: "li-003",
+   291→      productId: "prod-003",
+   292→      name: "Samsung Galaxy A05 (4GB / 64GB)",
+   293→      unitPrice: 142000,
+   294→      quantity: 1,
+   295→      image: null,
+   296→    },
+   297→    {
+   298→      id: "li-004",
+   299→      productId: "prod-004",
+   300→      name: "Premium Phone Case",
+   301→      unitPrice: 4500,
+   302→      quantity: 2,
+   303→      image: null,
+   304→    },
+   305→  ];
+   306→  const order2Quotation: Quotation = {
+   307→    deliveryFee: 3500,
+   308→    discount: 2000,
+   309→    deliveryDateMin: isoDaysFromNow(2),
+   310→    deliveryDateMax: isoDaysFromNow(4),
+   311→    note: "Free express dispatch on orders over ₦100k. Includes 1-year warranty.",
+   312→    createdAt: isoDaysAgo(6),
+   313→  };
+   314→  const order2Timeline: OrderTimelineEvent[] = [
+   315→    {
+   316→      id: "ev-010",
+   317→      at: isoDaysAgo(7),
+   318→      title: "Order placed",
+   319→      description: "Order sent to Aurora General Trading for quotation.",
+   320→      tone: "warning",
+   321→    },
+   322→    {
+   323→      id: "ev-011",
+   324→      at: isoDaysAgo(6),
+   325→      title: "Quotation received",
+   326→      description:
+   327→        "Delivery fee ₦3,500 • Discount ₦2,000 • ETA 2–4 days. Vendor note: 'Free express dispatch…'",
+   328→      tone: "primary",
+   329→    },
+   330→    {
+   331→      id: "ev-012",
+   332→      at: isoDaysAgo(6),
+   333→      title: "Marked To Pay",
+   334→      description: "Order is ready for payment.",
+   335→      tone: "accent",
+   336→    },
+   337→    {
+   338→      id: "ev-013",
+   339→      at: isoDaysAgo(6),
+   340→      title: "Payment confirmed",
+   341→      description:
+   342→        "Payment of ₦150,500 captured into KwisCrow escrow. Funds held pending delivery confirmation.",
+   343→      tone: "success",
+   344→    },
+   345→    {
+   346→      id: "ev-014",
+   347→      at: isoDaysAgo(5),
+   348→      title: "Processing",
+   349→      description: "Vendor is preparing your order.",
+   350→      tone: "default",
+   351→    },
+   352→    {
+   353→      id: "ev-015",
+   354→      at: isoDaysAgo(2),
+   355→      title: "Shipped",
+   356→      description: "Order dispatched via Kwik Express.",
+   357→      tone: "primary",
+   358→    },
+   359→    {
+   360→      id: "ev-016",
+   361→      at: isoHoursAgo(20),
+   362→      title: "Out for delivery",
+   363→      description: "Rider is en route to your address.",
+   364→      tone: "primary",
+   365→    },
+   366→    {
+   367→      id: "ev-017",
+   368→      at: isoHoursAgo(8),
+   369→      title: "Delivered",
+   370→      description:
+   371→        "Package delivered. Confirm receipt — or open a dispute within 24 hours.",
+   372→      tone: "success",
+   373→    },
+   374→    {
+   375→      id: "ev-018",
+   376→      at: isoHoursAgo(8),
+   377→      title: "Dispute window open",
+   378→      description:
+   379→        "KwisCrow will auto-release the escrow to the vendor in 24 hours unless you confirm receipt or open a dispute.",
+   380→      tone: "warning",
+   381→    },
+   382→  ];
+   383→  const order2Cost = computeCostBreakdown(order2Items, order2Quotation);
+   384→
+   385→  // ── Order 3: RECEIVED (escrow RELEASED — terminal-ish) ──────────────────
+   386→  const order3Items: OrderLineItem[] = [
+   387→    {
+   388→      id: "li-005",
+   389→      productId: "prod-005",
+   390→      name: "Stainless Cookware Set (10-piece)",
+   391→      unitPrice: 38000,
+   392→      quantity: 1,
+   393→      image: null,
+   394→    },
+   395→  ];
+   396→  const order3Quotation: Quotation = {
+   397→    deliveryFee: 2500,
+   398→    discount: 0,
+   399→    deliveryDateMin: isoDaysAgo(10),
+   400→    deliveryDateMax: isoDaysAgo(8),
+   401→    note: "Includes free gift wrapping.",
+   402→    createdAt: isoDaysAgo(14),
+   403→  };
+   404→  const order3Timeline: OrderTimelineEvent[] = [
+   405→    {
+   406→      id: "ev-020",
+   407→      at: isoDaysAgo(15),
+   408→      title: "Order placed",
+   409→      description: "Order sent to Aurora General Trading.",
+   410→      tone: "warning",
+   411→    },
+   412→    {
+   413→      id: "ev-021",
+   414→      at: isoDaysAgo(14),
+   415→      title: "Quotation received",
+   416→      description: "Delivery fee ₦2,500. ETA 3–5 days.",
+   417→      tone: "primary",
+   418→    },
+   419→    {
+   420→      id: "ev-022",
+   421→      at: isoDaysAgo(14),
+   422→      title: "Payment confirmed",
+   423→      description: "Payment of ₦40,500 captured into KwisCrow escrow.",
+   424→      tone: "success",
+   425→    },
+   426→    {
+   427→      id: "ev-023",
+   428→      at: isoDaysAgo(13),
+   429→      title: "Processing",
+   430→      description: "Vendor is preparing your order.",
+   431→      tone: "default",
+   432→    },
+   433→    {
+   434→      id: "ev-024",
+   435→      at: isoDaysAgo(11),
+   436→      title: "Shipped",
+   437→      description: "Order dispatched.",
+   438→      tone: "primary",
+   439→    },
+   440→    {
+   441→      id: "ev-025",
+   442→      at: isoDaysAgo(9),
+   443→      title: "Out for delivery",
+   444→      description: "Rider en route.",
+   445→      tone: "primary",
+   446→    },
+   447→    {
+   448→      id: "ev-026",
+   449→      at: isoDaysAgo(8),
+   450→      title: "Delivered",
+   451→      description: "Package delivered.",
+   452→      tone: "success",
+   453→    },
+   454→    {
+   455→      id: "ev-027",
+   456→      at: isoDaysAgo(8),
+   457→      title: "Receipt confirmed",
+   458→      description: "You confirmed receipt. Escrow released to vendor.",
+   459→      tone: "success",
+   460→    },
+   461→  ];
+   462→  const order3Cost = computeCostBreakdown(order3Items, order3Quotation);
+   463→
+   464→  return [
+   465→    {
+   466→      id: "order-aurora-001",
+   467→      ref: "KW-AUR-001",
+   468→      vendor: { ...MOCK_VENDOR },
+   469→      items: order1Items,
+   470→      deliveryAddress: "12 Marina Road, Lagos Island, Lagos",
+   471→      status: OrderStatus.TO_PAY,
+   472→      quotation: order1Quotation,
+   473→      fulfilmentSteps: buildFulfilmentSteps(OrderStatus.TO_PAY, order1Timeline),
+   474→      timeline: order1Timeline,
+   475→      createdAt: isoHoursAgo(2),
+   476→      updatedAt: isoHoursAgo(1),
+   477→    },
+   478→    {
+   479→      id: "order-aurora-002",
+   480→      ref: "KW-AUR-002",
+   481→      vendor: { ...MOCK_VENDOR },
+   482→      items: order2Items,
+   483→      deliveryAddress: "5 Adeniran Ogunsanya St, Surulere, Lagos",
+   484→      status: OrderStatus.DELIVERED,
+   485→      quotation: order2Quotation,
+   486→      escrow: {
+   487→        orderId: "order-aurora-002",
+   488→        amount: order2Cost.total,
+   489→        status: EscrowStatus.HELD,
+   490→        heldAt: isoDaysAgo(6),
+   491→        autoReleaseAt: isoHoursFromNow(KwisCrow.DISPUTE_WINDOW_HOURS - 8),
+   492→      },
+   493→      fulfilmentSteps: buildFulfilmentSteps(OrderStatus.DELIVERED, order2Timeline),
+   494→      timeline: order2Timeline,
+   495→      createdAt: isoDaysAgo(7),
+   496→      updatedAt: isoHoursAgo(8),
+   497→    },
+   498→    {
+   499→      id: "order-aurora-003",
+   500→      ref: "KW-AUR-003",
+   501→      vendor: { ...MOCK_VENDOR },
+   502→      items: order3Items,
+   503→      deliveryAddress: "45 Awolowo Way, Ikeja, Lagos",
+   504→      status: OrderStatus.RECEIVED,
+   505→      quotation: order3Quotation,
+   506→      escrow: {
+   507→        orderId: "order-aurora-003",
+   508→        amount: order3Cost.total,
+   509→        status: EscrowStatus.RELEASED,
+   510→        heldAt: isoDaysAgo(14),
+   511→        releasedAt: isoDaysAgo(8),
+   512→        lastActionReason: "Buyer confirmed receipt.",
+   513→      },
+   514→      fulfilmentSteps: buildFulfilmentSteps(OrderStatus.RECEIVED, order3Timeline),
+   515→      timeline: order3Timeline,
+   516→      createdAt: isoDaysAgo(15),
+   517→      updatedAt: isoDaysAgo(8),
+   518→    },
+   519→  ];
+   520→}
+   521→
+   522→function seedNotifications(): WorkflowNotification[] {
+   523→  return [
+   524→    {
+   525→      id: "ntf-001",
+   526→      templateKey: "DISPUTE_WINDOW_OPENED",
+   527→      title: NOTIFICATION_TEMPLATES.DISPUTE_WINDOW_OPENED.title,
+   528→      body: interpolate(NOTIFICATION_TEMPLATES.DISPUTE_WINDOW_OPENED.body, {
+   529→        orderRef: "KW-AUR-002",
+   530→      }),
+   531→      at: isoHoursAgo(8),
+   532→      orderId: "order-aurora-002",
+   533→      orderRef: "KW-AUR-002",
+   534→      read: false,
+   535→    },
+   536→    {
+   537→      id: "ntf-002",
+   538→      templateKey: "ORDER_DELIVERED",
+   539→      title: NOTIFICATION_TEMPLATES.ORDER_DELIVERED.title,
+   540→      body: interpolate(NOTIFICATION_TEMPLATES.ORDER_DELIVERED.body, {
+   541→        orderRef: "KW-AUR-002",
+   542→      }),
+   543→      at: isoHoursAgo(8),
+   544→      orderId: "order-aurora-002",
+   545→      orderRef: "KW-AUR-002",
+   546→      read: false,
+   547→    },
+   548→    {
+   549→      id: "ntf-003",
+   550→      templateKey: "QUOTATION_RECEIVED",
+   551→      title: NOTIFICATION_TEMPLATES.QUOTATION_RECEIVED.title,
+   552→      body: interpolate(NOTIFICATION_TEMPLATES.QUOTATION_RECEIVED.body, {
+   553→        orderRef: "KW-AUR-001",
+   554→        vendorName: MOCK_VENDOR.name,
+   555→      }),
+   556→      at: isoHoursAgo(2),
+   557→      orderId: "order-aurora-001",
+   558→      orderRef: "KW-AUR-001",
+   559→      read: false,
+   560→    },
+   561→  ];
+   562→}
+   563→
+   564→// ─── Store implementation ──────────────────────────────────────────────────
+   565→
+   566→export const useOrderWorkflowStore = create<OrderWorkflowStateStore>()(
+   567→  persist(
+   568→    (set, get) => {
+   569→      // ── Internal: emit a notification from a template ──
+   570→      const emitNotification = (
+   571→        orderId: string,
+   572→        templateKey: NotificationTemplateKey,
+   573→        amount?: number,
+   574→      ) => {
+   575→        const order = get().orders.find((o) => o.id === orderId);
+   576→        if (!order) return;
+   577→        const template = NOTIFICATION_TEMPLATES[templateKey];
+   578→        const notification: WorkflowNotification = {
+   579→          id: makeId("ntf"),
+   580→          templateKey,
+   581→          title: template.title,
+   582→          body: interpolate(template.body, {
+   583→            orderRef: order.ref,
+   584→            vendorName: order.vendor.name,
+   585→            amount: amount !== undefined ? formatCurrency(amount) : undefined,
+   586→          }),
+   587→          at: nowIso(),
+   588→          orderId,
+   589→          orderRef: order.ref,
+   590→          read: false,
+   591→        };
+   592→        set((state) => ({
+   593→          notifications: [notification, ...state.notifications].slice(0, 50),
+   594→        }));
+   595→      };
+   596→
+   597→      // ── Internal: push a timeline event + bump updatedAt ──
+   598→      const pushEvent = (
+   599→        orderId: string,
+   600→        event: Omit<OrderTimelineEvent, "id" | "at"> & { at?: string },
+   601→      ) => {
+   602→        set((state) => ({
+   603→          orders: state.orders.map((o) => {
+   604→            if (o.id !== orderId) return o;
+   605→            const ev: OrderTimelineEvent = {
+   606→              id: makeId("ev"),
+   607→              at: event.at ?? nowIso(),
+   608→              title: event.title,
+   609→              description: event.description,
+   610→              tone: event.tone,
+   611→            };
+   612→            const timeline = [ev, ...o.timeline];
+   613→            return {
+   614→              ...o,
+   615→              timeline,
+   616→              fulfilmentSteps: buildFulfilmentSteps(o.status, timeline),
+   617→              updatedAt: ev.at,
+   618→            };
+   619→          }),
+   620→        }));
+   621→      };
+   622→
+   623→      // ── Internal: update an order's status + rebuild fulfilment steps ──
+   624→      const setStatus = (orderId: string, status: OrderStatusValue) => {
+   625→        set((state) => ({
+   626→          orders: state.orders.map((o) => {
+   627→            if (o.id !== orderId) return o;
+   628→            return {
+   629→              ...o,
+   630→              status,
+   631→              fulfilmentSteps: buildFulfilmentSteps(status, o.timeline),
+   632→              updatedAt: nowIso(),
+   633→            };
+   634→          }),
+   635→        }));
+   636→      };
+   637→
+   638→      // ── Internal: sync escrow record back into the order ──
+   639→      const syncEscrow = (orderId: string, record: EscrowRecord) => {
+   640→        set((state) => ({
+   641→          orders: state.orders.map((o) =>
+   642→            o.id === orderId ? { ...o, escrow: { ...record } } : o,
+   643→          ),
+   644→        }));
+   645→      };
+   646→
+   647→      return {
+   648→        orders: seedOrders(),
+   649→        notifications: seedNotifications(),
+   650→        hydrated: false,
+   651→
+   652→        // ── Selectors ──
+   653→        getOrder: (orderId) => get().orders.find((o) => o.id === orderId),
+   654→        getCostBreakdown: (orderId) => {
+   655→          const order = get().orders.find((o) => o.id === orderId);
+   656→          if (!order) return null;
+   657→          return computeCostBreakdown(order.items, order.quotation);
+   658→        },
+   659→
+   660→        // ── Lifecycle actions ──
+   661→        placeOrder: (input) => {
+   662→          const items: OrderLineItem[] = input.items.map((it, idx) => ({
+   663→            id: makeId(`li-${idx}`),
+   664→            productId: it.productId,
+   665→            name: it.name,
+   666→            unitPrice: it.unitPrice,
+   667→            quantity: it.quantity,
+   668→            image: it.image,
+   669→          }));
+   670→          const id = makeId("order");
+   671→          const ref = `KW-${makeRef()}`;
+   672→          const at = nowIso();
+   673→          const timeline: OrderTimelineEvent[] = [
+   674→            {
+   675→              id: makeId("ev"),
+   676→              at,
+   677→              title: "Order placed",
+   678→              description: `Order sent to ${
+   679→                input.vendorName ?? MOCK_VENDOR.name
+   680→              }. Waiting for the vendor's quotation (delivery fee, ETA).`,
+   681→              tone: "warning",
+   682→            },
+   683→          ];
+   684→          const order: OrderWorkflowState = {
+   685→            id,
+   686→            ref,
+   687→            vendor: {
+   688→              id: input.vendorId ?? MOCK_VENDOR.id,
+   689→              name: input.vendorName ?? MOCK_VENDOR.name,
+   690→              logo: null,
+   691→              rating: MOCK_VENDOR.rating,
+   692→              reviewCount: MOCK_VENDOR.reviewCount,
+   693→            },
+   694→            items,
+   695→            deliveryAddress:
+   696→              input.deliveryAddress ?? "Default delivery address — Lagos, Nigeria",
+   697→            status: OrderStatus.PENDING_QUOTE,
+   698→            fulfilmentSteps: buildFulfilmentSteps(OrderStatus.PENDING_QUOTE, timeline),
+   699→            timeline,
+   700→            createdAt: at,
+   701→            updatedAt: at,
+   702→          };
+   703→          set((state) => ({ orders: [order, ...state.orders] }));
+   704→          return order;
+   705→        },
+   706→
+   707→        submitQuotation: (orderId, quotation) => {
+   708→          const order = get().getOrder(orderId);
+   709→          if (!order) return;
+   710→          if (
+   711→            order.status !== OrderStatus.PENDING_QUOTE &&
+   712→            order.status !== OrderStatus.QUOTED
+   713→          ) {
+   714→            return; // Cannot quote once payment has started.
+   715→          }
+   716→          set((state) => ({
+   717→            orders: state.orders.map((o) =>
+   718→              o.id === orderId
+   719→                ? {
+   720→                    ...o,
+   721→                    quotation,
+   722→                    status: OrderStatus.QUOTED,
+   723→                    updatedAt: nowIso(),
+   724→                  }
+   725→                : o,
+   726→            ),
+   727→          }));
+   728→          pushEvent(orderId, {
+   729→            title: "Quotation received",
+   730→            description: `Delivery fee ${formatCurrency(
+   731→              quotation.deliveryFee,
+   732→            )} • Discount ${formatCurrency(quotation.discount)} • ETA ${new Date(
+   733→              quotation.deliveryDateMin,
+   734→            ).toLocaleDateString()}–${new Date(
+   735→              quotation.deliveryDateMax,
+   736→            ).toLocaleDateString()}.`,
+   737→            tone: "primary",
+   738→            at: quotation.createdAt,
+   739→          });
+   740→          emitNotification(orderId, "QUOTATION_RECEIVED");
+   741→        },
+   742→
+   743→        markToPay: (orderId) => {
+   744→          const order = get().getOrder(orderId);
+   745→          if (!order) return;
+   746→          if (order.status !== OrderStatus.QUOTED) return;
+   747→          setStatus(orderId, OrderStatus.TO_PAY);
+   748→          pushEvent(orderId, {
+   749→            title: "Marked To Pay",
+   750→            description: "Order is ready for payment.",
+   751→            tone: "accent",
+   752→          });
+   753→        },
+   754→
+   755→        payOrder: (orderId) => {
+   756→          const order = get().getOrder(orderId);
+   757→          if (!order) return;
+   758→          // Allow pay from QUOTED or TO_PAY (UX nicety).
+   759→          if (
+   760→            order.status !== OrderStatus.TO_PAY &&
+   761→            order.status !== OrderStatus.QUOTED
+   762→          ) {
+   763→            return;
+   764→          }
+   765→          const breakdown = computeCostBreakdown(order.items, order.quotation);
+   766→          // 1. Hold funds in escrow.
+   767→          const record = holdInEscrow(orderId, breakdown.total);
+   768→          // 2. Update order status to PAID.
+   769→          setStatus(orderId, OrderStatus.PAID);
+   770→          // 3. Sync escrow into the order.
+   771→          syncEscrow(orderId, record);
+   772→          // 4. Timeline + notification.
+   773→          pushEvent(orderId, {
+   774→            title: "Payment confirmed",
+   775→            description: `Payment of ${formatCurrency(
+   776→              breakdown.total,
+   777→            )} captured into KwisCrow escrow. Funds held pending delivery confirmation.`,
+   778→            tone: "success",
+   779→          });
+   780→          emitNotification(orderId, "PAYMENT_SUCCESS", breakdown.total);
+   781→        },
+   782→
+   783→        advanceFulfilment: (orderId) => {
+   784→          const order = get().getOrder(orderId);
+   785→          if (!order) return;
+   786→          const transitions: Partial<Record<OrderStatusValue, OrderStatusValue>> = {
+   787→            [OrderStatus.PAID]: OrderStatus.PROCESSING,
+   788→            [OrderStatus.PROCESSING]: OrderStatus.SHIPPED,
+   789→            [OrderStatus.SHIPPED]: OrderStatus.OUT_FOR_DELIVERY,
+   790→            [OrderStatus.OUT_FOR_DELIVERY]: OrderStatus.DELIVERED,
+   791→          };
+   792→          const next = transitions[order.status];
+   793→          if (!next) return;
+   794→          setStatus(orderId, next);
+   795→
+   796→          // When entering DELIVERED, start the dispute window.
+   797→          if (next === OrderStatus.DELIVERED) {
+   798→            pushEvent(orderId, {
+   799→              title: "Delivered",
+   800→              description:
+   801→                "Package delivered. Confirm receipt — or open a dispute within 24 hours.",
+   802→              tone: "success",
+   803→            });
+   804→            // Enter dispute window (sets autoReleaseAt = now + 24h).
+   805→            if (order.escrow) {
+   806→              const record = enterDisputeWindow(orderId);
+   807→              syncEscrow(orderId, record);
+   808→            }
+   809→            pushEvent(orderId, {
+   810→              title: "Dispute window open",
+   811→              description: `KwisCrow will auto-release the escrow to the vendor in ${KwisCrow.DISPUTE_WINDOW_HOURS} hours unless you confirm receipt or open a dispute.`,
+   812→              tone: "warning",
+   813→            });
+   814→            emitNotification(orderId, "ORDER_DELIVERED");
+   815→            emitNotification(orderId, "DISPUTE_WINDOW_OPENED");
+   816→            return;
+   817→          }
+   818→
+   819→          // Other transitions — pick the right template + tone.
+   820→          const meta: Record<
+   821→            OrderStatusValue,
+   822→            { title: string; description: string; tone: OrderTimelineEvent["tone"]; template?: NotificationTemplateKey }
+   823→          > = {
+   824→            [OrderStatus.PROCESSING]: {
+   825→              title: "Processing",
+   826→              description: "Vendor is preparing your order.",
+   827→              tone: "default",
+   828→              template: "ORDER_PROCESSING",
+   829→            },
+   830→            [OrderStatus.SHIPPED]: {
+   831→              title: "Shipped",
+   832→              description: "Order handed to courier.",
+   833→              tone: "primary",
+   834→              template: "ORDER_SHIPPED",
+   835→            },
+   836→            [OrderStatus.OUT_FOR_DELIVERY]: {
+   837→              title: "Out for delivery",
+   838→              description: "Rider is en route to your address.",
+   839→              tone: "primary",
+   840→              template: "OUT_FOR_DELIVERY",
+   841→            },
+   842→            // (DELIVERED handled above; the rest are unused here.)
+   843→            PAID: { title: "Paid", description: "", tone: "success" },
+   844→            DELIVERED: { title: "Delivered", description: "", tone: "success" },
+   845→            RECEIVED: { title: "Received", description: "", tone: "success" },
+   846→            COMPLETED: { title: "Completed", description: "", tone: "success" },
+   847→            PENDING_QUOTE: { title: "Awaiting quotation", description: "", tone: "warning" },
+   848→            QUOTED: { title: "Quoted", description: "", tone: "primary" },
+   849→            TO_PAY: { title: "To pay", description: "", tone: "accent" },
+   850→            DISPUTED: { title: "Disputed", description: "", tone: "danger" },
+   851→            CANCELLED: { title: "Cancelled", description: "", tone: "danger" },
+   852→            RETURNED: { title: "Returned", description: "", tone: "default" },
+   853→          };
+   854→          const m = meta[next];
+   855→          pushEvent(orderId, {
+   856→            title: m.title,
+   857→            description: m.description,
+   858→            tone: m.tone,
+   859→          });
+   860→          if (m.template) emitNotification(orderId, m.template);
+   861→        },
+   862→
+   863→        confirmReceipt: (orderId) => {
+   864→          const order = get().getOrder(orderId);
+   865→          if (!order) return;
+   866→          if (order.status !== OrderStatus.DELIVERED) return;
+   867→
+   868→          // 1. Release escrow to vendor.
+   869→          if (order.escrow) {
+   870→            const record = releaseToVendor(orderId, "Buyer confirmed receipt.");
+   871→            syncEscrow(orderId, record);
+   872→          }
+   873→          // 2. Move to RECEIVED.
+   874→          setStatus(orderId, OrderStatus.RECEIVED);
+   875→          pushEvent(orderId, {
+   876→            title: "Receipt confirmed",
+   877→            description:
+   878→              "You confirmed receipt. Escrow released to vendor. Thank you for shopping with Kwikseller!",
+   879→            tone: "success",
+   880→          });
+   881→          emitNotification(
+   882→            orderId,
+   883→            "ESCROW_RELEASED",
+   884→            order.escrow?.amount,
+   885→          );
+   886→        },
+   887→
+   888→        cancelOrder: (orderId) => {
+   889→          const order = get().getOrder(orderId);
+   890→          if (!order) return;
+   891→          // Only cancellable before payment.
+   892→          const cancellable: OrderStatusValue[] = [
+   893→            OrderStatus.PENDING_QUOTE,
+   894→            OrderStatus.QUOTED,
+   895→            OrderStatus.TO_PAY,
+   896→          ];
+   897→          if (!cancellable.includes(order.status)) return;
+   898→          setStatus(orderId, OrderStatus.CANCELLED);
+   899→          pushEvent(orderId, {
+   900→            title: "Order cancelled",
+   901→            description: "Order was cancelled before payment. No funds were captured.",
+   902→            tone: "danger",
+   903→          });
+   904→          emitNotification(orderId, "ORDER_CANCELLED");
+   905→        },
+   906→
+   907→        openDispute: (orderId, type, reason, description) => {
+   908→          const order = get().getOrder(orderId);
+   909→          if (!order) return;
+   910→          // Disputes are only allowed after delivery (or after the dispute
+   911→          // window has opened). Allow from DELIVERED or RECEIVED states.
+   912→          const disputable: OrderStatusValue[] = [
+   913→            OrderStatus.DELIVERED,
+   914→            OrderStatus.RECEIVED,
+   915→          ];
+   916→          if (!disputable.includes(order.status)) return;
+   917→
+   918→          const dispute: Dispute = {
+   919→            id: makeId("dsp"),
+   920→            type,
+   921→            reason,
+   922→            description,
+   923→            createdAt: nowIso(),
+   924→            status: DisputeStatus.OPEN,
+   925→          };
+   926→          setStatus(orderId, OrderStatus.DISPUTED);
+   927→          set((state) => ({
+   928→            orders: state.orders.map((o) =>
+   929→              o.id === orderId ? { ...o, dispute } : o,
+   930→            ),
+   931→          }));
+   932→          pushEvent(orderId, {
+   933→            title: type === DisputeType.RETURN_REQUEST ? "Return requested" : "Issue reported",
+   934→            description: `Reason: ${reason}. ${
+   935→              description ? `Details: ${description}.` : ""
+   936→            } Escrow is frozen pending review.`,
+   937→            tone: "danger",
+   938→          });
+   939→          emitNotification(orderId, "DISPUTE_OPENED");
+   940→        },
+   941→
+   942→        resolveDispute: (orderId, outcome, note) => {
+   943→          const order = get().getOrder(orderId);
+   944→          if (!order || !order.dispute) return;
+   945→
+   946→          // 1. Settle escrow based on outcome.
+   947→          if (order.escrow) {
+   948→            const record =
+   949→              outcome === "BUYER"
+   950→                ? refundToBuyer(orderId, note ?? "Dispute resolved in buyer favor.")
+   951→                : releaseToVendor(orderId, note ?? "Dispute resolved in vendor favor.");
+   952→            syncEscrow(orderId, record);
+   953→          }
+   954→
+   955→          // 2. Update dispute status + order status.
+   956→          set((state) => ({
+   957→            orders: state.orders.map((o) =>
+   958→              o.id === orderId
+   959→                ? {
+   960→                    ...o,
+   961→                    dispute: {
+   962→                      ...o.dispute!,
+   963→                      status: DisputeStatus.RESOLVED,
+   964→                      resolvedAt: nowIso(),
+   965→                      resolutionNote: note,
+   966→                    },
+   967→                    status:
+   968→                      outcome === "BUYER"
+   969→                        ? OrderStatus.RETURNED
+   970→                        : OrderStatus.COMPLETED,
+   971→                    updatedAt: nowIso(),
+   972→                  }
+   973→                : o,
+   974→            ),
+   975→          }));
+   976→          pushEvent(orderId, {
+   977→            title:
+   978→              outcome === "BUYER"
+   979→                ? "Dispute resolved — refund issued"
+   980→                : "Dispute resolved — vendor paid",
+   981→            description: note ?? "KwisCrow has resolved this dispute.",
+   982→            tone: outcome === "BUYER" ? "default" : "success",
+   983→          });
+   984→          emitNotification(orderId, "DISPUTE_RESOLVED");
+   985→        },
+   986→
+   987→        autoReleaseEscrow: () => {
+   988→          // Sweep all orders that are in DELIVERED state with an open dispute
+   989→          // window whose deadline has passed.
+   990→          const orders = get().orders;
+   991→          for (const order of orders) {
+   992→            if (order.status !== OrderStatus.DELIVERED) continue;
+   993→            if (!order.escrow) continue;
+   994→            if (!order.escrow.autoReleaseAt) continue;
+   995→            // Skip if a dispute is open.
+   996→            if (order.dispute && order.dispute.status === DisputeStatus.OPEN) continue;
+   997→            if (!order.escrow.autoReleaseAt) continue;
+   998→            try {
+   999→              const record = autoReleaseIfWindowExpired(
+  1000→                order.id,
+  1001→                order.escrow.autoReleaseAt,
+  1002→                { disputeOpen: Boolean(order.dispute) },
+  1003→              );
+  1004→              if (record.status === EscrowStatus.RELEASED) {
+  1005→                syncEscrow(order.id, record);
+  1006→                setStatus(order.id, OrderStatus.RECEIVED);
+  1007→                pushEvent(order.id, {
+  1008→                  title: "Escrow auto-released",
+  1009→                  description: `The ${KwisCrow.DISPUTE_WINDOW_HOURS}-hour dispute window expired with no dispute. KwisCrow released the funds to the vendor.`,
+  1010→                  tone: "success",
+  1011→                });
+  1012→                emitNotification(order.id, "ESCROW_RELEASED", record.amount);
+  1013→              }
+  1014→            } catch {
+  1015→              // Defensive — ignore failures during sweep.
+  1016→            }
+  1017→          }
+  1018→        },
+  1019→
+  1020→        markNotificationRead: (id) => {
+  1021→          set((state) => ({
+  1022→            notifications: state.notifications.map((n) =>
+  1023→              n.id === id ? { ...n, read: true } : n,
+  1024→            ),
+  1025→          }));
+  1026→        },
+  1027→
+  1028→        clearNotifications: () => set({ notifications: [] }),
+  1029→
+  1030→        _init: () => {
+  1031→          // 1. Hydrate the escrow in-memory store from persisted orders.
+  1032→          const escrowRecords = get()
+  1033→            .orders.map((o) => o.escrow)
+  1034→            .filter((e): e is EscrowRecord => Boolean(e));
+  1035→          hydrateEscrowStore(escrowRecords);
+  1036→
+  1037→          // 2. Register the listener that mirrors escrow mutations back.
+  1038→          const unregister = registerEscrowChangeListener((orderId, record) => {
+  1039→            syncEscrow(orderId, record);
+  1040→          });
+  1041→
+  1042→          // 3. Mark hydrated so the UI can stop showing the "verifying" state.
+  1043→          set({ hydrated: true });
+  1044→
+  1045→          // 4. Run an immediate sweep (in case persisted state has expired
+  1046→          //    dispute windows from a previous session).
+  1047→          get().autoReleaseEscrow();
+  1048→
+  1049→          return unregister;
+  1050→        },
+  1051→
+  1052→        resetToSeed: () => {
+  1053→          const orders = seedOrders();
+  1054→          const notifications = seedNotifications();
+  1055→          // Re-hydrate escrow store.
+  1056→          hydrateEscrowStore(
+  1057→            orders
+  1058→              .map((o) => o.escrow)
+  1059→              .filter((e): e is EscrowRecord => Boolean(e)),
+  1060→          );
+  1061→          set({ orders, notifications });
+  1062→        },
+  1063→      };
+  1064→    },
+  1065→    {
+  1066→      name: "kwikseller-order-workflow-store",
+  1067→      version: 2,
+  1068→      storage: createJSONStorage(() => localStorage),
+  1069→      partialize: (state) => ({
+  1070→        orders: state.orders,
+  1071→        notifications: state.notifications,
+  1072→      }),
+  1073→      // When the seed data changes (new mock orders, new statuses, etc.) we
+  1074→      // bump `version` and the migrate function re-seeds from scratch. This
+  1075→      // guarantees users always see the latest demo data after a deploy.
+  1076→      migrate: (_persisted, version) => {
+  1077→        if (version < 2) {
+  1078→          // Re-seed from scratch.
+  1079→          return {
+  1080→            orders: seedOrders(),
+  1081→            notifications: seedNotifications(),
+  1082→          };
+  1083→        }
+  1084→        return _persisted as { orders: OrderWorkflowState[]; notifications: WorkflowNotification[] };
+  1085→      },
+  1086→      onRehydrateStorage: () => (state) => {
+  1087→        // After rehydration, hydrate the escrow in-memory store too.
+  1088→        if (state) {
+  1089→          const records = state.orders
+  1090→            .map((o) => o.escrow)
+  1091→            .filter((e): e is EscrowRecord => Boolean(e));
+  1092→          hydrateEscrowStore(records);
+  1093→        }
+  1094→      },
+  1095→    },
+  1096→  ),
+  1097→);
+  1098→
+  1099→// ─── Convenience hook ──────────────────────────────────────────────────────
+  1100→
+  1101→/**
+  1102→ * useOrder — selector hook returning a single order by id (or undefined).
+  1103→ * Re-renders only when that specific order changes.
+  1104→ */
+  1105→export function useOrder(orderId: string | undefined): OrderWorkflowState | undefined {
+  1106→  return useOrderWorkflowStore((state) =>
+  1107→    orderId ? state.orders.find((o) => o.id === orderId) : undefined,
+  1108→  );
+  1109→}
+  1110→
+  1111→// ─── Escrow store snapshot (re-exported for debugging) ─────────────────────
+  1112→
+  1113→export { snapshotEscrowStore };
+  1114→

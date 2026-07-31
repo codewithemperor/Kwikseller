@@ -3,154 +3,22 @@
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import {
-  Coins,
-  Gift,
-  Trophy,
-  Zap,
-  Star,
   ArrowRight,
-  Crown,
-  Sparkles,
   Check,
-  ShoppingBag,
-  UserPlus,
-  Target,
+  Coins,
+  Crown,
+  Gift,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
 import { cn } from "@kwikseller/ui";
-
-// ─── Tier Data ─────────────────────────────────────────────────
-
-interface RewardTier {
-  name: string;
-  coinRange: string;
-  subtitle: string;
-  description: string;
-  icon: React.ElementType;
-  color: string;
-  iconBg: string;
-  borderGradient: string;
-  progressColor: string;
-  perks: string[];
-  progressPercent: number;
-}
-
-const tiers: RewardTier[] = [
-  {
-    name: "Bronze",
-    coinRange: "1–100 coins",
-    subtitle: "Getting Started",
-    description:
-      "Begin your rewards journey. Every sale earns you coins to unlock better perks.",
-    icon: Coins,
-    color: "text-amber-700 dark:text-amber-400",
-    iconBg: "bg-amber-100 dark:bg-amber-900/40",
-    borderGradient: "from-amber-500 to-orange-500",
-    progressColor: "bg-amber-500",
-    perks: ["Earn 1 coin per sale", "Basic analytics", "Standard support"],
-    progressPercent: 65,
-  },
-  {
-    name: "Silver",
-    coinRange: "101–500 coins",
-    subtitle: "Growing Fast",
-    description:
-      "Scale your business with enhanced tools and priority access to support.",
-    icon: Star,
-    color: "text-slate-600 dark:text-slate-300",
-    iconBg: "bg-slate-100 dark:bg-slate-800/60",
-    borderGradient: "from-slate-400 to-gray-500",
-    progressColor: "bg-slate-400",
-    perks: [
-      "Earn 2 coins per sale",
-      "Advanced analytics",
-      "Priority support",
-      "5% ad discount",
-    ],
-    progressPercent: 40,
-  },
-  {
-    name: "Gold",
-    coinRange: "501–2,000 coins",
-    subtitle: "Top Seller",
-    description:
-      "Unlock premium features and get your products featured on the marketplace.",
-    icon: Trophy,
-    color: "text-yellow-600 dark:text-yellow-400",
-    iconBg: "bg-yellow-50 dark:bg-yellow-900/30",
-    borderGradient: "from-yellow-400 to-amber-500",
-    progressColor: "bg-yellow-500",
-    perks: [
-      "Earn 3 coins per sale",
-      "Full analytics suite",
-      "24/7 support",
-      "15% ad discount",
-      "Featured placement",
-    ],
-    progressPercent: 75,
-  },
-  {
-    name: "Platinum",
-    coinRange: "2,000+ coins",
-    subtitle: "Elite Vendor",
-    description:
-      "The ultimate seller tier with maximum visibility and dedicated account management.",
-    icon: Crown,
-    color: "text-purple-600 dark:text-purple-400",
-    iconBg: "bg-purple-100 dark:bg-purple-900/40",
-    borderGradient: "from-purple-500 to-violet-600",
-    progressColor: "bg-purple-500",
-    perks: [
-      "Earn 5 coins per sale",
-      "Premium dashboard",
-      "Dedicated manager",
-      "25% ad discount",
-      "Homepage feature",
-    ],
-    progressPercent: 30,
-  },
-];
-
-// ─── Earning Methods Data ──────────────────────────────────────
-
-interface EarningMethod {
-  icon: React.ElementType;
-  title: string;
-  coins: string;
-  description: string;
-  color: string;
-  bg: string;
-}
-
-const earningMethods: EarningMethod[] = [
-  {
-    icon: ShoppingBag,
-    title: "Make a Sale",
-    coins: "+1–5 coins",
-    description:
-      "Earn coins for every successful transaction based on your tier",
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-100 dark:bg-emerald-900/40",
-  },
-  {
-    icon: UserPlus,
-    title: "Refer a Friend",
-    coins: "+50 coins",
-    description:
-      "Get rewarded when new vendors sign up using your referral link",
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-100 dark:bg-blue-900/40",
-  },
-  {
-    icon: Target,
-    title: "Complete Milestone",
-    coins: "+100 coins",
-    description:
-      "Hit sales targets and achieve marketplace goals for bonus rewards",
-    color: "text-rose-600 dark:text-rose-400",
-    bg: "bg-rose-100 dark:bg-rose-900/40",
-  },
-];
+import {
+  KWIKCOINS_EARNING_METHODS as earningMethods,
+  KWIKCOINS_REWARD_TIERS as tiers,
+  type EarningMethod,
+  type RewardTier,
+} from "@/constants/landing";
 
 // ─── Animation Variants ────────────────────────────────────────
 

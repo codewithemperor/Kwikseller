@@ -2,59 +2,12 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import {
-  Shield,
-  Truck,
-  Headphones,
-  RotateCcw,
-  Lock,
-  CreditCard,
-  Smartphone,
-  Building,
-} from "lucide-react";
+import { Lock, Shield } from "lucide-react";
 import { Card, Chip } from "@heroui/react";
-
-// Trust features data
-const trustFeatures = [
-  {
-    icon: Shield,
-    title: "Escrow Protection",
-    description: "Your money is held safely until you confirm delivery",
-    color: "text-success",
-    bg: "bg-success/10",
-  },
-  {
-    icon: Truck,
-    title: "Fast Delivery",
-    description: "Reliable delivery across 15+ African countries",
-    color: "text-accent",
-    bg: "bg-accent/10",
-  },
-  {
-    icon: Headphones,
-    title: "24/7 Support",
-    description: "Dedicated support team ready to help anytime",
-    color: "text-blue-500",
-    bg: "bg-blue-500/10",
-  },
-  {
-    icon: RotateCcw,
-    title: "Easy Returns",
-    description: "Hassle-free returns within 7 days of delivery",
-    color: "text-purple-500",
-    bg: "bg-purple-500/10",
-  },
-];
-
-// Payment / security badges
-const paymentBadges = [
-  { icon: CreditCard, label: "Visa" },
-  { icon: CreditCard, label: "Mastercard" },
-  { icon: Lock, label: "Paystack" },
-  { icon: Smartphone, label: "MoMo" },
-  { icon: Smartphone, label: "Flutterwave" },
-  { icon: Building, label: "Bank Transfer" },
-];
+import {
+  TRUST_FEATURES as trustFeatures,
+  TRUST_PAYMENT_BADGES as paymentBadges,
+} from "@/constants/landing";
 
 const containerVariants = {
   hidden: { opacity: 0 },

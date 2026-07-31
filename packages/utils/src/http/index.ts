@@ -1,38 +1,35 @@
 /**
- * KWIKSELLER - HTTP Client Exports
+ * KWIKSELLER - HTTP Client Exports (adapter over @kwikseller/api-client).
+ *
+ * See ./client.ts for the full rationale. In short: there is now ONE real
+ * axios instance (in @kwikseller/api-client); this module only adapts its
+ * response shape + provides an ApiError class for legacy consumers.
  */
-
-// Main client
-export { httpClient, api, getWithMeta, getPaginated, ApiError } from './client'
-
-// Token management
+export { default } from "./client";
+export { api, ApiError, httpClient } from "./client";
 export {
-  getAccessToken,
-  getRefreshToken,
   setTokens,
   clearTokens,
+  getAccessToken,
+  getRefreshToken,
   isAuthenticated,
-} from './client'
-
-// Types
-export {
-  TOKEN_STORAGE_KEYS,
-  DEFAULT_CONFIG,
-  type ApiResponse,
-  type ApiErrorResponse,
-  type RefreshTokenRequest,
-  type RefreshTokenResponse,
-  type RequestConfig,
-  type PaginationParams,
-  type PaginatedResponse,
-  type HttpMethod,
-  type ApiClient,
-  type TypedAxiosError,
-  type RequestInterceptor,
-  type ResponseInterceptor,
-  type ErrorInterceptor,
-  type HttpClientConfig,
-} from './types'
-
-// Default export
-export { default } from './client'
+  getWithMeta,
+  getPaginated,
+} from "./client";
+export { TOKEN_STORAGE_KEYS, DEFAULT_CONFIG } from "./types";
+export type {
+  ApiResponse,
+  ApiErrorResponse,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  RequestConfig,
+  PaginationParams,
+  PaginatedResponse,
+  HttpMethod,
+  ApiClient,
+  TypedAxiosError,
+  RequestInterceptor,
+  ResponseInterceptor,
+  ErrorInterceptor,
+  HttpClientConfig,
+} from "./types";

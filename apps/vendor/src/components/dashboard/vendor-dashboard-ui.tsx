@@ -5,6 +5,10 @@ import type { ReactNode } from "react";
 import React from "react";
 import { ArrowUpRight, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  VendorPageHeader as SharedVendorPageHeader,
+  VendorMetricCard as SharedVendorMetricCard,
+} from "@kwikseller/ui";
 
 interface SummaryCardProps {
   eyebrow?: string;
@@ -94,8 +98,13 @@ function HeaderActionMenu({ children }: { children: React.ReactNode }) {
 // NOTE: The dead exports (VendorDesktopNav, VendorBottomTabs, VendorSolidCard,
 // vendorPrimaryTabs, isVendorTabActive, VendorTabItem) have been removed.
 // The shared VendorDrawer + VendorMobileNav now handle navigation.
-// The live exports below are retained until all dashboard pages migrate to
-// the shared @kwikseller/ui Vendor* components.
+//
+// VendorPageHeader & VendorMetricCard below are now THIN ADAPTERS that delegate
+// to the single shared implementation in @kwikseller/ui. This eliminates the
+// "two competing definitions with incompatible prop signatures" shadowing bug:
+// there is now only ONE real implementation; the local exports just translate
+// the legacy prop API (label/note/tone/action/eyebrow) into the shared one
+// (title/description/variant/actions) so existing dashboard pages keep working.
 
 export function VendorPageHeader({
   title,
@@ -109,23 +118,17 @@ export function VendorPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="flex min-w-0 items-start justify-between gap-3 border-b border-kwik-border pb-4">
-      <div className="min-w-0 flex-1">
-        {eyebrow ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="mt-1 font-heading text-xl font-semibold leading-tight text-foreground md:text-[22px]">
-          {title}
-        </h1>
-        {description ? (
-          <p className="mt-1 max-w-2xl text-sm font-normal leading-5 text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
-      </div>
-      {action ? <HeaderActionMenu>{action}</HeaderActionMenu> : null}
+    <section className="border-b border-kwik-border pb-4">
+      {eyebrow ? (
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+          {eyebrow}
+        </p>
+      ) : null}
+      <SharedVendorPageHeader
+        title={title}
+        description={description}
+        actions={action}
+      />
     </section>
   );
 }
@@ -293,20 +296,21 @@ export function VendorMetricCard({
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   tone?: "default" | "accent" | "success" | "warning";
 }) {
-  const metricTone = {
-    default: "neutral",
-    accent: "accent",
-    success: "success",
-    warning: "warning",
-  }[tone];
+  // Map the legacy `tone` prop to the shared `variant` prop.
+  const variantMap = {
+    default: "default",
+    accent: "soft",
+    success: "solid",
+    warning: "soft",
+  } as const;
 
   return (
-    <DashboardMetricCard
+    <SharedVendorMetricCard
       title={label}
       value={value}
-      description={note ?? ""}
-      tone={metricTone as MetricTone}
-      icon={<Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />}
+      description={note}
+      icon={Icon as React.ComponentType<React.SVGProps<SVGSVGElement>>}
+      variant={variantMap[tone]}
     />
   );
 }

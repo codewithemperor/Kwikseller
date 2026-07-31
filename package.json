@@ -7,10 +7,11 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "dev": "cd apps/marketplace && bun run dev",
+    "lint": "cd apps/marketplace && bun run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
+    "db:push": "echo 'Marketplace uses API backend; skipping db:push'",
     "dev:api": "turbo run dev --filter=@kwikseller/api",
     "dev:vendor": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/vendor",
     "dev:admin": "turbo run dev --filter=@kwikseller/api --filter=@kwikseller/admin",

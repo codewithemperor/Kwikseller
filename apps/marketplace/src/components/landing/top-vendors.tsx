@@ -5,65 +5,7 @@ import { motion, useInView } from "framer-motion";
 import { Star, Store, MapPin, Award, ArrowRight } from "lucide-react";
 import { Button, Card, Chip, Avatar } from "@heroui/react";
 import Link from "next/link";
-
-const topVendors = [
-  {
-    id: "1",
-    name: "Nneka's Fabrics",
-    slug: "nnekas-fabrics",
-    avatar: "NF",
-    description: "Premium African fabrics and textiles",
-    location: "Lagos, Nigeria",
-    rating: 4.9,
-    reviewCount: 1240,
-    totalSales: "15K+",
-    badge: "Top Seller",
-    isVerified: true,
-    accentColor: "from-pink-500 to-rose-500",
-  },
-  {
-    id: "2",
-    name: "TechHub Ghana",
-    slug: "techhub-ghana",
-    avatar: "TH",
-    description: "Electronics and gadgets at best prices",
-    location: "Accra, Ghana",
-    rating: 4.8,
-    reviewCount: 890,
-    totalSales: "8K+",
-    badge: "Verified",
-    isVerified: true,
-    accentColor: "from-cyan-500 to-blue-500",
-  },
-  {
-    id: "3",
-    name: "Fati's Kitchen",
-    slug: "fatis-kitchen",
-    avatar: "FK",
-    description: "Authentic African food and spices",
-    location: "Abuja, Nigeria",
-    rating: 4.9,
-    reviewCount: 2100,
-    totalSales: "25K+",
-    badge: "Top Seller",
-    isVerified: true,
-    accentColor: "from-orange-500 to-amber-500",
-  },
-  {
-    id: "4",
-    name: "EcoWear Nairobi",
-    slug: "ecowear-nairobi",
-    avatar: "EW",
-    description: "Sustainable fashion and accessories",
-    location: "Nairobi, Kenya",
-    rating: 4.7,
-    reviewCount: 560,
-    totalSales: "4K+",
-    badge: "Rising Star",
-    isVerified: true,
-    accentColor: "from-green-500 to-emerald-500",
-  },
-];
+import { TOP_VENDORS as topVendors } from "@/constants/landing";
 
 function VendorCard({
   vendor,

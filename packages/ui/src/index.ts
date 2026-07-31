@@ -270,3 +270,33 @@ export type {
   VendorStatCardVariant,
   VendorStatSubItem,
 } from "./vendor";
+
+// ==================== Generic Card Components ====================
+// Generic, configurable cards for products, categories, vendors, brands and
+// flash deals. Designed to be reused across the marketplace, vendor portal,
+// admin and future apps for a consistent UI. Each card uses the unified
+// OKLCH design tokens (primary=blue, secondary=orange, gray=blue-gray) and
+// is app-agnostic — pass props in, get a polished, animated, accessible
+// card out.
+//
+// The new generic ProductCard coexists with the legacy commerce/product-card
+// ProductCard (see "Custom Commerce Components" above). To avoid the naming
+// clash at the package root, the new generic card is re-exported under the
+// alias `GenericProductCard` (and its props as `GenericProductCardProps`).
+// The other cards (CategoryCard, VendorCard, BrandCard, DealCard) are
+// re-exported under their canonical names.
+export {
+  CategoryCard,
+  VendorCard,
+  BrandCard,
+  DealCard,
+  ProductCard as GenericProductCard,
+} from "./cards";
+export type {
+  CategoryCardProps,
+  VendorCardProps,
+  BrandCardProps,
+  DealCardProps,
+  ProductCardProps as GenericProductCardProps,
+  ProductCardVariant,
+} from "./cards";
