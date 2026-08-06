@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, Package, Store, Sparkles, Clock, CheckCircle2, Wallet, ShieldCheck, ChevronRight, Truck, CreditCard } from "lucide-react";
+import { ArrowLeft, Package, Store, Sparkles, Clock, CheckCircle2, Wallet, ShieldCheck, ChevronRight, Truck, CreditCard, Download, FileSpreadsheet } from "lucide-react";
 import { ordersApi } from "@kwikseller/api-client";
 import type { Order } from "@kwikseller/types";
 import { EmptyState, OrderStatusBadge, Skeleton } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
+import { useMyOrders, type ApiOrder } from "@/lib/order-api";
 import {
   ACTIVE_ORDER_STATUSES as ACTIVE_STATUSES,
   CANCELLED_ORDER_STATUSES as CANCELLED_STATUSES,
@@ -21,6 +22,8 @@ import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
 import type { OrderWorkflowState } from "@/types/order-workflow";
 import { ORDER_STATUS_META, OrderStatus, KwisCrow } from "@/constants/order-workflow";
 import { cn } from "@/lib/utils";
+import { toCSV, downloadCSV } from "@/lib/csv";
+import { AccountLayout } from "@/components/layout/account-layout";
 
 /* ─── Helpers ─── */
 
@@ -164,7 +167,7 @@ function MiniProgressBar({ status }: { status: string }) {
   );
 }
 
-function BuyerOrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
+function BuyerOrderCard({ order, onClick, index = 0 }: { order: Order; onClick: () => void; index?: number }) {
   const itemNames = getItemNames(order);
   const deliveryAddress = getDeliveryAddress(order);
   const statusMeta = ORDER_STATUS_META[order.status as keyof typeof ORDER_STATUS_META];
@@ -174,9 +177,11 @@ function BuyerOrderCard({ order, onClick }: { order: Order; onClick: () => void 
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.2 }}
-      className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-surface text-left shadow-sm transition hover:border-primary-300 hover:shadow-md"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.06, 0.5) }}
+      whileHover={{ y: -3 }}
+      className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-surface text-left shadow-sm transition-colors hover:border-primary-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange/40 focus-visible:ring-offset-2"
     >
       {/* Gradient header strip (matches order detail page) */}
       <div className="kwik-gradient px-5 py-3">
@@ -260,6 +265,39 @@ function getStoreName(order: Order): string | undefined {
 }
 
 /* ─── Mock order adapter ─── */
+/**
+ * Convert an ApiOrder (created via POST /checkout in dummy mode, or by the
+ * real backend) into the Order shape this page expects. This makes orders
+ * placed via the checkout flow appear in the buyer's order list even when
+ * they are not authenticated (dummy mode).
+ */
+function apiOrderToOrder(o: ApiOrder): Order {
+  return {
+    id: o.id,
+    checkoutReference: o.orderNumber,
+    status: o.status,
+    paymentStatus: o.paymentStatus,
+    totalAmount: o.total,
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+    store: {
+      id: o.storeId,
+      name: o.storeName,
+    },
+    items: o.items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      product: {
+        id: item.productId,
+        name: item.product.name,
+        price: item.unitPrice,
+        images: item.product.image ? [{ url: item.product.image, isMain: true }] : [],
+      },
+    })),
+    delivery: { deliveryAddress: `${o.deliveryAddress.fullName}, ${o.deliveryAddress.addressLine1}, ${o.deliveryAddress.city}, ${o.deliveryAddress.state}` },
+  } as Order;
+}
+
 /**
  * Convert an OrderWorkflowState (from the Zustand mock store) into the Order
  * shape this page expects, so the orders list is useful even when the live API
@@ -352,7 +390,40 @@ function OrderListSkeleton() {
 
 /* ─── Page ─── */
 
-export default function BuyerOrdersPage() {
+function tabLabel(tab: TabKey): string {
+  const found = TABS.find((t) => t.key === tab);
+  return found ? found.label : tab;
+}
+
+/**
+ * Build a CSV row list from an array of orders. Used by the "Export" buttons
+ * on the orders page so buyers can download their full order history.
+ */
+function ordersToCSVRows(orders: Order[]) {
+  return orders.map((o) => {
+    const delivery = o.delivery as { deliveryAddress?: string; carrier?: string } | undefined;
+    const payment = o.payment as { method?: string; gateway?: string } | undefined;
+    return {
+      "Order #": getOrderRef(o),
+      Status: o.status,
+      "Payment status": o.paymentStatus,
+      "Vendor / store": getStoreName(o) ?? "",
+      "Items": getItemCount(o),
+      "Item names": getItemNames(o).join("; "),
+      "Subtotal (NGN)": Number(o.subtotal ?? 0),
+      "Discount (NGN)": Number(o.discount ?? 0),
+      "Shipping fee (NGN)": Number(o.shippingFee ?? 0),
+      "Total (NGN)": Number(o.totalAmount ?? 0),
+      "Payment method": payment?.method ?? payment?.gateway ?? "",
+      "Delivery address": getDeliveryAddress(o) ?? delivery?.deliveryAddress ?? "",
+      "Carrier": delivery?.carrier ?? "",
+      "Placed at": formatDate(o.createdAt),
+      "Updated at": formatDate(o.updatedAt),
+    };
+  });
+}
+
+function BuyerOrdersPageInner() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -360,7 +431,12 @@ export default function BuyerOrdersPage() {
   // Mock orders from the Zustand order-workflow store (always available).
   const mockOrders = useOrderWorkflowStore((s) => s.orders);
 
-  const { data: apiOrders = [], isLoading } = useQuery<Order[]>({
+  // API orders — fetched via the shared `useMyOrders` hook which works in
+  // dummy mode without auth. These are orders created via POST /checkout
+  // (the real checkout → vendor flow). Polled every 5s while any are PENDING.
+  const { data: dummyApiOrders = [], isLoading: dummyLoading } = useMyOrders();
+
+  const { data: liveApiOrders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["buyer-orders"],
     enabled: !isAuthLoading && isAuthenticated,
     queryFn: async () => {
@@ -377,12 +453,19 @@ export default function BuyerOrdersPage() {
     staleTime: 30 * 1000,
   });
 
-  // Use live API orders when authenticated + available; otherwise fall back to
-  // the mock workflow orders so the page is always useful (demo / no-backend).
+  // Use live API orders when authenticated + available; otherwise merge
+  // dummy-API orders (created via checkout) with the mock workflow orders
+  // so the page is always useful (demo / no-backend).
   const orders = useMemo<Order[]>(() => {
-    if (isAuthenticated && apiOrders.length > 0) return apiOrders;
-    return mockOrders.map(mockOrderToOrder);
-  }, [isAuthenticated, apiOrders, mockOrders]);
+    if (isAuthenticated && liveApiOrders.length > 0) return liveApiOrders;
+    const apiMapped = dummyApiOrders.map(apiOrderToOrder);
+    const mockMapped = mockOrders.map(mockOrderToOrder);
+    // De-duplicate by id (an order may exist in both stores).
+    const seen = new Set(apiMapped.map((o) => o.id));
+    return [...apiMapped, ...mockMapped.filter((o) => !seen.has(o.id))];
+  }, [isAuthenticated, liveApiOrders, dummyApiOrders, mockOrders]);
+
+  const isOrdersLoading = isLoading || dummyLoading;
 
   const filteredOrders = useMemo(
     () => filterByTab(orders, activeTab),
@@ -399,6 +482,26 @@ export default function BuyerOrdersPage() {
     [orders],
   );
 
+  /**
+   * Export orders to CSV. `scope` controls whether we export the current
+   * filtered tab view or the entire order history regardless of filter.
+   */
+  function handleExportCSV(scope: "filtered" | "all") {
+    const rows = scope === "filtered" ? filteredOrders : orders;
+    if (!rows.length) {
+      kwikToast.info("Nothing to export", "Place an order first to download your history.");
+      return;
+    }
+    const csv = toCSV(ordersToCSVRows(rows));
+    const date = new Date().toISOString().slice(0, 10);
+    const suffix = scope === "filtered" && activeTab !== "all" ? `-${activeTab}` : "";
+    downloadCSV(`kwikseller-orders${suffix}-${date}`, csv);
+    kwikToast.success(
+      "Export ready",
+      `${rows.length} order${rows.length === 1 ? "" : "s"} downloaded as CSV.`,
+    );
+  }
+
   // While auth is resolving, show the skeleton briefly.
   if (isAuthLoading) {
     return (
@@ -408,7 +511,7 @@ export default function BuyerOrdersPage() {
     );
   }
 
-  const isDemoMode = !isAuthenticated || apiOrders.length === 0;
+  const isDemoMode = !isAuthenticated || orders.length === 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -453,27 +556,29 @@ export default function BuyerOrdersPage() {
 
       {/* Demo-mode banner */}
       {isDemoMode ? (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4">
-          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-          <div className="text-sm leading-5 text-primary-800">
-            <span className="font-semibold">Demo orders.</span>{" "}
-            These sample orders show the full 1688-style workflow — from vendor
-            quotation through KwisCrow escrow. Sign in to see your real orders.
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-kwik-orange" />
+          <div className="text-sm leading-5 text-kwik-dark">
+            <span className="font-semibold">Live + demo orders.</span>{" "}
+            Orders you place via checkout appear here in real time (vendor
+            quotation → escrow → shipping). Seeded demo orders show the full
+            workflow. Sign in to sync with your real account.
           </div>
         </div>
       ) : null}
 
-      {/* Stats summary bar */}
+      {/* Stats summary bar + export controls */}
       {orders.length > 0 ? (
-        <div className="mb-6 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-surface p-4 sm:grid-cols-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-              <Package className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="font-heading text-lg font-bold text-foreground">{orders.length}</p>
-              <p className="text-[11px] text-gray-500">Total orders</p>
-            </div>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <div className="grid flex-1 grid-cols-2 gap-3 rounded-2xl border border-border bg-surface p-4 sm:grid-cols-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                <Package className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="font-heading text-lg font-bold text-foreground">{orders.length}</p>
+                <p className="text-[11px] text-gray-500">Total orders</p>
+              </div>
           </div>
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary-50 text-secondary-600">
@@ -505,6 +610,32 @@ export default function BuyerOrdersPage() {
               </p>
               <p className="text-[11px] text-gray-500">Total value</p>
             </div>
+          </div>
+          </div>
+
+          {/* Export controls */}
+          <div className="flex shrink-0 flex-col justify-center gap-2 rounded-2xl border border-border bg-surface p-4 sm:flex-row sm:items-center">
+            <p className="text-xs text-muted-foreground">Export</p>
+            <button
+              type="button"
+              onClick={() => handleExportCSV("filtered")}
+              disabled={filteredOrders.length === 0}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-kwik-border-light bg-background px-3 text-xs font-semibold text-kwik-dark transition-colors hover:border-kwik-orange hover:text-kwik-orange disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Export filtered orders to CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {activeTab === "all" ? "All orders" : `${tabLabel(activeTab)} only`}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportCSV("all")}
+              disabled={orders.length === 0}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-kwik-orange px-3 text-xs font-semibold text-white transition-colors hover:bg-kwik-orange-hover disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Export all orders to CSV"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Full history
+            </button>
           </div>
         </div>
       ) : null}
@@ -548,7 +679,7 @@ export default function BuyerOrdersPage() {
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {isOrdersLoading ? (
         <OrderListSkeleton />
       ) : filteredOrders.length === 0 ? (
         <EmptyState
@@ -575,10 +706,11 @@ export default function BuyerOrdersPage() {
         />
       ) : (
         <div className="space-y-4">
-          {filteredOrders.map((order) => (
+          {filteredOrders.map((order, i) => (
             <BuyerOrderCard
               key={order.id}
               order={order}
+              index={i}
               onClick={() => router.push(`/orders/${order.id}`)}
             />
           ))}
@@ -594,5 +726,13 @@ export default function BuyerOrdersPage() {
       )}
       </motion.div>
     </div>
+  );
+}
+
+export default function BuyerOrdersPage() {
+  return (
+    <AccountLayout>
+      <BuyerOrdersPageInner />
+    </AccountLayout>
   );
 }

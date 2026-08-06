@@ -16,8 +16,8 @@ import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
-import { Toast } from "@heroui/react";
 import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
+import { ToastProvider } from "@/components/layout/toast-provider";
 import { NotificationToastStack } from "@/components/landing/notification-toast";
 
 const figtree = Figtree({
@@ -111,8 +111,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1A56DB" },
-    { media: "(prefers-color-scheme: dark)", color: "#1E40AF" },
+    { media: "(prefers-color-scheme: light)", color: "#F97316" },
+    { media: "(prefers-color-scheme: dark)", color: "#C2410C" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -146,7 +146,7 @@ export default function RootLayout({
                     {children}
                   </MarketplaceLayout>
                 </Suspense>
-                <Toast.Provider placement="top end" maxVisibleToasts={3} />
+                <ToastProvider />
                 <Toaster
                   position="top-right"
                   richColors

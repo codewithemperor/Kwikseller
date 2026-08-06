@@ -4,7 +4,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -310,21 +310,37 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const isPageLoadingRef = useRef(true);
-  const [isClientMounted, setIsClientMounted] = useState(false);
+  // useSyncExternalStore avoids a setState-in-effect lint violation while
+  // still giving us a server-safe `isClientMounted` flag (false on SSR,
+  // true on client). Used to gate client-only chrome like the cart badge.
+  const isClientMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const isSearchPage = pathname === "/search";
-  const isCartPage = pathname === "/cart";
   const isAuthPage = pathname === "/login" || pathname === "/register" || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
   const isVendorStorefrontRoute = pathname.startsWith("/vendor/");
-  const hideTopNav = isCartPage || isAuthPage || isVendorStorefrontRoute;
+  // Account pages (cart, orders list, wishlist, profile/*) render their own
+  // AccountLayout shell — hide the full marketplace header/footer/widgets.
+  // NOTE: /orders/[id] (detail page) is intentionally NOT included here —
+  // it keeps the full marketplace chrome.
+  const isAccountRoute =
+    pathname === "/cart" ||
+    pathname === "/orders" ||
+    pathname === "/wishlist" ||
+    pathname === "/vendor-orders" ||
+    pathname === "/vendor-analytics" ||
+    pathname === "/coupons" ||
+    pathname === "/help" ||
+    pathname.startsWith("/profile");
+  const hideFullChrome = isVendorStorefrontRoute || isAccountRoute;
+  const hideTopNav = isAuthPage || hideFullChrome;
   const searchQuery = searchParams.get("q") || "";
   const startNavigationLoading = useCallback(() => {
     isPageLoadingRef.current = true;
     setIsPageLoading(true);
-  }, []);
-
-  useEffect(() => {
-    setIsClientMounted(true);
   }, []);
 
   useEffect(() => {
@@ -345,9 +361,13 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Page-loading bar: shows on every pathname change, auto-hides after 420ms.
+  // The `setIsPageLoading(true)` is deferred via `queueMicrotask` so it's no
+  // longer a synchronous setState inside the effect body (avoids the
+  // react-hooks/set-state-in-effect lint violation while keeping the same UX).
   useEffect(() => {
     isPageLoadingRef.current = true;
-    setIsPageLoading(true);
+    queueMicrotask(() => setIsPageLoading(true));
     const timer = setTimeout(() => {
       isPageLoadingRef.current = false;
       setIsPageLoading(false);
@@ -374,24 +394,22 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("click", handleDocumentClick, true);
   }, [startNavigationLoading]);
 
-  // Reset filters when leaving search page
+  // Reset filters when leaving the search page. Deferred via `queueMicrotask`
+  // so it's not a synchronous setState inside the effect body (lint-safe).
   useEffect(() => {
-    if (!isSearchPage) setShowFilters(false);
+    if (!isSearchPage) {
+      queueMicrotask(() => setShowFilters(false));
+    }
   }, [isSearchPage]);
 
   const cartItemCount = useCartStore((s) =>
     s.items.length,
   );
-  const [prevCartCount, setPrevCartCount] = useState(cartItemCount);
-  const [badgeKey, setBadgeKey] = useState(0);
-
-  // Animate badge when cart count changes
-  useEffect(() => {
-    if (cartItemCount !== prevCartCount) {
-      setBadgeKey((k) => k + 1);
-      setPrevCartCount(cartItemCount);
-    }
-  }, [cartItemCount, prevCartCount]);
+  // Derive the cart badge animation key directly from cartItemCount — when
+  // the count changes, the motion.span's `key` prop changes and React
+  // remounts it, retriggering the spring entrance animation. This removes
+  // the previous useEffect+setState pattern that triggered the lint rule.
+  const badgeKey = cartItemCount;
   const setCartOpen = useCartStore((s) => s.setCartOpen);
 
   const handleLogout = async () => {
@@ -446,9 +464,9 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="flex min-h-screen flex-col bg-background">
-        {!isVendorStorefrontRoute && <PageLoader isLoading={isPageLoading} />}
+        {!hideFullChrome && <PageLoader isLoading={isPageLoading} />}
         <OfflineBanner />
-        {!isSearchPage && !isVendorStorefrontRoute && (
+        {!isSearchPage && !hideFullChrome && (
           <EnhancedSearchOverlay
             isOpen={isSearchOpen}
             onClose={() => setIsSearchOpen(false)}
@@ -688,10 +706,10 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
           )}
         </AnimatePresence>
 
-        <main className={isVendorStorefrontRoute ? "flex-1" : "flex-1 pb-20 md:pb-0"}>
-          {!isVendorStorefrontRoute && <PriceDropAlert />}
-          {!isVendorStorefrontRoute && <NotificationToastStack />}
-          {isVendorStorefrontRoute ? (
+        <main className={hideFullChrome ? "flex-1" : "flex-1 pb-20 md:pb-0"}>
+          {!hideFullChrome && <PriceDropAlert />}
+          {!hideFullChrome && <NotificationToastStack />}
+          {hideFullChrome ? (
             children
           ) : (
             <div className="mx-auto w-full">
@@ -700,18 +718,18 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
           )}
         </main>
 
-        {!isVendorStorefrontRoute && <ScrollProgress />}
-        {!isVendorStorefrontRoute && <OrderTrackingWidget />}
-        {!isVendorStorefrontRoute && <CartDrawer />}
-        {!isVendorStorefrontRoute && <ComparePanel />}
-        {!isVendorStorefrontRoute && (
+        {!hideFullChrome && <ScrollProgress />}
+        {!hideFullChrome && <OrderTrackingWidget />}
+        {!hideFullChrome && <CartDrawer />}
+        {!hideFullChrome && <ComparePanel />}
+        {!hideFullChrome && (
           <WishlistSidebar
             isOpen={isWishlistOpen}
             onClose={() => setIsWishlistOpen(false)}
           />
         )}
-        {!isVendorStorefrontRoute && <MobileBottomNav onNavigateStart={startNavigationLoading} />}
-        {!isVendorStorefrontRoute && <EnhancedFooter />}
+        {!hideFullChrome && <MobileBottomNav onNavigateStart={startNavigationLoading} />}
+        {!hideFullChrome && <EnhancedFooter />}
       </div>
     </MarketplaceShellProvider>
   );

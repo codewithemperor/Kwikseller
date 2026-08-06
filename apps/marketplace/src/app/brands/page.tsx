@@ -1,42 +1,33 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight, BadgeCheck, Search, Tags } from "lucide-react";
-import { fetchBrands, type Brand } from "@/lib/api";
+import { useBrands } from "@/lib/api-hooks";
 import { AppImage } from "@/components/ui/app-image";
+import { ProductGridSkeleton } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function BrandsPage() {
-  const [brands, setBrands] = React.useState<Brand[]>([]);
   const [query, setQuery] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(true);
+  const brandsQuery = useBrands();
 
-  React.useEffect(() => {
-    let active = true;
-    fetchBrands()
-      .then((response) => {
-        if (active) setBrands(response.data ?? []);
-      })
-      .catch(() => {
-        if (active) setBrands([]);
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
+  const isLoading = brandsQuery.isLoading;
+  const brands = brandsQuery.data ?? [];
 
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const filteredBrands = brands.filter((brand) =>
-    brand.name.toLowerCase().includes(query.trim().toLowerCase()),
+  const filteredBrands = useMemo(
+    () =>
+      brands.filter((brand) =>
+        brand.name.toLowerCase().includes(query.trim().toLowerCase()),
+      ),
+    [brands, query],
   );
 
   return (
     <main className="min-h-screen bg-background">
       <section className="border-b border-border bg-background">
-        <div className="container mx-auto px-4 py-10">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div>
               <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
@@ -55,54 +46,85 @@ export default function BrandsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search brands"
-                className="h-12 w-full rounded-md border border-neutral-200 bg-white pl-10 pr-3 text-sm text-kwik-dark outline-none focus:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="h-12 w-full rounded-md border border-kwik-border bg-white pl-10 pr-3 text-sm text-kwik-dark outline-none focus:border-kwik-orange dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
             </label>
           </div>
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-8">
+      <section className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-36 animate-pulse border border-neutral-200 bg-neutral-50 dark:border-white/10 dark:bg-white/5" />
+              <div
+                key={index}
+                className="h-36 animate-pulse border border-kwik-border bg-muted/40 dark:border-white/10 dark:bg-white/5"
+              />
             ))}
           </div>
         ) : filteredBrands.length ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {filteredBrands.map((brand) => (
-              <Link
+            {filteredBrands.map((brand, i) => (
+              <motion.div
                 key={brand.id}
-                href={`/search?q=${encodeURIComponent(brand.name)}`}
-                className="group border border-neutral-200 bg-white p-4 transition hover:border-kwik-orange dark:border-white/10 dark:bg-white/5"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(i * 0.04, 0.3) }}
+                whileHover={{ scale: 1.02 }}
               >
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 overflow-hidden bg-neutral-100 dark:bg-white/10">
-                    <AppImage src={brand.image} alt={brand.name} className="h-full w-full object-cover" fallbackVariant="product" />
+                <Link
+                  href={`/products?brandId=${encodeURIComponent(brand.id)}`}
+                  className="group relative block overflow-hidden rounded-xl border border-kwik-border bg-white p-4 transition-colors hover:border-kwik-orange/40 hover:shadow-md hover:shadow-kwik-orange/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange/40 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5"
+                >
+                  {/* Subtle gradient overlay on hover (top-edge accent) */}
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-kwik-orange/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  />
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 overflow-hidden bg-muted transition-transform duration-300 group-hover:scale-105 dark:bg-white/10">
+                      <AppImage
+                        src={brand.image}
+                        alt={brand.name}
+                        className="h-full w-full object-cover"
+                        fallbackVariant="product"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-sm font-semibold text-kwik-dark dark:text-white">
+                        {brand.name}
+                      </h2>
+                      <p className="mt-1 text-xs text-kwik-muted dark:text-white/55">
+                        {brand._count?.products ?? 0} product
+                        {brand._count?.products === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-kwik-muted transition group-hover:translate-x-1 group-hover:text-kwik-orange" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-sm font-semibold text-kwik-dark dark:text-white">{brand.name}</h2>
-                    <p className="mt-1 text-xs text-kwik-muted dark:text-white/55">
-                      {brand._count?.products ?? 0} product{brand._count?.products === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-kwik-muted transition group-hover:translate-x-1 group-hover:text-kwik-orange" />
-                </div>
-              </Link>
+                </Link>
+              </motion.div>
             ))}
           </div>
         ) : (
-          <div className="border border-dashed border-neutral-300 p-12 text-center dark:border-white/15">
-            <BadgeCheck className="mx-auto h-10 w-10 text-kwik-muted" />
-            <h2 className="mt-4 text-lg font-semibold text-kwik-dark dark:text-white">No brands found</h2>
-            <p className="mt-2 text-sm text-kwik-muted dark:text-white/60">
-              Try another search term or explore the full marketplace catalog.
-            </p>
-            <Link href="/search" className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-kwik-dark px-4 text-sm font-semibold text-white">
-              Browse products
-            </Link>
-          </div>
+          <EmptyState
+            variant="search"
+            icon={<BadgeCheck className="h-12 w-12" />}
+            title={query ? "No brands match your search" : "No brands yet"}
+            description={
+              query
+                ? `No brands match "${query}". Try a different search term or explore the full marketplace catalog.`
+                : "Brands will appear here once sellers start publishing products."
+            }
+            action={
+              <Link
+                href="/products"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
+              >
+                Browse products
+              </Link>
+            }
+          />
         )}
       </section>
     </main>

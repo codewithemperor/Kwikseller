@@ -1,21 +1,38 @@
 "use client";
 
-import { useMemo, useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, SlidersHorizontal, X, LayoutGrid, List, PackageOpen, Star } from "lucide-react";
 import {
-  browseProducts,
-  browseCategories,
-  browseStores,
-  sortOptions,
-  type SortOption,
-} from "@/data/browse-products";
-import { GenericProductCard as ProductCard } from "@kwikseller/ui";
-import { useWishlistStore } from "@/stores";
-import { useCartStore } from "@/stores";
-import { kwikToast } from "@kwikseller/utils";
+  Search,
+  SlidersHorizontal,
+  X,
+  LayoutGrid,
+  List,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useProducts,
+  useCategories,
+  useStores,
+} from "@/lib/api-hooks";
+import { ProductGridSkeleton } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+import type { MarketplaceProduct } from "@/data/marketplace-home";
+
+// Quick-view modal is dynamically imported (client-only) to keep the
+// browse bundle small — same pattern as /categories and /search.
+const QuickViewModal = dynamic(
+  () =>
+    import("@/components/landing/quick-view-modal").then(
+      (mod) => mod.QuickViewModal,
+    ),
+  { ssr: false },
+);
 
 function formatNGN(n: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -25,6 +42,18 @@ function formatNGN(n: number) {
   }).format(n);
 }
 
+type SortOption = "popular" | "newest" | "price-asc" | "price-desc" | "rating";
+
+const sortOptions: { label: string; value: SortOption }[] = [
+  { label: "Most Popular", value: "popular" },
+  { label: "Newest First", value: "newest" },
+  { label: "Price: Low to High", value: "price-asc" },
+  { label: "Price: High to Low", value: "price-desc" },
+  { label: "Top Rated", value: "rating" },
+];
+
+const PAGE_SIZE = 12;
+
 function ProductsBrowseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,96 +61,131 @@ function ProductsBrowseContent() {
   const initialQuery = searchParams.get("q") ?? "";
   const initialCategory = searchParams.get("category") ?? "all";
   const initialVendor = searchParams.get("vendor") ?? "all";
+  const initialBrandId = searchParams.get("brandId") ?? "";
 
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState<string>(initialCategory);
   const [vendor, setVendor] = useState<string>(initialVendor);
+  const [brandId, setBrandId] = useState<string>(initialBrandId);
   const [sort, setSort] = useState<SortOption>("popular");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [priceMax, setPriceMax] = useState<number>(50000);
   const [onlyDiscounted, setOnlyDiscounted] = useState(false);
   const [onlyInStock, setOnlyInStock] = useState(false);
+  const [page, setPage] = useState(1);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
 
-  // Sync query to URL (shallow) so the page is shareable/bookmarkable.
+  // Debounce the search query so we don't fire an API call on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Wrap each filter setter so changing any filter resets to page 1. Doing it
+  // inline (rather than in a useEffect) avoids the "setState in effect" lint
+  // rule and the cascading render it warns about.
+  const updateFilter = useCallback(
+    <T,>(setter: (v: T) => void) =>
+      (v: T) => {
+        setter(v);
+        setPage(1);
+      },
+    [],
+  );
+  const updateQuery = useCallback(
+    (v: string) => {
+      setQuery(v);
+      setPage(1);
+    },
+    [],
+  );
+
+  // Sync filters to URL (shallow) so the page is shareable/bookmarkable.
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (category !== "all") params.set("category", category);
     if (vendor !== "all") params.set("vendor", vendor);
+    if (brandId) params.set("brandId", brandId);
     const qs = params.toString();
     router.replace(qs ? `/products?${qs}` : "/products", { scroll: false });
-  }, [query, category, vendor, router]);
+  }, [query, category, vendor, brandId, router]);
 
-  const wishlistItems = useWishlistStore((s) => s.items);
-  const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
-  const addToCart = useCartStore((s) => s.addItem);
+  const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
 
+  // ── Filter option lists from the API ───────────────────────────────────
+  const categoriesQuery = useCategories();
+  const storesQuery = useStores();
+
+  const categoryOptions = useMemo(() => {
+    const cats = categoriesQuery.data ?? [];
+    return [
+      { label: "All Categories", value: "all" },
+      ...cats.map((c: { name: string; slug: string }) => ({
+        label: c.name,
+        value: c.slug,
+      })),
+    ];
+  }, [categoriesQuery.data]);
+
+  const vendorOptions = useMemo(() => {
+    const stores = (storesQuery.data ?? []) as Array<{
+      name: string;
+      slug: string;
+    }>;
+    return [
+      { label: "All Vendors", value: "all" },
+      ...stores.map((s) => ({ label: s.name, value: s.slug })),
+    ];
+  }, [storesQuery.data]);
+
+  // ── Build API params from local filter state ───────────────────────────
+  const sortByParam =
+    sort === "popular"
+      ? "totalSales"
+      : sort === "newest"
+        ? "createdAt"
+        : sort === "rating"
+          ? "rating"
+          : "price";
+  const sortOrderParam: "asc" | "desc" =
+    sort === "price-asc" ? "asc" : "desc";
+
+  const productsQuery = useProducts({
+    search: debouncedQuery.trim() || undefined,
+    categoryId: category !== "all" ? category : undefined,
+    storeId: vendor !== "all" ? vendor : undefined,
+    brandId: brandId || undefined,
+    sortBy: sortByParam,
+    sortOrder: sortOrderParam,
+    page,
+    limit: PAGE_SIZE,
+  });
+
+  const apiProducts: MarketplaceProduct[] = productsQuery.data?.products ?? [];
+  const meta = productsQuery.data?.meta;
+  const totalPages = meta?.totalPages ?? 1;
+  const totalCount = meta?.total ?? apiProducts.length;
+
+  // Apply client-side filters the API doesn't support (price ceiling,
+  // "on sale" toggle, "in stock" toggle) to the page's products.
   const filtered = useMemo(() => {
-    let list = browseProducts.slice();
-
-    // Text search (name, store, category).
-    if (query.trim()) {
-      const q = query.toLowerCase().trim();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.store.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q),
-      );
-    }
-
-    // Category filter.
-    if (category !== "all") {
-      list = list.filter(
-        (p) => p.category.toLowerCase().replace(/[^a-z0-9]+/g, "-") === category,
-      );
-    }
-
-    // Vendor filter.
-    if (vendor !== "all") {
-      list = list.filter((p) => (p.storeSlug ?? p.store) === vendor);
-    }
-
-    // Price ceiling.
+    let list = apiProducts.slice();
     list = list.filter((p) => p.price <= priceMax);
-
-    // Discounted only.
     if (onlyDiscounted) {
       list = list.filter((p) => p.comparePrice && p.comparePrice > p.price);
     }
-
-    // In-stock only.
     if (onlyInStock) {
-      list = list.filter((p) => p.stock > 0);
+      list = list.filter((p) => (p.stock ?? 0) > 0);
     }
-
-    // Sort.
-    switch (sort) {
-      case "newest":
-        list.sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
-        break;
-      case "price-asc":
-        list.sort((a, b) => a.price - b.price);
-        break;
-      case "price-desc":
-        list.sort((a, b) => b.price - a.price);
-        break;
-      case "rating":
-        list.sort((a, b) => b.rating - a.rating);
-        break;
-      case "popular":
-      default:
-        list.sort((a, b) => b.salesCount - a.salesCount);
-        break;
-    }
-
     return list;
-  }, [query, category, vendor, sort, priceMax, onlyDiscounted, onlyInStock]);
+  }, [apiProducts, priceMax, onlyDiscounted, onlyInStock]);
 
   const activeFilterCount =
     (category !== "all" ? 1 : 0) +
     (vendor !== "all" ? 1 : 0) +
+    (brandId ? 1 : 0) +
     (onlyDiscounted ? 1 : 0) +
     (onlyInStock ? 1 : 0) +
     (priceMax < 50000 ? 1 : 0);
@@ -129,38 +193,18 @@ function ProductsBrowseContent() {
   function clearFilters() {
     setCategory("all");
     setVendor("all");
+    setBrandId("");
     setPriceMax(50000);
     setOnlyDiscounted(false);
     setOnlyInStock(false);
+    setPage(1);
   }
 
-  function handleAddToCart(product: (typeof browseProducts)[number]) {
-    addToCart({
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      comparePrice: product.comparePrice,
-      image: product.image,
-      store: product.store,
-      storeSlug: product.storeSlug,
-      storeName: product.store,
-      productType: product.productType,
-      productSource: product.productSource,
-      requiresShipping: product.requiresShipping,
-    });
-    kwikToast.success("Added to cart", `${product.name} is in your cart.`);
-  }
+  const handleQuickView = useCallback((p: MarketplaceProduct) => {
+    setQuickViewProduct(p);
+  }, []);
 
-  function handleWishlist(product: (typeof browseProducts)[number]) {
-    toggleWishlist({
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      store: product.store,
-      storeSlug: product.storeSlug,
-    });
-  }
+  const isLoading = productsQuery.isLoading;
 
   return (
     <div className="bg-background min-h-screen">
@@ -193,21 +237,21 @@ function ProductsBrowseContent() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => updateQuery(e.target.value)}
                 placeholder="Search products, vendors, categories..."
                 aria-label="Search products"
-                className="h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-9 text-sm text-foreground placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-9 text-sm text-foreground placeholder:text-kwik-muted focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
               />
               {query ? (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-foreground"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-kwik-muted hover:bg-muted hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -219,9 +263,12 @@ function ProductsBrowseContent() {
               <div className="relative">
                 <select
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOption)}
+                  onChange={(e) => {
+                    setSort(e.target.value as SortOption);
+                    setPage(1);
+                  }}
                   aria-label="Sort products"
-                  className="h-11 appearance-none rounded-xl border border-border bg-surface pl-9 pr-8 text-sm font-medium text-foreground focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="h-11 appearance-none rounded-xl border border-border bg-surface pl-9 pr-8 text-sm font-medium text-foreground focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
                 >
                   {sortOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -229,20 +276,20 @@ function ProductsBrowseContent() {
                     </option>
                   ))}
                 </select>
-                <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
               </div>
 
               {/* Filter toggle (mobile) */}
               <button
                 type="button"
                 onClick={() => setShowFilters((v) => !v)}
-                className="relative inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-gray-100 md:hidden"
+                className="relative inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-muted md:hidden"
                 aria-label="Toggle filters"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
                 {activeFilterCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1 text-[10px] font-bold text-white">
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kwik-orange px-1 text-[10px] font-bold text-white">
                     {activeFilterCount}
                   </span>
                 ) : null}
@@ -258,8 +305,8 @@ function ProductsBrowseContent() {
                   className={cn(
                     "rounded-lg p-2 transition",
                     view === "grid"
-                      ? "bg-primary-500 text-white"
-                      : "text-gray-500 hover:text-foreground",
+                      ? "bg-kwik-orange text-white"
+                      : "text-kwik-muted hover:text-foreground",
                   )}
                 >
                   <LayoutGrid className="h-4 w-4" />
@@ -272,8 +319,8 @@ function ProductsBrowseContent() {
                   className={cn(
                     "rounded-lg p-2 transition",
                     view === "list"
-                      ? "bg-primary-500 text-white"
-                      : "text-gray-500 hover:text-foreground",
+                      ? "bg-kwik-orange text-white"
+                      : "text-kwik-muted hover:text-foreground",
                   )}
                 >
                   <List className="h-4 w-4" />
@@ -291,17 +338,19 @@ function ProductsBrowseContent() {
           <aside className="hidden w-64 shrink-0 md:block">
             <FilterPanel
               category={category}
-              setCategory={setCategory}
+              setCategory={updateFilter(setCategory)}
               vendor={vendor}
-              setVendor={setVendor}
+              setVendor={updateFilter(setVendor)}
               priceMax={priceMax}
-              setPriceMax={setPriceMax}
+              setPriceMax={updateFilter(setPriceMax)}
               onlyDiscounted={onlyDiscounted}
-              setOnlyDiscounted={setOnlyDiscounted}
+              setOnlyDiscounted={updateFilter(setOnlyDiscounted)}
               onlyInStock={onlyInStock}
-              setOnlyInStock={setOnlyInStock}
+              setOnlyInStock={updateFilter(setOnlyInStock)}
               activeFilterCount={activeFilterCount}
               onClear={clearFilters}
+              categoryOptions={categoryOptions}
+              vendorOptions={vendorOptions}
             />
           </aside>
 
@@ -333,24 +382,26 @@ function ProductsBrowseContent() {
                       type="button"
                       onClick={() => setShowFilters(false)}
                       aria-label="Close filters"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-foreground"
+                      className="rounded-lg p-1.5 text-kwik-muted hover:bg-muted hover:text-foreground"
                     >
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                   <FilterPanel
                     category={category}
-                    setCategory={setCategory}
+                    setCategory={updateFilter(setCategory)}
                     vendor={vendor}
-                    setVendor={setVendor}
+                    setVendor={updateFilter(setVendor)}
                     priceMax={priceMax}
-                    setPriceMax={setPriceMax}
+                    setPriceMax={updateFilter(setPriceMax)}
                     onlyDiscounted={onlyDiscounted}
-                    setOnlyDiscounted={setOnlyDiscounted}
+                    setOnlyDiscounted={updateFilter(setOnlyDiscounted)}
                     onlyInStock={onlyInStock}
-                    setOnlyInStock={setOnlyInStock}
+                    setOnlyInStock={updateFilter(setOnlyInStock)}
                     activeFilterCount={activeFilterCount}
                     onClear={clearFilters}
+                    categoryOptions={categoryOptions}
+                    vendorOptions={vendorOptions}
                   />
                 </motion.div>
               </motion.div>
@@ -361,18 +412,34 @@ function ProductsBrowseContent() {
           <div className="min-w-0 flex-1">
             {/* Result count + active chips */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-kwik-muted">
                 Showing{" "}
                 <span className="font-semibold text-foreground">
                   {filtered.length}
                 </span>{" "}
-                of {browseProducts.length} products
+                {filtered.length !== totalCount ? (
+                  <>
+                    of{" "}
+                    <span className="font-semibold text-foreground">
+                      {totalCount}
+                    </span>{" "}
+                  </>
+                ) : null}
+                products
+                {totalPages > 1 ? (
+                  <>
+                    {" "}
+                    · Page{" "}
+                    <span className="font-semibold text-foreground">{page}</span>{" "}
+                    of {totalPages}
+                  </>
+                ) : null}
               </p>
               {activeFilterCount > 0 ? (
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-kwik-orange hover:opacity-80"
                 >
                   <X className="h-3.5 w-3.5" /> Clear all filters
                 </button>
@@ -384,51 +451,79 @@ function ProductsBrowseContent() {
               <div className="mb-4 flex flex-wrap gap-2">
                 {category !== "all" ? (
                   <FilterChip
-                    label={browseCategories.find((c) => c.value === category)?.label ?? category}
-                    onRemove={() => setCategory("all")}
+                    label={
+                      categoryOptions.find((c) => c.value === category)?.label ??
+                      category
+                    }
+                    onRemove={() => {
+                      setCategory("all");
+                      setPage(1);
+                    }}
                   />
                 ) : null}
                 {vendor !== "all" ? (
                   <FilterChip
-                    label={browseStores.find((v) => v.value === vendor)?.label ?? vendor}
-                    onRemove={() => setVendor("all")}
+                    label={
+                      vendorOptions.find((v) => v.value === vendor)?.label ??
+                      vendor
+                    }
+                    onRemove={() => {
+                      setVendor("all");
+                      setPage(1);
+                    }}
+                  />
+                ) : null}
+                {brandId ? (
+                  <FilterChip
+                    label="Brand filter"
+                    onRemove={() => {
+                      setBrandId("");
+                      setPage(1);
+                    }}
                   />
                 ) : null}
                 {onlyDiscounted ? (
-                  <FilterChip label="On sale" onRemove={() => setOnlyDiscounted(false)} />
+                  <FilterChip label="On sale" onRemove={() => {
+                    setOnlyDiscounted(false);
+                    setPage(1);
+                  }} />
                 ) : null}
                 {onlyInStock ? (
-                  <FilterChip label="In stock" onRemove={() => setOnlyInStock(false)} />
+                  <FilterChip label="In stock" onRemove={() => {
+                    setOnlyInStock(false);
+                    setPage(1);
+                  }} />
                 ) : null}
                 {priceMax < 50000 ? (
-                  <FilterChip label={`Under ${formatNGN(priceMax)}`} onRemove={() => setPriceMax(50000)} />
+                  <FilterChip label={`Under ${formatNGN(priceMax)}`} onRemove={() => {
+                    setPriceMax(50000);
+                    setPage(1);
+                  }} />
                 ) : null}
               </div>
             ) : null}
 
-            {/* Product grid */}
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface py-20 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                  <PackageOpen className="h-8 w-8 text-gray-400" />
-                </div>
-                <h3 className="mt-4 font-heading text-lg font-semibold text-foreground">
-                  No products found
-                </h3>
-                <p className="mt-1 max-w-sm text-sm text-gray-500">
-                  Try adjusting your search or filters to find what you&rsquo;re looking for.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("");
-                    clearFilters();
-                  }}
-                  className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-secondary-500 px-5 text-sm font-semibold text-white hover:bg-secondary-600"
-                >
-                  Reset all
-                </button>
-              </div>
+            {/* Loading skeleton */}
+            {isLoading ? (
+              <ProductGridSkeleton count={8} columns={view === "list" ? 2 : 4} />
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                variant="search"
+                title="No products found"
+                description="Try adjusting your search or filters to find what you're looking for."
+                action={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      clearFilters();
+                    }}
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
+                  >
+                    Reset all
+                  </button>
+                }
+              />
             ) : view === "grid" ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filtered.map((product, idx) => (
@@ -438,29 +533,19 @@ function ProductsBrowseContent() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.3) }}
                   >
-                    <ProductCard
-                      image={product.image}
-                      imageAlt={product.name}
-                      name={product.name}
-                      price={product.price}
-                      comparePrice={product.comparePrice}
-                      rating={product.rating}
-                      reviewCount={product.reviewCount}
-                      storeName={product.store}
-                      category={product.category}
-                      tag={product.tag}
-                      isNew={product.isNew}
-                      href={`/products/${product.id}`}
-                      onAddToCart={() => handleAddToCart(product)}
-                      onWishlist={() => handleWishlist(product)}
-                      isWishlisted={wishlistItems.some((w) => w.productId === product.id)}
-                      variant="default"
+                    <MarketplaceProductCard
+                      product={product}
+                      onQuickView={() => handleQuickView(product)}
                     />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              // List view: same MarketplaceProductCard (no per-page card
+              // variants) in a denser 3-column grid so the grid/list toggle
+              // still changes the browsing density without inventing a
+              // second card component.
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((product, idx) => (
                   <motion.div
                     key={product.id}
@@ -468,31 +553,70 @@ function ProductsBrowseContent() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.25, delay: Math.min(idx * 0.02, 0.2) }}
                   >
-                    <ProductCard
-                      image={product.image}
-                      imageAlt={product.name}
-                      name={product.name}
-                      price={product.price}
-                      comparePrice={product.comparePrice}
-                      rating={product.rating}
-                      reviewCount={product.reviewCount}
-                      storeName={product.store}
-                      category={product.category}
-                      tag={product.tag}
-                      isNew={product.isNew}
-                      href={`/products/${product.id}`}
-                      onAddToCart={() => handleAddToCart(product)}
-                      onWishlist={() => handleWishlist(product)}
-                      isWishlisted={wishlistItems.some((w) => w.productId === product.id)}
-                      variant="horizontal"
+                    <MarketplaceProductCard
+                      product={product}
+                      onQuickView={() => handleQuickView(product)}
                     />
                   </motion.div>
                 ))}
               </div>
             )}
+
+            {/* Pagination */}
+            {totalPages > 1 && !isLoading ? (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </button>
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const pageNum = i + 1;
+                  const isCurrent = pageNum === page;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setPage(pageNum)}
+                      className={cn(
+                        "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-sm font-medium transition",
+                        isCurrent
+                          ? "border-kwik-orange bg-kwik-orange text-white"
+                          : "border-border bg-surface text-foreground hover:bg-muted",
+                      )}
+                      aria-current={isCurrent ? "page" : undefined}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Next page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
+
+      {/* Quick view modal — opened when a product card is clicked. */}
+      <QuickViewModal
+        product={quickViewProduct}
+        isOpen={!!quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
+      />
     </div>
   );
 }
@@ -512,6 +636,8 @@ interface FilterPanelProps {
   setOnlyInStock: (v: boolean) => void;
   activeFilterCount: number;
   onClear: () => void;
+  categoryOptions: { label: string; value: string }[];
+  vendorOptions: { label: string; value: string }[];
 }
 
 function FilterPanel(props: FilterPanelProps) {
@@ -525,7 +651,7 @@ function FilterPanel(props: FilterPanelProps) {
           <button
             type="button"
             onClick={props.onClear}
-            className="text-xs font-medium text-primary-600 hover:text-primary-700"
+            className="text-xs font-medium text-kwik-orange hover:opacity-80"
           >
             Clear ({props.activeFilterCount})
           </button>
@@ -534,11 +660,11 @@ function FilterPanel(props: FilterPanelProps) {
 
       {/* Category */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
           Category
         </h3>
-        <div className="space-y-1">
-          {browseCategories.map((c) => (
+        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+          {props.categoryOptions.map((c) => (
             <button
               key={c.value}
               type="button"
@@ -546,8 +672,8 @@ function FilterPanel(props: FilterPanelProps) {
               className={cn(
                 "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition",
                 props.category === c.value
-                  ? "bg-primary-50 font-medium text-primary-700"
-                  : "text-foreground hover:bg-gray-100",
+                  ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+                  : "text-foreground hover:bg-muted",
               )}
             >
               {c.label}
@@ -558,11 +684,11 @@ function FilterPanel(props: FilterPanelProps) {
 
       {/* Vendor */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
           Vendor
         </h3>
-        <div className="space-y-1">
-          {browseStores.map((v) => (
+        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+          {props.vendorOptions.map((v) => (
             <button
               key={v.value}
               type="button"
@@ -570,8 +696,8 @@ function FilterPanel(props: FilterPanelProps) {
               className={cn(
                 "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition",
                 props.vendor === v.value
-                  ? "bg-primary-50 font-medium text-primary-700"
-                  : "text-foreground hover:bg-gray-100",
+                  ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+                  : "text-foreground hover:bg-muted",
               )}
             >
               {v.label}
@@ -582,7 +708,7 @@ function FilterPanel(props: FilterPanelProps) {
 
       {/* Price */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
           Max Price
         </h3>
         <input
@@ -592,10 +718,10 @@ function FilterPanel(props: FilterPanelProps) {
           step={1000}
           value={props.priceMax}
           onChange={(e) => props.setPriceMax(Number(e.target.value))}
-          className="w-full accent-secondary-500"
+          className="w-full accent-kwik-orange"
           aria-label="Maximum price"
         />
-        <div className="mt-1 flex justify-between text-xs text-gray-500">
+        <div className="mt-1 flex justify-between text-xs text-kwik-muted">
           <span>{formatNGN(2000)}</span>
           <span className="font-semibold text-foreground">{formatNGN(props.priceMax)}</span>
         </div>
@@ -603,22 +729,22 @@ function FilterPanel(props: FilterPanelProps) {
 
       {/* Toggles */}
       <div className="space-y-2">
-        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-100">
+        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-muted">
           <span className="text-sm text-foreground">On sale only</span>
           <input
             type="checkbox"
             checked={props.onlyDiscounted}
             onChange={(e) => props.setOnlyDiscounted(e.target.checked)}
-            className="h-4 w-4 accent-secondary-500"
+            className="h-4 w-4 accent-kwik-orange"
           />
         </label>
-        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-100">
+        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-muted">
           <span className="text-sm text-foreground">In stock only</span>
           <input
             type="checkbox"
             checked={props.onlyInStock}
             onChange={(e) => props.setOnlyInStock(e.target.checked)}
-            className="h-4 w-4 accent-secondary-500"
+            className="h-4 w-4 accent-kwik-orange"
           />
         </label>
       </div>
@@ -628,13 +754,13 @@ function FilterPanel(props: FilterPanelProps) {
 
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 py-1 pl-3 pr-2 text-xs font-medium text-primary-700">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-kwik-orange/30 bg-kwik-orange-tint py-1 pl-3 pr-2 text-xs font-medium text-kwik-orange">
       {label}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${label} filter`}
-        className="rounded-full p-0.5 hover:bg-primary-100"
+        className="rounded-full p-0.5 hover:bg-kwik-orange/20"
       >
         <X className="h-3 w-3" />
       </button>
@@ -646,8 +772,8 @@ export default function ProductsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <div className="container mx-auto max-w-7xl px-4 py-10">
+          <ProductGridSkeleton count={8} columns={4} />
         </div>
       }
     >

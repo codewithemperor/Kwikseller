@@ -1,0 +1,724 @@
+     1→"use client";
+     2→
+     3→import React, { Suspense, useCallback, useEffect, useState, useMemo, useRef } from "react";
+     4→import { useSearchParams, useRouter } from "next/navigation";
+     5→import {
+     6→  ChevronRight,
+     7→  ShoppingBag,
+     8→  Loader2,
+     9→  SlidersHorizontal,
+    10→  Search,
+    11→  PackageOpen,
+    12→} from "lucide-react";
+    13→import { motion, AnimatePresence, useInView } from "framer-motion";
+    14→import { productsApi, marketplaceApi } from "@kwikseller/api-client";
+    15→import { cn } from "@kwikseller/ui";
+    16→import {
+    17→  CATEGORY_CARD_ACCENT_COLORS as CARD_ACCENT_COLORS,
+    18→  CATEGORY_CARD_TEXT_COLORS as CARD_TEXT_COLORS,
+    19→  CATEGORY_STYLES,
+    20→  DEFAULT_CATEGORY_STYLE as DEFAULT_STYLE,
+    21→  SORT_OPTIONS,
+    22→  type CategoryStyle,
+    23→  type SortValue,
+    24→} from "@/constants/marketplace";
+    25→import { EmptyState } from "@/components/ui/empty-state";
+    26→import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+    27→import type { SearchableProduct } from "@/data/products";
+    28→import type { MarketplaceProduct } from "@/data/marketplace-home";
+    29→import dynamic from "next/dynamic";
+    30→
+    31→const QuickViewModal = dynamic(
+    32→  () =>
+    33→    import("@/components/landing/quick-view-modal").then(
+    34→      (mod) => mod.QuickViewModal,
+    35→    ),
+    36→  { ssr: false },
+    37→);
+    38→
+    39→
+    40→function getCategoryStyle(name: string, slug: string, index: number): CategoryStyle {
+    41→  const key = (slug || "").toLowerCase();
+    42→  if (CATEGORY_STYLES[key]) return CATEGORY_STYLES[key];
+    43→  for (const [k, v] of Object.entries(CATEGORY_STYLES)) {
+    44→    if (name.toLowerCase().includes(k) || key.includes(k)) return v;
+    45→  }
+    46→  const colorIdx = index % CARD_ACCENT_COLORS.length;
+    47→  return {
+    48→    color: CARD_ACCENT_COLORS[colorIdx],
+    49→    textColor: CARD_TEXT_COLORS[colorIdx],
+    50→    Icon: DEFAULT_STYLE.Icon,
+    51→  };
+    52→}
+    53→
+    54→/* ─── Stagger Animation ────────────────────────────────────── */
+    55→
+    56→const staggerVariants = {
+    57→  hidden: {},
+    58→  visible: { transition: { staggerChildren: 0.06 } },
+    59→};
+    60→const staggerChildVariants = {
+    61→  hidden: { opacity: 0, y: 16 },
+    62→  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
+    63→};
+    64→
+    65→function StaggerWrap({ children }: { children: React.ReactNode }) {
+    66→  const ref = useRef(null);
+    67→  const inView = useInView(ref, { once: true, margin: "-30px" });
+    68→  return (
+    69→    <motion.div ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={staggerVariants}>
+    70→      {children}
+    71→    </motion.div>
+    72→  );
+    73→}
+    74→function StaggerChild({ children, index, className = "" }: { children: React.ReactNode; index: number; className?: string }) {
+    75→  return (
+    76→    <motion.div
+    77→      variants={staggerChildVariants}
+    78→      className={className}
+    79→    >
+    80→      {children}
+    81→    </motion.div>
+    82→  );
+    83→}
+    84→
+    85→
+    86→const withTimeout = async <T,>(promise: Promise<T>, ms = 8000): Promise<T> => {
+    87→  let timer: ReturnType<typeof setTimeout> | undefined;
+    88→  try {
+    89→    return await Promise.race([
+    90→      promise,
+    91→      new Promise<never>((_, reject) => {
+    92→        timer = setTimeout(() => reject(new Error("Request timed out")), ms);
+    93→      }),
+    94→    ]);
+    95→  } finally {
+    96→    if (timer) clearTimeout(timer);
+    97→  }
+    98→};
+    99→
+   100→/* ─── Convert for QuickViewModal ──────────────────────────── */
+   101→
+   102→function getProductImage(p: SearchableProduct & { images?: Array<{ url?: string } | string>; featuredImage?: { url?: string } | string }): string {
+   103→  const firstImage = Array.isArray(p.images) ? p.images[0] : null;
+   104→  if (typeof p.image === "string") return p.image;
+   105→  if (typeof firstImage === "string") return firstImage;
+   106→  return firstImage?.url || (typeof p.featuredImage === "string" ? p.featuredImage : p.featuredImage?.url) || "";
+   107→}
+   108→
+   109→function getProductTags(value: unknown): string[] {
+   110→  if (!Array.isArray(value)) return [];
+   111→  return value
+   112→    .map((tag) => {
+   113→      if (typeof tag === "string") return tag;
+   114→      if (tag && typeof tag === "object") {
+   115→        const record = tag as { tag?: { name?: string }; name?: string };
+   116→        return record.tag?.name || record.name || "";
+   117→      }
+   118→      return "";
+   119→    })
+   120→    .filter(Boolean);
+   121→}
+   122→
+   123→function getEntityName(value: unknown): string {
+   124→  if (!value) return "";
+   125→  if (typeof value === "string") return value;
+   126→  if (typeof value === "object") return (value as { name?: string; slug?: string }).name || (value as { slug?: string }).slug || "";
+   127→  return "";
+   128→}
+   129→
+   130→function toMarketplaceProduct(p: SearchableProduct & { images?: Array<{ url?: string } | string>; store?: unknown; category?: unknown; storeName?: string; categoryName?: string; tags?: Array<string | { tag?: { name?: string }; name?: string }> }): MarketplaceProduct {
+   131→  const image = getProductImage(p);
+   132→  const tags = getProductTags(p.tags);
+   133→  const store = getEntityName(p.store) || p.storeName || "";
+   134→  const category = p.categorySlug || p.categoryName || getEntityName(p.category);
+   135→  return {
+   136→    id: p.id,
+   137→    slug: p.slug,
+   138→    name: p.name,
+   139→    price: p.price,
+   140→    comparePrice: p.comparePrice,
+   141→    image,
+   142→    rating: p.rating || 0,
+   143→    reviewCount: p.reviewCount || 0,
+   144→    store,
+   145→    storeId: p.storeId,
+   146→    storeSlug: p.storeSlug,
+   147→    category,
+   148→    isNew: p.isNew,
+   149→    tag: p.categoryName || getEntityName(p.category),
+   150→    description: p.description,
+   151→    images: image ? [image] : [],
+   152→    features: tags.slice(0, 4),
+   153→    specifications: [],
+   154→    reviews: [],
+   155→  };
+   156→}
+   157→
+   158→/* ─── Category Detail View ────────────────────────────────── */
+   159→
+   160→function CategoryDetailView({ slug }: { slug: string }) {
+   161→  const router = useRouter();
+   162→  const [categoryInfo, setCategoryInfo] = useState<{ name: string; description: string; itemCount: string } | null>(null);
+   163→
+   164→  const [products, setProducts] = useState<SearchableProduct[]>([]);
+   165→  const [isLoading, setIsLoading] = useState(true);
+   166→  const [sortBy, setSortBy] = useState<SortValue>("relevance");
+   167→  const [showFilters, setShowFilters] = useState(false);
+   168→  const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
+   169→
+   170→  // Fetch category info and products from API
+   171→  useEffect(() => {
+   172→    const fetchProducts = async () => {
+   173→      setIsLoading(true);
+   174→      try {
+   175→        // Fetch category info
+   176→        const catRes = await withTimeout(marketplaceApi.getCategories());
+   177→        if (catRes.success && catRes.data) {
+   178→          const data = catRes.data as any;
+   179→          const cats = Array.isArray(data) ? data : data.categories || [];
+   180→          const found = cats.find((c: any) => c.id === slug || c.slug === slug);
+   181→          if (found) {
+   182→            setCategoryInfo({
+   183→              name: found.name,
+   184→              description: found.description || "",
+   185→              itemCount: found.productCount ? `${found.productCount}+ items` : "",
+   186→            });
+   187→          }
+   188→        }
+   189→
+   190→        // Fetch products
+   191→        const response = await withTimeout(productsApi.getCategoryBySlug(slug, { limit: 50 }));
+   192→        if (response.success && response.data) {
+   193→          const respData = response.data as any;
+   194→          if (Array.isArray(respData)) {
+   195→            setProducts(respData as unknown as SearchableProduct[]);
+   196→          } else if (respData.products && Array.isArray(respData.products)) {
+   197→            setProducts(respData.products as unknown as SearchableProduct[]);
+   198→          } else {
+   199→            setProducts([]);
+   200→          }
+   201→        }
+   202→      } catch {
+   203→        setProducts([]);
+   204→      } finally {
+   205→        setIsLoading(false);
+   206→      }
+   207→    };
+   208→    fetchProducts();
+   209→  }, [slug]);
+   210→
+   211→  // Sort products
+   212→  const sortedProducts = React.useMemo(() => {
+   213→    let sorted = [...products];
+   214→    switch (sortBy) {
+   215→      case "price-low":
+   216→        sorted.sort((a, b) => a.price - b.price);
+   217→        break;
+   218→      case "price-high":
+   219→        sorted.sort((a, b) => b.price - a.price);
+   220→        break;
+   221→      case "rating":
+   222→        sorted.sort((a, b) => b.rating - a.rating);
+   223→        break;
+   224→      case "newest":
+   225→        sorted.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+   226→        break;
+   227→      default:
+   228→        break;
+   229→    }
+   230→    return sorted;
+   231→  }, [products, sortBy]);
+   232→
+   233→  const handleQuickView = useCallback((p: SearchableProduct) => {
+   234→    setQuickViewProduct(toMarketplaceProduct(p));
+   235→  }, []);
+   236→
+   237→  return (
+   238→    <div className="min-h-screen bg-background">
+   239→      {/* Category Header */}
+   240→      <div className="border-b border-border bg-background">
+   241→        <div className="container mx-auto px-4">
+   242→          {/* Breadcrumb */}
+   243→          <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
+   244→            <button
+   245→              type="button"
+   246→              onClick={() => router.push("/")}
+   247→              className="hover:text-kwik-orange transition-colors"
+   248→            >
+   249→              Home
+   250→            </button>
+   251→            <ChevronRight className="h-3 w-3" />
+   252→            <button
+   253→              type="button"
+   254→              onClick={() => router.push("/categories")}
+   255→              className="hover:text-kwik-orange transition-colors"
+   256→            >
+   257→              Categories
+   258→            </button>
+   259→            <ChevronRight className="h-3 w-3" />
+   260→            <span className="font-medium text-kwik-dark dark:text-white">
+   261→              {categoryInfo?.name || slug}
+   262→            </span>
+   263→          </div>
+   264→
+   265→          {/* Category info row */}
+   266→          <div className="flex items-center gap-4 pb-4">
+   267→            <div>
+   268→              <h1 className="text-xl font-bold text-kwik-dark dark:text-white">
+   269→                {categoryInfo?.name || slug}
+   270→              </h1>
+   271→              <p className="text-sm text-kwik-gray-light dark:text-white/60">
+   272→                {categoryInfo?.description || `Browse ${slug} products`}
+   273→                {categoryInfo?.itemCount && (
+   274→                  <span className="ml-2 text-kwik-orange font-medium">
+   275→                    {categoryInfo.itemCount}
+   276→                  </span>
+   277→                )}
+   278→              </p>
+   279→            </div>
+   280→            <button
+   281→              type="button"
+   282→              onClick={() => setShowFilters(!showFilters)}
+   283→              className={`ml-auto flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors ${
+   284→                showFilters
+   285→                  ? "bg-kwik-orange-tint text-kwik-orange"
+   286→                  : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10"
+   287→              }`}
+   288→            >
+   289→              <SlidersHorizontal className="h-3.5 w-3.5" />
+   290→              Sort
+   291→            </button>
+   292→          </div>
+   293→        </div>
+   294→
+   295→        {/* Sort filters */}
+   296→        <AnimatePresence>
+   297→          {showFilters && (
+   298→            <motion.div
+   299→              initial={{ height: 0, opacity: 0 }}
+   300→              animate={{ height: "auto", opacity: 1 }}
+   301→              exit={{ height: 0, opacity: 0 }}
+   302→              transition={{ duration: 0.2 }}
+   303→              className="overflow-hidden border-t border-kwik-border dark:border-white/10"
+   304→            >
+   305→              <div className="container mx-auto px-4 py-3">
+   306→                <div className="flex items-center gap-3 flex-wrap">
+   307→                  <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider">
+   308→                    Sort by:
+   309→                  </span>
+   310→                  {SORT_OPTIONS.map((opt) => (
+   311→                    <button
+   312→                      key={opt.value}
+   313→                      type="button"
+   314→                      onClick={() => setSortBy(opt.value)}
+   315→                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+   316→                        sortBy === opt.value
+   317→                          ? "bg-kwik-dark text-white"
+   318→                          : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10"
+   319→                      }`}
+   320→                    >
+   321→                      {opt.label}
+   322→                    </button>
+   323→                  ))}
+   324→                </div>
+   325→              </div>
+   326→            </motion.div>
+   327→          )}
+   328→        </AnimatePresence>
+   329→      </div>
+   330→
+   331→      {/* Products area */}
+   332→      <div className="container mx-auto px-4 py-4">
+   333→        {/* Results count */}
+   334→        <div className="mb-4">
+   335→          <p className="text-sm text-kwik-gray-light">
+   336→            {isLoading ? (
+   337→              "Loading..."
+   338→            ) : (
+   339→              <>
+   340→                <span className="font-semibold text-kwik-dark dark:text-white">{sortedProducts.length}</span>{" "}
+   341→                product{sortedProducts.length !== 1 ? "s" : ""} in{" "}
+   342→                <span className="font-semibold text-kwik-orange">
+   343→                  {categoryInfo?.name || slug}
+   344→                </span>
+   345→              </>
+   346→            )}
+   347→          </p>
+   348→        </div>
+   349→
+   350→        {/* Loading */}
+   351→        {isLoading && (
+   352→          <div className="flex flex-col items-center justify-center py-20">
+   353→            <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
+   354→            <p className="mt-3 text-sm text-kwik-gray-light">Loading products...</p>
+   355→          </div>
+   356→        )}
+   357→
+   358→        {/* Empty */}
+   359→        {!isLoading && sortedProducts.length === 0 && (
+   360→          <EmptyState
+   361→            icon={<ShoppingBag className="h-10 w-10" />}
+   362→            title="No products found"
+   363→            description="No products available in this category yet. Check back later or browse other categories."
+   364→            action={
+   365→              <button
+   366→                type="button"
+   367→                onClick={() => router.push("/categories")}
+   368→                className="mt-4 rounded-xl bg-kwik-orange px-6 py-2.5 text-sm font-semibold text-white hover:bg-kwik-orange-hover transition-colors"
+   369→              >
+   370→                Browse Categories
+   371→              </button>
+   372→            }
+   373→          />
+   374→        )}
+   375→
+   376→        {/* Product grid */}
+   377→        {!isLoading && sortedProducts.length > 0 && (
+   378→          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+   379→            {sortedProducts.map((product, index) => (
+   380→              <MarketplaceProductCard
+   381→                key={`${product.id}-${index}`}
+   382→                product={toMarketplaceProduct(product)}
+   383→                onQuickView={() => handleQuickView(product)}
+   384→              />
+   385→            ))}
+   386→          </div>
+   387→        )}
+   388→      </div>
+   389→
+   390→      <QuickViewModal
+   391→        product={quickViewProduct}
+   392→        isOpen={!!quickViewProduct}
+   393→        onClose={() => setQuickViewProduct(null)}
+   394→      />
+   395→    </div>
+   396→  );
+   397→}
+   398→
+   399→/* ─── Category Sort Options ───────────────────────────────── */
+   400→
+   401→const CATEGORY_SORT_OPTIONS = [
+   402→  { value: "az", label: "A-Z" },
+   403→  { value: "za", label: "Z-A" },
+   404→  { value: "popular", label: "Most Popular" },
+   405→] as const;
+   406→
+   407→type CategorySortValue = (typeof CATEGORY_SORT_OPTIONS)[number]["value"];
+   408→
+   409→/* ─── All Categories View ─────────────────────────────────── */
+   410→
+   411→function AllCategoriesView() {
+   412→  const router = useRouter();
+   413→  const [categories, setCategories] = useState<Array<{ id: string; name: string; description: string; image: string | null; itemCount: string; productCount?: number; slug?: string }>>([]);
+   414→  const [isLoading, setIsLoading] = useState(true);
+   415→  const [searchQuery, setSearchQuery] = useState("");
+   416→  const [sortBy, setSortBy] = useState<CategorySortValue>("popular");
+   417→  const [isSortOpen, setIsSortOpen] = useState(false);
+   418→
+   419→  useEffect(() => {
+   420→    const fetch = async () => {
+   421→      try {
+   422→        const response = await withTimeout(marketplaceApi.getCategories());
+   423→        if (response.success && response.data) {
+   424→          const data = response.data as any;
+   425→          const list = Array.isArray(data) ? data : data.categories || [];
+   426→          setCategories(
+   427→            list.map((c: any) => ({
+   428→              id: c.id,
+   429→              name: c.name,
+   430→              description: c.description || "",
+   431→              image: c.image || c.imageUrl || null,
+   432→              itemCount: c.productCount ? `${c.productCount}+ items` : "",
+   433→              productCount: c.productCount || 0,
+   434→              slug: c.slug || c.id,
+   435→            })),
+   436→          );
+   437→        }
+   438→      } catch {
+   439→        // Empty state
+   440→      } finally {
+   441→        setIsLoading(false);
+   442→      }
+   443→    };
+   444→    fetch();
+   445→  }, []);
+   446→
+   447→  // Filter and sort categories
+   448→  const filteredCategories = useMemo(() => {
+   449→    let result = [...categories];
+   450→
+   451→    // Search filter
+   452→    if (searchQuery.trim()) {
+   453→      const query = searchQuery.toLowerCase().trim();
+   454→      result = result.filter(
+   455→        (c) =>
+   456→          c.name.toLowerCase().includes(query) ||
+   457→          c.description.toLowerCase().includes(query)
+   458→      );
+   459→    }
+   460→
+   461→    // Sort
+   462→    switch (sortBy) {
+   463→      case "az":
+   464→        result.sort((a, b) => a.name.localeCompare(b.name));
+   465→        break;
+   466→      case "za":
+   467→        result.sort((a, b) => b.name.localeCompare(a.name));
+   468→        break;
+   469→      case "popular":
+   470→        result.sort((a, b) => (b.productCount || 0) - (a.productCount || 0));
+   471→        break;
+   472→    }
+   473→
+   474→    return result;
+   475→  }, [categories, searchQuery, sortBy]);
+   476→
+   477→  return (
+   478→    <div className="min-h-screen bg-background">
+   479→      {/* Header */}
+   480→      <div className="border-b border-border bg-background">
+   481→        <div className="container mx-auto px-4">
+   482→          {/* Breadcrumb */}
+   483→          <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
+   484→            <button
+   485→              type="button"
+   486→              onClick={() => router.push("/")}
+   487→              className="hover:text-kwik-orange transition-colors"
+   488→            >
+   489→              Home
+   490→            </button>
+   491→            <ChevronRight className="h-3 w-3" />
+   492→            <span className="font-medium text-kwik-dark dark:text-white">Categories</span>
+   493→          </div>
+   494→
+   495→          <div className="flex items-end justify-between gap-3 pb-4">
+   496→            <div className="min-w-0">
+   497→              <h1 className="text-xl font-bold text-kwik-dark dark:text-white sm:text-2xl">All Categories</h1>
+   498→            <p className="mt-1 text-sm text-kwik-gray-light dark:text-white/60">
+   499→              Browse products by category
+   500→            </p>
+   501→            </div>
+   502→            <div className="relative shrink-0">
+   503→              <button
+   504→                type="button"
+   505→                onClick={() => setIsSortOpen((value) => !value)}
+   506→                className="inline-flex h-9 items-center gap-2 rounded-md border border-kwik-border bg-white px-3 text-xs font-semibold text-kwik-dark transition hover:border-kwik-orange dark:border-white/10 dark:bg-white/5 dark:text-white"
+   507→                aria-expanded={isSortOpen}
+   508→              >
+   509→                <SlidersHorizontal className="h-3.5 w-3.5 text-kwik-orange" />
+   510→                Sort
+   511→              </button>
+   512→              {isSortOpen && (
+   513→                <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-md border border-kwik-border bg-background shadow-xl">
+   514→                  {CATEGORY_SORT_OPTIONS.map((opt) => (
+   515→                <button
+   516→                  key={opt.value}
+   517→                  type="button"
+   518→                  onClick={() => {
+   519→                    setSortBy(opt.value);
+   520→                    setIsSortOpen(false);
+   521→                  }}
+   522→                  className={`block w-full px-3 py-2 text-left text-xs font-medium transition ${
+   523→                    sortBy === opt.value
+   524→                      ? "bg-kwik-orange text-white"
+   525→                      : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+   526→                  }`}
+   527→                >
+   528→                  {opt.label}
+   529→                </button>
+   530→                  ))}
+   531→                </div>
+   532→              )}
+   533→            </div>
+   534→          </div>
+   535→        </div>
+   536→      </div>
+   537→
+   538→      {false && (
+   539→      <>
+   540→      {/* Search & Sort Bar */}
+   541→      <div className="hidden border-b border-border bg-background">
+   542→        <div className="container mx-auto px-4 py-3">
+   543→          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+   544→            {/* Search input */}
+   545→            <div className="relative flex-1">
+   546→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-kwik-muted" />
+   547→              <input
+   548→                type="text"
+   549→                value={searchQuery}
+   550→                onChange={(e) => setSearchQuery(e.target.value)}
+   551→                placeholder="Search categories..."
+   552→                className="h-10 w-full rounded-md border border-kwik-border bg-white pl-9 pr-9 text-sm text-kwik-dark outline-none transition-colors placeholder:text-kwik-muted focus:border-kwik-orange focus:ring-1 focus:ring-kwik-orange/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+   553→              />
+   554→              {searchQuery && (
+   555→                <button
+   556→                  type="button"
+   557→                  onClick={() => setSearchQuery("")}
+   558→                  className="absolute right-3 top-1/2 -translate-y-1/2 text-kwik-muted hover:text-kwik-dark-medium transition-colors"
+   559→                >
+   560→                  <span className="text-xs font-medium">✕</span>
+   561→                </button>
+   562→              )}
+   563→            </div>
+   564→
+   565→            {/* Sort options */}
+   566→            <div className="flex items-center gap-2">
+   567→              <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider whitespace-nowrap hidden sm:inline">
+   568→                Sort:
+   569→              </span>
+   570→              <div className="flex items-center gap-1 rounded-md border border-kwik-border bg-white p-1 dark:border-white/10 dark:bg-white/5">
+   571→                {CATEGORY_SORT_OPTIONS.map((opt) => (
+   572→                  <button
+   573→                    key={opt.value}
+   574→                    type="button"
+   575→                    onClick={() => setSortBy(opt.value)}
+   576→                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+   577→                      sortBy === opt.value
+   578→                        ? "bg-kwik-orange text-white shadow-sm"
+   579→                        : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+   580→                    }`}
+   581→                  >
+   582→                    {opt.label}
+   583→                  </button>
+   584→                ))}
+   585→              </div>
+   586→            </div>
+   587→          </div>
+   588→        </div>
+   589→      </div>
+   590→      </>
+   591→      )}
+   592→
+   593→      {/* Category grid */}
+   594→      <div className="container mx-auto px-4 py-6">
+   595→        {isLoading ? (
+   596→          <div className="flex items-center justify-center py-20">
+   597→            <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
+   598→          </div>
+   599→        ) : filteredCategories.length === 0 ? (
+   600→          <motion.div
+   601→            initial={{ opacity: 0, y: 20 }}
+   602→            animate={{ opacity: 1, y: 0 }}
+   603→            transition={{ duration: 0.4 }}
+   604→            className="flex flex-col items-center justify-center py-20"
+   605→          >
+   606→            <div className="h-28 w-28 rounded-3xl bg-gradient-to-br from-kwik-orange/10 to-kwik-orange/5 flex items-center justify-center mb-5">
+   607→              <PackageOpen className="h-12 w-12 text-kwik-orange/60" />
+   608→            </div>
+   609→            <h3 className="text-lg font-semibold text-kwik-dark mb-2">
+   610→              {searchQuery ? "No matching categories" : "No categories yet"}
+   611→            </h3>
+   612→            <p className="text-sm text-kwik-gray-light text-center max-w-[320px] mb-4">
+   613→              {searchQuery
+   614→                ? `No categories match "${searchQuery}". Try a different search term.`
+   615→                : "Categories will appear here once sellers start listing products."}
+   616→            </p>
+   617→            {searchQuery && (
+   618→              <button
+   619→                type="button"
+   620→                onClick={() => setSearchQuery("")}
+   621→                className="rounded-xl px-5 py-2.5 text-sm font-medium text-kwik-orange border border-kwik-orange hover:bg-kwik-orange-tint transition-colors"
+   622→              >
+   623→                Clear search
+   624→              </button>
+   625→            )}
+   626→          </motion.div>
+   627→        ) : (
+   628→          <>
+   629→            {/* Results info */}
+   630→            {searchQuery && (
+   631→              <motion.p
+   632→                initial={{ opacity: 0 }}
+   633→                animate={{ opacity: 1 }}
+   634→                className="text-sm text-kwik-gray-light mb-4"
+   635→              >
+   636→                <span className="font-semibold text-kwik-dark">{filteredCategories.length}</span>{" "}
+   637→                {filteredCategories.length === 1 ? "category" : "categories"} found
+   638→                for "<span className="text-kwik-orange">{searchQuery}</span>"
+   639→              </motion.p>
+   640→            )}
+   641→
+   642→            <StaggerWrap>
+   643→              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   644→                {filteredCategories.map((category, index) => {
+   645→                  const style = getCategoryStyle(
+   646→                    category.name,
+   647→                    category.slug || category.id,
+   648→                    index,
+   649→                  );
+   650→                  const { Icon } = style;
+   651→
+   652→                  return (
+   653→                    <StaggerChild key={`${category.id}-${index}`} index={index} className="w-full">
+   654→                      <motion.button
+   655→                        type="button"
+   656→                        onClick={() => router.push(`/categories?name=${category.slug || category.id}`)}
+   657→                        whileHover={{ y: -4 }}
+   658→                        whileTap={{ scale: 0.98 }}
+   659→                        className="group h-full w-full cursor-pointer border border-neutral-200 bg-white p-4 text-left transition-all duration-300 hover:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:hover:border-white/50"
+   660→                      >
+   661→                        <div className="flex items-center gap-4">
+   662→                          {/* Colored icon box */}
+   663→                          <div
+   664→                            className={cn(
+   665→                              "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-white shadow-md group-hover:scale-110 transition-transform",
+   666→                              style.color,
+   667→                            )}
+   668→                          >
+   669→                            <Icon className="w-6 h-6" />
+   670→                          </div>
+   671→
+   672→                          {/* Category info */}
+   673→                          <div className="flex-1 min-w-0">
+   674→                            <h3 className="font-semibold text-base text-kwik-dark dark:text-white">
+   675→                              {category.name}
+   676→                            </h3>
+   677→                          </div>
+   678→
+   679→                          {/* Chevron */}
+   680→                          <ChevronRight className="w-4 h-4 text-kwik-muted group-hover:text-kwik-orange group-hover:translate-x-1 transition-all shrink-0 mt-1" />
+   681→                        </div>
+   682→                      </motion.button>
+   683→                    </StaggerChild>
+   684→                  );
+   685→                })}
+   686→              </div>
+   687→            </StaggerWrap>
+   688→          </>
+   689→        )}
+   690→      </div>
+   691→    </div>
+   692→  );
+   693→}
+   694→
+   695→/* ─── Main Page Component ─────────────────────────────────── */
+   696→
+   697→function CategoriesPageContent() {
+   698→  const searchParams = useSearchParams();
+   699→  // URL format: /categories?name=electronics
+   700→  const slug = searchParams.get('name') || '';
+   701→
+   702→  if (slug) {
+   703→    return <CategoryDetailView slug={slug} />;
+   704→  }
+   705→
+   706→  return <AllCategoriesView />;
+   707→}
+   708→
+   709→/* ─── Default export with Suspense ────────────────────────── */
+   710→
+   711→export default function CategoriesPage() {
+   712→  return (
+   713→    <Suspense
+   714→      fallback={
+   715→        <div className="flex min-h-screen items-center justify-center bg-kwik-bg-page">
+   716→          <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
+   717→        </div>
+   718→      }
+   719→    >
+   720→      <CategoriesPageContent />
+   721→    </Suspense>
+   722→  );
+   723→}
+   724→

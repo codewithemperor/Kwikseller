@@ -9,3 +9,6 @@ export { useIsMobile } from './use-mobile'
 
 // Toast hook (already exists)
 export { useToast } from './use-toast'
+
+// Recent searches (localStorage-persisted)
+export { useRecentSearches, type RecentSearch } from './use-recent-searches'

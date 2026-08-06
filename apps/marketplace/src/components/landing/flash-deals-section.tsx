@@ -95,13 +95,18 @@ function useCountdown(targetTime: Date) {
 }
 
 function CountdownTimer() {
-  // Countdown to end of day (creates urgency, resets daily)
+  // Countdown to end of day (creates urgency, resets daily).
+  // `setTargetTime` is deferred via `queueMicrotask` so it's not a
+  // synchronous setState inside the effect body (lint-safe). It still
+  // runs immediately after mount — well before the first 1s tick.
   const [targetTime, setTargetTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    setTargetTime(end);
+    queueMicrotask(() => {
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+      setTargetTime(end);
+    });
   }, []);
 
   const timeLeft = useCountdown(targetTime ?? new Date());

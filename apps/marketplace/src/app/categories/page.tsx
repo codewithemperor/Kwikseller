@@ -1,17 +1,14 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState, useMemo, useRef } from "react";
+import React, { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ChevronRight,
   ShoppingBag,
-  Loader2,
   SlidersHorizontal,
-  Search,
   PackageOpen,
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { productsApi, marketplaceApi } from "@kwikseller/api-client";
 import { cn } from "@kwikseller/ui";
 import {
   CATEGORY_CARD_ACCENT_COLORS as CARD_ACCENT_COLORS,
@@ -23,8 +20,14 @@ import {
   type SortValue,
 } from "@/constants/marketplace";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ProductGridSkeleton } from "@/components/ui/loading-state";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
-import type { SearchableProduct } from "@/data/products";
+import {
+  useCategories,
+  useProducts,
+  toMarketplaceProduct,
+  type Category,
+} from "@/lib/api-hooks";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 import dynamic from "next/dynamic";
 
@@ -35,7 +38,6 @@ const QuickViewModal = dynamic(
     ),
   { ssr: false },
 );
-
 
 function getCategoryStyle(name: string, slug: string, index: number): CategoryStyle {
   const key = (slug || "").toLowerCase();
@@ -71,146 +73,37 @@ function StaggerWrap({ children }: { children: React.ReactNode }) {
     </motion.div>
   );
 }
-function StaggerChild({ children, index, className = "" }: { children: React.ReactNode; index: number; className?: string }) {
-  return (
-    <motion.div
-      variants={staggerChildVariants}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-
-const withTimeout = async <T,>(promise: Promise<T>, ms = 8000): Promise<T> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("Request timed out")), ms);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-};
-
-/* ─── Convert for QuickViewModal ──────────────────────────── */
-
-function getProductImage(p: SearchableProduct & { images?: Array<{ url?: string } | string>; featuredImage?: { url?: string } | string }): string {
-  const firstImage = Array.isArray(p.images) ? p.images[0] : null;
-  if (typeof p.image === "string") return p.image;
-  if (typeof firstImage === "string") return firstImage;
-  return firstImage?.url || (typeof p.featuredImage === "string" ? p.featuredImage : p.featuredImage?.url) || "";
-}
-
-function getProductTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((tag) => {
-      if (typeof tag === "string") return tag;
-      if (tag && typeof tag === "object") {
-        const record = tag as { tag?: { name?: string }; name?: string };
-        return record.tag?.name || record.name || "";
-      }
-      return "";
-    })
-    .filter(Boolean);
-}
-
-function getEntityName(value: unknown): string {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "object") return (value as { name?: string; slug?: string }).name || (value as { slug?: string }).slug || "";
-  return "";
-}
-
-function toMarketplaceProduct(p: SearchableProduct & { images?: Array<{ url?: string } | string>; store?: unknown; category?: unknown; storeName?: string; categoryName?: string; tags?: Array<string | { tag?: { name?: string }; name?: string }> }): MarketplaceProduct {
-  const image = getProductImage(p);
-  const tags = getProductTags(p.tags);
-  const store = getEntityName(p.store) || p.storeName || "";
-  const category = p.categorySlug || p.categoryName || getEntityName(p.category);
-  return {
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-    price: p.price,
-    comparePrice: p.comparePrice,
-    image,
-    rating: p.rating || 0,
-    reviewCount: p.reviewCount || 0,
-    store,
-    storeId: p.storeId,
-    storeSlug: p.storeSlug,
-    category,
-    isNew: p.isNew,
-    tag: p.categoryName || getEntityName(p.category),
-    description: p.description,
-    images: image ? [image] : [],
-    features: tags.slice(0, 4),
-    specifications: [],
-    reviews: [],
-  };
+function StaggerChild({ children }: { children: React.ReactNode }) {
+  return <motion.div variants={staggerChildVariants}>{children}</motion.div>;
 }
 
 /* ─── Category Detail View ────────────────────────────────── */
 
 function CategoryDetailView({ slug }: { slug: string }) {
   const router = useRouter();
-  const [categoryInfo, setCategoryInfo] = useState<{ name: string; description: string; itemCount: string } | null>(null);
-
-  const [products, setProducts] = useState<SearchableProduct[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortValue>("relevance");
   const [showFilters, setShowFilters] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
 
-  // Fetch category info and products from API
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch category info
-        const catRes = await withTimeout(marketplaceApi.getCategories());
-        if (catRes.success && catRes.data) {
-          const data = catRes.data as any;
-          const cats = Array.isArray(data) ? data : data.categories || [];
-          const found = cats.find((c: any) => c.id === slug || c.slug === slug);
-          if (found) {
-            setCategoryInfo({
-              name: found.name,
-              description: found.description || "",
-              itemCount: found.productCount ? `${found.productCount}+ items` : "",
-            });
-          }
-        }
+  // Fetch the category info (and its products) via the shared hook.
+  const categoryInfoQuery = useCategories();
+  const productsQuery = useProducts({ categoryId: slug, limit: 50 });
 
-        // Fetch products
-        const response = await withTimeout(productsApi.getCategoryBySlug(slug, { limit: 50 }));
-        if (response.success && response.data) {
-          const respData = response.data as any;
-          if (Array.isArray(respData)) {
-            setProducts(respData as unknown as SearchableProduct[]);
-          } else if (respData.products && Array.isArray(respData.products)) {
-            setProducts(respData.products as unknown as SearchableProduct[]);
-          } else {
-            setProducts([]);
-          }
-        }
-      } catch {
-        setProducts([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProducts();
-  }, [slug]);
+  const category = useMemo(
+    () =>
+      (categoryInfoQuery.data ?? []).find(
+        (c: Category) => c.slug === slug || c.id === slug,
+      ),
+    [categoryInfoQuery.data, slug],
+  );
 
-  // Sort products
-  const sortedProducts = React.useMemo(() => {
-    let sorted = [...products];
+  const products: MarketplaceProduct[] = useMemo(
+    () => productsQuery.data?.products ?? [],
+    [productsQuery.data],
+  );
+
+  const sortedProducts = useMemo(() => {
+    const sorted = [...products];
     switch (sortBy) {
       case "price-low":
         sorted.sort((a, b) => a.price - b.price);
@@ -222,7 +115,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
         sorted.sort((a, b) => b.rating - a.rating);
         break;
       case "newest":
-        sorted.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+        sorted.sort((a, b) => Number(b.isNew ?? false) - Number(a.isNew ?? false));
         break;
       default:
         break;
@@ -230,15 +123,18 @@ function CategoryDetailView({ slug }: { slug: string }) {
     return sorted;
   }, [products, sortBy]);
 
-  const handleQuickView = useCallback((p: SearchableProduct) => {
-    setQuickViewProduct(toMarketplaceProduct(p));
+  const handleQuickView = useCallback((p: MarketplaceProduct) => {
+    setQuickViewProduct(p);
   }, []);
+
+  const isLoading = productsQuery.isLoading;
+  const categoryName = category?.name ?? slug;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Category Header */}
       <div className="border-b border-border bg-background">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
             <button
@@ -258,7 +154,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
             </button>
             <ChevronRight className="h-3 w-3" />
             <span className="font-medium text-kwik-dark dark:text-white">
-              {categoryInfo?.name || slug}
+              {categoryName}
             </span>
           </div>
 
@@ -266,25 +162,26 @@ function CategoryDetailView({ slug }: { slug: string }) {
           <div className="flex items-center gap-4 pb-4">
             <div>
               <h1 className="text-xl font-bold text-kwik-dark dark:text-white">
-                {categoryInfo?.name || slug}
+                {categoryName}
               </h1>
               <p className="text-sm text-kwik-gray-light dark:text-white/60">
-                {categoryInfo?.description || `Browse ${slug} products`}
-                {categoryInfo?.itemCount && (
+                {category?.description || `Browse ${categoryName} products`}
+                {category?._count?.products ? (
                   <span className="ml-2 text-kwik-orange font-medium">
-                    {categoryInfo.itemCount}
+                    {category._count.products}+ items
                   </span>
-                )}
+                ) : null}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`ml-auto flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors ${
+              className={cn(
+                "ml-auto flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors",
                 showFilters
                   ? "bg-kwik-orange-tint text-kwik-orange"
-                  : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10"
-              }`}
+                  : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10",
+              )}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Sort
@@ -302,7 +199,7 @@ function CategoryDetailView({ slug }: { slug: string }) {
               transition={{ duration: 0.2 }}
               className="overflow-hidden border-t border-kwik-border dark:border-white/10"
             >
-              <div className="container mx-auto px-4 py-3">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider">
                     Sort by:
@@ -312,11 +209,12 @@ function CategoryDetailView({ slug }: { slug: string }) {
                       key={opt.value}
                       type="button"
                       onClick={() => setSortBy(opt.value)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
                         sortBy === opt.value
                           ? "bg-kwik-dark text-white"
-                          : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10"
-                      }`}
+                          : "bg-white text-kwik-gray-light ring-1 ring-kwik-border hover:bg-neutral-50 dark:bg-white/5 dark:text-white/65 dark:ring-white/10 dark:hover:bg-white/10",
+                      )}
                     >
                       {opt.label}
                     </button>
@@ -329,38 +227,32 @@ function CategoryDetailView({ slug }: { slug: string }) {
       </div>
 
       {/* Products area */}
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Results count */}
         <div className="mb-4">
           <p className="text-sm text-kwik-gray-light">
             {isLoading ? (
-              "Loading..."
+              "Loading products..."
             ) : (
               <>
                 <span className="font-semibold text-kwik-dark dark:text-white">{sortedProducts.length}</span>{" "}
                 product{sortedProducts.length !== 1 ? "s" : ""} in{" "}
-                <span className="font-semibold text-kwik-orange">
-                  {categoryInfo?.name || slug}
-                </span>
+                <span className="font-semibold text-kwik-orange">{categoryName}</span>
               </>
             )}
           </p>
         </div>
 
         {/* Loading */}
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
-            <p className="mt-3 text-sm text-kwik-gray-light">Loading products...</p>
-          </div>
-        )}
+        {isLoading && <ProductGridSkeleton count={10} columns={5} />}
 
         {/* Empty */}
-        {!isLoading && sortedProducts.length === 0 && (
+        {!isLoading && sortedProducts.length === 0 ? (
           <EmptyState
+            variant="search"
             icon={<ShoppingBag className="h-10 w-10" />}
             title="No products found"
-            description="No products available in this category yet. Check back later or browse other categories."
+            description={`No products available in ${categoryName} yet. Check back later or browse other categories.`}
             action={
               <button
                 type="button"
@@ -371,20 +263,20 @@ function CategoryDetailView({ slug }: { slug: string }) {
               </button>
             }
           />
-        )}
+        ) : null}
 
         {/* Product grid */}
-        {!isLoading && sortedProducts.length > 0 && (
+        {!isLoading && sortedProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {sortedProducts.map((product, index) => (
               <MarketplaceProductCard
                 key={`${product.id}-${index}`}
-                product={toMarketplaceProduct(product)}
+                product={product}
                 onQuickView={() => handleQuickView(product)}
               />
             ))}
           </div>
-        )}
+        ) : null}
       </div>
 
       <QuickViewModal
@@ -410,55 +302,38 @@ type CategorySortValue = (typeof CATEGORY_SORT_OPTIONS)[number]["value"];
 
 function AllCategoriesView() {
   const router = useRouter();
-  const [categories, setCategories] = useState<Array<{ id: string; name: string; description: string; image: string | null; itemCount: string; productCount?: number; slug?: string }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const categoriesQuery = useCategories();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<CategorySortValue>("popular");
   const [isSortOpen, setIsSortOpen] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const response = await withTimeout(marketplaceApi.getCategories());
-        if (response.success && response.data) {
-          const data = response.data as any;
-          const list = Array.isArray(data) ? data : data.categories || [];
-          setCategories(
-            list.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              description: c.description || "",
-              image: c.image || c.imageUrl || null,
-              itemCount: c.productCount ? `${c.productCount}+ items` : "",
-              productCount: c.productCount || 0,
-              slug: c.slug || c.id,
-            })),
-          );
-        }
-      } catch {
-        // Empty state
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetch();
-  }, []);
+  const categories = useMemo(
+    () =>
+      (categoriesQuery.data ?? []).map((c: Category) => ({
+        id: c.id,
+        name: c.name,
+        description: "",
+        image: c.imageUrl ?? null,
+        itemCount: c._count?.products ? `${c._count.products}+ items` : "",
+        productCount: c._count?.products ?? 0,
+        slug: c.slug || c.id,
+      })),
+    [categoriesQuery.data],
+  );
 
   // Filter and sort categories
   const filteredCategories = useMemo(() => {
     let result = [...categories];
 
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter(
         (c) =>
           c.name.toLowerCase().includes(query) ||
-          c.description.toLowerCase().includes(query)
+          c.description.toLowerCase().includes(query),
       );
     }
 
-    // Sort
     switch (sortBy) {
       case "az":
         result.sort((a, b) => a.name.localeCompare(b.name));
@@ -474,11 +349,13 @@ function AllCategoriesView() {
     return result;
   }, [categories, searchQuery, sortBy]);
 
+  const isLoading = categoriesQuery.isLoading;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border bg-background">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 py-3 text-xs text-kwik-gray-light">
             <button
@@ -495,9 +372,9 @@ function AllCategoriesView() {
           <div className="flex items-end justify-between gap-3 pb-4">
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-kwik-dark dark:text-white sm:text-2xl">All Categories</h1>
-            <p className="mt-1 text-sm text-kwik-gray-light dark:text-white/60">
-              Browse products by category
-            </p>
+              <p className="mt-1 text-sm text-kwik-gray-light dark:text-white/60">
+                Browse products by category
+              </p>
             </div>
             <div className="relative shrink-0">
               <button
@@ -512,21 +389,22 @@ function AllCategoriesView() {
               {isSortOpen && (
                 <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-md border border-kwik-border bg-background shadow-xl">
                   {CATEGORY_SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    setSortBy(opt.value);
-                    setIsSortOpen(false);
-                  }}
-                  className={`block w-full px-3 py-2 text-left text-xs font-medium transition ${
-                    sortBy === opt.value
-                      ? "bg-kwik-orange text-white"
-                      : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
-                  }`}
-                >
-                  {opt.label}
-                </button>
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSortBy(opt.value);
+                        setIsSortOpen(false);
+                      }}
+                      className={cn(
+                        "block w-full px-3 py-2 text-left text-xs font-medium transition",
+                        sortBy === opt.value
+                          ? "bg-kwik-orange text-white"
+                          : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
                   ))}
                 </div>
               )}
@@ -535,95 +413,39 @@ function AllCategoriesView() {
         </div>
       </div>
 
-      {false && (
-      <>
-      {/* Search & Sort Bar */}
-      <div className="hidden border-b border-border bg-background">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {/* Search input */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-kwik-muted" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search categories..."
-                className="h-10 w-full rounded-md border border-kwik-border bg-white pl-9 pr-9 text-sm text-kwik-dark outline-none transition-colors placeholder:text-kwik-muted focus:border-kwik-orange focus:ring-1 focus:ring-kwik-orange/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+      {/* Category grid */}
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-20 animate-pulse border border-kwik-border bg-muted/40 dark:border-white/10 dark:bg-white/5"
               />
-              {searchQuery && (
+            ))}
+          </div>
+        ) : filteredCategories.length === 0 ? (
+          <EmptyState
+            variant="search"
+            icon={<PackageOpen className="h-10 w-10" />}
+            title={searchQuery ? "No matching categories" : "No categories yet"}
+            description={
+              searchQuery
+                ? `No categories match "${searchQuery}". Try a different search term.`
+                : "Categories will appear here once sellers start listing products."
+            }
+            action={
+              searchQuery ? (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-kwik-muted hover:text-kwik-dark-medium transition-colors"
+                  className="rounded-xl px-5 py-2.5 text-sm font-medium text-kwik-orange border border-kwik-orange hover:bg-kwik-orange-tint transition-colors"
                 >
-                  <span className="text-xs font-medium">✕</span>
+                  Clear search
                 </button>
-              )}
-            </div>
-
-            {/* Sort options */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-kwik-gray-light uppercase tracking-wider whitespace-nowrap hidden sm:inline">
-                Sort:
-              </span>
-              <div className="flex items-center gap-1 rounded-md border border-kwik-border bg-white p-1 dark:border-white/10 dark:bg-white/5">
-                {CATEGORY_SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setSortBy(opt.value)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                      sortBy === opt.value
-                        ? "bg-kwik-orange text-white shadow-sm"
-                        : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      </>
-      )}
-
-      {/* Category grid */}
-      <div className="container mx-auto px-4 py-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
-          </div>
-        ) : filteredCategories.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex flex-col items-center justify-center py-20"
-          >
-            <div className="h-28 w-28 rounded-3xl bg-gradient-to-br from-kwik-orange/10 to-kwik-orange/5 flex items-center justify-center mb-5">
-              <PackageOpen className="h-12 w-12 text-kwik-orange/60" />
-            </div>
-            <h3 className="text-lg font-semibold text-kwik-dark mb-2">
-              {searchQuery ? "No matching categories" : "No categories yet"}
-            </h3>
-            <p className="text-sm text-kwik-gray-light text-center max-w-[320px] mb-4">
-              {searchQuery
-                ? `No categories match "${searchQuery}". Try a different search term.`
-                : "Categories will appear here once sellers start listing products."}
-            </p>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="rounded-xl px-5 py-2.5 text-sm font-medium text-kwik-orange border border-kwik-orange hover:bg-kwik-orange-tint transition-colors"
-              >
-                Clear search
-              </button>
-            )}
-          </motion.div>
+              ) : undefined
+            }
+          />
         ) : (
           <>
             {/* Results info */}
@@ -635,7 +457,7 @@ function AllCategoriesView() {
               >
                 <span className="font-semibold text-kwik-dark">{filteredCategories.length}</span>{" "}
                 {filteredCategories.length === 1 ? "category" : "categories"} found
-                for "<span className="text-kwik-orange">{searchQuery}</span>"
+                for &ldquo;<span className="text-kwik-orange">{searchQuery}</span>&rdquo;
               </motion.p>
             )}
 
@@ -650,13 +472,13 @@ function AllCategoriesView() {
                   const { Icon } = style;
 
                   return (
-                    <StaggerChild key={`${category.id}-${index}`} index={index} className="w-full">
+                    <StaggerChild key={`${category.id}-${index}`}>
                       <motion.button
                         type="button"
                         onClick={() => router.push(`/categories?name=${category.slug || category.id}`)}
                         whileHover={{ y: -4 }}
                         whileTap={{ scale: 0.98 }}
-                        className="group h-full w-full cursor-pointer border border-neutral-200 bg-white p-4 text-left transition-all duration-300 hover:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:hover:border-white/50"
+                        className="group h-full w-full cursor-pointer border border-kwik-border bg-white p-4 text-left transition-all duration-300 hover:border-kwik-dark dark:border-white/10 dark:bg-white/5 dark:hover:border-white/50"
                       >
                         <div className="flex items-center gap-4">
                           {/* Colored icon box */}
@@ -674,6 +496,11 @@ function AllCategoriesView() {
                             <h3 className="font-semibold text-base text-kwik-dark dark:text-white">
                               {category.name}
                             </h3>
+                            {category.itemCount ? (
+                              <p className="text-xs text-kwik-gray-light mt-0.5">
+                                {category.itemCount}
+                              </p>
+                            ) : null}
                           </div>
 
                           {/* Chevron */}
@@ -697,7 +524,7 @@ function AllCategoriesView() {
 function CategoriesPageContent() {
   const searchParams = useSearchParams();
   // URL format: /categories?name=electronics
-  const slug = searchParams.get('name') || '';
+  const slug = searchParams.get("name") || "";
 
   if (slug) {
     return <CategoryDetailView slug={slug} />;
@@ -712,8 +539,8 @@ export default function CategoriesPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-kwik-bg-page">
-          <Loader2 className="h-8 w-8 animate-spin text-kwik-orange" />
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+          <ProductGridSkeleton count={8} columns={4} />
         </div>
       }
     >
@@ -721,3 +548,7 @@ export default function CategoriesPage() {
     </Suspense>
   );
 }
+
+// Re-export the shared mapper for any consumer that imported it from this
+// module historically — keeps the public API stable.
+export { toMarketplaceProduct };

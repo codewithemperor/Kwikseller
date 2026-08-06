@@ -70,7 +70,13 @@ const getBaseURL = (): string => {
   const configuredUrl = process.env.NEXT_PUBLIC_API_URL
 
   if (!configuredUrl) {
-    return typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1'
+    // Client (browser): relative "/api/v1" so requests go through the
+    // gateway and hit the in-app route handlers (dummy) or the proxied
+    // rewrite (real API).
+    // Server (SSR/RSC): absolute localhost:3000 so server-side fetches
+    // resolve against the Next.js app's own route handlers. In production
+    // set NEXT_PUBLIC_API_URL to the real NestJS backend.
+    return typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:3000/api/v1'
   }
 
   const withProtocol = /^https?:\/\//i.test(configuredUrl)

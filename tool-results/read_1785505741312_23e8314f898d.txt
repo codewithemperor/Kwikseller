@@ -1,0 +1,825 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, Suspense, useMemo, useCallback } from "react";
+     4→     4→import { useSearchParams, useRouter } from "next/navigation";
+     5→     5→import { motion, AnimatePresence } from "framer-motion";
+     6→     6→import {
+     7→     7→  Search,
+     8→     8→  SlidersHorizontal,
+     9→     9→  X,
+    10→    10→  LayoutGrid,
+    11→    11→  List,
+    12→    12→  ChevronLeft,
+    13→    13→  ChevronRight,
+    14→    14→} from "lucide-react";
+    15→    15→import { GenericProductCard as ProductCard } from "@kwikseller/ui";
+    16→    16→import { useWishlistStore } from "@/stores";
+    17→    17→import { useCartStore } from "@/stores";
+    18→    18→import { kwikToast } from "@kwikseller/utils";
+    19→    19→import { cn } from "@/lib/utils";
+    20→    20→import {
+    21→    21→  useProducts,
+    22→    22→  useCategories,
+    23→    23→  useStores,
+    24→    24→  type Product,
+    25→    25→} from "@/lib/api-hooks";
+    26→    26→import { ProductGridSkeleton } from "@/components/ui/loading-state";
+    27→    27→import { EmptyState } from "@/components/ui/empty-state";
+    28→    28→import type { MarketplaceProduct } from "@/data/marketplace-home";
+    29→    29→
+    30→    30→function formatNGN(n: number) {
+    31→    31→  return new Intl.NumberFormat("en-NG", {
+    32→    32→    style: "currency",
+    33→    33→    currency: "NGN",
+    34→    34→    maximumFractionDigits: 0,
+    35→    35→  }).format(n);
+    36→    36→}
+    37→    37→
+    38→    38→type SortOption = "popular" | "newest" | "price-asc" | "price-desc" | "rating";
+    39→    39→
+    40→    40→const sortOptions: { label: string; value: SortOption }[] = [
+    41→    41→  { label: "Most Popular", value: "popular" },
+    42→    42→  { label: "Newest First", value: "newest" },
+    43→    43→  { label: "Price: Low to High", value: "price-asc" },
+    44→    44→  { label: "Price: High to Low", value: "price-desc" },
+    45→    45→  { label: "Top Rated", value: "rating" },
+    46→    46→];
+    47→    47→
+    48→    48→const PAGE_SIZE = 12;
+    49→    49→
+    50→    50→function ProductsBrowseContent() {
+    51→    51→  const router = useRouter();
+    52→    52→  const searchParams = useSearchParams();
+    53→    53→
+    54→    54→  const initialQuery = searchParams.get("q") ?? "";
+    55→    55→  const initialCategory = searchParams.get("category") ?? "all";
+    56→    56→  const initialVendor = searchParams.get("vendor") ?? "all";
+    57→    57→  const initialBrandId = searchParams.get("brandId") ?? "";
+    58→    58→
+    59→    59→  const [query, setQuery] = useState(initialQuery);
+    60→    60→  const [category, setCategory] = useState<string>(initialCategory);
+    61→    61→  const [vendor, setVendor] = useState<string>(initialVendor);
+    62→    62→  const [brandId, setBrandId] = useState<string>(initialBrandId);
+    63→    63→  const [sort, setSort] = useState<SortOption>("popular");
+    64→    64→  const [view, setView] = useState<"grid" | "list">("grid");
+    65→    65→  const [showFilters, setShowFilters] = useState(false);
+    66→    66→  const [priceMax, setPriceMax] = useState<number>(50000);
+    67→    67→  const [onlyDiscounted, setOnlyDiscounted] = useState(false);
+    68→    68→  const [onlyInStock, setOnlyInStock] = useState(false);
+    69→    69→  const [page, setPage] = useState(1);
+    70→    70→  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
+    71→    71→
+    72→    72→  // Debounce the search query so we don't fire an API call on every keystroke.
+    73→    73→  useEffect(() => {
+    74→    74→    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    75→    75→    return () => clearTimeout(t);
+    76→    76→  }, [query]);
+    77→    77→
+    78→    78→  // Wrap each filter setter so changing any filter resets to page 1. Doing it
+    79→    79→  // inline (rather than in a useEffect) avoids the "setState in effect" lint
+    80→    80→  // rule and the cascading render it warns about.
+    81→    81→  const updateFilter = useCallback(
+    82→    82→    <T,>(setter: (v: T) => void) =>
+    83→    83→      (v: T) => {
+    84→    84→        setter(v);
+    85→    85→        setPage(1);
+    86→    86→      },
+    87→    87→    [],
+    88→    88→  );
+    89→    89→  const updateQuery = useCallback(
+    90→    90→    (v: string) => {
+    91→    91→      setQuery(v);
+    92→    92→      setPage(1);
+    93→    93→    },
+    94→    94→    [],
+    95→    95→  );
+    96→    96→
+    97→    97→  // Sync filters to URL (shallow) so the page is shareable/bookmarkable.
+    98→    98→  useEffect(() => {
+    99→    99→    const params = new URLSearchParams();
+   100→   100→    if (query) params.set("q", query);
+   101→   101→    if (category !== "all") params.set("category", category);
+   102→   102→    if (vendor !== "all") params.set("vendor", vendor);
+   103→   103→    if (brandId) params.set("brandId", brandId);
+   104→   104→    const qs = params.toString();
+   105→   105→    router.replace(qs ? `/products?${qs}` : "/products", { scroll: false });
+   106→   106→  }, [query, category, vendor, brandId, router]);
+   107→   107→
+   108→   108→  const wishlistItems = useWishlistStore((s) => s.items);
+   109→   109→  const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
+   110→   110→  const addToCart = useCartStore((s) => s.addItem);
+   111→   111→
+   112→   112→  // ── Filter option lists from the API ───────────────────────────────────
+   113→   113→  const categoriesQuery = useCategories();
+   114→   114→  const storesQuery = useStores();
+   115→   115→
+   116→   116→  const categoryOptions = useMemo(() => {
+   117→   117→    const cats = categoriesQuery.data ?? [];
+   118→   118→    return [
+   119→   119→      { label: "All Categories", value: "all" },
+   120→   120→      ...cats.map((c: { name: string; slug: string }) => ({
+   121→   121→        label: c.name,
+   122→   122→        value: c.slug,
+   123→   123→      })),
+   124→   124→    ];
+   125→   125→  }, [categoriesQuery.data]);
+   126→   126→
+   127→   127→  const vendorOptions = useMemo(() => {
+   128→   128→    const stores = (storesQuery.data ?? []) as Array<{
+   129→   129→      name: string;
+   130→   130→      slug: string;
+   131→   131→    }>;
+   132→   132→    return [
+   133→   133→      { label: "All Vendors", value: "all" },
+   134→   134→      ...stores.map((s) => ({ label: s.name, value: s.slug })),
+   135→   135→    ];
+   136→   136→  }, [storesQuery.data]);
+   137→   137→
+   138→   138→  // ── Build API params from local filter state ───────────────────────────
+   139→   139→  const sortByParam =
+   140→   140→    sort === "popular"
+   141→   141→      ? "totalSales"
+   142→   142→      : sort === "newest"
+   143→   143→        ? "createdAt"
+   144→   144→        : sort === "rating"
+   145→   145→          ? "rating"
+   146→   146→          : "price";
+   147→   147→  const sortOrderParam: "asc" | "desc" =
+   148→   148→    sort === "price-asc" ? "asc" : "desc";
+   149→   149→
+   150→   150→  const productsQuery = useProducts({
+   151→   151→    search: debouncedQuery.trim() || undefined,
+   152→   152→    categoryId: category !== "all" ? category : undefined,
+   153→   153→    storeId: vendor !== "all" ? vendor : undefined,
+   154→   154→    brandId: brandId || undefined,
+   155→   155→    sortBy: sortByParam,
+   156→   156→    sortOrder: sortOrderParam,
+   157→   157→    page,
+   158→   158→    limit: PAGE_SIZE,
+   159→   159→  });
+   160→   160→
+   161→   161→  const apiProducts: MarketplaceProduct[] = productsQuery.data?.products ?? [];
+   162→   162→  const meta = productsQuery.data?.meta;
+   163→   163→  const totalPages = meta?.totalPages ?? 1;
+   164→   164→  const totalCount = meta?.total ?? apiProducts.length;
+   165→   165→
+   166→   166→  // Apply client-side filters the API doesn't support (price ceiling,
+   167→   167→  // "on sale" toggle, "in stock" toggle) to the page's products.
+   168→   168→  const filtered = useMemo(() => {
+   169→   169→    let list = apiProducts.slice();
+   170→   170→    list = list.filter((p) => p.price <= priceMax);
+   171→   171→    if (onlyDiscounted) {
+   172→   172→      list = list.filter((p) => p.comparePrice && p.comparePrice > p.price);
+   173→   173→    }
+   174→   174→    if (onlyInStock) {
+   175→   175→      list = list.filter((p) => (p.stock ?? 0) > 0);
+   176→   176→    }
+   177→   177→    return list;
+   178→   178→  }, [apiProducts, priceMax, onlyDiscounted, onlyInStock]);
+   179→   179→
+   180→   180→  const activeFilterCount =
+   181→   181→    (category !== "all" ? 1 : 0) +
+   182→   182→    (vendor !== "all" ? 1 : 0) +
+   183→   183→    (brandId ? 1 : 0) +
+   184→   184→    (onlyDiscounted ? 1 : 0) +
+   185→   185→    (onlyInStock ? 1 : 0) +
+   186→   186→    (priceMax < 50000 ? 1 : 0);
+   187→   187→
+   188→   188→  function clearFilters() {
+   189→   189→    setCategory("all");
+   190→   190→    setVendor("all");
+   191→   191→    setBrandId("");
+   192→   192→    setPriceMax(50000);
+   193→   193→    setOnlyDiscounted(false);
+   194→   194→    setOnlyInStock(false);
+   195→   195→    setPage(1);
+   196→   196→  }
+   197→   197→
+   198→   198→  function handleAddToCart(product: MarketplaceProduct) {
+   199→   199→    addToCart({
+   200→   200→      productId: product.id,
+   201→   201→      name: product.name,
+   202→   202→      price: product.price,
+   203→   203→      comparePrice: product.comparePrice,
+   204→   204→      image: product.image,
+   205→   205→      store: product.store,
+   206→   206→      storeSlug: product.storeSlug,
+   207→   207→      storeName: product.store,
+   208→   208→      productType: product.productType,
+   209→   209→      productSource: product.productSource,
+   210→   210→      requiresShipping: product.requiresShipping,
+   211→   211→    });
+   212→   212→    kwikToast.success("Added to cart", `${product.name} is in your cart.`);
+   213→   213→  }
+   214→   214→
+   215→   215→  function handleWishlist(product: MarketplaceProduct) {
+   216→   216→    toggleWishlist({
+   217→   217→      productId: product.id,
+   218→   218→      name: product.name,
+   219→   219→      price: product.price,
+   220→   220→      image: product.image,
+   221→   221→      store: product.store,
+   222→   222→      storeSlug: product.storeSlug,
+   223→   223→    });
+   224→   224→  }
+   225→   225→
+   226→   226→  const isLoading = productsQuery.isLoading;
+   227→   227→
+   228→   228→  return (
+   229→   229→    <div className="bg-background min-h-screen">
+   230→   230→      {/* ── Page header ── */}
+   231→   231→      <section className="kwik-gradient relative overflow-hidden">
+   232→   232→        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+   233→   233→        <div className="container mx-auto max-w-7xl px-4 py-10 md:py-14 relative">
+   234→   234→          <motion.div
+   235→   235→            initial={{ opacity: 0, y: 12 }}
+   236→   236→            animate={{ opacity: 1, y: 0 }}
+   237→   237→            transition={{ duration: 0.4 }}
+   238→   238→          >
+   239→   239→            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">
+   240→   240→              Browse the marketplace
+   241→   241→            </p>
+   242→   242→            <h1 className="mt-2 font-heading text-3xl font-bold text-white md:text-4xl">
+   243→   243→              All Products
+   244→   244→            </h1>
+   245→   245→            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 md:text-base">
+   246→   246→              Discover thousands of products from verified vendors across Africa.
+   247→   247→              Every purchase is protected by KwisCrow escrow.
+   248→   248→            </p>
+   249→   249→          </motion.div>
+   250→   250→        </div>
+   251→   251→      </section>
+   252→   252→
+   253→   253→      {/* ── Search + sort bar ── */}
+   254→   254→      <section className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
+   255→   255→        <div className="container mx-auto max-w-7xl px-4 py-3">
+   256→   256→          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+   257→   257→            {/* Search */}
+   258→   258→            <div className="relative flex-1">
+   259→   259→              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
+   260→   260→              <input
+   261→   261→                type="text"
+   262→   262→                value={query}
+   263→   263→                onChange={(e) => updateQuery(e.target.value)}
+   264→   264→                placeholder="Search products, vendors, categories..."
+   265→   265→                aria-label="Search products"
+   266→   266→                className="h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-9 text-sm text-foreground placeholder:text-kwik-muted focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
+   267→   267→              />
+   268→   268→              {query ? (
+   269→   269→                <button
+   270→   270→                  type="button"
+   271→   271→                  onClick={() => setQuery("")}
+   272→   272→                  aria-label="Clear search"
+   273→   273→                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-kwik-muted hover:bg-muted hover:text-foreground"
+   274→   274→                >
+   275→   275→                  <X className="h-4 w-4" />
+   276→   276→                </button>
+   277→   277→              ) : null}
+   278→   278→            </div>
+   279→   279→
+   280→   280→            {/* Sort */}
+   281→   281→            <div className="flex items-center gap-2">
+   282→   282→              <div className="relative">
+   283→   283→                <select
+   284→   284→                  value={sort}
+   285→   285→                  onChange={(e) => {
+   286→   286→                    setSort(e.target.value as SortOption);
+   287→   287→                    setPage(1);
+   288→   288→                  }}
+   289→   289→                  aria-label="Sort products"
+   290→   290→                  className="h-11 appearance-none rounded-xl border border-border bg-surface pl-9 pr-8 text-sm font-medium text-foreground focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
+   291→   291→                >
+   292→   292→                  {sortOptions.map((opt) => (
+   293→   293→                    <option key={opt.value} value={opt.value}>
+   294→   294→                      {opt.label}
+   295→   295→                    </option>
+   296→   296→                  ))}
+   297→   297→                </select>
+   298→   298→                <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
+   299→   299→              </div>
+   300→   300→
+   301→   301→              {/* Filter toggle (mobile) */}
+   302→   302→              <button
+   303→   303→                type="button"
+   304→   304→                onClick={() => setShowFilters((v) => !v)}
+   305→   305→                className="relative inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-muted md:hidden"
+   306→   306→                aria-label="Toggle filters"
+   307→   307→              >
+   308→   308→                <SlidersHorizontal className="h-4 w-4" />
+   309→   309→                Filters
+   310→   310→                {activeFilterCount > 0 ? (
+   311→   311→                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kwik-orange px-1 text-[10px] font-bold text-white">
+   312→   312→                    {activeFilterCount}
+   313→   313→                  </span>
+   314→   314→                ) : null}
+   315→   315→              </button>
+   316→   316→
+   317→   317→              {/* View toggle */}
+   318→   318→              <div className="hidden items-center rounded-xl border border-border bg-surface p-1 md:flex">
+   319→   319→                <button
+   320→   320→                  type="button"
+   321→   321→                  onClick={() => setView("grid")}
+   322→   322→                  aria-label="Grid view"
+   323→   323→                  aria-pressed={view === "grid"}
+   324→   324→                  className={cn(
+   325→   325→                    "rounded-lg p-2 transition",
+   326→   326→                    view === "grid"
+   327→   327→                      ? "bg-kwik-orange text-white"
+   328→   328→                      : "text-kwik-muted hover:text-foreground",
+   329→   329→                  )}
+   330→   330→                >
+   331→   331→                  <LayoutGrid className="h-4 w-4" />
+   332→   332→                </button>
+   333→   333→                <button
+   334→   334→                  type="button"
+   335→   335→                  onClick={() => setView("list")}
+   336→   336→                  aria-label="List view"
+   337→   337→                  aria-pressed={view === "list"}
+   338→   338→                  className={cn(
+   339→   339→                    "rounded-lg p-2 transition",
+   340→   340→                    view === "list"
+   341→   341→                      ? "bg-kwik-orange text-white"
+   342→   342→                      : "text-kwik-muted hover:text-foreground",
+   343→   343→                  )}
+   344→   344→                >
+   345→   345→                  <List className="h-4 w-4" />
+   346→   346→                </button>
+   347→   347→              </div>
+   348→   348→            </div>
+   349→   349→          </div>
+   350→   350→        </div>
+   351→   351→      </section>
+   352→   352→
+   353→   353→      {/* ── Body: sidebar filters + product grid ── */}
+   354→   354→      <section className="container mx-auto max-w-7xl px-4 py-6">
+   355→   355→        <div className="flex gap-6">
+   356→   356→          {/* Sidebar filters (desktop) */}
+   357→   357→          <aside className="hidden w-64 shrink-0 md:block">
+   358→   358→            <FilterPanel
+   359→   359→              category={category}
+   360→   360→              setCategory={updateFilter(setCategory)}
+   361→   361→              vendor={vendor}
+   362→   362→              setVendor={updateFilter(setVendor)}
+   363→   363→              priceMax={priceMax}
+   364→   364→              setPriceMax={updateFilter(setPriceMax)}
+   365→   365→              onlyDiscounted={onlyDiscounted}
+   366→   366→              setOnlyDiscounted={updateFilter(setOnlyDiscounted)}
+   367→   367→              onlyInStock={onlyInStock}
+   368→   368→              setOnlyInStock={updateFilter(setOnlyInStock)}
+   369→   369→              activeFilterCount={activeFilterCount}
+   370→   370→              onClear={clearFilters}
+   371→   371→              categoryOptions={categoryOptions}
+   372→   372→              vendorOptions={vendorOptions}
+   373→   373→            />
+   374→   374→          </aside>
+   375→   375→
+   376→   376→          {/* Mobile filter drawer */}
+   377→   377→          <AnimatePresence>
+   378→   378→            {showFilters ? (
+   379→   379→              <motion.div
+   380→   380→                initial={{ opacity: 0 }}
+   381→   381→                animate={{ opacity: 1 }}
+   382→   382→                exit={{ opacity: 0 }}
+   383→   383→                className="fixed inset-0 z-50 md:hidden"
+   384→   384→              >
+   385→   385→                <div
+   386→   386→                  className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+   387→   387→                  onClick={() => setShowFilters(false)}
+   388→   388→                />
+   389→   389→                <motion.div
+   390→   390→                  initial={{ x: "-100%" }}
+   391→   391→                  animate={{ x: 0 }}
+   392→   392→                  exit={{ x: "-100%" }}
+   393→   393→                  transition={{ type: "spring", damping: 28, stiffness: 280 }}
+   394→   394→                  className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-background p-4 shadow-2xl"
+   395→   395→                >
+   396→   396→                  <div className="mb-4 flex items-center justify-between">
+   397→   397→                    <h2 className="font-heading text-lg font-semibold text-foreground">
+   398→   398→                      Filters
+   399→   399→                    </h2>
+   400→   400→                    <button
+   401→   401→                      type="button"
+   402→   402→                      onClick={() => setShowFilters(false)}
+   403→   403→                      aria-label="Close filters"
+   404→   404→                      className="rounded-lg p-1.5 text-kwik-muted hover:bg-muted hover:text-foreground"
+   405→   405→                    >
+   406→   406→                      <X className="h-5 w-5" />
+   407→   407→                    </button>
+   408→   408→                  </div>
+   409→   409→                  <FilterPanel
+   410→   410→                    category={category}
+   411→   411→                    setCategory={updateFilter(setCategory)}
+   412→   412→                    vendor={vendor}
+   413→   413→                    setVendor={updateFilter(setVendor)}
+   414→   414→                    priceMax={priceMax}
+   415→   415→                    setPriceMax={updateFilter(setPriceMax)}
+   416→   416→                    onlyDiscounted={onlyDiscounted}
+   417→   417→                    setOnlyDiscounted={updateFilter(setOnlyDiscounted)}
+   418→   418→                    onlyInStock={onlyInStock}
+   419→   419→                    setOnlyInStock={updateFilter(setOnlyInStock)}
+   420→   420→                    activeFilterCount={activeFilterCount}
+   421→   421→                    onClear={clearFilters}
+   422→   422→                    categoryOptions={categoryOptions}
+   423→   423→                    vendorOptions={vendorOptions}
+   424→   424→                  />
+   425→   425→                </motion.div>
+   426→   426→              </motion.div>
+   427→   427→            ) : null}
+   428→   428→          </AnimatePresence>
+   429→   429→
+   430→   430→          {/* Results */}
+   431→   431→          <div className="min-w-0 flex-1">
+   432→   432→            {/* Result count + active chips */}
+   433→   433→            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+   434→   434→              <p className="text-sm text-kwik-muted">
+   435→   435→                Showing{" "}
+   436→   436→                <span className="font-semibold text-foreground">
+   437→   437→                  {filtered.length}
+   438→   438→                </span>{" "}
+   439→   439→                {filtered.length !== totalCount ? (
+   440→   440→                  <>
+   441→   441→                    of{" "}
+   442→   442→                    <span className="font-semibold text-foreground">
+   443→   443→                      {totalCount}
+   444→   444→                    </span>{" "}
+   445→   445→                  </>
+   446→   446→                ) : null}
+   447→   447→                products
+   448→   448→                {totalPages > 1 ? (
+   449→   449→                  <>
+   450→   450→                    {" "}
+   451→   451→                    · Page{" "}
+   452→   452→                    <span className="font-semibold text-foreground">{page}</span>{" "}
+   453→   453→                    of {totalPages}
+   454→   454→                  </>
+   455→   455→                ) : null}
+   456→   456→              </p>
+   457→   457→              {activeFilterCount > 0 ? (
+   458→   458→                <button
+   459→   459→                  type="button"
+   460→   460→                  onClick={clearFilters}
+   461→   461→                  className="inline-flex items-center gap-1 text-xs font-medium text-kwik-orange hover:opacity-80"
+   462→   462→                >
+   463→   463→                  <X className="h-3.5 w-3.5" /> Clear all filters
+   464→   464→                </button>
+   465→   465→              ) : null}
+   466→   466→            </div>
+   467→   467→
+   468→   468→            {/* Active filter chips */}
+   469→   469→            {activeFilterCount > 0 ? (
+   470→   470→              <div className="mb-4 flex flex-wrap gap-2">
+   471→   471→                {category !== "all" ? (
+   472→   472→                  <FilterChip
+   473→   473→                    label={
+   474→   474→                      categoryOptions.find((c) => c.value === category)?.label ??
+   475→   475→                      category
+   476→   476→                    }
+   477→   477→                    onRemove={() => {
+   478→   478→                      setCategory("all");
+   479→   479→                      setPage(1);
+   480→   480→                    }}
+   481→   481→                  />
+   482→   482→                ) : null}
+   483→   483→                {vendor !== "all" ? (
+   484→   484→                  <FilterChip
+   485→   485→                    label={
+   486→   486→                      vendorOptions.find((v) => v.value === vendor)?.label ??
+   487→   487→                      vendor
+   488→   488→                    }
+   489→   489→                    onRemove={() => {
+   490→   490→                      setVendor("all");
+   491→   491→                      setPage(1);
+   492→   492→                    }}
+   493→   493→                  />
+   494→   494→                ) : null}
+   495→   495→                {brandId ? (
+   496→   496→                  <FilterChip
+   497→   497→                    label="Brand filter"
+   498→   498→                    onRemove={() => {
+   499→   499→                      setBrandId("");
+   500→   500→                      setPage(1);
+   501→   501→                    }}
+   502→   502→                  />
+   503→   503→                ) : null}
+   504→   504→                {onlyDiscounted ? (
+   505→   505→                  <FilterChip label="On sale" onRemove={() => {
+   506→   506→                    setOnlyDiscounted(false);
+   507→   507→                    setPage(1);
+   508→   508→                  }} />
+   509→   509→                ) : null}
+   510→   510→                {onlyInStock ? (
+   511→   511→                  <FilterChip label="In stock" onRemove={() => {
+   512→   512→                    setOnlyInStock(false);
+   513→   513→                    setPage(1);
+   514→   514→                  }} />
+   515→   515→                ) : null}
+   516→   516→                {priceMax < 50000 ? (
+   517→   517→                  <FilterChip label={`Under ${formatNGN(priceMax)}`} onRemove={() => {
+   518→   518→                    setPriceMax(50000);
+   519→   519→                    setPage(1);
+   520→   520→                  }} />
+   521→   521→                ) : null}
+   522→   522→              </div>
+   523→   523→            ) : null}
+   524→   524→
+   525→   525→            {/* Loading skeleton */}
+   526→   526→            {isLoading ? (
+   527→   527→              <ProductGridSkeleton count={8} columns={view === "list" ? 2 : 4} />
+   528→   528→            ) : filtered.length === 0 ? (
+   529→   529→              <EmptyState
+   530→   530→                variant="search"
+   531→   531→                title="No products found"
+   532→   532→                description="Try adjusting your search or filters to find what you're looking for."
+   533→   533→                action={
+   534→   534→                  <button
+   535→   535→                    type="button"
+   536→   536→                    onClick={() => {
+   537→   537→                      setQuery("");
+   538→   538→                      clearFilters();
+   539→   539→                    }}
+   540→   540→                    className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
+   541→   541→                  >
+   542→   542→                    Reset all
+   543→   543→                  </button>
+   544→   544→                }
+   545→   545→              />
+   546→   546→            ) : view === "grid" ? (
+   547→   547→              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+   548→   548→                {filtered.map((product, idx) => (
+   549→   549→                  <motion.div
+   550→   550→                    key={product.id}
+   551→   551→                    initial={{ opacity: 0, y: 16 }}
+   552→   552→                    animate={{ opacity: 1, y: 0 }}
+   553→   553→                    transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.3) }}
+   554→   554→                  >
+   555→   555→                    <ProductCard
+   556→   556→                      image={product.image}
+   557→   557→                      imageAlt={product.name}
+   558→   558→                      name={product.name}
+   559→   559→                      price={product.price}
+   560→   560→                      comparePrice={product.comparePrice}
+   561→   561→                      rating={product.rating}
+   562→   562→                      reviewCount={product.reviewCount}
+   563→   563→                      storeName={product.store}
+   564→   564→                      category={product.category}
+   565→   565→                      tag={product.tag}
+   566→   566→                      isNew={product.isNew}
+   567→   567→                      href={`/products/${product.id}`}
+   568→   568→                      onAddToCart={() => handleAddToCart(product)}
+   569→   569→                      onWishlist={() => handleWishlist(product)}
+   570→   570→                      isWishlisted={wishlistItems.some((w) => w.productId === product.id)}
+   571→   571→                      variant="default"
+   572→   572→                    />
+   573→   573→                  </motion.div>
+   574→   574→                ))}
+   575→   575→              </div>
+   576→   576→            ) : (
+   577→   577→              <div className="flex flex-col gap-4">
+   578→   578→                {filtered.map((product, idx) => (
+   579→   579→                  <motion.div
+   580→   580→                    key={product.id}
+   581→   581→                    initial={{ opacity: 0, x: -8 }}
+   582→   582→                    animate={{ opacity: 1, x: 0 }}
+   583→   583→                    transition={{ duration: 0.25, delay: Math.min(idx * 0.02, 0.2) }}
+   584→   584→                  >
+   585→   585→                    <ProductCard
+   586→   586→                      image={product.image}
+   587→   587→                      imageAlt={product.name}
+   588→   588→                      name={product.name}
+   589→   589→                      price={product.price}
+   590→   590→                      comparePrice={product.comparePrice}
+   591→   591→                      rating={product.rating}
+   592→   592→                      reviewCount={product.reviewCount}
+   593→   593→                      storeName={product.store}
+   594→   594→                      category={product.category}
+   595→   595→                      tag={product.tag}
+   596→   596→                      isNew={product.isNew}
+   597→   597→                      href={`/products/${product.id}`}
+   598→   598→                      onAddToCart={() => handleAddToCart(product)}
+   599→   599→                      onWishlist={() => handleWishlist(product)}
+   600→   600→                      isWishlisted={wishlistItems.some((w) => w.productId === product.id)}
+   601→   601→                      variant="horizontal"
+   602→   602→                    />
+   603→   603→                  </motion.div>
+   604→   604→                ))}
+   605→   605→              </div>
+   606→   606→            )}
+   607→   607→
+   608→   608→            {/* Pagination */}
+   609→   609→            {totalPages > 1 && !isLoading ? (
+   610→   610→              <div className="mt-8 flex items-center justify-center gap-2">
+   611→   611→                <button
+   612→   612→                  type="button"
+   613→   613→                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+   614→   614→                  disabled={page <= 1}
+   615→   615→                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+   616→   616→                  aria-label="Previous page"
+   617→   617→                >
+   618→   618→                  <ChevronLeft className="h-4 w-4" />
+   619→   619→                  Prev
+   620→   620→                </button>
+   621→   621→                {Array.from({ length: totalPages }).map((_, i) => {
+   622→   622→                  const pageNum = i + 1;
+   623→   623→                  const isCurrent = pageNum === page;
+   624→   624→                  return (
+   625→   625→                    <button
+   626→   626→                      key={pageNum}
+   627→   627→                      type="button"
+   628→   628→                      onClick={() => setPage(pageNum)}
+   629→   629→                      className={cn(
+   630→   630→                        "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-sm font-medium transition",
+   631→   631→                        isCurrent
+   632→   632→                          ? "border-kwik-orange bg-kwik-orange text-white"
+   633→   633→                          : "border-border bg-surface text-foreground hover:bg-muted",
+   634→   634→                      )}
+   635→   635→                      aria-current={isCurrent ? "page" : undefined}
+   636→   636→                    >
+   637→   637→                      {pageNum}
+   638→   638→                    </button>
+   639→   639→                  );
+   640→   640→                })}
+   641→   641→                <button
+   642→   642→                  type="button"
+   643→   643→                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+   644→   644→                  disabled={page >= totalPages}
+   645→   645→                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+   646→   646→                  aria-label="Next page"
+   647→   647→                >
+   648→   648→                  Next
+   649→   649→                  <ChevronRight className="h-4 w-4" />
+   650→   650→                </button>
+   651→   651→              </div>
+   652→   652→            ) : null}
+   653→   653→          </div>
+   654→   654→        </div>
+   655→   655→      </section>
+   656→   656→    </div>
+   657→   657→  );
+   658→   658→}
+   659→   659→
+   660→   660→// ── Filter panel (shared by desktop sidebar + mobile drawer) ──────────────
+   661→   661→
+   662→   662→interface FilterPanelProps {
+   663→   663→  category: string;
+   664→   664→  setCategory: (v: string) => void;
+   665→   665→  vendor: string;
+   666→   666→  setVendor: (v: string) => void;
+   667→   667→  priceMax: number;
+   668→   668→  setPriceMax: (v: number) => void;
+   669→   669→  onlyDiscounted: boolean;
+   670→   670→  setOnlyDiscounted: (v: boolean) => void;
+   671→   671→  onlyInStock: boolean;
+   672→   672→  setOnlyInStock: (v: boolean) => void;
+   673→   673→  activeFilterCount: number;
+   674→   674→  onClear: () => void;
+   675→   675→  categoryOptions: { label: string; value: string }[];
+   676→   676→  vendorOptions: { label: string; value: string }[];
+   677→   677→}
+   678→   678→
+   679→   679→function FilterPanel(props: FilterPanelProps) {
+   680→   680→  return (
+   681→   681→    <div className="space-y-6">
+   682→   682→      <div className="flex items-center justify-between">
+   683→   683→        <h2 className="font-heading text-sm font-semibold uppercase tracking-wide text-foreground">
+   684→   684→          Filters
+   685→   685→        </h2>
+   686→   686→        {props.activeFilterCount > 0 ? (
+   687→   687→          <button
+   688→   688→            type="button"
+   689→   689→            onClick={props.onClear}
+   690→   690→            className="text-xs font-medium text-kwik-orange hover:opacity-80"
+   691→   691→          >
+   692→   692→            Clear ({props.activeFilterCount})
+   693→   693→          </button>
+   694→   694→        ) : null}
+   695→   695→      </div>
+   696→   696→
+   697→   697→      {/* Category */}
+   698→   698→      <div>
+   699→   699→        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
+   700→   700→          Category
+   701→   701→        </h3>
+   702→   702→        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+   703→   703→          {props.categoryOptions.map((c) => (
+   704→   704→            <button
+   705→   705→              key={c.value}
+   706→   706→              type="button"
+   707→   707→              onClick={() => props.setCategory(c.value)}
+   708→   708→              className={cn(
+   709→   709→                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition",
+   710→   710→                props.category === c.value
+   711→   711→                  ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+   712→   712→                  : "text-foreground hover:bg-muted",
+   713→   713→              )}
+   714→   714→            >
+   715→   715→              {c.label}
+   716→   716→            </button>
+   717→   717→          ))}
+   718→   718→        </div>
+   719→   719→      </div>
+   720→   720→
+   721→   721→      {/* Vendor */}
+   722→   722→      <div>
+   723→   723→        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
+   724→   724→          Vendor
+   725→   725→        </h3>
+   726→   726→        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+   727→   727→          {props.vendorOptions.map((v) => (
+   728→   728→            <button
+   729→   729→              key={v.value}
+   730→   730→              type="button"
+   731→   731→              onClick={() => props.setVendor(v.value)}
+   732→   732→              className={cn(
+   733→   733→                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition",
+   734→   734→                props.vendor === v.value
+   735→   735→                  ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+   736→   736→                  : "text-foreground hover:bg-muted",
+   737→   737→              )}
+   738→   738→            >
+   739→   739→              {v.label}
+   740→   740→            </button>
+   741→   741→          ))}
+   742→   742→        </div>
+   743→   743→      </div>
+   744→   744→
+   745→   745→      {/* Price */}
+   746→   746→      <div>
+   747→   747→        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
+   748→   748→          Max Price
+   749→   749→        </h3>
+   750→   750→        <input
+   751→   751→          type="range"
+   752→   752→          min={2000}
+   753→   753→          max={50000}
+   754→   754→          step={1000}
+   755→   755→          value={props.priceMax}
+   756→   756→          onChange={(e) => props.setPriceMax(Number(e.target.value))}
+   757→   757→          className="w-full accent-kwik-orange"
+   758→   758→          aria-label="Maximum price"
+   759→   759→        />
+   760→   760→        <div className="mt-1 flex justify-between text-xs text-kwik-muted">
+   761→   761→          <span>{formatNGN(2000)}</span>
+   762→   762→          <span className="font-semibold text-foreground">{formatNGN(props.priceMax)}</span>
+   763→   763→        </div>
+   764→   764→      </div>
+   765→   765→
+   766→   766→      {/* Toggles */}
+   767→   767→      <div className="space-y-2">
+   768→   768→        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-muted">
+   769→   769→          <span className="text-sm text-foreground">On sale only</span>
+   770→   770→          <input
+   771→   771→            type="checkbox"
+   772→   772→            checked={props.onlyDiscounted}
+   773→   773→            onChange={(e) => props.setOnlyDiscounted(e.target.checked)}
+   774→   774→            className="h-4 w-4 accent-kwik-orange"
+   775→   775→          />
+   776→   776→        </label>
+   777→   777→        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-muted">
+   778→   778→          <span className="text-sm text-foreground">In stock only</span>
+   779→   779→          <input
+   780→   780→            type="checkbox"
+   781→   781→            checked={props.onlyInStock}
+   782→   782→            onChange={(e) => props.setOnlyInStock(e.target.checked)}
+   783→   783→            className="h-4 w-4 accent-kwik-orange"
+   784→   784→          />
+   785→   785→        </label>
+   786→   786→      </div>
+   787→   787→    </div>
+   788→   788→  );
+   789→   789→}
+   790→   790→
+   791→   791→function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+   792→   792→  return (
+   793→   793→    <span className="inline-flex items-center gap-1.5 rounded-full border border-kwik-orange/30 bg-kwik-orange-tint py-1 pl-3 pr-2 text-xs font-medium text-kwik-orange">
+   794→   794→      {label}
+   795→   795→      <button
+   796→   796→        type="button"
+   797→   797→        onClick={onRemove}
+   798→   798→        aria-label={`Remove ${label} filter`}
+   799→   799→        className="rounded-full p-0.5 hover:bg-kwik-orange/20"
+   800→   800→      >
+   801→   801→        <X className="h-3 w-3" />
+   802→   802→      </button>
+   803→   803→    </span>
+   804→   804→  );
+   805→   805→}
+   806→   806→
+   807→   807→export default function ProductsPage() {
+   808→   808→  return (
+   809→   809→    <Suspense
+   810→   810→      fallback={
+   811→   811→        <div className="container mx-auto max-w-7xl px-4 py-10">
+   812→   812→          <ProductGridSkeleton count={8} columns={4} />
+   813→   813→        </div>
+   814→   814→      }
+   815→   815→    >
+   816→   816→      <ProductsBrowseContent />
+   817→   817→    </Suspense>
+   818→   818→  );
+   819→   819→}
+   820→   820→
+   821→   821→// Note: the API `Product` type is re-exported via the shared api-hooks but the
+   822→   822→// browse page only consumes the already-mapped `MarketplaceProduct` shape, so
+   823→   823→// we keep the import here for type-completeness of the hook return value.
+   824→   824→export type { Product };
+   825→   825→

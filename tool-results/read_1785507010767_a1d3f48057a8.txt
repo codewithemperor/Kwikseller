@@ -1,0 +1,1172 @@
+     1→"use client";
+     2→
+     3→import Link from "next/link";
+     4→import { useRouter } from "next/navigation";
+     5→import React from "react";
+     6→import {
+     7→  AlertCircle,
+     8→  ArrowLeft,
+     9→  ArrowRight,
+    10→  CalendarDays,
+    11→  CreditCard,
+    12→  Download,
+    13→  Loader2,
+    14→  MapPin,
+    15→  PackageCheck,
+    16→  ShieldCheck,
+    17→  ShoppingCart,
+    18→  Trash2,
+    19→  Truck,
+    20→  Users,
+    21→} from "lucide-react";
+    22→import { Button } from "@heroui/react";
+    23→import { AppButton, FieldAutocomplete, FieldInput, FieldTextarea } from "@kwikseller/ui";
+    24→import { cartApi, checkoutApi, deliveryRatesApi, tokenManager, usersApi } from "@kwikseller/api-client";
+    25→import { getLgasForState, kwikToast, NIGERIA_STATES, useAuth } from "@kwikseller/utils";
+    26→import type { CartValidationIssue, CartVendorGroup, CouponValidationResponse, DeliveryRate } from "@kwikseller/types";
+    27→import { EscrowSafetyDialog } from "@/components/checkout/escrow-safety-dialog";
+    28→import { AppImage } from "@/components/ui/app-image";
+    29→import { useCartStore } from "@/stores";
+    30→
+    31→type CheckoutStep = "cart" | "delivery" | "payment";
+    32→
+    33→type SavedAddress = {
+    34→  id: string;
+    35→  line1: string;
+    36→  line2?: string;
+    37→  city: string;
+    38→  state?: string;
+    39→  stateId?: string;
+    40→  localGovernment?: string;
+    41→  lgaId?: string;
+    42→  country: string;
+    43→  postalCode?: string;
+    44→  isDefault: boolean;
+    45→  type: "SHIPPING" | "BILLING" | "BOTH";
+    46→};
+    47→
+    48→const defaultShipping = {
+    49→  fullName: "",
+    50→  phone: "",
+    51→  addressLine1: "",
+    52→  addressLine2: "",
+    53→  city: "",
+    54→  localGovernment: "",
+    55→  state: "",
+    56→  country: "Nigeria",
+    57→  deliveryInstructions: "",
+    58→};
+    59→
+    60→function formatCurrency(amount: number) {
+    61→  return new Intl.NumberFormat("en-NG", {
+    62→    style: "currency",
+    63→    currency: "NGN",
+    64→    maximumFractionDigits: 0,
+    65→  }).format(amount);
+    66→}
+    67→
+    68→function unwrapApiData<T>(value: unknown): T {
+    69→  if (value && typeof value === "object" && "data" in value) {
+    70→    return (value as { data: T }).data;
+    71→  }
+    72→  return value as T;
+    73→}
+    74→
+    75→function unwrapNestedApiData<T>(value: unknown): T {
+    76→  const payload = value as { data?: unknown };
+    77→  const nested = payload?.data as { data?: unknown } | undefined;
+    78→  return (nested?.data ?? payload?.data ?? value) as T;
+    79→}
+    80→
+    81→function splitAddressLabel(line2?: string) {
+    82→  if (!line2) return { label: "Saved address", landmark: "" };
+    83→  const [label, ...rest] = line2.split(" - ");
+    84→  return { label: label || "Saved address", landmark: rest.join(" - ") };
+    85→}
+    86→
+    87→function splitStateAndLocalGovernment(value?: string) {
+    88→  const [state = "", ...rest] = (value ?? "")
+    89→    .split(",")
+    90→    .map((part) => part.trim())
+    91→    .filter(Boolean);
+    92→  return { state, localGovernment: rest.join(", ") };
+    93→}
+    94→
+    95→function formatAddressParts(parts: Array<string | undefined>) {
+    96→  return parts.map((part) => part?.trim()).filter(Boolean).join(", ");
+    97→}
+    98→
+    99→function extractValidationIssues(error: unknown): CartValidationIssue[] {
+   100→  const responseData = (error as { response?: { data?: unknown } })?.response?.data;
+   101→  const candidates = [
+   102→    responseData,
+   103→    responseData && typeof responseData === "object" && "data" in responseData
+   104→      ? (responseData as { data?: unknown }).data
+   105→      : null,
+   106→    responseData && typeof responseData === "object" && "message" in responseData
+   107→      ? (responseData as { message?: unknown }).message
+   108→      : null,
+   109→  ];
+   110→
+   111→  for (const candidate of candidates) {
+   112→    if (candidate && typeof candidate === "object" && "errors" in candidate) {
+   113→      const errors = (candidate as { errors?: unknown }).errors;
+   114→      if (Array.isArray(errors)) return errors as CartValidationIssue[];
+   115→    }
+   116→  }
+   117→
+   118→  return [];
+   119→}
+   120→
+   121→function fulfillmentMeta(item: {
+   122→  productType?: string;
+   123→  productSource?: string;
+   124→  requiresShipping?: boolean;
+   125→}) {
+   126→  if (item.productSource === "POOL_RESALE") return { label: "Partner Fulfilled", icon: Users, color: "text-emerald-700" };
+   127→  if (item.productSource === "GROUP_BUY") return { label: "Group Buy", icon: Users, color: "text-cyan-700" };
+   128→  if (item.productType === "DIGITAL" || item.requiresShipping === false) return { label: "Digital Delivery", icon: Download, color: "text-violet-700" };
+   129→  return { label: "Vendor Stock", icon: PackageCheck, color: "text-kwik-dark" };
+   130→}
+   131→
+   132→function formatDeliveryWindow(rate?: DeliveryRate | null) {
+   133→  if (!rate?.estimatedDeliveryStart || !rate?.estimatedDeliveryEnd) return null;
+   134→  const formatter = new Intl.DateTimeFormat("en-NG", { month: "short", day: "numeric" });
+   135→  return `${formatter.format(new Date(rate.estimatedDeliveryStart))} - ${formatter.format(new Date(rate.estimatedDeliveryEnd))}`;
+   136→}
+   137→
+   138→function groupCartItems(items: ReturnType<typeof useCartStore.getState>["items"]) {
+   139→  const groups = new Map<
+   140→    string,
+   141→    {
+   142→      storeId: string;
+   143→      storeSlug?: string;
+   144→      storeName: string;
+   145→      items: typeof items;
+   146→      subtotal: number;
+   147→      requiresShipping: boolean;
+   148→      hasDigitalDelivery: boolean;
+   149→      hasPoolResale: boolean;
+   150→    }
+   151→  >();
+   152→
+   153→  for (const item of items) {
+   154→    const storeId = item.storeId ?? item.storeSlug ?? item.store ?? "kwikseller-store";
+   155→    if (!groups.has(storeId)) {
+   156→      groups.set(storeId, {
+   157→        storeId,
+   158→        storeSlug: item.storeSlug,
+   159→        storeName: item.storeName ?? item.store ?? "Kwikseller vendor",
+   160→        items: [],
+   161→        subtotal: 0,
+   162→        requiresShipping: false,
+   163→        hasDigitalDelivery: false,
+   164→        hasPoolResale: false,
+   165→      });
+   166→    }
+   167→
+   168→    const group = groups.get(storeId)!;
+   169→    group.items.push(item);
+   170→    group.subtotal += item.price * item.quantity;
+   171→    group.requiresShipping = group.requiresShipping || (item.requiresShipping !== false && item.productType !== "DIGITAL");
+   172→    group.hasDigitalDelivery = group.hasDigitalDelivery || item.productType === "DIGITAL" || item.requiresShipping === false;
+   173→    group.hasPoolResale = group.hasPoolResale || item.productSource === "POOL_RESALE" || Boolean(item.poolOfferId);
+   174→  }
+   175→
+   176→  return [...groups.values()];
+   177→}
+   178→
+   179→export default function CartPage() {
+   180→  const router = useRouter();
+   181→  const { user, isAuthenticated } = useAuth();
+   182→  const { items, removeItem, updateQuantity, clearCart } = useCartStore();
+   183→  const [shipping, setShipping] = React.useState(defaultShipping);
+   184→  const [step, setStep] = React.useState<CheckoutStep>("cart");
+   185→  const [isCheckingOut, setIsCheckingOut] = React.useState(false);
+   186→  const [isValidating, setIsValidating] = React.useState(false);
+   187→  const [validationIssues, setValidationIssues] = React.useState<CartValidationIssue[]>([]);
+   188→  const [validationGroups, setValidationGroups] = React.useState<CartVendorGroup[]>([]);
+   189→  const [deliveryRate, setDeliveryRate] = React.useState<DeliveryRate | null>(null);
+   190→  const [isLoadingDeliveryRate, setIsLoadingDeliveryRate] = React.useState(false);
+   191→  const [deliveryRateError, setDeliveryRateError] = React.useState("");
+   192→  const [couponCode, setCouponCode] = React.useState("");
+   193→  const [appliedCoupon, setAppliedCoupon] = React.useState<CouponValidationResponse | null>(null);
+   194→  const [couponError, setCouponError] = React.useState("");
+   195→  const [isApplyingCoupon, setIsApplyingCoupon] = React.useState(false);
+   196→  const [isEscrowDialogOpen, setIsEscrowDialogOpen] = React.useState(false);
+   197→  const [savedAddresses, setSavedAddresses] = React.useState<SavedAddress[]>([]);
+   198→  const [selectedAddressId, setSelectedAddressId] = React.useState("");
+   199→  const [isLoadingAddresses, setIsLoadingAddresses] = React.useState(false);
+   200→  const [saveAddressForNextShopping, setSaveAddressForNextShopping] = React.useState(false);
+   201→  const hasAppliedDefaultAddressRef = React.useRef(false);
+   202→
+   203→  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+   204→  const savings = items.reduce(
+   205→    (sum, item) => sum + Math.max(0, (item.comparePrice ?? item.price) - item.price) * item.quantity,
+   206→    0,
+   207→  );
+   208→  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+   209→  const productCount = items.length;
+   210→  const cartGroups = React.useMemo(() => groupCartItems(items), [items]);
+   211→  const physicalVendorGroups = cartGroups.filter((group) => group.requiresShipping).length;
+   212→  const requiresShipping = items.some((item) => item.requiresShipping !== false && item.productType !== "DIGITAL");
+   213→  const hasDigital = items.some((item) => item.productType === "DIGITAL" || item.requiresShipping === false);
+   214→  const hasPool = items.some((item) => item.productSource === "POOL_RESALE" || item.poolOfferId);
+   215→  const deliveryDate = formatDeliveryWindow(deliveryRate);
+   216→  const deliveryFee = requiresShipping ? (deliveryRate?.fee ?? 0) * Math.max(1, physicalVendorGroups) : 0;
+   217→  const couponDiscount = appliedCoupon?.discount ?? 0;
+   218→  const payableTotal = Math.max(0, subtotal + deliveryFee - couponDiscount);
+   219→  const hasUnvalidatedCoupon = Boolean(couponCode.trim()) && !appliedCoupon;
+   220→  const selectedSavedAddress = React.useMemo(
+   221→    () => savedAddresses.find((address) => address.id === selectedAddressId),
+   222→    [savedAddresses, selectedAddressId],
+   223→  );
+   224→
+   225→  const applySavedAddress = React.useCallback((address: SavedAddress) => {
+   226→    const meta = splitAddressLabel(address.line2);
+   227→    const location = splitStateAndLocalGovernment(address.state);
+   228→
+   229→    setShipping((current) => ({
+   230→      ...current,
+   231→      addressLine1: address.line1 || current.addressLine1,
+   232→      addressLine2: meta.landmark || current.addressLine2,
+   233→      city: address.city || current.city,
+   234→      state: location.state || address.state || current.state,
+   235→      localGovernment: address.localGovernment || location.localGovernment || current.localGovernment,
+   236→      country: address.country || current.country,
+   237→    }));
+   238→  }, []);
+   239→
+   240→  React.useEffect(() => {
+   241→    if (!isAuthenticated || !user) return;
+   242→
+   243→    const fullName = [user.profile?.firstName, user.profile?.lastName].filter(Boolean).join(" ");
+   244→    const fallbackName = user.email?.split("@")[0] ?? "";
+   245→    const phone = user.phone ?? "";
+   246→
+   247→    setShipping((current) => ({
+   248→      ...current,
+   249→      fullName: current.fullName || fullName || fallbackName,
+   250→      phone: current.phone || phone,
+   251→    }));
+   252→  }, [isAuthenticated, user]);
+   253→
+   254→  React.useEffect(() => {
+   255→    if (!isAuthenticated) {
+   256→      setSavedAddresses([]);
+   257→      setSelectedAddressId("");
+   258→      setIsLoadingAddresses(false);
+   259→      return;
+   260→    }
+   261→
+   262→    let cancelled = false;
+   263→    const loadAddresses = async () => {
+   264→      setIsLoadingAddresses(true);
+   265→      try {
+   266→        const response = await usersApi.getAddresses();
+   267→        const payload = unwrapNestedApiData<SavedAddress[]>(response);
+   268→        const addresses = (Array.isArray(payload) ? payload : []).filter((address) =>
+   269→          ["SHIPPING", "BOTH"].includes(address.type),
+   270→        );
+   271→
+   272→        if (cancelled) return;
+   273→
+   274→        setSavedAddresses(addresses);
+   275→
+   276→        const defaultAddress = addresses.find((address) => address.isDefault);
+   277→        if (defaultAddress && !hasAppliedDefaultAddressRef.current) {
+   278→          setSelectedAddressId(defaultAddress.id);
+   279→          const meta = splitAddressLabel(defaultAddress.line2);
+   280→          const location = splitStateAndLocalGovernment(defaultAddress.state);
+   281→          setShipping((current) => {
+   282→            if (current.addressLine1 || current.city || current.state) return current;
+   283→            hasAppliedDefaultAddressRef.current = true;
+   284→            return {
+   285→              ...current,
+   286→              addressLine1: defaultAddress.line1 || current.addressLine1,
+   287→              addressLine2: meta.landmark || current.addressLine2,
+   288→              city: defaultAddress.city || current.city,
+   289→              state: location.state || defaultAddress.state || current.state,
+   290→              localGovernment: defaultAddress.localGovernment || location.localGovernment || current.localGovernment,
+   291→              country: defaultAddress.country || current.country,
+   292→            };
+   293→          });
+   294→        }
+   295→      } catch {
+   296→        if (!cancelled) setSavedAddresses([]);
+   297→      } finally {
+   298→        if (!cancelled) setIsLoadingAddresses(false);
+   299→      }
+   300→    };
+   301→
+   302→    loadAddresses();
+   303→
+   304→    return () => {
+   305→      cancelled = true;
+   306→    };
+   307→  }, [isAuthenticated]);
+   308→
+   309→  React.useEffect(() => {
+   310→    setAppliedCoupon(null);
+   311→    setCouponError("");
+   312→  }, [subtotal]);
+   313→
+   314→  React.useEffect(() => {
+   315→    setDeliveryRate(null);
+   316→    setDeliveryRateError("");
+   317→
+   318→    if (!requiresShipping) return;
+   319→
+   320→    const state = shipping.state.trim();
+   321→    const localGovernment = shipping.localGovernment.trim();
+   322→    if (!state || !localGovernment) return;
+   323→
+   324→    let cancelled = false;
+   325→    const load = async () => {
+   326→      setIsLoadingDeliveryRate(true);
+   327→      try {
+   328→        const response = await deliveryRatesApi.lookup({ state, localGovernment });
+   329→        if (!cancelled) {
+   330→          setDeliveryRate(unwrapApiData<DeliveryRate>(response.data));
+   331→          setDeliveryRateError("");
+   332→        }
+   333→      } catch (error) {
+   334→        if (!cancelled) {
+   335→          setDeliveryRate(null);
+   336→          const message =
+   337→            (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+   338→            "No active delivery rate for this location yet.";
+   339→          setDeliveryRateError(message);
+   340→        }
+   341→      } finally {
+   342→        if (!cancelled) setIsLoadingDeliveryRate(false);
+   343→      }
+   344→    };
+   345→
+   346→    const timeout = window.setTimeout(load, 300);
+   347→    return () => {
+   348→      cancelled = true;
+   349→      window.clearTimeout(timeout);
+   350→    };
+   351→  }, [requiresShipping, shipping.state, shipping.localGovernment]);
+   352→
+   353→  const updateShipping = (field: keyof typeof defaultShipping, value: string) => {
+   354→    setShipping((current) => ({
+   355→      ...current,
+   356→      [field]: value,
+   357→      ...(field === "state" ? { localGovernment: "" } : {}),
+   358→    }));
+   359→  };
+   360→
+   361→  const applyCoupon = async () => {
+   362→    const code = couponCode.trim();
+   363→    if (!code) return;
+   364→    setIsApplyingCoupon(true);
+   365→    setCouponError("");
+   366→    try {
+   367→      const response = await cartApi.applyCoupon(code);
+   368→      const coupon = unwrapApiData<CouponValidationResponse>(response.data);
+   369→      setAppliedCoupon(coupon);
+   370→      setCouponCode(coupon.code);
+   371→      kwikToast.success(coupon.message ?? "Coupon applied");
+   372→    } catch (error) {
+   373→      setAppliedCoupon(null);
+   374→      const message =
+   375→        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+   376→        "Coupon could not be applied.";
+   377→      setCouponError(message);
+   378→      kwikToast.error(message);
+   379→    } finally {
+   380→      setIsApplyingCoupon(false);
+   381→    }
+   382→  };
+   383→
+   384→  const removeCoupon = () => {
+   385→    setAppliedCoupon(null);
+   386→    setCouponCode("");
+   387→    setCouponError("");
+   388→  };
+   389→
+   390→  const validateShipping = () => {
+   391→    if (!requiresShipping) return true;
+   392→    return Boolean(
+   393→      shipping.fullName.trim() &&
+   394→        shipping.phone.trim() &&
+   395→        shipping.addressLine1.trim() &&
+   396→        shipping.city.trim() &&
+   397→        shipping.localGovernment.trim() &&
+   398→        shipping.state.trim() &&
+   399→        shipping.country.trim(),
+   400→    );
+   401→  };
+   402→
+   403→  const syncLocalCartToApi = async () => {
+   404→    await cartApi.clear();
+   405→    for (const item of items) {
+   406→      if (item.poolOfferId) {
+   407→        await cartApi.addPoolOffer(item.poolOfferId, item.quantity);
+   408→      } else {
+   409→        await cartApi.addItem(item.productId, item.quantity);
+   410→      }
+   411→    }
+   412→
+   413→    const validationResponse = await cartApi.validate();
+   414→    const validation = unwrapApiData<{
+   415→      valid: boolean;
+   416→      errors: CartValidationIssue[];
+   417→      warnings: CartValidationIssue[];
+   418→      groups?: CartVendorGroup[];
+   419→    }>(validationResponse.data);
+   420→
+   421→    const issues = [...(validation.errors ?? []), ...(validation.warnings ?? [])];
+   422→    setValidationIssues(issues);
+   423→    setValidationGroups(validation.groups ?? []);
+   424→
+   425→    if (!validation.valid) {
+   426→      throw new Error("Cart validation failed");
+   427→    }
+   428→  };
+   429→
+   430→  const ensureAuthenticated = () => {
+   431→    if (tokenManager.isAuthenticated()) return true;
+   432→    kwikToast.info("Login to continue checkout.");
+   433→    router.push("/login?redirect=/checkout");
+   434→    return false;
+   435→  };
+   436→
+   437→  const validateCartBeforeNextStep = async () => {
+   438→    setIsValidating(true);
+   439→    setValidationIssues([]);
+   440→    setValidationGroups([]);
+   441→    try {
+   442→      await syncLocalCartToApi();
+   443→      return true;
+   444→    } catch (error) {
+   445→      const issues = extractValidationIssues(error);
+   446→      if (issues.length) {
+   447→        setValidationIssues(issues);
+   448→        kwikToast.error(issues[0]?.message ?? "Cart validation failed");
+   449→      } else {
+   450→        kwikToast.error("Fix the cart issues before checkout.");
+   451→      }
+   452→      return false;
+   453→    } finally {
+   454→      setIsValidating(false);
+   455→    }
+   456→  };
+   457→
+   458→  const saveCheckoutAddressIfNeeded = async () => {
+   459→    if (!requiresShipping || !saveAddressForNextShopping || !isAuthenticated || selectedAddressId) return;
+   460→
+   461→    try {
+   462→      await usersApi.addAddress({
+   463→        line1: shipping.addressLine1,
+   464→        line2: ["Checkout address", shipping.addressLine2.trim()].filter(Boolean).join(" - "),
+   465→        city: shipping.city,
+   466→        state: shipping.state,
+   467→        localGovernment: shipping.localGovernment || undefined,
+   468→        country: shipping.country,
+   469→        type: "SHIPPING",
+   470→        isDefault: savedAddresses.length === 0,
+   471→      });
+   472→      kwikToast.success("Delivery address saved for next shopping");
+   473→    } catch {
+   474→      kwikToast.error("Could not save delivery address, but checkout can continue.");
+   475→    }
+   476→  };
+   477→
+   478→  const processCheckout = async () => {
+   479→    setIsCheckingOut(true);
+   480→    setValidationIssues([]);
+   481→    try {
+   482→      await syncLocalCartToApi();
+   483→      await saveCheckoutAddressIfNeeded();
+   484→      const response = await checkoutApi.create({
+   485→        idempotencyKey: `marketplace-${Date.now()}`,
+   486→        shippingAddress: requiresShipping ? shipping : undefined,
+   487→        couponCode: appliedCoupon?.code,
+   488→      });
+   489→      const checkout = unwrapApiData<{ authorizationUrl?: string; reference?: string }>(response.data);
+   490→
+   491→      if (!checkout.authorizationUrl) {
+   492→        throw new Error("Checkout did not return a Paystack authorization URL.");
+   493→      }
+   494→
+   495→      clearCart();
+   496→      window.location.href = checkout.authorizationUrl;
+   497→    } catch (error) {
+   498→      const issues = extractValidationIssues(error);
+   499→      if (issues.length) {
+   500→        setValidationIssues(issues);
+   501→        setStep("cart");
+   502→        kwikToast.error(issues[0]?.message ?? "Cart validation failed");
+   503→      } else {
+   504→        kwikToast.error(error instanceof Error ? error.message : "Checkout failed");
+   505→      }
+   506→    } finally {
+   507→      setIsCheckingOut(false);
+   508→      setIsEscrowDialogOpen(false);
+   509→    }
+   510→  };
+   511→
+   512→  const handlePrimaryAction = async () => {
+   513→    if (!items.length) return;
+   514→    if (!ensureAuthenticated()) return;
+   515→
+   516→    if (step === "cart") {
+   517→      const isValidCart = await validateCartBeforeNextStep();
+   518→      if (!isValidCart) return;
+   519→      setStep(requiresShipping ? "delivery" : "payment");
+   520→      return;
+   521→    }
+   522→
+   523→    if (step === "delivery") {
+   524→      if (!validateShipping()) {
+   525→        kwikToast.error("Add full delivery details before payment.");
+   526→        return;
+   527→      }
+   528→      if (requiresShipping && !deliveryRate) {
+   529→        kwikToast.error(deliveryRateError || "Choose a delivery location with an active rate.");
+   530→        return;
+   531→      }
+   532→      setStep("payment");
+   533→      return;
+   534→    }
+   535→
+   536→    if (hasUnvalidatedCoupon) {
+   537→      kwikToast.error("Apply or remove the coupon before payment.");
+   538→      return;
+   539→    }
+   540→
+   541→    setIsEscrowDialogOpen(true);
+   542→  };
+   543→
+   544→  const primaryLabel =
+   545→    step === "cart"
+   546→      ? requiresShipping
+   547→        ? "Continue to delivery"
+   548→        : "Continue to payment"
+   549→      : step === "delivery"
+   550→        ? "Continue to payment"
+   551→        : "Pay with Paystack";
+   552→
+   553→  const isPrimaryBusy = isCheckingOut || isValidating;
+   554→  const isPrimaryDisabled =
+   555→    !items.length ||
+   556→    isPrimaryBusy ||
+   557→    (step === "payment" &&
+   558→      ((requiresShipping && (!deliveryRate || isLoadingDeliveryRate)) || hasUnvalidatedCoupon));
+   559→
+   560→  const handleStepClick = (nextStep: CheckoutStep) => {
+   561→    if (nextStep === "cart") {
+   562→      setStep("cart");
+   563→      return;
+   564→    }
+   565→
+   566→    if (!ensureAuthenticated()) return;
+   567→
+   568→    if (nextStep === "delivery") {
+   569→      if (requiresShipping) setStep("delivery");
+   570→      return;
+   571→    }
+   572→
+   573→    if (!requiresShipping || (validateShipping() && deliveryRate)) {
+   574→      setStep("payment");
+   575→    } else {
+   576→      kwikToast.error("Complete delivery details before payment.");
+   577→    }
+   578→  };
+   579→
+   580→  return (
+   581→    <div className="min-h-screen bg-background">
+   582→      <div className="border-b border-border bg-background">
+   583→        <div className="container mx-auto flex items-center gap-3 px-4 py-3">
+   584→          <Link href="/">
+   585→            <Button isIconOnly variant="ghost" size="sm" aria-label="Go back">
+   586→              <ArrowLeft className="h-5 w-5" />
+   587→            </Button>
+   588→          </Link>
+   589→          <div className="min-w-0">
+   590→            <h1 className="truncate text-lg font-semibold text-kwik-dark dark:text-white">Checkout</h1>
+   591→          </div>
+   592→        </div>
+   593→      </div>
+   594→
+   595→      <main className="container mx-auto grid w-full max-w-full grid-cols-1 gap-6 overflow-hidden px-4 pb-28 pt-4 md:pb-8 lg:grid-cols-[minmax(0,1fr)_390px]">
+   596→        <div className="min-w-0 max-w-full space-y-5">
+   597→          <section className="flex min-w-0 max-w-full items-center overflow-hidden border border-neutral-200 bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
+   598→            {[
+   599→              {
+   600→                id: "cart",
+   601→                icon: ShoppingCart,
+   602→                title: "Cart",
+   603→                text: `${productCount} product${productCount === 1 ? "" : "s"}${totalItems !== productCount ? `, ${totalItems} qty` : ""}`,
+   604→              },
+   605→              { id: "delivery", icon: Truck, title: "Delivery", text: requiresShipping ? "Address required" : "Not required" },
+   606→              { id: "payment", icon: CreditCard, title: "Payment", text: "Paystack" },
+   607→            ].map((item, index) => {
+   608→              const isActive = item.id === step;
+   609→              const isDone =
+   610→                (item.id === "cart" && step !== "cart") ||
+   611→                (item.id === "delivery" && step === "payment");
+   612→              return (
+   613→                <React.Fragment key={item.id}>
+   614→                  <button
+   615→                    type="button"
+   616→                    onClick={() => handleStepClick(item.id as CheckoutStep)}
+   617→                    className={`min-w-0 flex-1 px-1.5 py-2 text-left transition ${
+   618→                      isActive
+   619→                        ? "bg-kwik-orange text-white shadow-sm"
+   620→                        : isDone
+   621→                          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+   622→                          : "text-kwik-dark hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
+   623→                    }`}
+   624→                  >
+   625→                    <div className="flex min-w-0 items-center gap-1.5">
+   626→                      <span
+   627→                        className={`flex h-7 w-7 shrink-0 items-center justify-center border text-[11px] font-bold ${
+   628→                          isActive
+   629→                            ? "border-white/35 bg-white/20 text-white"
+   630→                            : isDone
+   631→                              ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-300/20 dark:bg-white/10 dark:text-emerald-100"
+   632→                              : "border-neutral-200 bg-white text-kwik-muted dark:border-white/10 dark:bg-white/5"
+   633→                        }`}
+   634→                      >
+   635→                        <item.icon className="h-3.5 w-3.5" />
+   636→                      </span>
+   637→                      <span className="min-w-0 flex-1">
+   638→                        <span className="block truncate text-sm font-semibold">{item.title}</span>
+   639→                        <span className={`block truncate text-[11px] ${isActive ? "text-white/80" : "text-kwik-muted dark:text-white/55"}`}>
+   640→                          {item.text}
+   641→                        </span>
+   642→                      </span>
+   643→                    </div>
+   644→                  </button>
+   645→                  {index < 2 && <div className="mx-0.5 h-px w-2 shrink-0 bg-neutral-200 dark:bg-white/10" />}
+   646→                </React.Fragment>
+   647→              );
+   648→            })}
+   649→          </section>
+   650→
+   651→          {validationIssues.length > 0 && (
+   652→            <div className="border border-red-200 bg-red-50 p-4 dark:border-red-400/30 dark:bg-red-950/30">
+   653→              <div className="flex gap-3">
+   654→                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-700 dark:text-red-100" />
+   655→                <div>
+   656→                  <p className="text-sm font-semibold text-red-800 dark:text-red-100">Cart needs attention</p>
+   657→                  <ul className="mt-2 space-y-1 text-sm leading-6 text-red-700 dark:text-red-100/75">
+   658→                    {validationIssues.map((issue, index) => (
+   659→                      <li key={`${issue.code}-${issue.cartItemId ?? index}`}>{issue.message}</li>
+   660→                    ))}
+   661→                  </ul>
+   662→                </div>
+   663→              </div>
+   664→            </div>
+   665→          )}
+   666→
+   667→          {validationGroups.length > 1 && step === "cart" && (
+   668→            <div className="border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-950/30 dark:text-emerald-100">
+   669→              Server validation grouped this cart into {validationGroups.length} vendor orders. You will still pay once with Paystack.
+   670→            </div>
+   671→          )}
+   672→
+   673→          {!items.length ? (
+   674→            <section className="border border-dashed border-neutral-300 p-12 text-center dark:border-white/15">
+   675→              <ShoppingCart className="mx-auto h-12 w-12 text-kwik-muted" />
+   676→              <h2 className="mt-4 text-xl font-semibold text-kwik-dark dark:text-white">Your cart is empty</h2>
+   677→              <p className="mx-auto mt-2 max-w-md text-sm text-kwik-muted dark:text-white/60">
+   678→                Browse vendor stock, partner-fulfilled, or digital delivery products and build a checkout-ready cart.
+   679→              </p>
+   680→              <Link href="/" className="mt-6 inline-flex h-11 items-center gap-2 rounded-md bg-kwik-blue px-5 text-sm font-semibold text-white">
+   681→                Browse marketplace
+   682→                <ArrowRight className="h-4 w-4" />
+   683→              </Link>
+   684→            </section>
+   685→          ) : step === "cart" ? (
+   686→            <section className="min-w-0 max-w-full space-y-4">
+   687→              {cartGroups.map((group) => (
+   688→                <div key={group.storeId} className="flex max-h-[340px] min-w-0 max-w-full flex-col overflow-hidden border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+   689→                  <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-neutral-200 p-3 dark:border-white/10">
+   690→                    <div className="min-w-0">
+   691→                      <h2 className="truncate font-heading text-sm font-semibold text-kwik-dark dark:text-white">{group.storeName}</h2>
+   692→                      <p className="mt-0.5 truncate text-[11px] text-kwik-muted dark:text-white/55">
+   693→                        {group.items.length} product{group.items.length === 1 ? "" : "s"} • {group.requiresShipping ? "Delivery required" : "Digital-only"}{group.hasPoolResale ? " • Partner fulfilled" : ""}
+   694→                      </p>
+   695→                    </div>
+   696→                    <div className="shrink-0 text-sm font-bold text-kwik-dark dark:text-white">{formatCurrency(group.subtotal)}</div>
+   697→                  </div>
+   698→
+   699→                  <div className="min-h-0 flex-1 divide-y divide-neutral-200 overflow-y-auto dark:divide-white/10">
+   700→                    {group.items.map((item) => {
+   701→                      const meta = fulfillmentMeta(item);
+   702→                      const MetaIcon = meta.icon;
+   703→
+   704→                      return (
+   705→                        <article key={`${item.productId}-${item.poolOfferId ?? "stock"}`} className="min-w-0 p-2.5">
+   706→                          <div className="flex min-w-0 gap-2.5">
+   707→                            <div className="h-16 w-16 shrink-0 overflow-hidden bg-neutral-100 sm:h-20 sm:w-20">
+   708→                              <AppImage src={item.image} alt={item.name} className="h-full w-full object-cover" fallbackVariant="product" />
+   709→                            </div>
+   710→                            <div className="min-w-0 flex-1">
+   711→                              <div className="flex min-w-0 items-start justify-between gap-2">
+   712→                                <div className="min-w-0">
+   713→                                  <span className={`inline-flex items-center gap-1 bg-default px-1.5 py-0.5 text-[10px] font-semibold ${meta.color}`}>
+   714→                                    <MetaIcon className="h-3 w-3" />
+   715→                                    {meta.label}
+   716→                                  </span>
+   717→                                  <h3 className="mt-1 line-clamp-1 text-sm font-semibold text-kwik-dark dark:text-white">{item.name}</h3>
+   718→                                </div>
+   719→                                <button
+   720→                                  type="button"
+   721→                                  onClick={() => removeItem(item.productId)}
+   722→                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-kwik-muted hover:bg-red-50 hover:text-red-600"
+   723→                                  aria-label="Remove item"
+   724→                                >
+   725→                                  <Trash2 className="h-3.5 w-3.5" />
+   726→                                </button>
+   727→                              </div>
+   728→
+   729→                              <div className="mt-2 flex min-w-0 items-end justify-between gap-2">
+   730→                                <div className="min-w-0">
+   731→                                  <p className="text-sm font-bold text-kwik-dark dark:text-white">{formatCurrency(item.price * item.quantity)}</p>
+   732→                                  {item.comparePrice && (
+   733→                                    <p className="text-[11px] text-kwik-muted line-through">{formatCurrency(item.comparePrice * item.quantity)}</p>
+   734→                                  )}
+   735→                                </div>
+   736→                                <div className="flex shrink-0 items-center overflow-hidden rounded-md border border-neutral-200 dark:border-white/10">
+   737→                                  <button
+   738→                                    type="button"
+   739→                                    onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+   740→                                    className="h-8 w-8 text-sm font-semibold hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
+   741→                                  >
+   742→                                    -
+   743→                                  </button>
+   744→                                  <span className="min-w-8 border-x border-neutral-200 px-2 text-center text-sm font-semibold dark:border-white/10 dark:text-white">{item.quantity}</span>
+   745→                                  <button
+   746→                                    type="button"
+   747→                                    onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+   748→                                    className="h-8 w-8 text-sm font-semibold hover:bg-neutral-50 dark:text-white dark:hover:bg-white/10"
+   749→                                  >
+   750→                                    +
+   751→                                  </button>
+   752→                                </div>
+   753→                              </div>
+   754→                            </div>
+   755→                          </div>
+   756→                        </article>
+   757→                      );
+   758→                    })}
+   759→                  </div>
+   760→                </div>
+   761→              ))}
+   762→
+   763→              <button
+   764→                type="button"
+   765→                onClick={() => {
+   766→                  clearCart();
+   767→                  setStep("cart");
+   768→                  kwikToast.success("Cart cleared");
+   769→                }}
+   770→                className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+   771→              >
+   772→                <Trash2 className="h-4 w-4" />
+   773→                Clear cart
+   774→              </button>
+   775→            </section>
+   776→          ) : step === "delivery" && requiresShipping ? (
+   777→            <section className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+   778→              <div className="flex items-center gap-2">
+   779→                <MapPin className="h-5 w-5 text-kwik-orange" />
+   780→                <h2 className="text-base font-semibold text-kwik-dark dark:text-white">Delivery details</h2>
+   781→              </div>
+   782→              <p className="mt-2 text-sm leading-6 text-kwik-muted dark:text-white/60">
+   783→                Admin uses this address to assign manual dispatch while the Rider app is paused.
+   784→              </p>
+   785→
+   786→              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+   787→                {(isLoadingAddresses || savedAddresses.length > 0) && (
+   788→                  <label className="block sm:col-span-2">
+   789→                    <span className="text-xs font-semibold text-muted dark:text-white/60">
+   790→                      Saved delivery address
+   791→                    </span>
+   792→                    <select
+   793→                      value={selectedAddressId}
+   794→                      onChange={(event) => {
+   795→                        const value = event.target.value;
+   796→                        setSelectedAddressId(value);
+   797→                        setSaveAddressForNextShopping(false);
+   798→
+   799→                        if (!value) {
+   800→                          setShipping((current) => ({
+   801→                            ...current,
+   802→                            addressLine1: "",
+   803→                            addressLine2: "",
+   804→                            city: "",
+   805→                            localGovernment: "",
+   806→                            state: "",
+   807→                            country: current.country || "Nigeria",
+   808→                          }));
+   809→                          return;
+   810→                        }
+   811→
+   812→                        const address = savedAddresses.find((item) => item.id === value);
+   813→                        if (address) applySavedAddress(address);
+   814→                      }}
+   815→                      disabled={isLoadingAddresses}
+   816→                      className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-border focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white"
+   817→                    >
+   818→                      <option value="">
+   819→                        {isLoadingAddresses ? "Loading saved addresses..." : "Enter a new address"}
+   820→                      </option>
+   821→                      {savedAddresses.map((address) => {
+   822→                        const meta = splitAddressLabel(address.line2);
+   823→                        return (
+   824→                          <option key={address.id} value={address.id}>
+   825→                            {meta.label} - {address.line1}, {address.city}
+   826→                          </option>
+   827→                        );
+   828→                      })}
+   829→                    </select>
+   830→                  </label>
+   831→                )}
+   832→                {[
+   833→                  ["fullName", "Full name"],
+   834→                  ["phone", "Phone number"],
+   835→                ].map(([field, label]) => (
+   836→                  <FieldInput
+   837→                    key={field}
+   838→                    label={label}
+   839→                    value={shipping[field as keyof typeof shipping]}
+   840→                    onChange={(event) => updateShipping(field as keyof typeof shipping, event.target.value)}
+   841→                  />
+   842→                ))}
+   843→                {selectedSavedAddress ? (
+   844→                  <div className="rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-sm leading-6 text-kwik-muted dark:border-kwik-orange/30 dark:bg-kwik-orange/10 dark:text-white/70 sm:col-span-2">
+   845→                    <p className="font-semibold text-kwik-dark dark:text-white">
+   846→                      {splitAddressLabel(selectedSavedAddress.line2).label}
+   847→                    </p>
+   848→                    <p className="mt-1">
+   849→                      {formatAddressParts([
+   850→                        shipping.addressLine1,
+   851→                        shipping.addressLine2,
+   852→                        shipping.city,
+   853→                        shipping.localGovernment,
+   854→                        shipping.state,
+   855→                        shipping.country,
+   856→                      ])}
+   857→                    </p>
+   858→                  </div>
+   859→                ) : (
+   860→                  <>
+   861→                    <FieldInput
+   862→                      label="City"
+   863→                      value={shipping.city}
+   864→                      onChange={(event) => updateShipping("city", event.target.value)}
+   865→                    />
+   866→                    <FieldInput
+   867→                      label="Country"
+   868→                      value={shipping.country}
+   869→                      onChange={(event) => updateShipping("country", event.target.value)}
+   870→                    />
+   871→                    <FieldAutocomplete
+   872→                      label="State"
+   873→                      value={shipping.state}
+   874→                      options={NIGERIA_STATES.map((state) => ({ value: state, label: state }))}
+   875→                      onValueChange={(nextValue) => updateShipping("state", nextValue)}
+   876→                      placeholder="Type or select state"
+   877→                    />
+   878→                    <FieldAutocomplete
+   879→                      label="Local government"
+   880→                      value={shipping.localGovernment}
+   881→                      options={getLgasForState(shipping.state).map((lga) => ({ value: lga, label: lga }))}
+   882→                      onValueChange={(nextValue) => updateShipping("localGovernment", nextValue)}
+   883→                      placeholder="Type or select local government"
+   884→                    />
+   885→                    <FieldInput
+   886→                      wrapperClassName="sm:col-span-2"
+   887→                      label="Street address"
+   888→                      value={shipping.addressLine1}
+   889→                      onChange={(event) => updateShipping("addressLine1", event.target.value)}
+   890→                    />
+   891→                    <FieldInput
+   892→                      wrapperClassName="sm:col-span-2"
+   893→                      label="Apartment, landmark, or nearest bus stop"
+   894→                      value={shipping.addressLine2}
+   895→                      onChange={(event) => updateShipping("addressLine2", event.target.value)}
+   896→                    />
+   897→                  </>
+   898→                )}
+   899→                <FieldTextarea
+   900→                  wrapperClassName="sm:col-span-2"
+   901→                  label="Delivery instructions"
+   902→                  value={shipping.deliveryInstructions}
+   903→                  onChange={(event) => updateShipping("deliveryInstructions", event.target.value)}
+   904→                  rows={3}
+   905→                />
+   906→                {!selectedSavedAddress && (
+   907→                  <label className="flex items-start gap-3 rounded-xl border border-neutral-200 p-3 text-sm text-kwik-muted dark:border-white/10 dark:text-white/60 sm:col-span-2">
+   908→                    <input
+   909→                      type="checkbox"
+   910→                      checked={saveAddressForNextShopping}
+   911→                      onChange={(event) => setSaveAddressForNextShopping(event.target.checked)}
+   912→                      className="mt-1 h-4 w-4 rounded border-neutral-300 text-kwik-orange focus:ring-kwik-orange"
+   913→                    />
+   914→                    <span>
+   915→                      <span className="block font-semibold text-kwik-dark dark:text-white">
+   916→                        Save this address for next shopping
+   917→                      </span>
+   918→                      <span className="block text-xs">
+   919→                        We will add it to your delivery addresses after checkout starts.
+   920→                      </span>
+   921→                    </span>
+   922→                  </label>
+   923→                )}
+   924→              </div>
+   925→
+   926→              <div className="mt-5 border border-neutral-200 p-4 dark:border-white/10">
+   927→                <div className="flex items-start gap-3">
+   928→                  {isLoadingDeliveryRate ? (
+   929→                    <Loader2 className="mt-0.5 h-5 w-5 animate-spin text-kwik-orange" />
+   930→                  ) : (
+   931→                    <Truck className="mt-0.5 h-5 w-5 text-kwik-orange" />
+   932→                  )}
+   933→                  <div>
+   934→                    <p className="text-sm font-semibold text-kwik-dark dark:text-white">Delivery pricing</p>
+   935→                    {!shipping.state || !shipping.localGovernment ? (
+   936→                      <p className="mt-1 text-sm leading-6 text-red-600 dark:text-red-200">
+   937→                        {selectedSavedAddress
+   938→                          ? "This saved address is missing state or local government. Choose Enter a new address or update the saved address."
+   939→                          : "Select state and local government to calculate delivery fee and estimate for each physical vendor group."}
+   940→                      </p>
+   941→                    ) : deliveryRate ? (
+   942→                      <p className="mt-1 text-sm leading-6 text-kwik-muted dark:text-white/60">
+   943→                        {shipping.localGovernment}, {shipping.state}: {formatCurrency(deliveryRate.fee)} per physical vendor group x {physicalVendorGroups}. Total delivery {formatCurrency(deliveryFee)}. Estimated {deliveryDate}. Admin/manual dispatch assignment after payment.
+   944→                      </p>
+   945→                    ) : (
+   946→                      <p className="mt-1 text-sm leading-6 text-red-600 dark:text-red-200">
+   947→                        {deliveryRateError || "Checking delivery availability..."}
+   948→                      </p>
+   949→                    )}
+   950→                  </div>
+   951→                </div>
+   952→              </div>
+   953→            </section>
+   954→          ) : (
+   955→            <section className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+   956→              <div className="flex items-center gap-2">
+   957→                <CreditCard className="h-5 w-5 text-kwik-orange" />
+   958→                <h2 className="text-base font-semibold text-kwik-dark dark:text-white">Payment review</h2>
+   959→              </div>
+   960→              <div className="mt-5 space-y-4">
+   961→                <div className="grid gap-3 sm:grid-cols-3">
+   962→                  <div className="border border-neutral-200 p-4 dark:border-white/10">
+   963→                    <p className="text-xs font-semibold text-kwik-muted dark:text-white/60">Items</p>
+   964→                    <p className="mt-2 text-lg font-bold text-kwik-dark dark:text-white">{totalItems}</p>
+   965→                  </div>
+   966→                  <div className="border border-neutral-200 p-4 dark:border-white/10">
+   967→                    <p className="text-xs font-semibold text-kwik-muted dark:text-white/60">Delivery</p>
+   968→                    <p className="mt-2 text-lg font-bold text-kwik-dark dark:text-white">
+   969→                      {requiresShipping ? formatCurrency(deliveryFee) : "Digital"}
+   970→                    </p>
+   971→                  </div>
+   972→                  <div className="border border-neutral-200 p-4 dark:border-white/10">
+   973→                    <p className="text-xs font-semibold text-kwik-muted dark:text-white/60">Payable</p>
+   974→                    <p className="mt-2 text-lg font-bold text-kwik-dark dark:text-white">{formatCurrency(payableTotal)}</p>
+   975→                  </div>
+   976→                </div>
+   977→                {requiresShipping ? (
+   978→                  <div className="border border-neutral-200 p-4 text-sm leading-6 text-kwik-muted dark:border-white/10 dark:text-white/60">
+   979→                    <p className="font-semibold text-kwik-dark dark:text-white">Dispatch address</p>
+   980→                    <p className="mt-1">
+   981→                      {shipping.addressLine1}, {shipping.city}, {shipping.localGovernment}, {shipping.state}
+   982→                    </p>
+   983→                    {deliveryDate && <p>Estimated delivery: {deliveryDate}</p>}
+   984→                    <p>Admin will manually assign dispatch and tracking after payment.</p>
+   985→                  </div>
+   986→                ) : (
+   987→                  <div className="border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-900 dark:border-violet-300/20 dark:bg-violet-950/30 dark:text-violet-100">
+   988→                    Digital-only cart. No delivery address or delivery fee is required.
+   989→                  </div>
+   990→                )}
+   991→              </div>
+   992→            </section>
+   993→          )}
+   994→        </div>
+   995→
+   996→        <aside className="min-w-0 max-w-full space-y-4 self-start lg:sticky lg:top-6">
+   997→          {step === "cart" ? (
+   998→            <section className="min-w-0 max-w-full overflow-hidden border border-neutral-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+   999→              <AppButton
+  1000→                type="button"
+  1001→                disabled={isPrimaryDisabled}
+  1002→                onClick={handlePrimaryAction}
+  1003→                fullWidth
+  1004→                size="lg"
+  1005→                isLoading={isPrimaryBusy}
+  1006→                loadingLabel="Validating cart"
+  1007→              >
+  1008→                {!isPrimaryBusy && <ArrowRight className="h-4 w-4" />}
+  1009→                {primaryLabel}
+  1010→              </AppButton>
+  1011→            </section>
+  1012→          ) : (
+  1013→            <>
+  1014→          <section className="min-w-0 max-w-full overflow-hidden border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+  1015→            <h2 className="text-base font-semibold text-kwik-dark dark:text-white">Order summary</h2>
+  1016→            <div className="mt-4 space-y-3 text-sm">
+  1017→              <div className="flex justify-between">
+  1018→                <span className="text-kwik-muted dark:text-white/60">Subtotal</span>
+  1019→                <span className="font-semibold text-kwik-dark dark:text-white">{formatCurrency(subtotal)}</span>
+  1020→              </div>
+  1021→              <div className="flex justify-between">
+  1022→                <span className="text-kwik-muted dark:text-white/60">Savings</span>
+  1023→                <span className="font-semibold text-emerald-700">-{formatCurrency(savings)}</span>
+  1024→              </div>
+  1025→              <div className="flex justify-between">
+  1026→                <span className="text-kwik-muted dark:text-white/60">Delivery</span>
+  1027→                <span className="font-semibold text-kwik-dark dark:text-white">
+  1028→                  {requiresShipping ? (deliveryRate ? formatCurrency(deliveryFee) : "Select location") : "Not required"}
+  1029→                </span>
+  1030→              </div>
+  1031→              {requiresShipping && deliveryDate && (
+  1032→                <div className="border-y border-neutral-200 py-3 dark:border-white/10">
+  1033→                  <div className="flex items-start gap-2">
+  1034→                    <CalendarDays className="mt-0.5 h-4 w-4 text-kwik-orange" />
+  1035→                    <div>
+  1036→                      <p className="font-semibold text-kwik-dark dark:text-white">Estimated delivery</p>
+  1037→                      <p className="text-xs leading-5 text-kwik-muted dark:text-white/60">{deliveryDate}</p>
+  1038→                      <p className="mt-1 text-xs leading-5 text-kwik-muted dark:text-white/60">Manual dispatch assignment by admin.</p>
+  1039→                    </div>
+  1040→                  </div>
+  1041→                </div>
+  1042→              )}
+  1043→              {cartGroups.length > 1 && (
+  1044→                <div className="border-b border-neutral-200 pb-3 dark:border-white/10">
+  1045→                  <p className="text-xs font-semibold uppercase text-kwik-muted dark:text-white/60">Vendor groups</p>
+  1046→                  <div className="mt-2 space-y-2">
+  1047→                    {cartGroups.map((group) => (
+  1048→                      <div key={group.storeId} className="flex items-center justify-between gap-3 text-xs">
+  1049→                        <span className="min-w-0 truncate text-kwik-muted dark:text-white/60">
+  1050→                          {group.storeName}
+  1051→                          {group.requiresShipping ? " • delivery" : " • digital"}
+  1052→                        </span>
+  1053→                        <span className="shrink-0 font-semibold text-kwik-dark dark:text-white">
+  1054→                          {formatCurrency(group.subtotal + (group.requiresShipping && deliveryRate ? deliveryRate.fee : 0))}
+  1055→                        </span>
+  1056→                      </div>
+  1057→                    ))}
+  1058→                  </div>
+  1059→                </div>
+  1060→              )}
+  1061→              <div className="border-y border-neutral-200 py-3 dark:border-white/10">
+  1062→                <label className="text-xs font-semibold text-kwik-muted dark:text-white/60">Coupon code</label>
+  1063→                <div className="mt-2 flex gap-2">
+  1064→                  <FieldInput
+  1065→                    value={couponCode}
+  1066→                    onChange={(event) => {
+  1067→                      setCouponCode(event.target.value.toUpperCase());
+  1068→                      if (appliedCoupon) setAppliedCoupon(null);
+  1069→                      setCouponError("");
+  1070→                    }}
+  1071→                    placeholder="KWIKSAVE"
+  1072→                    wrapperClassName="min-w-0 flex-1"
+  1073→                    className="mt-0 h-10 font-semibold uppercase"
+  1074→                  />
+  1075→                  {appliedCoupon ? (
+  1076→                    <AppButton
+  1077→                      type="button"
+  1078→                      onClick={removeCoupon}
+  1079→                      variant="secondary"
+  1080→                      size="md"
+  1081→                      className="h-10 px-3 text-xs"
+  1082→                    >
+  1083→                      Remove
+  1084→                    </AppButton>
+  1085→                  ) : (
+  1086→                    <AppButton
+  1087→                      type="button"
+  1088→                      onClick={applyCoupon}
+  1089→                      disabled={!couponCode.trim() || isApplyingCoupon}
+  1090→                      isLoading={isApplyingCoupon}
+  1091→                      loadingLabel="..."
+  1092→                      size="md"
+  1093→                      className="h-10 px-3 text-xs"
+  1094→                    >
+  1095→                      Apply
+  1096→                    </AppButton>
+  1097→                  )}
+  1098→                </div>
+  1099→                {appliedCoupon && (
+  1100→                  <p className="mt-2 text-xs font-semibold text-emerald-700">
+  1101→                    {appliedCoupon.code} applied: -{formatCurrency(couponDiscount)}
+  1102→                  </p>
+  1103→                )}
+  1104→                {couponError && <p className="mt-2 text-xs font-semibold text-red-600">{couponError}</p>}
+  1105→              </div>
+  1106→              {couponDiscount > 0 && (
+  1107→                <div className="flex justify-between">
+  1108→                  <span className="text-kwik-muted dark:text-white/60">Coupon discount</span>
+  1109→                  <span className="font-semibold text-emerald-700">-{formatCurrency(couponDiscount)}</span>
+  1110→                </div>
+  1111→              )}
+  1112→              <div className="border-t border-neutral-200 pt-3 dark:border-white/10">
+  1113→                <div className="flex justify-between">
+  1114→                  <span className="font-semibold text-kwik-dark dark:text-white">Total</span>
+  1115→                  <span className="text-xl font-bold text-kwik-dark dark:text-white">{formatCurrency(payableTotal)}</span>
+  1116→                </div>
+  1117→              </div>
+  1118→            </div>
+  1119→
+  1120→            <AppButton
+  1121→              type="button"
+  1122→              disabled={isPrimaryDisabled}
+  1123→              onClick={handlePrimaryAction}
+  1124→              fullWidth
+  1125→              size="lg"
+  1126→              isLoading={isPrimaryBusy}
+  1127→              loadingLabel={isCheckingOut ? "Starting Paystack" : "Validating cart"}
+  1128→              className="mt-5"
+  1129→            >
+  1130→              {!isPrimaryBusy && (step === "payment" ? <ShieldCheck className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />)}
+  1131→              {primaryLabel}
+  1132→            </AppButton>
+  1133→
+  1134→            {step === "payment" && (
+  1135→              <p className="mt-3 text-center text-xs leading-5 text-kwik-muted dark:text-white/60">
+  1136→                Payment creates the order, reserves inventory, and sends admin the delivery details for dispatch assignment.
+  1137→              </p>
+  1138→            )}
+  1139→          </section>
+  1140→
+  1141→          <section className="min-w-0 max-w-full overflow-hidden border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+  1142→            <h3 className="text-sm font-semibold text-kwik-dark dark:text-white">Checkout checks</h3>
+  1143→            <div className="mt-4 space-y-3">
+  1144→              {[
+  1145→                { active: true, icon: ShieldCheck, title: "Server validation", text: "Inventory and fulfillment are checked before payment." },
+  1146→                { active: hasPool, icon: Users, title: "Partner-aware", text: hasPool ? "Partner-fulfilled item in cart." : "No partner-fulfilled item." },
+  1147→                { active: hasDigital, icon: Download, title: "Digital-ready", text: hasDigital ? "Digital delivery skips shipping." : "Physical delivery rules apply." },
+  1148→              ].map((item) => (
+  1149→                <div key={item.title} className="flex gap-3">
+  1150→                  <item.icon className={`mt-0.5 h-4 w-4 ${item.active ? "text-kwik-orange" : "text-kwik-muted"}`} />
+  1151→                  <div>
+  1152→                    <p className="text-sm font-semibold text-kwik-dark dark:text-white">{item.title}</p>
+  1153→                    <p className="text-xs leading-5 text-kwik-muted dark:text-white/60">{item.text}</p>
+  1154→                  </div>
+  1155→                </div>
+  1156→              ))}
+  1157→            </div>
+  1158→          </section>
+  1159→            </>
+  1160→          )}
+  1161→        </aside>
+  1162→      </main>
+  1163→      <EscrowSafetyDialog
+  1164→        isOpen={isEscrowDialogOpen}
+  1165→        isLoading={isCheckingOut}
+  1166→        onClose={() => setIsEscrowDialogOpen(false)}
+  1167→        onConfirm={processCheckout}
+  1168→      />
+  1169→    </div>
+  1170→  );
+  1171→}
+  1172→

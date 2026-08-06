@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, CheckCheck, ChevronRight, X } from "lucide-react";
@@ -19,15 +19,19 @@ import type { WorkflowNotification } from "@/stores/order-workflow-store";
 export function NotificationBell({ className }: { className?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // useSyncExternalStore avoids a setState-in-effect lint violation while
+  // still giving us a server-safe `mounted` flag (false on SSR, true on
+  // client). This prevents hydration mismatch on the unread-count badge.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const ref = useRef<HTMLDivElement>(null);
 
   const notifications = useOrderWorkflowStore((s) => s.notifications);
   const markNotificationRead = useOrderWorkflowStore((s) => s.markNotificationRead);
   const clearNotifications = useOrderWorkflowStore((s) => s.clearNotifications);
-
-  // Avoid SSR/hydration mismatch — only show the badge after mount.
-  useEffect(() => setMounted(true), []);
 
   // Close on outside click / Escape.
   useEffect(() => {

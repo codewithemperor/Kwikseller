@@ -2,8 +2,10 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
+  BadgeCheck,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -17,9 +19,13 @@ import {
   ShieldCheck,
   ShoppingCart,
   Star,
+  Store,
   Truck,
   Sparkles,
   Zap,
+  PenLine,
+  ThumbsUp,
+  X,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 import { motion, useInView, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
@@ -66,6 +72,31 @@ function categoryToParam(category: string): string {
 
 function hasHtmlMarkup(value: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+/**
+ * Render an ISO date as a friendly relative string (e.g. "3 days ago",
+ * "Just now", "2 weeks ago"). Falls back to a localized date for older
+ * reviews (>= 6 months).
+ */
+function formatRelativeDate(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!then) return "";
+  const diffMs = Date.now() - then;
+  const sec = Math.round(diffMs / 1000);
+  const min = Math.round(sec / 60);
+  const hr = Math.round(min / 60);
+  const day = Math.round(hr / 24);
+  if (sec < 60) return "Just now";
+  if (min < 60) return `${min} min ago`;
+  if (hr < 24) return `${hr} hr ago`;
+  if (day === 1) return "Yesterday";
+  if (day < 7) return `${day} days ago`;
+  if (day < 14) return "1 week ago";
+  if (day < 30) return `${Math.round(day / 7)} weeks ago`;
+  if (day < 60) return "1 month ago";
+  if (day < 180) return `${Math.round(day / 30)} months ago`;
+  return new Date(then).toLocaleDateString("en-NG", { dateStyle: "medium" });
 }
 
 function ProductDescription({ description }: { description: string }) {
@@ -289,9 +320,18 @@ function UserReviews({ productId }: { productId: string }) {
 
 export function ProductDetailPage({
   product,
+  relatedProducts: relatedProductsProp,
 }: {
   product: MarketplaceProduct;
+  /**
+   * Optional pre-fetched related products. When provided, the component skips
+   * its own related-products fetch and renders these directly. The route
+   * page passes these in (fetched via the shared `useProducts` hook with the
+   * product's category slug).
+   */
+  relatedProducts?: MarketplaceProduct[];
 }) {
+  const router = useRouter();
   const gallery = React.useMemo(
     () => (product.images?.length ? product.images : [product.image]),
     [product.images, product.image],
@@ -406,47 +446,61 @@ export function ProductDetailPage({
     }
   }, [product.id, product.name, product.image, product.price, checkPriceDrop]);
 
-  // Fetch related products
+  // Fetch related products via the shared `useProducts` hook (passed in as a
+  // prop from the route page, which has the raw API Product + category slug).
   React.useEffect(() => {
-    const fetchRelated = async () => {
-      try {
-        const response = await productsApi.list({
-          limit: 4,
-          category: product.category,
-        });
-        if (response.success && response.data) {
-          const data = response.data as any;
-          const list = Array.isArray(data) ? data : data.products || [];
-          setRelatedProducts(
-            list
-              .filter((p: any) => p.id !== product.id)
-              .slice(0, 4)
-              .map((p: any) => ({
-                id: String(p.id),
-                slug: p.slug,
-                name: p.name,
-                price: p.price,
-                comparePrice: p.comparePrice,
-                image:
-                  extractProductImage(p.image) || extractProductImage(p.images?.[0]) || extractProductImage(p.featuredImage),
-                rating: p.averageRating || p.rating || 0,
-                reviewCount: p.reviewCount || 0,
-                store: p.store?.name || p.storeName || "",
-                storeId: p.storeId || p.store?.id,
-                storeSlug: p.store?.slug || p.storeSlug,
-                category: p.category?.name || p.categoryName || "",
-                isNew: p.isNew || false,
-              })),
-          );
+    if (relatedProductsProp && relatedProductsProp.length > 0) {
+      setRelatedProducts(relatedProductsProp.slice(0, 5));
+      setIsLoadingRelated(false);
+    } else {
+      // Fallback: try the direct API call with the category NAME as the
+      // search term so the dummy API returns relevant matches.
+      let cancelled = false;
+      setIsLoadingRelated(true);
+      const fetchRelated = async () => {
+        try {
+          const response = await productsApi.list({
+            limit: 5,
+            search: product.category,
+          });
+          if (cancelled) return;
+          if (response.success && response.data) {
+            const data = response.data as any;
+            const list = Array.isArray(data) ? data : data.products || [];
+            setRelatedProducts(
+              list
+                .filter((p: any) => p.id !== product.id)
+                .slice(0, 5)
+                .map((p: any) => ({
+                  id: String(p.id),
+                  slug: p.slug,
+                  name: p.name,
+                  price: p.price,
+                  comparePrice: p.comparePrice,
+                  image:
+                    extractProductImage(p.image) || extractProductImage(p.images?.[0]) || extractProductImage(p.featuredImage),
+                  rating: p.averageRating || p.rating || 0,
+                  reviewCount: p.reviewCount || 0,
+                  store: p.store?.name || p.storeName || "",
+                  storeId: p.storeId || p.store?.id,
+                  storeSlug: p.store?.slug || p.storeSlug,
+                  category: p.category?.name || p.categoryName || "",
+                  isNew: p.isNew || false,
+                })),
+            );
+          }
+        } catch {
+          if (!cancelled) setRelatedProducts([]);
+        } finally {
+          if (!cancelled) setIsLoadingRelated(false);
         }
-      } catch {
-        // No related products
-      } finally {
-        setIsLoadingRelated(false);
-      }
-    };
-    fetchRelated();
-  }, [product.id, product.category]);
+      };
+      fetchRelated();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [product.id, product.category, relatedProductsProp]);
 
   // --- Handlers ---
 
@@ -476,6 +530,24 @@ export function ProductDetailPage({
       `${quantity}x ${product.name}${variantLabel} added to cart`,
     );
     setCartOpen(true);
+  };
+
+  const handleBuyNow = () => {
+    // Add to cart then immediately navigate to checkout
+    for (let i = 0; i < quantity; i += 1) {
+      addItem({
+        productId: product.id,
+        name: product.name,
+        price: variantPrice,
+        comparePrice: product.comparePrice,
+        image: product.image,
+        store: product.store,
+        storeId: product.storeId,
+        storeSlug: product.storeSlug,
+        storeName: product.store,
+      });
+    }
+    router.push("/checkout");
   };
 
   const handleWishlistToggle = () => {
@@ -535,6 +607,91 @@ export function ProductDetailPage({
   }, [reviews]);
 
   const totalReviews = reviews.length;
+
+  // Average rating from the actual reviews (matches the distribution bars).
+  // Falls back to product.rating when no reviews have been fetched yet.
+  const averageRating = React.useMemo(() => {
+    if (reviews.length === 0) return product.rating;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return sum / reviews.length;
+  }, [reviews, product.rating]);
+
+  // ─── Review filter / sort / helpful-vote state ────────────────
+  type SortKey = "helpful" | "recent" | "rating";
+  const [filterStar, setFilterStar] = React.useState<number | null>(null);
+  const [sortBy, setSortBy] = React.useState<SortKey>("helpful");
+  // Set of review IDs the user has marked as helpful — persisted to
+  // localStorage (keyed by product id) so votes survive page refreshes.
+  const VOTES_STORAGE_PREFIX = "kwik:review-votes:";
+  const [votedReviews, setVotedReviews] = React.useState<Set<string>>(new Set());
+
+  // Load persisted votes on product change.
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(VOTES_STORAGE_PREFIX + product.id);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        setVotedReviews(new Set(arr));
+      } else {
+        setVotedReviews(new Set());
+      }
+    } catch {
+      setVotedReviews(new Set());
+    }
+    setFilterStar(null);
+  }, [product.id]);
+
+  // Persist votes whenever they change.
+  React.useEffect(() => {
+    try {
+      const key = VOTES_STORAGE_PREFIX + product.id;
+      const arr = Array.from(votedReviews);
+      if (arr.length > 0) {
+        localStorage.setItem(key, JSON.stringify(arr));
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      // localStorage may be unavailable (private mode / SSR) — ignore.
+    }
+  }, [votedReviews, product.id]);
+  // Lightbox state for review photos.
+  const [lightbox, setLightbox] = React.useState<{ src: string; alt: string } | null>(null);
+
+  // Filtered + sorted reviews derived from the source list.
+  const visibleReviews = React.useMemo(() => {
+    let list = reviews;
+    if (filterStar !== null) {
+      list = list.filter((r) => r.rating === filterStar);
+    }
+    const sorted = [...list];
+    switch (sortBy) {
+      case "recent":
+        sorted.sort((a, b) => {
+          const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bt - at;
+        });
+        break;
+      case "rating":
+        sorted.sort((a, b) => b.rating - a.rating);
+        break;
+      case "helpful":
+      default:
+        sorted.sort((a, b) => (b.helpful ?? 0) - (a.helpful ?? 0));
+        break;
+    }
+    return sorted;
+  }, [reviews, filterStar, sortBy]);
+
+  const handleHelpfulVote = React.useCallback((reviewId: string) => {
+    setVotedReviews((prev) => {
+      if (prev.has(reviewId)) return prev;
+      const next = new Set(prev);
+      next.add(reviewId);
+      return next;
+    });
+  }, []);
 
   // --- Trust info items ---
 
@@ -765,21 +922,34 @@ export function ProductDetailPage({
                     </div>
 
                     {/* Action buttons */}
-                    <div ref={addToCartRef} className="mt-4 grid grid-cols-[1fr_auto_auto] gap-3">
+                    <div ref={addToCartRef} className="mt-4 grid grid-cols-2 gap-3">
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleAddToCart}
-                        className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-kwik-amber px-5 font-semibold text-white shadow-lg shadow-kwik-orange/25 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
+                        className="flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-kwik-orange bg-kwik-orange/5 px-5 font-semibold text-kwik-orange shadow-sm transition-all duration-300 hover:bg-kwik-orange/10 hover:shadow-md"
                       >
                         <ShoppingCart className="h-4 w-4" />
                         Add to cart
                       </motion.button>
 
                       <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBuyNow}
+                        className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-kwik-amber px-5 font-semibold text-white shadow-lg shadow-kwik-orange/25 transition-all duration-300 hover:shadow-xl hover:shadow-kwik-orange/30 hover:brightness-110"
+                      >
+                        <Zap className="h-4 w-4" />
+                        Buy now
+                      </motion.button>
+                    </div>
+
+                    {/* Wishlist + Share row */}
+                    <div className="mt-3 flex gap-3">
+                      <motion.button
                         whileTap={{ scale: 0.9 }}
                         onClick={handleWishlistToggle}
-                        className={`relative flex h-12 min-w-12 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
+                        className={`relative flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border-2 transition-all duration-300 ${
                           isWishlisted
                             ? "border-kwik-orange bg-kwik-orange-tint"
                             : "border-kwik-border hover:border-kwik-orange/50"
@@ -799,22 +969,24 @@ export function ProductDetailPage({
                           />
                         )}
                         <Heart
-                          className={`h-5 w-5 transition-all duration-300 ${
+                          className={`h-4 w-4 transition-all duration-300 ${
                             isWishlisted
                               ? "fill-current text-kwik-orange scale-110"
                               : "text-kwik-dark-medium"
                           }`}
                         />
+                        <span className="text-xs font-semibold text-kwik-dark">{isWishlisted ? "Wishlisted" : "Wishlist"}</span>
                       </motion.button>
 
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleShare}
-                        className="flex h-12 min-w-12 items-center justify-center rounded-xl border-2 border-kwik-border transition-all duration-300 hover:border-kwik-orange/50 hover:bg-kwik-orange-tint"
+                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-kwik-border transition-all duration-300 hover:border-kwik-orange/50 hover:bg-kwik-orange-tint"
                         aria-label="Share product"
                       >
-                        <Share2 className="h-5 w-5 text-kwik-dark-medium transition-colors duration-200 group-hover:text-kwik-orange" />
+                        <Share2 className="h-4 w-4 text-kwik-dark-medium transition-colors duration-200 group-hover:text-kwik-orange" />
+                        <span className="text-xs font-semibold text-kwik-dark">Share</span>
                       </motion.button>
                     </div>
                   </div>
@@ -921,20 +1093,20 @@ export function ProductDetailPage({
                 href="#"
                 actionLabel="Customer feedback"
               />
-              <div className="mt-2 grid gap-6 lg:grid-cols-[240px_1fr]">
+              <div className="mt-2 grid gap-6 lg:grid-cols-[260px_1fr]">
                 {/* Rating summary */}
                 <div className="space-y-4">
                   {/* Average rating */}
-                  <div className="text-center">
+                  <div className="rounded-2xl bg-gradient-to-br from-kwik-orange-tint to-kwik-amber-tint p-5 text-center">
                     <p className="text-5xl font-bold text-kwik-dark">
-                      {product.rating.toFixed(1)}
+                      {averageRating.toFixed(1)}
                     </p>
                     <div className="mt-2 flex items-center justify-center gap-0.5">
                       {Array.from({ length: 5 }).map((_, idx) => (
                         <Star
                           key={`avg-${idx}`}
                           className={`h-5 w-5 ${
-                            idx < Math.round(product.rating)
+                            idx < Math.round(averageRating)
                               ? "fill-kwik-star text-kwik-star"
                               : "text-kwik-border-light"
                           }`}
@@ -942,74 +1114,262 @@ export function ProductDetailPage({
                       ))}
                     </div>
                     <p className="mt-1 text-sm text-kwik-gray-light">
-                      {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
+                      Based on {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
                     </p>
                   </div>
 
-                  {/* Rating distribution bars */}
-                  <div className="space-y-2">
+                  {/* Rating distribution bars (clickable to filter) */}
+                  <div className="space-y-1.5">
                     {[5, 4, 3, 2, 1].map((star) => {
                       const count = ratingCounts[star - 1];
                       const pct =
                         totalReviews > 0
                           ? Math.round((count / totalReviews) * 100)
                           : 0;
+                      const isActive = filterStar === star;
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={star}
-                          className="flex items-center gap-2 text-sm"
+                          onClick={() => setFilterStar(isActive ? null : star)}
+                          className={`group flex w-full items-center gap-2 rounded-lg px-2 py-1 text-sm transition-colors ${
+                            isActive
+                              ? "bg-kwik-orange-tint"
+                              : "hover:bg-kwik-bg-surface"
+                          }`}
+                          aria-pressed={isActive}
+                          aria-label={`Filter to ${star}-star reviews`}
                         >
-                          <span className="w-3 text-right font-medium text-kwik-dark">
+                          <span className="w-3 text-right font-semibold text-kwik-dark">
                             {star}
                           </span>
                           <Star className="h-3.5 w-3.5 fill-kwik-star text-kwik-star" />
                           <div className="flex-1 h-2 overflow-hidden rounded-full bg-kwik-border-light">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-kwik-star to-kwik-star transition-all duration-500"
+                              className="h-full rounded-full bg-gradient-to-r from-kwik-star to-kwik-amber transition-all duration-500"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
                           <span className="w-8 text-right text-xs text-kwik-gray-light">
                             {count}
                           </span>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
+
+                  {/* Filter reset / sort controls */}
+                  <div className="flex flex-col gap-2 border-t border-kwik-border-light pt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-kwik-gray-light">
+                        Sort by
+                      </span>
+                      {filterStar !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setFilterStar(null)}
+                          className="text-xs font-medium text-kwik-orange hover:underline"
+                        >
+                          Clear filter
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([
+                        { key: "helpful", label: "Helpful" },
+                        { key: "recent", label: "Recent" },
+                        { key: "rating", label: "Top" },
+                      ] as const).map((opt) => (
+                        <button
+                          type="button"
+                          key={opt.key}
+                          onClick={() => setSortBy(opt.key)}
+                          className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                            sortBy === opt.key
+                              ? "bg-kwik-dark text-white"
+                              : "bg-kwik-bg-surface text-kwik-gray hover:bg-kwik-border/40"
+                          }`}
+                          aria-pressed={sortBy === opt.key}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Write a review CTA */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("write-review-form");
+                      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-kwik-orange bg-kwik-orange-tint px-4 py-2.5 text-sm font-semibold text-kwik-orange-dark transition-colors hover:bg-kwik-orange hover:text-white"
+                  >
+                    <PenLine className="h-4 w-4" />
+                    Write a review
+                  </button>
                 </div>
 
                 {/* Review cards with hover effects */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  {reviews.map((review) => (
-                    <article
-                      key={review.id}
-                      className="border border-kwik-border p-5 transition-all duration-300 hover:border-kwik-orange/30 dark:border-white/10"
-                    >
-                      <div className="mb-3 flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, index) => (
-                          <Star
-                            key={`${review.id}-${index}`}
-                            className={`h-4 w-4 ${
-                              index < review.rating
-                                ? "fill-kwik-star text-kwik-star"
-                                : "text-kwik-border-light"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-sm leading-6 text-kwik-gray">
-                        {review.text}
+                <div className="space-y-3">
+                  {/* Result count summary */}
+                  <div className="flex items-center justify-between text-xs text-kwik-gray-light">
+                    <span>
+                      Showing <span className="font-semibold text-kwik-dark">{visibleReviews.length}</span> of {totalReviews}
+                      {filterStar !== null && (
+                        <> · filtered to {filterStar}-star</>
+                      )}
+                    </span>
+                  </div>
+
+                  {visibleReviews.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-kwik-border py-10 text-center">
+                      <Star className="h-8 w-8 text-kwik-border-light" />
+                      <p className="mt-2 text-sm font-medium text-kwik-dark">
+                        No {filterStar}-star reviews
                       </p>
-                      <div className="mt-4 border-t border-kwik-border pt-4">
-                        <p className="font-semibold text-kwik-dark">
-                          {review.name}
-                        </p>
-                        <p className="text-sm text-kwik-gray-light">
-                          {review.location}
-                        </p>
-                      </div>
-                    </article>
-                  ))}
+                      <p className="mt-1 text-xs text-kwik-gray-light">
+                        Try a different filter or sort.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                      {visibleReviews.map((review) => {
+                        const voted = votedReviews.has(review.id);
+                        const helpfulCount = (review.helpful ?? 0) + (voted ? 1 : 0);
+                        return (
+                          <article
+                            key={review.id}
+                            className="group border border-kwik-border p-5 transition-all duration-300 hover:border-kwik-orange/30 hover:shadow-sm dark:border-white/10"
+                          >
+                            {/* Header: stars + verified badge */}
+                            <div className="mb-3 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: 5 }).map((_, index) => (
+                                  <Star
+                                    key={`${review.id}-${index}`}
+                                    className={`h-4 w-4 ${
+                                      index < review.rating
+                                        ? "fill-kwik-star text-kwik-star"
+                                        : "text-kwik-border-light"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              {review.verified && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-kwik-green-tint px-2 py-0.5 text-[10px] font-bold text-kwik-green">
+                                  <Check className="h-3 w-3" /> Verified
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Title */}
+                            {review.title && (
+                              <p className="text-sm font-semibold text-kwik-dark">
+                                {review.title}
+                              </p>
+                            )}
+
+                            {/* Body */}
+                            <p className="mt-1 text-sm leading-6 text-kwik-gray">
+                              {review.text}
+                            </p>
+
+                            {/* Photos */}
+                            {review.images && review.images.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {review.images.map((img, i) => (
+                                  <button
+                                    type="button"
+                                    key={`${review.id}-img-${i}`}
+                                    onClick={() => setLightbox({ src: img, alt: `${review.name}'s photo ${i + 1}` })}
+                                    className="relative h-16 w-16 overflow-hidden rounded-lg border border-kwik-border-light bg-kwik-bg-surface transition-transform hover:scale-105"
+                                    aria-label={`View photo ${i + 1} from ${review.name}`}
+                                  >
+                                    <AppImage
+                                      src={img}
+                                      alt={`${review.name}'s photo ${i + 1}`}
+                                      className="h-full w-full"
+                                      objectFit="cover"
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Vendor reply sub-thread (cycle 7) */}
+                            {review.vendorReply && (
+                              <div className="mt-4 rounded-xl border border-kwik-orange/20 bg-gradient-to-br from-kwik-orange-tint/60 to-kwik-amber-tint/40 p-3 sm:p-4">
+                                <div className="flex items-start gap-2.5">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-kwik-gradient text-white shadow-sm">
+                                    <Store className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                      <p className="text-sm font-semibold text-kwik-dark">
+                                        {review.vendorReply.authorName}
+                                      </p>
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-kwik-orange/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-kwik-orange-dark">
+                                        <BadgeCheck className="h-2.5 w-2.5" />
+                                        Seller
+                                      </span>
+                                      {review.vendorReply.createdAt && (
+                                        <span className="text-[11px] text-kwik-muted">
+                                          · {formatRelativeDate(review.vendorReply.createdAt)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="mt-1 text-sm leading-relaxed text-kwik-dark/90">
+                                      {review.vendorReply.text}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Footer: author + date + helpful */}
+                            <div className="mt-4 flex items-center justify-between gap-3 border-t border-kwik-border pt-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-kwik-orange to-kwik-amber text-xs font-bold text-white">
+                                  {review.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-kwik-dark">
+                                    {review.name}
+                                  </p>
+                                  <p className="truncate text-xs text-kwik-gray-light">
+                                    {review.location}
+                                    {review.createdAt && (
+                                      <>
+                                        {" · "}
+                                        {formatRelativeDate(review.createdAt)}
+                                      </>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleHelpfulVote(review.id)}
+                                disabled={voted}
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                                  voted
+                                    ? "border-kwik-orange bg-kwik-orange-tint text-kwik-orange-dark"
+                                    : "border-kwik-border text-kwik-gray hover:border-kwik-orange/40 hover:text-kwik-orange"
+                                }`}
+                                aria-pressed={voted}
+                                aria-label="Mark this review as helpful"
+                              >
+                                <ThumbsUp className="h-3 w-3" />
+                                {helpfulCount > 0 ? helpfulCount : "Helpful"}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1018,7 +1378,7 @@ export function ProductDetailPage({
 
         {/* User Reviews + Review Form */}
         <FadeInUp delay={0.1}>
-          <div className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
+          <div id="write-review-form" className="border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-white/5 sm:p-6 scroll-mt-20">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-kwik-dark sm:text-xl">
@@ -1135,13 +1495,64 @@ export function ProductDetailPage({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAddToCart}
-                  className="flex h-11 items-center gap-2 rounded-xl bg-kwik-orange px-5 font-semibold text-white shadow-lg shadow-kwik-orange/20 transition-all duration-200 hover:bg-kwik-orange-hover hover:shadow-xl flex-shrink-0"
+                  className="flex h-11 items-center gap-2 rounded-xl border-2 border-kwik-orange bg-kwik-orange/5 px-4 font-semibold text-kwik-orange shadow-sm transition-all duration-200 hover:bg-kwik-orange/10 flex-shrink-0"
                 >
                   <ShoppingCart className="h-4 w-4" />
                   <span className="hidden sm:inline">Add to cart</span>
                 </motion.button>
+
+                {/* Buy Now */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleBuyNow}
+                  className="flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-kwik-orange to-kwik-amber px-5 font-semibold text-white shadow-lg shadow-kwik-orange/20 transition-all duration-200 hover:shadow-xl hover:brightness-110 flex-shrink-0"
+                >
+                  <Zap className="h-4 w-4" />
+                  <span className="hidden sm:inline">Buy now</span>
+                </motion.button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Review photo lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            onClick={() => setLightbox(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Review photo"
+          >
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+              aria-label="Close photo"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative max-h-[85vh] max-w-[85vw] overflow-hidden rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AppImage
+                src={lightbox.src}
+                alt={lightbox.alt}
+                className="max-h-[85vh] max-w-[85vw] object-contain"
+              />
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

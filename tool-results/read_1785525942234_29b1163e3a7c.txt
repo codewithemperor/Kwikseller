@@ -1,0 +1,845 @@
+     1→// KWIKSELLER - Enhanced Vendors Page
+     2→// Hero, Category Filters, Vendor Grid, Benefits, Stats, Categories, Onboarding, CTA
+     3→
+     4→"use client";
+     5→
+     6→import React, { useRef, useState, useMemo } from "react";
+     7→import {
+     8→  Store,
+     9→  ArrowRight,
+    10→  Star,
+    11→  Users,
+    12→  Wallet,
+    13→  BarChart3,
+    14→  Search,
+    15→  ShieldCheck,
+    16→  Package,
+    17→  TrendingUp,
+    18→  MapPin,
+    19→  Zap,
+    20→  Droplets,
+    21→  ChevronRight,
+    22→  Sparkles,
+    23→  ShoppingBag,
+    24→  Smartphone,
+    25→  Shirt,
+    26→  Gem,
+    27→  Utensils,
+    28→  Home as HomeIcon,
+    29→  Car,
+    30→  Phone as PhoneIcon,
+    31→  Globe,
+    32→  Award,
+    33→  SlidersHorizontal,
+    34→} from "lucide-react";
+    35→import { Button, Card, Chip } from "@heroui/react";
+    36→import {
+    37→  motion,
+    38→  useInView,
+    39→  useMotionValue,
+    40→  useTransform,
+    41→  animate,
+    42→} from "framer-motion";
+    43→import { cn } from "@kwikseller/ui";
+    44→import Link from "next/link";
+    45→import { useRouter } from "next/navigation";
+    46→import { useStores } from "@/lib/api-hooks";
+    47→import { ProductGridSkeleton } from "@/components/ui/loading-state";
+    48→import { EmptyState } from "@/components/ui/empty-state";
+    49→
+    50→// ─── Animation Helpers ─────────────────────────────────────────────
+    51→
+    52→function AnimatedSection({
+    53→  children,
+    54→  className = "",
+    55→  delay = 0,
+    56→}: {
+    57→  children: React.ReactNode;
+    58→  className?: string;
+    59→  delay?: number;
+    60→}) {
+    61→  const ref = useRef<HTMLDivElement>(null);
+    62→  const isInView = useInView(ref, { once: true, margin: "-60px" });
+    63→  return (
+    64→    <motion.div
+    65→      ref={ref}
+    66→      initial={{ opacity: 0, y: 30 }}
+    67→      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+    68→      transition={{ duration: 0.5, delay, ease: "easeOut" as const }}
+    69→      className={className}
+    70→    >
+    71→      {children}
+    72→    </motion.div>
+    73→  );
+    74→}
+    75→
+    76→function StaggerChild({
+    77→  children,
+    78→  className = "",
+    79→  index = 0,
+    80→}: {
+    81→  children: React.ReactNode;
+    82→  className?: string;
+    83→  index?: number;
+    84→}) {
+    85→  const ref = useRef<HTMLDivElement>(null);
+    86→  const isInView = useInView(ref, { once: true, margin: "-60px" });
+    87→  return (
+    88→    <motion.div
+    89→      ref={ref}
+    90→      initial={{ opacity: 0, y: 30 }}
+    91→      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+    92→      transition={{
+    93→        duration: 0.5,
+    94→        delay: index * 0.08,
+    95→        ease: "easeOut" as const,
+    96→      }}
+    97→      className={className}
+    98→    >
+    99→      {children}
+   100→    </motion.div>
+   101→  );
+   102→}
+   103→
+   104→function CounterAnimation({
+   105→  target,
+   106→  suffix = "",
+   107→  prefix = "",
+   108→  display,
+   109→}: {
+   110→  target: number;
+   111→  suffix?: string;
+   112→  prefix?: string;
+   113→  display?: string;
+   114→}) {
+   115→  const [count, setCount] = useState(0);
+   116→  const [done, setDone] = useState(false);
+   117→  const ref = useRef<HTMLSpanElement>(null);
+   118→  const isInView = useInView(ref, { once: true });
+   119→  React.useEffect(() => {
+   120→    if (!isInView) return;
+   121→    let start = 0;
+   122→    const duration = 2000;
+   123→    const increment = target / (duration / 16);
+   124→    const timer = setInterval(() => {
+   125→      start += increment;
+   126→      if (start >= target) {
+   127→        setCount(target);
+   128→        setDone(true);
+   129→        clearInterval(timer);
+   130→      } else {
+   131→        setCount(Math.floor(start));
+   132→      }
+   133→    }, 16);
+   134→    return () => clearInterval(timer);
+   135→  }, [isInView, target]);
+   136→  return (
+   137→    <span ref={ref}>
+   138→      {done && display
+   139→        ? display
+   140→        : `${prefix}${count.toLocaleString()}${suffix}`}
+   141→    </span>
+   142→  );
+   143→}
+   144→
+   145→function AnimatedNumber({
+   146→  value,
+   147→  decimals = 1,
+   148→}: {
+   149→  value: number;
+   150→  decimals?: number;
+   151→}) {
+   152→  const ref = useRef<HTMLSpanElement>(null);
+   153→  const isInView = useInView(ref, { once: true });
+   154→  const motionVal = useMotionValue(0);
+   155→  const rounded = useTransform(motionVal, (v) => v.toFixed(decimals));
+   156→
+   157→  React.useEffect(() => {
+   158→    if (isInView) {
+   159→      const controls = animate(motionVal, value, {
+   160→        duration: 1.2,
+   161→        ease: "easeOut",
+   162→      });
+   163→      return controls.stop;
+   164→    }
+   165→  }, [isInView, motionVal, value]);
+   166→
+   167→  return <motion.span ref={ref}>{rounded}</motion.span>;
+   168→}
+   169→
+   170→// ─── Data ──────────────────────────────────────────────────────
+   171→
+   172→type VendorCategory =
+   173→  | "All"
+   174→  | "Fashion"
+   175→  | "Electronics"
+   176→  | "Beauty"
+   177→  | "Food"
+   178→  | "Home"
+   179→  | "Automobiles"
+   180→  | "Phones";
+   181→
+   182→const categories: VendorCategory[] = [
+   183→  "All",
+   184→  "Fashion",
+   185→  "Electronics",
+   186→  "Beauty",
+   187→  "Food",
+   188→  "Home",
+   189→  "Automobiles",
+   190→  "Phones",
+   191→];
+   192→
+   193→const VENDOR_SORT_OPTIONS = [
+   194→  { value: "az", label: "A-Z" },
+   195→  { value: "za", label: "Z-A" },
+   196→  { value: "rating", label: "Top Rated" },
+   197→] as const;
+   198→
+   199→type VendorSortValue = (typeof VENDOR_SORT_OPTIONS)[number]["value"];
+   200→
+   201→const categoryIcons: Record<string, React.ElementType> = {
+   202→  Fashion: Shirt,
+   203→  Electronics: Zap,
+   204→  Beauty: Gem,
+   205→  Food: Utensils,
+   206→  Home: HomeIcon,
+   207→  Automobiles: Car,
+   208→  Phones: PhoneIcon,
+   209→};
+   210→
+   211→interface VendorData {
+   212→  id: string;
+   213→  slug?: string;
+   214→  storeName: string;
+   215→  initials: string;
+   216→  category: string;
+   217→  location: string;
+   218→  description: string;
+   219→  products: string;
+   220→  rating: number;
+   221→  sold: string;
+   222→  badge: "Featured" | "Top Rated" | "Rising Star" | "Verified";
+   223→  badgeColor: string;
+   224→  coverColor: string;
+   225→  tags: string[];
+   226→  isVerified: boolean;
+   227→}
+   228→
+   229→// ─── Store → VendorData mapping (drives the directory grid) ────────────────
+   230→
+   231→const COVER_COLORS = [
+   232→  "bg-pink-500",
+   233→  "bg-cyan-500",
+   234→  "bg-violet-500",
+   235→  "bg-green-500",
+   236→  "bg-orange-500",
+   237→  "bg-red-500",
+   238→  "bg-amber-500",
+   239→  "bg-emerald-500",
+   240→];
+   241→
+   242→const CATEGORY_KEYWORDS: Array<{ match: string; category: VendorCategory }> = [
+   243→  { match: "fashion", category: "Fashion" },
+   244→  { match: "apparel", category: "Fashion" },
+   245→  { match: "clothing", category: "Fashion" },
+   246→  { match: "electronic", category: "Electronics" },
+   247→  { match: "gadget", category: "Electronics" },
+   248→  { match: "tech", category: "Electronics" },
+   249→  { match: "beauty", category: "Beauty" },
+   250→  { match: "skincare", category: "Beauty" },
+   251→  { match: "cosmetic", category: "Beauty" },
+   252→  { match: "food", category: "Food" },
+   253→  { match: "grocery", category: "Food" },
+   254→  { match: "fresh", category: "Food" },
+   255→  { match: "home", category: "Home" },
+   256→  { match: "decor", category: "Home" },
+   257→  { match: "furniture", category: "Home" },
+   258→  { match: "auto", category: "Automobiles" },
+   259→  { match: "car", category: "Automobiles" },
+   260→  { match: "phone", category: "Phones" },
+   261→  { match: "mobile", category: "Phones" },
+   262→];
+   263→
+   264→function inferCategory(haystack: string): VendorCategory {
+   265→  const lc = haystack.toLowerCase();
+   266→  for (const { match, category } of CATEGORY_KEYWORDS) {
+   267→    if (lc.includes(match)) return category;
+   268→  }
+   269→  return "Fashion";
+   270→}
+   271→
+   272→function initialsFor(name: string) {
+   273→  return (
+   274→    name
+   275→      .split(/\s+/)
+   276→      .filter(Boolean)
+   277→      .slice(0, 2)
+   278→      .map((part) => part[0]?.toUpperCase())
+   279→      .join("") || "KS"
+   280→  );
+   281→}
+   282→
+   283→function formatCount(n: number): string {
+   284→  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+   285→  return String(n);
+   286→}
+   287→
+   288→function toVendorData(
+   289→  store: {
+   290→    id: string;
+   291→    name: string;
+   292→    slug?: string;
+   293→    description?: string | null;
+   294→    logoUrl?: string | null;
+   295→    bannerUrl?: string | null;
+   296→    rating?: number;
+   297→    reviewCount?: number;
+   298→    productCount?: number;
+   299→    location?: string | null;
+   300→    isVerified?: boolean;
+   301→    category?: string | null;
+   302→  },
+   303→  index: number,
+   304→): VendorData {
+   305→  const category = inferCategory(
+   306→    `${store.name} ${store.description ?? ""} ${store.category ?? ""}`,
+   307→  );
+   308→  const rating = Number(store.rating ?? 0);
+   309→  const reviewCount = Number(store.reviewCount ?? 0);
+   310→  const productCount = Number(store.productCount ?? 0);
+   311→  const badge: VendorData["badge"] =
+   312→    rating >= 4.8 ? "Top Rated" : productCount >= 100 ? "Featured" : "Verified";
+   313→  const badgeColor =
+   314→    badge === "Featured"
+   315→      ? "bg-amber-500"
+   316→      : badge === "Top Rated"
+   317→        ? "bg-emerald-500"
+   318→        : "bg-gray-500";
+   319→  return {
+   320→    id: String(store.id),
+   321→    slug: store.slug,
+   322→    storeName: store.name,
+   323→    initials: initialsFor(store.name),
+   324→    category,
+   325→    location: store.location || "Africa",
+   326→    description:
+   327→      store.description ||
+   328→      "Verified vendor on Kwikseller — quality products, escrow protected.",
+   329→    products: formatCount(productCount),
+   330→    rating,
+   331→    sold: formatCount(reviewCount),
+   332→    badge,
+   333→    badgeColor,
+   334→    coverColor: COVER_COLORS[index % COVER_COLORS.length],
+   335→    tags: [category],
+   336→    isVerified: Boolean(store.isVerified ?? true),
+   337→  };
+   338→}
+   339→
+   340→const whySellBenefits = [
+   341→  {
+   342→    icon: Wallet,
+   343→    title: "Zero Setup Fees",
+   344→    description:
+   345→      "No monthly charges, no hidden costs. Create your store and start listing products for free.",
+   346→    color: "bg-success/10 text-success",
+   347→  },
+   348→  {
+   349→    icon: ShieldCheck,
+   350→    title: "Escrow Protection",
+   351→    description:
+   352→      "Every transaction is secured with escrow. Get paid only after the buyer confirms delivery.",
+   353→    color: "bg-accent/10 text-accent",
+   354→  },
+   355→  {
+   356→    icon: Droplets,
+   357→    title: "Pool Selling",
+   358→    description:
+   359→      "Sell without holding inventory. Pick products from the shared pool and earn commissions instantly.",
+   360→    color: "bg-warning/10 text-warning",
+   361→  },
+   362→  {
+   363→    icon: BarChart3,
+   364→    title: "Analytics Dashboard",
+   365→    description:
+   366→      "Track your sales, traffic, conversion rates, and revenue trends with real-time analytics.",
+   367→    color: "bg-danger/10 text-danger",
+   368→  },
+   369→];
+   370→
+   371→const vendorStats = [
+   372→  {
+   373→    value: 10000,
+   374→    suffix: "+",
+   375→    prefix: "",
+   376→    label: "Vendors",
+   377→    display: "10K+",
+   378→    icon: Users,
+   379→  },
+   380→  {
+   381→    value: 500000,
+   382→    suffix: "+",
+   383→    prefix: "",
+   384→    label: "Products",
+   385→    display: "500K+",
+   386→    icon: Package,
+   387→  },
+   388→  {
+   389→    value: 15,
+   390→    suffix: "+",
+   391→    prefix: "",
+   392→    label: "Countries",
+   393→    display: "15+",
+   394→    icon: Globe,
+   395→  },
+   396→  {
+   397→    value: 2000000,
+   398→    suffix: "+",
+   399→    prefix: "",
+   400→    label: "Orders",
+   401→    display: "2M+",
+   402→    icon: ShoppingBag,
+   403→  },
+   404→];
+   405→
+   406→const topCategories = [
+   407→  {
+   408→    name: "Fashion & Apparel",
+   409→    count: "45K+",
+   410→    icon: Shirt,
+   411→    color: "bg-pink-500",
+   412→    bgLight: "bg-pink-50 dark:bg-pink-950/30",
+   413→    textColor: "text-pink-600 dark:text-pink-400",
+   414→  },
+   415→  {
+   416→    name: "Electronics",
+   417→    count: "38K+",
+   418→    icon: Zap,
+   419→    color: "bg-teal-500",
+   420→    bgLight: "bg-teal-50 dark:bg-teal-950/30",
+   421→    textColor: "text-teal-600 dark:text-teal-400",
+   422→  },
+   423→  {
+   424→    name: "Phones & Tablets",
+   425→    count: "29K+",
+   426→    icon: Smartphone,
+   427→    color: "bg-amber-500",
+   428→    bgLight: "bg-amber-50 dark:bg-amber-950/30",
+   429→    textColor: "text-amber-600 dark:text-amber-400",
+   430→  },
+   431→  {
+   432→    name: "Beauty & Health",
+   433→    count: "24K+",
+   434→    icon: Gem,
+   435→    color: "bg-violet-500",
+   436→    bgLight: "bg-violet-50 dark:bg-violet-950/30",
+   437→    textColor: "text-violet-600 dark:text-violet-400",
+   438→  },
+   439→  {
+   440→    name: "Home & Garden",
+   441→    count: "21K+",
+   442→    icon: HomeIcon,
+   443→    color: "bg-green-500",
+   444→    bgLight: "bg-green-50 dark:bg-green-950/30",
+   445→    textColor: "text-green-600 dark:text-green-400",
+   446→  },
+   447→  {
+   448→    name: "Food & Drinks",
+   449→    count: "18K+",
+   450→    icon: Utensils,
+   451→    color: "bg-orange-500",
+   452→    bgLight: "bg-orange-50 dark:bg-orange-950/30",
+   453→    textColor: "text-orange-600 dark:text-orange-400",
+   454→  },
+   455→];
+   456→
+   457→const onboardingSteps = [
+   458→  {
+   459→    number: 1,
+   460→    title: "Register",
+   461→    description:
+   462→      "Create your free vendor account in under 2 minutes with just your email and basic details.",
+   463→    icon: Users,
+   464→    color: "bg-emerald-500",
+   465→  },
+   466→  {
+   467→    number: 2,
+   468→    title: "Set Up Store",
+   469→    description:
+   470→      "Customize your store with a logo, banner, and brand colors. Choose from beautiful templates.",
+   471→    icon: Store,
+   472→    color: "bg-amber-500",
+   473→  },
+   474→  {
+   475→    number: 3,
+   476→    title: "Add Products",
+   477→    description:
+   478→      "Upload photos, set prices in local currency, and organize your items into categories.",
+   479→    icon: Package,
+   480→    color: "bg-rose-500",
+   481→  },
+   482→  {
+   483→    number: 4,
+   484→    title: "Start Selling",
+   485→    description:
+   486→      "Go live and reach millions of buyers across Africa. Track every order from your dashboard.",
+   487→    icon: TrendingUp,
+   488→    color: "bg-violet-500",
+   489→  },
+   490→];
+   491→
+   492→// ─── Vendor Card Component ────────────────────────────────────────
+   493→
+   494→function VendorCard({ vendor, index }: { vendor: VendorData; index: number }) {
+   495→  const vendorSlug =
+   496→    vendor.slug ??
+   497→    vendor.storeName
+   498→      .toLowerCase()
+   499→      .replace(/[^a-z0-9]+/g, "-")
+   500→      .replace(/(^-|-$)/g, "");
+   501→
+   502→  return (
+   503→    <StaggerChild index={index}>
+   504→      <Card className="overflow-hidden border border-divider rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group h-full">
+   505→        {/* Cover Area */}
+   506→        <div className={cn("relative h-28 overflow-hidden")}>
+   507→          <div className={cn("absolute inset-0", vendor.coverColor)} />
+   508→          {/* Decorative geometric shapes */}
+   509→          <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10" />
+   510→          <div className="absolute -bottom-8 -left-8 w-20 h-20 rounded-full bg-white/10" />
+   511→          <div className="absolute top-3 right-16 w-16 h-[2px] bg-white/20 rotate-12" />
+   512→          <div className="absolute bottom-6 left-10 w-12 h-[2px] bg-white/15 -rotate-6" />
+   513→          <div className="absolute top-10 left-20 w-4 h-4 rounded-full bg-white/15" />
+   514→          {/* Badge */}
+   515→          <div className="absolute top-3 right-3 z-10">
+   516→            <span
+   517→              className={cn(
+   518→                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider shadow-lg",
+   519→                vendor.badgeColor,
+   520→              )}
+   521→            >
+   522→              {vendor.badge === "Featured" && "⭐ "}
+   523→              {vendor.badge === "Top Rated" && "🏆 "}
+   524→              {vendor.badge === "Rising Star" && "🚀 "}
+   525→              {vendor.badge}
+   526→            </span>
+   527→          </div>
+   528→        </div>
+   529→
+   530→        {/* Vendor Info */}
+   531→        <div className="relative px-5 pb-5">
+   532→          {/* Avatar overlapping cover */}
+   533→          <div className="flex items-end gap-3 -mt-8 mb-3">
+   534→            <div
+   535→              className={cn(
+   536→                "w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg border-[3px] border-background shrink-0",
+   537→                vendor.coverColor,
+   538→              )}
+   539→            >
+   540→              {vendor.initials}
+   541→            </div>
+   542→            <div className="flex-1 min-w-0 pb-1">
+   543→              <h3 className="font-semibold text-lg truncate leading-tight">
+   544→                {vendor.storeName}
+   545→              </h3>
+   546→              <div className="flex items-center gap-1 text-sm text-default-500 truncate">
+   547→                <MapPin className="w-3 h-3 shrink-0" />
+   548→                <span className="truncate">{vendor.location}</span>
+   549→              </div>
+   550→            </div>
+   551→          </div>
+   552→
+   553→          {/* Category + Verification */}
+   554→          <div className="flex items-center justify-between mb-4">
+   555→            <Chip size="sm" variant="soft" className="text-xs">
+   556→              {(() => {
+   557→                const CatIcon = categoryIcons[vendor.category];
+   558→                return CatIcon ? (
+   559→                  <span className="mr-1">
+   560→                    <CatIcon className="w-3 h-3" />
+   561→                  </span>
+   562→                ) : null;
+   563→              })()}
+   564→              {vendor.category}
+   565→            </Chip>
+   566→            {vendor.isVerified && (
+   567→              <div className="flex items-center gap-1">
+   568→                <ShieldCheck className="w-4 h-4 text-success" />
+   569→                <span className="text-xs font-medium text-success">
+   570→                  Verified
+   571→                </span>
+   572→              </div>
+   573→            )}
+   574→          </div>
+   575→
+   576→          {/* Stats Row */}
+   577→          <div className="flex items-center justify-between py-3 mb-4 border-y border-divider">
+   578→            <div className="flex-1 text-center">
+   579→              <div className="flex items-center justify-center gap-1 text-sm">
+   580→                <Package className="w-3.5 h-3.5 text-default-400" />
+   581→                <span className="font-semibold">{vendor.products}</span>
+   582→              </div>
+   583→              <span className="text-[10px] text-default-400 uppercase tracking-wider">
+   584→                Products
+   585→              </span>
+   586→            </div>
+   587→            <div className="w-px h-8 bg-divider" />
+   588→            <div className="flex-1 text-center">
+   589→              <div className="flex items-center justify-center gap-1 text-sm">
+   590→                <Star className="w-3.5 h-3.5 fill-warning text-warning" />
+   591→                <span className="font-semibold text-warning">
+   592→                  <AnimatedNumber value={vendor.rating} /> ★
+   593→                </span>
+   594→              </div>
+   595→              <span className="text-[10px] text-default-400 uppercase tracking-wider">
+   596→                Rating
+   597→              </span>
+   598→            </div>
+   599→            <div className="w-px h-8 bg-divider" />
+   600→            <div className="flex-1 text-center">
+   601→              <div className="flex items-center justify-center gap-1 text-sm">
+   602→                <TrendingUp className="w-3.5 h-3.5 text-default-400" />
+   603→                <span className="font-semibold">{vendor.sold}</span>
+   604→              </div>
+   605→              <span className="text-[10px] text-default-400 uppercase tracking-wider">
+   606→                Sales
+   607→              </span>
+   608→            </div>
+   609→          </div>
+   610→
+   611→          {/* Tags */}
+   612→          <div className="flex flex-wrap gap-1.5 mb-4">
+   613→            {vendor.tags.map((tag) => (
+   614→              <span
+   615→                key={tag}
+   616→                className="rounded-full bg-default-100 dark:bg-default-100/50 px-2.5 py-0.5 text-xs text-default-600 font-medium"
+   617→              >
+   618→                {tag}
+   619→              </span>
+   620→            ))}
+   621→          </div>
+   622→
+   623→          {/* Visit Store Button */}
+   624→          <Link
+   625→            href={`/vendor/${vendorSlug}`}
+   626→            className="group/btn inline-flex h-11 w-full items-center justify-center gap-2 border border-kwik-border bg-background px-4 text-sm font-semibold text-kwik-dark transition hover:border-kwik-orange hover:text-kwik-orange dark:border-white/15 dark:bg-white/5 dark:text-white"
+   627→          >
+   628→            Visit Store
+   629→            <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+   630→          </Link>
+   631→        </div>
+   632→      </Card>
+   633→    </StaggerChild>
+   634→  );
+   635→}
+   636→
+   637→// ─── Main Page ─────────────────────────────────────────────────────
+   638→
+   639→export default function VendorsPage() {
+   640→  const router = useRouter();
+   641→  const [activeCategory, setActiveCategory] = useState<VendorCategory>("All");
+   642→  const [searchQuery, setSearchQuery] = useState("");
+   643→  const [sortBy, setSortBy] = useState<VendorSortValue>("rating");
+   644→  const [isSortOpen, setIsSortOpen] = useState(false);
+   645→
+   646→  // Fetch the vendor directory from the shared `useStores` hook (backed by
+   647→  // the dummy API when NEXT_PUBLIC_USE_DUMMY_DATA=true, the real backend
+   648→  // otherwise — no hardcoded fallback list).
+   649→  const storesQuery = useStores();
+   650→  const isLoadingVendors = storesQuery.isLoading;
+   651→  const apiVendors = useMemo<VendorData[]>(
+   652→    () =>
+   653→      ((storesQuery.data ?? []) as Array<Record<string, unknown>>).map(
+   654→        (store, index) =>
+   655→          toVendorData(
+   656→            {
+   657→              id: String(store.id ?? index),
+   658→              name: String(store.name ?? store.storeName ?? "Kwikseller vendor"),
+   659→              slug: store.slug ? String(store.slug) : store.username ? String(store.username) : undefined,
+   660→              description: (store.description ?? store.tagline) as string | null,
+   661→              logoUrl: (store.logoUrl ?? store.logo) as string | null,
+   662→              bannerUrl: store.bannerUrl as string | null,
+   663→              rating: Number(store.rating ?? store.averageRating ?? 0),
+   664→              reviewCount: Number(store.reviewCount ?? 0),
+   665→              productCount: Number(store.productCount ?? 0),
+   666→              location: (store.location ?? (store.address as { state?: string } | undefined)?.state) as string | null,
+   667→              isVerified: Boolean(store.isVerified ?? store.verified ?? true),
+   668→              category: store.category as string | null,
+   669→            },
+   670→            index,
+   671→          ),
+   672→      ),
+   673→    [storesQuery.data],
+   674→  );
+   675→
+   676→  const filteredVendors = useMemo(() => {
+   677→    const result = apiVendors.filter((v) => {
+   678→      const matchesCategory =
+   679→        activeCategory === "All" || v.category === activeCategory;
+   680→      const matchesSearch =
+   681→        searchQuery.trim() === "" ||
+   682→        v.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   683→        v.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   684→        v.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   685→        v.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+   686→      return matchesCategory && matchesSearch;
+   687→    });
+   688→
+   689→    switch (sortBy) {
+   690→      case "az":
+   691→        result.sort((a, b) => a.storeName.localeCompare(b.storeName));
+   692→        break;
+   693→      case "za":
+   694→        result.sort((a, b) => b.storeName.localeCompare(a.storeName));
+   695→        break;
+   696→      case "rating":
+   697→        result.sort((a, b) => b.rating - a.rating);
+   698→        break;
+   699→    }
+   700→
+   701→    return result;
+   702→  }, [activeCategory, searchQuery, sortBy, apiVendors]);
+   703→
+   704→  return (
+   705→    <>
+   706→      <section className="relative z-[95] border-b border-divider bg-white dark:bg-background">
+   707→        <div className="container mx-auto px-4 py-4">
+   708→          <div className="flex items-end justify-between gap-3">
+   709→            <div className="min-w-0">
+   710→              <h1 className="text-xl font-bold text-kwik-dark dark:text-white">Vendors</h1>
+   711→              <p className="mt-0.5 text-xs text-kwik-muted dark:text-white/60">
+   712→                {isLoadingVendors ? "Loading verified sellers" : "Browse verified sellers"}
+   713→              </p>
+   714→            </div>
+   715→            <div className="relative shrink-0">
+   716→              <button
+   717→                type="button"
+   718→                onClick={() => setIsSortOpen((value) => !value)}
+   719→                className="inline-flex h-9 items-center gap-2 rounded-md border border-kwik-border bg-white px-3 text-xs font-semibold text-kwik-dark transition hover:border-kwik-orange dark:border-white/10 dark:bg-white/5 dark:text-white"
+   720→                aria-expanded={isSortOpen}
+   721→              >
+   722→                <SlidersHorizontal className="h-3.5 w-3.5 text-kwik-orange" />
+   723→                Sort
+   724→              </button>
+   725→              {isSortOpen && (
+   726→                <div className="absolute right-0 top-11 z-[110] w-40 overflow-hidden rounded-md border border-kwik-border bg-background shadow-xl">
+   727→                  {VENDOR_SORT_OPTIONS.map((opt) => (
+   728→                <button
+   729→                  key={opt.value}
+   730→                  type="button"
+   731→                  onClick={() => {
+   732→                    setSortBy(opt.value);
+   733→                    setIsSortOpen(false);
+   734→                  }}
+   735→                  className={`block w-full px-3 py-2 text-left text-xs font-medium transition ${
+   736→                    sortBy === opt.value
+   737→                      ? "bg-kwik-orange text-white"
+   738→                      : "text-kwik-gray-light hover:bg-neutral-50 hover:text-kwik-dark dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+   739→                  }`}
+   740→                >
+   741→                  {opt.label}
+   742→                </button>
+   743→                  ))}
+   744→                </div>
+   745→              )}
+   746→            </div>
+   747→          </div>
+   748→        </div>
+   749→      </section>
+   750→      {/* Hero section is intentionally omitted in this refactor — the
+   751→          directory header above already provides the page title and search
+   752→          affordance. Keeping the layout compact for a focused browse flow. */}
+   753→
+   754→      {/* ─── 2. Vendor Categories Filter ─────────────────────── */}
+   755→      <section className="sticky top-[112px] z-[90] border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95 md:top-16">
+   756→        <div className="container mx-auto px-0 md:px-4">
+   757→          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-2 py-1.5 md:px-0">
+   758→            {categories.map((cat) => (
+   759→              <button
+   760→                key={cat}
+   761→                onClick={() => setActiveCategory(cat)}
+   762→                className="relative px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors shrink-0"
+   763→              >
+   764→                {activeCategory === cat && (
+   765→                  <motion.div
+   766→                    layoutId="active-vendor-filter"
+   767→                    className="absolute inset-0 bg-accent rounded-full"
+   768→                    transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+   769→                  />
+   770→                )}
+   771→                <span
+   772→                  className={cn(
+   773→                    "relative z-10 flex items-center gap-1.5",
+   774→                    activeCategory === cat
+   775→                      ? "text-white"
+   776→                      : "text-default-500 hover:text-foreground",
+   777→                  )}
+   778→                >
+   779→                  {cat !== "All" &&
+   780→                    (() => {
+   781→                      const CatIcon = categoryIcons[cat];
+   782→                      return CatIcon ? (
+   783→                        <CatIcon className="w-3.5 h-3.5" />
+   784→                      ) : null;
+   785→                    })()}
+   786→                  {cat}
+   787→                </span>
+   788→              </button>
+   789→            ))}
+   790→          </div>
+   791→        </div>
+   792→      </section>
+   793→
+   794→      {/* ─── 3. Featured Vendors Grid ────────────────────────── */}
+   795→      <section className="py-6 sm:py-8">
+   796→        <div className="container mx-auto px-4 md:px-4">
+   797→          <AnimatedSection>
+   798→            <div className="mb-4 flex items-end justify-between gap-4">
+   799→              <div>
+   800→                <Chip variant="soft" className="mb-2">
+   801→                  <Award className="w-4 h-4 mr-1" />
+   802→                  Featured Sellers
+   803→                </Chip>
+   804→                <h2 className="text-xl font-bold md:text-2xl">
+   805→                  Explore Top Vendors
+   806→                </h2>
+   807→              </div>
+   808→            </div>
+   809→          </AnimatedSection>
+   810→
+   811→          {isLoadingVendors ? (
+   812→            <ProductGridSkeleton count={8} columns={4} />
+   813→          ) : filteredVendors.length > 0 ? (
+   814→            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+   815→              {filteredVendors.map((vendor, index) => (
+   816→                <VendorCard key={vendor.id} vendor={vendor} index={index} />
+   817→              ))}
+   818→            </div>
+   819→          ) : (
+   820→            <EmptyState
+   821→              variant="search"
+   822→              icon={<Search className="h-12 w-12" />}
+   823→              title="No vendors found"
+   824→              description="Try adjusting your search or filter to find what you're looking for."
+   825→              action={
+   826→                <button
+   827→                  type="button"
+   828→                  onClick={() => {
+   829→                    setActiveCategory("All");
+   830→                    setSearchQuery("");
+   831→                  }}
+   832→                  className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
+   833→                >
+   834→                  Clear Filters
+   835→                </button>
+   836→              }
+   837→            />
+   838→          )}
+   839→        </div>
+   840→      </section>
+   841→
+   842→    </>
+   843→  );
+   844→}
+   845→

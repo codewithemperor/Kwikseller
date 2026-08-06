@@ -1,0 +1,400 @@
+     1→     1→  - "Redeem now" button (opens redeem modal) + "Remind me later" dismiss.
+     2→     2→  - Dismissible (X button + state).
+     3→     3→- New `ReferralProgramCard` component (inserted before transactions):
+     4→     4→  - Gradient card (from-kwik-bg-surface to-kwik-violet-tint/30).
+     5→     5→  - Header with UserPlus icon + reward summary.
+     6→     6→  - 4-card stats grid: Invited (green) / Joined (orange) / Pending (amber) / Earned (violet).
+     7→     7→  - Referral code card with copy button (code in orange-dark mono font).
+     8→     8→  - Shareable link card with Share button (copies URL).
+     9→     9→  - Milestone progress card: Target icon, next milestone label, +bonus pill, animated progress bar (orange→amber gradient), "X more friends to unlock" message.
+    10→    10→- Both components use `kwikToast` for feedback and motion for entrance animations.
+    11→    11→
+    12→    12→### 3. Order tracking enhancements — live ETA countdown + rate delivery
+    13→    13→**`src/app/orders/[id]/track/page.tsx`**:
+    14→    14→- Added AnimatePresence to framer-motion imports.
+    15→    15→- Added 4 new lucide imports: Timer, ThumbsUp, Send.
+    16→    16→- Added `kwikToast` import.
+    17→    17→- New `LiveEtaCountdown` component (inserted after status banner, shown when en route + progress < 100):
+    18→    18→  - Computes a target timestamp from etaMinutes (ref + useEffect).
+    19→    19→  - Ticks every 1s via setInterval.
+    20→    20→  - Displays HH:MM:SS countdown (tabular-nums) with Timer icon + animated ping ring.
+    21→    21→  - Shows distance left (km) + "Arriving by" (clock time).
+    22→    22→  - Orange/amber gradient border + background.
+    23→    23→- New `RateDeliveryCard` component (shown when status === DELIVERED):
+    24→    24→  - 5-star rating with hover state + emoji feedback per rating (🎉👍 etc.).
+    25→    25→  - 5 toggleable tag chips: "On time", "Polite & friendly", "Careful with package", "Good communication", "Fast delivery".
+    26→    26→  - Optional comment textarea.
+    27→    27→  - Submit button (bg-kwik-gradient) → success state with green CheckCircle2 + submitted stars.
+    28→    28→  - Clear button resets form.
+    29→    29→  - Uses kwikToast.error if no rating selected, kwikToast.success on submit.
+    30→    30→
+    31→    31→### 4. Helpful vote persistence to localStorage
+    32→    32→**`src/components/product/product-detail-page.tsx`**:
+    33→    33→- Replaced the session-only `votedReviews` Set with localStorage-persisted state keyed by product id (`kwik:review-votes:{productId}`).
+    34→    34→- Added 2 useEffects:
+    35→    35→  1. On `product.id` change: loads persisted votes from localStorage (JSON array → Set), resets filterStar.
+    36→    36→  2. On `votedReviews` or `product.id` change: persists the current votes array to localStorage (or removes the key if empty).
+    37→    37→- Wrapped in try/catch to gracefully handle unavailable localStorage (private mode / SSR).
+    38→    38→- Votes now survive page refreshes and navigation between products.
+    39→    39→
+    40→    40→### 5. Vendor reply sub-threads on reviews
+    41→    41→**`src/lib/dummy-data/catalog.ts`**:
+    42→    42→- Added `VENDOR_REPLY_TEMPLATES` (6 friendly reply bodies with emojis).
+    43→    43→- Added `VENDOR_REPLY_NAMES` (5 store names).
+    44→    44→- Added `buildVendorReply(reviewId, reviewCreatedAt, storeName?)` helper:
+    45→    45→  - Deterministic: every 3rd review (by char-code sum % 3 === 0) gets a reply.
+    46→    46→  - Reply timestamp is 1–4 days after the review, but not in the future.
+    47→    47→  - Returns `{ id, authorName, text, createdAt }` or undefined.
+    48→    48→- Extended `DummyReview` type with optional `vendorReply` field.
+    49→    49→- Updated `buildReviews()` to attach `vendorReply` to every generated review (using the product's store name) AND to the 5 hand-written seeds.
+    50→    50→
+    51→    51→**`src/lib/api-hooks.ts`**:
+    52→    52→- Extended `ProductReview` interface with optional `vendorReply` field (id, authorName, text, createdAt).
+    53→    53→
+    54→    54→**`src/data/marketplace-home.ts`**:
+    55→    55→- Extended `MarketplaceReview` interface with optional `vendorReply` field.
+    56→    56→
+    57→    57→**`src/app/products/[id]/page.tsx`**:
+    58→    58→- `productReviews` mapping now passes through `vendorReply` from the API response.
+    59→    59→
+    60→    60→**`src/components/product/product-detail-page.tsx`**:
+    61→    61→- Added `Store` and `BadgeCheck` to lucide imports.
+    62→    62→- New vendor reply sub-thread block (inserted after review photo grid, before footer):
+    63→    63→  - Orange-tinted gradient card (from-kwik-orange-tint/60 to-kwik-amber-tint/40).
+    64→    64→  - Store avatar (bg-kwik-gradient with Store icon).
+    65→    65→  - Author name + "Seller" badge (BadgeCheck icon, orange-tint bg) + relative date.
+    66→    66→  - Reply text in kwik-dark/90.
+    67→    67→  - Indented under the review body to visually nest as a sub-thread.
+    68→    68→
+    69→    69→## Verification Results
+    70→    70→
+    71→    71→### Lint
+    72→    72→- `bun run lint` → **8 problems (0 errors, 8 warnings)**. Same as cycles 5–6 — all warnings are pre-existing `<img>` element warnings in files I did NOT touch this cycle. No new lint errors.
+    73→    73→
+    74→    74→### API endpoints (verified via curl)
+    75→    75→- `GET /api/v1/brands` → 5 brands, first brand has: story ✓, 3 badges ✓, 4 socialLinks ✓, coverImage ✓, foundedYear 2018 ✓, followCount 12400 ✓, rating 4.7 ✓, totalSales 4820 ✓.
+    76→    76→- `GET /api/v1/wallet` → balance 2450, expiringCoins.amount=180 expiring 2026-08-12, referral.code="ADAEZE24" ✓.
+    77→    77→- `GET /api/v1/reviews/p-9` → 1 review (r3) with vendorReply by "TechHub Africa" ✓.
+    78→    78→- `GET /api/v1/reviews/p-2` → 4 reviews, 2 with vendor replies by "Zara's Collection" ✓.
+    79→    79→- `GET /api/v1/reviews/p-4` → 4 reviews, 1 with vendor reply by "Glow Beauty Bar" ✓.
+    80→    80→- `GET /api/v1/reviews/p-5` → 4 reviews, 1 with vendor reply by "HomeVibe Decor" ✓.
+    81→    81→- Vendor replies use the actual store name from the product (not a generic name).
+    82→    82→
+    83→    83→### Page compiles (all return 200, verified one-at-a-time in single bash session)
+    84→    84→- `/` → 200 (home, 19.3s compile)
+    85→    85→- `/brands/ankara-originals` → 200 (3.0s, full brand detail with cover hero + info card)
+    86→    86→- `/brands/techpro` → 200 (130ms, cached)
+    87→    87→- `/brands/glow-naturals` → 200 (116ms)
+    88→    88→- `/products/p-1` → 200 (2.9s, with vendor reply sub-threads + helpful vote persistence)
+    89→    89→- `/products/p-9` → 200 (97ms, has vendor reply on r3)
+    90→    90→- `/products/p-13` → 200 (112ms)
+    91→    91→- `/profile/wallet` → 200 (2.3s, with expiring coins banner + referral program card)
+    92→    92→- `/orders/ord-1/track` → 200 (2.6s, with live ETA countdown + rate delivery card)
+    93→    93→
+    94→    94→## Known Issues / Risks
+    95→    95→- **Sandbox memory (4GB)**: Same persistent issue — Next.js 16 Turbopack dev server is OOM-killed after ~30s of idle across separate bash invocations. All testing must be done in a single bash session. Mitigation: `NODE_OPTIONS="--max-old-space-size=1536"` + clear `.next` before each restart + test pages one-at-a-time.
+    96→    96→- **Pre-existing TypeScript errors**: ~30 errors in files I did NOT touch this cycle (`order-progress-bar.tsx`, `order-actions.tsx`, `categories/page.tsx`, `search/page.tsx`, `enhanced-search-overlay.tsx`, `profile/page.tsx`, `orders/[id]/track/page.tsx`, `vendor/[slug]/checkout/page.tsx`, `data/products.ts`). Present since cycle 5, out of scope.
+    97→    97→- **Helpful votes are per-product**: Votes are keyed by `kwik:review-votes:{productId}` so they don't leak across products. A future cycle could add a global "my helpful votes" view.
+    98→    98→- **Vendor replies are read-only**: The dummy API returns vendor replies but there's no vendor UI to post a reply yet. A future cycle could add a "Reply" form on the vendor's product reviews dashboard.
+    99→    99→- **Rate delivery is not persisted**: The `RateDeliveryCard` shows a success state but doesn't POST to the API. A future cycle could add `POST /orders/:id/delivery-rating`.
+   100→   100→
+   101→   101→## Priority Recommendations for Next Cycle
+   102→   102→1. **Search experience**: Add recent searches, trending searches, and a "no results" page with suggestions (still pending from cycle 6).
+   103→   103→2. **Compare feature verification**: Verify the `/compare` page works end-to-end with the compare store.
+   104→   104→3. **Vendor reply posting UI**: Add a "Reply to review" form on the vendor's product reviews dashboard that POSTs to a new `POST /reviews/:id/reply` endpoint.
+   105→   105→4. **Delivery rating persistence**: Add `POST /orders/:id/delivery-rating` endpoint + persist the rating so the RateDeliveryCard shows "Already rated" state on revisit.
+   106→   106→5. **Home page hero video/animation**: The home page hero could use a video background or animated product carousel.
+   107→   107→6. **Order tracking real-time courier movement**: Simulate the courier pin moving along the route over time (the progress bar already animates, but the pin position is static between API refreshes).
+   108→   108→7. **Wallet transaction filtering by date range**: Add a date-range picker to the transaction history.
+   109→   109→8. **Brand product carousel on home**: Add a "Shop by brand" carousel section on the home page.
+   110→   110→
+   111→   111→---
+   112→   112→Task ID: 11 (Cron Review Cycle 8 — Search experience + Shop-by-Brand carousel + Wallet transaction filtering + Compare consistency sweep)
+   113→   113→Agent: Main Agent (Cron webDevReview Cycle 8)
+   114→   114→Task: Assess project status, QA via curl, then independently advance 4 enhancement features: (1) full search experience (recent searches + trending searches + smart no-results suggestions), (2) Home "Shop by Brand" carousel, (3) wallet transaction filtering (date-range + category + search), (4) compare page consistency sweep + hex color alignment.
+   115→   115→
+   116→   116→## Current Project Status (start of cycle 8)
+   117→   117→- Foundation solid from cycles 0–7: marketplace on port 3000, dummy-data API at /api/v1/*, shared hooks, account sidebar/drawer layout, checkout → vendor order flow, vendor analytics + storefront info card + brand detail polish, wallet redemption + expiring coins + referral program, coupons page, help center, reviews enrichment (filter/sort/helpful/photo/verified + vendor replies + localStorage-persisted helpful votes), notification preferences, CSV export, seasonal coupons, order tracking live ETA + rate delivery.
+   118→   118→- Critical `'client-only'` Server Component regression from cycle 6 stays fixed (toast.ts `'use client'` + ToastProvider wrapper).
+   119→   119→- Lint at start: 0 errors, 8 warnings (all pre-existing `<img>` warnings in files untouched this cycle).
+   120→   120→- 4GB sandbox RAM constraint persists — dev server OOM-killed across separate bash invocations; all testing done in single bash sessions via curl.
+   121→   121→
+   122→   122→## Changes Made
+   123→   123→
+   124→   124→### 1. Search experience — recent searches + trending searches + smart no-results
+   125→   125→**`src/app/api/v1/[...path]/route.ts`** (new `path[0] === "search"` block):
+   126→   126→- `GET /api/v1/search/trending?limit=N` → curated list of 16 trending search terms (Ankara dresses, iPhone 15, Sneakers, Skincare, …) each with `{ id, label, query, category, count, trending }`. Deterministic so the React Query cache (`staleTime: 10min`) stays stable.
+   127→   127→- `GET /api/v1/search/suggestions?q=<term>` → prefix suggestions drawn from products + brands + categories + stores names (max 8). Used by the search overlay.
+   128→   128→- Returns 404 for unknown search sub-paths.
+   129→   129→
+   130→   130→**`src/lib/api-hooks.ts`**:
+   131→   131→- New `TrendingSearch` interface.
+   132→   132→- New `useTrendingSearches(limit=12)` hook → `api.get('search/trending?limit=…')`, staleTime 10min.
+   133→   133→- New `useSearchSuggestions(term, enabled)` hook → `api.get('search/suggestions?q=…')`, staleTime 1min, enabled only when term non-empty.
+   134→   134→
+   135→   135→**`src/hooks/use-recent-searches.ts`** (NEW, ~140 lines):
+   136→   136→- `useRecentSearches()` hook backed by `useSyncExternalStore` (satisfies React 19's `react-hooks/set-state-in-effect` lint rule — no setState in effect bodies).
+   137→   137→- Persists to `localStorage["kwik:recent-searches"]` (JSON array, max 8 entries, deduped case-insensitively).
+   138→   138→- API: `{ items, addSearch, removeSearch, clearSearches }`.
+   139→   139→- Cross-tab + same-tab reactive (subscribes to `storage` event + a custom `kwik:recent-searches-changed` event dispatched after writes).
+   140→   140→- Snapshot cached by raw localStorage string for referential stability.
+   141→   141→- Exported from `src/hooks/index.ts`.
+   142→   142→
+   143→   143→**`src/app/search/page.tsx`** (full rewrite, ~640 lines):
+   144→   144→- New no-query state with two side-by-side cards:
+   145→   145→  - `RecentSearchesCard` — list of recent queries with relative timestamps ("just now", "5m ago", "2h ago"), per-item remove button (X), "Clear all" button, empty state with History icon.
+   146→   146→  - `TrendingSearchesCard` — gradient card (orange-tint → amber-tint) with Flame icon header, ranked pills (numbered 1–12) showing label + count formatted as "480"/"455"/"430"…, animated entrance, loading skeleton.
+   147→   147→- "Quick picks" chip row (Electronics, Fashion, Phones, Beauty, Food, Home) with hover lift.
+   148→   148→- Popular products grid retained.
+   149→   149→- Smart no-results state: when a query returns 0 results, shows:
+   150→   150→  1. EmptyState with "Browse all products" CTA.
+   151→   151→  2. "Try one of these trending searches" — picks 4 trending terms that DON'T overlap with the failed query.
+   152→   152→  3. "Browse by category" — 8 category cards with Package icon, hover lift, arrow.
+   153→   153→- Successful queries auto-persist to recent searches via `useEffect` on `searchQuery.isSuccess`.
+   154→   154→- All colors use kwik-* tokens (kwik-orange, kwik-orange-tint, kwik-amber-tint, kwik-border-light, kwik-bg-surface, kwik-muted, kwik-dark).
+   155→   155→
+   156→   156→### 2. Home "Shop by Brand" carousel
+   157→   157→**`src/components/landing/shop-by-brand-section.tsx`** (NEW, ~270 lines):
+   158→   158→- `ShopByBrandSection` — horizontal-scrolling brand showcase using `useBrands()` hook.
+   159→   159→- Each `BrandCard` (260–280px wide, shrink-0):
+   160→   160→  - Cover image (h-28) with gradient overlay + decorative orange-tint fallback.
+   161→   161→  - Verified badge (top-right, BadgeCheck icon).
+   162→   162→  - Logo (56×56, rounded-xl, border-4 surface, shadow-md, overlapping cover).
+   163→   163→  - Brand name + tagline (italic, line-clamp-1).
+   164→   164→  - Rating pill (amber-tint bg, Star icon).
+   165→   165→  - Stats row: product count (Package icon) + follower count (Users icon, formatted "12.4K"/"1.2M").
+   166→   166→  - Category chips (up to 3, orange-tint).
+   167→   167→  - "Shop brand" CTA with arrow that translates on hover.
+   168→   168→  - Hover: -translate-y-1 + shadow-lg + shadow-kwik-orange/10.
+   169→   169→- Header: "Featured brands" pill (uppercase, orange-tint) + "Shop by brand" heading + "View all" link to /brands.
+   170→   170→- Left/right scroll buttons (hidden on mobile) with disabled state based on scroll position; keyboard navigation (←/→) when focused.
+   171→   171→- Loading skeleton: 5 pulsing cards.
+   172→   172→- `role="listbox"` + `aria-label="Brand carousel"` + focus-visible ring.
+   173→   173→- Uses `AppImage` with explicit width/height (no `fill` prop — AppImage doesn't support it).
+   174→   174→
+   175→   175→**`src/components/landing/home-feed-page.tsx`**:
+   176→   176→- Imported `ShopByBrandSection`.
+   177→   177→- Inserted `<ShopByBrandSection />` after the "Browse by category" section and before the dark "Checkout is commerce-aware" banner.
+   178→   178→
+   179→   179→### 3. Wallet transaction filtering — date-range + category + search
+   180→   180→**`src/app/profile/wallet/page.tsx`**:
+   181→   181→- Added 4 new lucide imports: `Search, Filter, Calendar, SlidersHorizontal`.
+   182→   182→- New state: `dateRange` (`"7d" | "30d" | "90d" | "all"`), `categoryFilter` (string), `searchTerm` (string), `showAdvanced` (boolean).
+   183→   183→- Refactored `txs` computation into `React.useMemo` (BEFORE early returns — fixes `react-hooks/rules-of-hooks` error) combining 4 filters:
+   184→   184→  - Type filter (ALL/CREDIT/DEBIT) — existing.
+   185→   185→  - Category filter — derived from `availableCategories` (Set of unique categories in the wallet's transactions).
+   186→   186→  - Date range — cutoff timestamp = now − (7/30/90)×86400000ms.
+   187→   187→  - Search — case-insensitive on description + category (with underscores replaced by spaces).
+   188→   188→- `availableCategories` also memoized before early return.
+   189→   189→- `hasActiveFilters` boolean + `clearAllFilters()` helper.
+   190→   190→- Header: "Transaction History" + count badge (orange-tint pill) + "Filters" toggle button (slides open advanced panel).
+   191→   191→- Always-visible type filter chips (All/Earned/Spent) + conditional "Clear" button when any filter is active.
+   192→   192→- Advanced filter panel (AnimatePresence height animation):
+   193→   193→  - Search input with leading Search icon, trailing clear-X button, focus ring (kwik-orange).
+   194→   194→  - Date range chips: Last 7 days / Last 30 days / Last 90 days / All time.
+   195→   195→  - Category chips: "All categories" + one chip per available category (label lowercased, underscores → spaces).
+   196→   196→- Empty states:
+   197→   197→  - When `hasActiveFilters` and txs empty → "No matching transactions" EmptyState with "Clear all filters" button.
+   198→   198→  - When no filters and txs empty → existing "No transactions yet" EmptyState.
+   199→   199→- Transaction rows: added `hover:border-kwik-orange/30` for interactive feedback.
+   200→   200→
+   201→   201→### 4. Compare page consistency sweep + hex color alignment
+   202→   202→**`src/app/compare/page.tsx`** (targeted MultiEdit):
+   203→   203→- Empty state: replaced `bg-gray-100`/`text-gray-400`/`text-gray-500`/`bg-secondary-500`/`hover:bg-secondary-600`/`hover:bg-gray-100` with kwik-* equivalents (`bg-kwik-orange-tint`/`text-kwik-orange`/`text-kwik-muted`/`bg-kwik-gradient`/`hover:opacity-95`/`hover:border-kwik-orange/50`).
+   204→   204→- Added decorative orange blur + relative positioning to empty-state icon.
+   205→   205→- Toolbar: `text-gray-500` → `text-kwik-muted`, `text-gray-600` → `text-kwik-gray`, `border-border` → `border-kwik-border-light`, `hover:bg-gray-100` → `hover:border-kwik-orange/50 hover:text-kwik-orange`, `text-danger`/`border-danger/30` → `text-kwik-red`/`border-kwik-red/30`.
+   206→   206→- Table: `border-border` → `border-kwik-border-light`, `bg-surface` → `bg-kwik-bg-surface`, `text-gray-500` → `text-kwik-muted`, `bg-gray-100` → `bg-kwik-bg-light`, `text-gray-400` → `text-kwik-muted`, added `shadow-sm` to table container.
+   207→   207→- Price row: `text-success`/`bg-success/10` → `text-kwik-green`/`bg-kwik-green/10`, `text-gray-400` → `text-kwik-muted`.
+   208→   208→- Rating row: `fill-warning`/`text-warning`/`bg-warning/10` → `fill-kwik-amber`/`text-kwik-amber`/`bg-kwik-amber/10`, `fill-gray-300`/`text-gray-300` → `fill-kwik-muted`/`text-kwik-muted`.
+   209→   209→- Spec rows: `text-gray-400` (em-dash placeholder) → `text-kwik-muted`.
+   210→   210→- Actions row: `bg-secondary-500`/`hover:bg-secondary-600` → `bg-kwik-orange`/`hover:bg-kwik-orange-hover` + shadow, `border-danger`/`text-danger`/`bg-danger/5` → `border-kwik-red`/`text-kwik-red`/`bg-kwik-red/5`, `text-primary-600`/`hover:bg-primary-50` → `text-kwik-orange`/`hover:bg-kwik-orange-tint`.
+   211→   211→- `Row` helper: `border-border` → `border-kwik-border-light`, `bg-surface` → `bg-kwik-bg-surface`, `text-gray-500` → `text-kwik-muted`, added `hover:bg-kwik-bg-light/40` for row interactivity.
+   212→   212→
+   213→   213→**`src/app/layout.tsx`** (hex color fix):
+   214→   214→- `viewport.themeColor` was `#1A56DB` (light) / `#1E40AF` (dark) — blue, inconsistent with the kwik-* orange brand.
+   215→   215→- Changed to `#F97316` (light) / `#C2410C` (dark) — matches kwik-orange / kwik-orange-dark. Now the browser chrome (mobile address bar) matches the marketplace brand.
+   216→   216→- Other hex colors in the codebase (product-variant-selector.tsx color swatches, vendor-storefront.tsx brand colors, escrow-safety-dialog.tsx accentColor, page-loader.tsx CSS var fallbacks) are LEGITIMATE — they represent physical product colors or per-vendor brand colors, not theme tokens. Left unchanged.
+   217→   217→
+   218→   218→## Verification Results
+   219→   219→
+   220→   220→### Lint
+   221→   221→- `bun run lint` → **8 problems (0 errors, 8 warnings)**. Same baseline as cycles 5–7. All warnings are pre-existing `<img>` element warnings in files I did NOT touch this cycle. Fixed 3 new errors I introduced mid-cycle:
+   222→   222→  1. `wallet/page.tsx` × 2 — `React.useMemo` called after early returns → moved all derived-state memos BEFORE the `if (isLoading)` / `if (!wallet)` early returns, using `wallet?.transactions ?? []` as the memo input.
+   223→   223→  2. `use-recent-searches.ts` × 1 — `setState` in `useEffect` body (react-hooks/set-state-in-effect) → rewrote the hook with `useSyncExternalStore` (no effect-setState pattern).
+   224→   224→  3. `search/page.tsx` × 1 — unused eslint-disable directive → removed the directive and added the missing deps to the dependency array.
+   225→   225→
+   226→   226→### API endpoints (verified via curl, single bash session)
+   227→   227→- `GET /api/v1/search/trending?limit=5` → 200, returns 5 trending terms with `id`/`label`/`query`/`category`/`count`/`trending` fields ✓
+   228→   228→- `GET /api/v1/search/suggestions?q=an` → 200, returns 8 suggestions including "Ankara Print Maxi Dress", "African Print Sneakers", "Handwoven Straw Hat", etc. ✓
+   229→   229→- `GET /api/v1/brands` → 200, first brand (Ankara Originals) has `coverImage`, `followCount: 12400`, `verified: true`, `rating: 4.7`, `totalSales: 4820`, 4 socialLinks ✓
+   230→   230→- `GET /api/v1/wallet` → 200 ✓
+   231→   231→
+   232→   232→### Page compiles (all return 200, verified one-at-a-time in single bash session)
+   233→   233→- `/` → 200 (home, 19.5s compile, now includes ShopByBrandSection)
+   234→   234→- `/search` → 200 (2.5s, with recent/trending cards)
+   235→   235→- `/search?q=ankara` → 200 (80ms, cached, with results)
+   236→   236→- `/compare` → 200 (2.1s, kwik-* color sweep applied)
+   237→   237→- `/profile/wallet` → 200 (2.3s, with filter panel + advanced filters)
+   238→   238→- `/brands` → 200 (2.0s)
+   239→   239→- `/products/p-1` → 200 (2.8s)
+   240→   240→- `/orders/ord-1/track` → 200 (2.6s)
+   241→   241→
+   242→   242→### SSR HTML spot-checks
+   243→   243→- `/search` SSR contains "Search Kwikseller", "kwik-orange", "container" ✓
+   244→   244→- `/profile/wallet` SSR contains "Transaction History", "KwikCoins Wallet", "kwik-gradient", "kwik-orange" ✓
+   245→   245→- `/` SSR contains "kwik-orange", "min-h-screen" ✓
+   246→   246→
+   247→   247→## Known Issues / Risks
+   248→   248→- **Sandbox memory (4GB)**: Same persistent issue — Next.js 16 Turbopack dev server is OOM-killed after ~30s of idle across separate bash invocations. All testing done in single bash sessions. `agent-browser` could not be used (server died between bash invocations). Mitigation: `NODE_OPTIONS="--max-old-space-size=1536"` + clear `.next` before each restart + test pages one-at-a-time in a single bash session.
+   249→   249→- **Pre-existing TypeScript errors**: ~30 errors in files I did NOT touch this cycle (same set as cycles 5–7, out of scope).
+   250→   250→- **Recent searches are per-browser**: The `kwik:recent-searches` localStorage key is per-browser/per-device. A future cycle could sync to the user's account via `POST /users/me/recent-searches`.
+   251→   251→- **Trending searches are static**: The 16 trending terms are hardcoded in the route handler. A future cycle could compute them dynamically from actual search volume (would require tracking search queries).
+   252→   252→- **Wallet category filter labels**: Category chips show `category.replace(/_/g, " ").toLowerCase()` (e.g., "order reward", "signup bonus"). Could be enhanced with a label map for prettier display ("Order Reward" → "Order Rewards").
+   253→   253→
+   254→   254→## Priority Recommendations for Next Cycle
+   255→   255→1. **Vendor reply posting UI**: Add a "Reply to review" form on the vendor's product reviews dashboard that POSTs to a new `POST /reviews/:id/reply` endpoint. (Still pending from cycle 7.)
+   256→   256→2. **Delivery rating persistence**: Add `POST /orders/:id/delivery-rating` endpoint + persist the rating so the RateDeliveryCard shows "Already rated" state on revisit. (Still pending from cycle 7.)
+   257→   257→3. **Search overlay integration**: Wire the new `useSearchSuggestions` hook into the `enhanced-search-overlay.tsx` component so the overlay shows live prefix suggestions as the user types.
+   258→   258→4. **Dynamic trending searches**: Track actual search queries (via `POST /search/log` or similar) and compute trending from real volume instead of the hardcoded list.
+   259→   259→5. **Order tracking real-time courier movement**: Simulate the courier pin moving along the route over time (the progress bar already animates, but the pin position is static between API refreshes). (Still pending from cycle 7.)
+   260→   260→6. **Home page hero video/animation**: The home page hero could use a video background or animated product carousel.
+   261→   261→7. **Wallet transaction CSV export**: Add a "Export CSV" button to the transactions section (similar to the orders CSV export).
+   262→   262→8. **Brand product carousel on home**: The new ShopByBrandSection could be enhanced with a "View brand" hover overlay showing top 3 products from each brand.
+   263→   263→
+   264→   264→---
+   265→   265→Task ID: 12 (Cron Review Cycle 9 — Search overlay live suggestions + Vendor review replies + Wallet CSV export + Delivery rating persistence + Real-time courier movement)
+   266→   266→Agent: Main Agent (Cron webDevReview Cycle 9)
+   267→   267→Task: Assess project status, QA via curl, then independently advance 4 high-value features from the cycle-8 priority recommendations: (1) wire useSearchSuggestions into the search overlay so it shows live API-powered prefix suggestions, (2) vendor reply posting UI with POST /reviews/:id/reply endpoint, (3) wallet transaction CSV export (consistency with orders CSV), (4) delivery rating persistence with POST /orders/:id/delivery-rating. Plus a cycle-7 carryover: real-time courier pin movement on the order tracking page.
+   268→   268→
+   269→   269→## Current Project Status (start of cycle 9)
+   270→   270→- Foundation rock-solid from cycles 0–8: marketplace on port 3000, dummy-data API at /api/v1/*, shared hooks, account sidebar/drawer layout, checkout → vendor order flow, vendor analytics + storefront info card + brand detail polish, wallet redemption + expiring coins + referral program, coupons page, help center, reviews enrichment (filter/sort/helpful/photo/verified + vendor replies + localStorage-persisted helpful votes), notification preferences, CSV export (orders), seasonal coupons, order tracking live ETA + rate delivery, search experience (recent + trending + no-results), Shop by Brand carousel, wallet transaction filtering, compare page consistency sweep.
+   271→   271→- Lint at start: 0 errors, 8 warnings (all pre-existing `<img>` warnings in files untouched this cycle).
+   272→   272→- 4GB sandbox RAM constraint persists — dev server OOM-killed across separate bash invocations; all testing done in single bash sessions via curl.
+   273→   273→
+   274→   274→## Changes Made
+   275→   275→
+   276→   276→### 1. Search overlay — live API suggestions + live trending + unified recent searches
+   277→   277→**`src/components/landing/enhanced-search-overlay.tsx`** (full rewrite, ~510 lines):
+   278→   278→- Replaced the local `TRENDING_SEARCH_TERMS` constant + `SEARCH_HISTORY_KEY` localStorage code with two API hooks already built in cycle 8: `useSearchSuggestions(query)` and `useTrendingSearches(8)`.
+   279→   279→- Replaced the bespoke recent-searches external store with the unified `useRecentSearches()` hook from `@/hooks` (same one used by `/search`). Now both surfaces (overlay + `/search` page) share the exact same store and stay in sync.
+   280→   280→- Suggestions now merge live API suggestions with the local `PRODUCT_SUGGESTIONS` (deduped by label). API suggestions render with a smart `SuggestionIcon` that picks a category-colored icon (Shirt/Smartphone/Gem/Home/UtensilsCrossed/Package) based on the label text.
+   281→   281→- Trending searches render as numbered pills (1–8) showing label + count formatted as "480 searches". Loading skeleton (6 pulsing pills) while the API loads.
+   282→   282→- New "no-results" state when the user types a query that returns 0 suggestions: shows a search icon, the failed query in quotes, and 4 trending search chips as quick-pick alternatives.
+   283→   283→- Loading spinner (Loader2) appears next to the search input while suggestions are being fetched.
+   284→   284→- Highlights matching substrings with `text-kwik-orange` (was `text-accent` before — now consistent with the kwik-* system).
+   285→   285→- All colors use kwik-* tokens (kwik-orange, kwik-orange-tint, kwik-orange-dark, kwik-amber, kwik-border, kwik-border-light, kwik-bg-light, kwik-bg-surface, kwik-muted, kwik-dark, kwik-gray-light). Zero hex colors.
+   286→   286→
+   287→   287→### 2. Vendor review reply — POST /reviews/:id/reply endpoint + reply form + reviews tab
+   288→   288→**`src/app/api/v1/[...path]/route.ts`** (reviews section):
+   289→   289→- New `GET /reviews/store/:storeId` endpoint: returns all reviews for products belonging to a store, with each review augmented by a `product: { id, name, slug, image }` field so the vendor dashboard can display the product context.
+   290→   290→- New `POST /reviews/:id/reply` endpoint: vendor posts a reply to a review. Validates `text` is non-empty, defaults `authorName` to the product's store name, generates a deterministic `vr-<reviewId>-<timestamp>` id, attaches the reply as `review.vendorReply`, and returns the updated review (with product context).
+   291→   291→
+   292→   292→**`src/lib/order-api.ts`** (new hooks):
+   293→   293→- New `VendorReview` interface (mirrors the API shape, including optional `product` and `vendorReply`).
+   294→   294→- New `useVendorReviews(storeId)` hook: GET `/reviews/store/:storeId`, enabled when storeId is truthy.
+   295→   295→- New `useReplyToReview()` mutation: POST `/reviews/:id/reply`, invalidates the `["reviews","vendor"]` query so replies appear immediately.
+   296→   296→
+   297→   297→**`src/app/vendor-orders/page.tsx`** (major refactor + new "Reviews" tab):
+   298→   298→- Renamed "Vendor Orders" → "Vendor Dashboard" (now houses both Orders and Reviews tabs).
+   299→   299→- New top-level tab toggle: **Orders** | **Reviews**, with kwik-orange active state.
+   300→   300→- New store selector dropdown ("Viewing as: …") on the Reviews tab — lets the demo user switch between all 6 dummy stores (Zara, TechHub, Glow, HomeVibe, FreshMart, AutoParts). Populated via `useStores()`.
+   301→   301→- New `VendorReviewsContent` component with:
+   302→   302→  - 3 summary cards: Total reviews, Average rating (/5), Reply rate (% replied).
+   303→   303→  - Rating distribution panel: 5 clickable rating-bucket rows (5★→1★) with progress bars showing share of total. Clicking a row filters the list to that rating.
+   304→   304→  - Reviews list with `VendorReviewCard` per review.
+   305→   305→- New `VendorReviewCard` component:
+   306→   306→  - Product image (or Package icon fallback) + reviewer name + verified badge + relative date.
+   307→   307→  - Product link (clickable → /products/:id).
+   308→   308→  - Star rating + helpful count.
+   309→   309→  - Review title + body.
+   310→   310→  - Existing vendor reply (if any) — orange-tinted gradient card with store avatar + "Seller" badge + reply text.
+   311→   311→  - "Reply to review" / "Edit reply" button toggles a textarea form (max 500 chars, char counter, Cancel/Post buttons).
+   312→   312→  - On submit, calls `useReplyToReview().mutateAsync`, shows success toast, invalidates the query so the reply appears immediately.
+   313→   313→- Renamed `VendorOrdersContent` → `OrdersTab` (now a child of `VendorDashboardContent`). The Orders tab behaviour is unchanged (status tabs, polling, quote form, action buttons).
+   314→   314→
+   315→   315→### 3. Wallet transaction CSV export
+   316→   316→**`src/app/profile/wallet/page.tsx`**:
+   317→   317→- Added `Download` icon to lucide imports.
+   318→   318→- Added `toCSV, downloadCSV` imports from `@/lib/csv` (shared utilities already used by the orders page).
+   319→   319→- New `handleExportCSV()` function: maps the currently-filtered transactions (`txs`) to CSV rows with columns Date, Type (Earned/Spent), Category (Title-cased), Description, Amount (+/-). Triggers a download with filename `kwikseller-wallet[-filtered]-YYYY-MM-DD.csv`. Shows a success toast with the count exported, or an error toast if `txs` is empty.
+   320→   320→- New "Export CSV" button next to the "Filters" button in the Transaction History header. Disabled when `txs.length === 0`. Hover state: `border-kwik-orange text-kwik-orange`.
+   321→   321→- The export respects ALL active filters (type, category, date range, search) so the buyer gets exactly what they see on screen — same UX as the orders CSV export.
+   322→   322→
+   323→   323→### 4. Delivery rating persistence — POST /orders/:id/delivery-rating
+   324→   324→**`src/app/api/v1/[...path]/route.ts`** (orders section):
+   325→   325→- New `POST /orders/:id/delivery-rating` endpoint: validates `rating` is a number 1–5, constructs a `{ rating, comment, tags[], createdAt }` object, attaches it to the order in memory (`order.deliveryRating`), returns `{ success, deliveryRating }`.
+   326→   326→- New `GET /orders/:id/delivery-rating` endpoint: returns the persisted rating (or `null` if not yet rated).
+   327→   327→
+   328→   328→**`src/lib/order-api.ts`** (new hooks):
+   329→   329→- New `DeliveryRating` interface.
+   330→   330→- New `useDeliveryRating(orderId)` hook: GET `/orders/:id/delivery-rating`.
+   331→   331→- New `useRateDelivery()` mutation: POST `/orders/:id/delivery-rating`, invalidates both `["orders",orderId,"delivery-rating"]` and `["orders",orderId]` so the tracking page refreshes.
+   332→   332→
+   333→   333→**`src/app/orders/[id]/track/page.tsx`** (`RateDeliveryCard` rewrite):
+   334→   334→- Replaced the local-only `submitted` state with the new persistence hooks.
+   335→   335→- `RateDeliveryCard` now takes an `orderId` prop (was `agentName?` only).
+   336→   336→- On mount, `useDeliveryRating(orderId)` fetches the persisted rating. If it exists, the card renders an "Already rated" state showing the persisted stars, comment, and tags — instead of the empty form.
+   337→   337→- On submit, `useRateDelivery().mutateAsync({ orderId, rating, comment, tags })` POSTs to the API. Success toast + the query invalidation makes the card flip to the "Already rated" state automatically.
+   338→   338→- Loading spinner on the submit button while the mutation is pending. Clear button disabled while pending.
+   339→   339→- The "Already rated" card uses a green-tinted border + CheckCircle2 icon to clearly differentiate from the empty form.
+   340→   340→
+   341→   341→### 5. Real-time courier pin movement on the order tracking map
+   342→   342→**`src/app/orders/[id]/track/page.tsx`** (new `LiveRouteMap` component):
+   343→   343→- Extracted the map rendering (origin/destination pins, dashed route line, driver pin, distance/ETA/progress bar footer) into a dedicated `LiveRouteMap` component with its own state.
+   344→   344→- New `liveProgress` state initialised from `map.progressPercent`.
+   345→   345→- A `setInterval` ticks `liveProgress` up by 0.6% every 3 seconds (capped at 99% while in transit; 100% when delivered). The interval callback (not the effect body) calls setState — satisfies the `react-hooks/set-state-in-effect` lint rule.
+   346→   346→- `baseProgress` is in the effect's dependency array, so the interval is re-created when the API refreshes. The callback takes `Math.max(prev, baseProgress)` so the displayed value never goes backwards.
+   347→   347→- The displayed progress (`displayProgress = Math.max(liveProgress, baseProgress)`) is used for the route path, driver pin position, progress bar width, "X% there" badge, and ETA.
+   348→   348→- The driver pin now uses `motion.div` with `animate={{ left, top }}` and a spring transition (stiffness: 60, damping: 18) so it glides smoothly between positions instead of jumping.
+   349→   349→- New "X% there" badge (top-left of the map, white background, kwik-orange text, ring) shows the live progress percentage at a glance.
+   350→   350→- The ETA is now computed live: `liveEta = round(map.etaMinutes * (1 - liveProgress/100))`, so it visibly decrements as the driver progresses.
+   351→   351→- When `isDelivered`, the effect early-returns (no interval) and `displayProgress` naturally falls back to `map.progressPercent` (which the backend sets to 100).
+   352→   352→
+   353→   353→## Verification Results
+   354→   354→
+   355→   355→### Lint
+   356→   356→- `bun run lint` → **8 problems (0 errors, 8 warnings)**. Same baseline as cycles 5–8. Fixed 2 mid-cycle errors I introduced in `LiveRouteMap`:
+   357→   357→  1. `react-hooks/refs` (Cannot access/update ref during render) — replaced the ref-during-render sync pattern with a simpler `displayProgress = Math.max(liveProgress, baseProgress)` derivation + `baseProgress` in the effect deps.
+   358→   358→  2. (Earlier attempt) `react-hooks/set-state-in-effect` — avoided by only calling setState inside the `setInterval` callback, never in the effect body.
+   359→   359→
+   360→   360→### API endpoints (verified via curl, single bash session)
+   361→   361→- `GET /api/v1/search/trending?limit=5` → 200, returns 5 trending terms ✓
+   362→   362→- `GET /api/v1/search/suggestions?q=an` → 200, returns 8 prefix suggestions ✓
+   363→   363→- `GET /api/v1/reviews/store/store-zara` → 200, returns 21 reviews (r1 ★5 "Perfect fit!", r2 ★4 "Good quality fabric", r6 ★5 "As described" with vendorReply) ✓
+   364→   364→- `GET /api/v1/reviews/store/store-techhub` → 200, returns 25 reviews ✓
+   365→   365→- `GET /api/v1/orders/order-seed-store-zara-1001/delivery-rating` → 200, `{"success":true,"data":null}` (no rating yet) ✓
+   366→   366→- `POST /api/v1/orders/order-seed-store-zara-1001/delivery-rating` with `{rating:5,comment:"Great service!",tags:["On time","Fast delivery"]}` → 200, returns `{success:true, deliveryRating:{rating:5,comment:"Great service!",tags:[...],createdAt:"..."}}` ✓
+   367→   367→- `POST /api/v1/reviews/r2/reply` with `{text:"Thank you so much for your feedback! We are glad you love the fabric."}` → 200, returns the updated review with `vendorReply:{id:"vr-r2-...", authorName:"Zara's Collection", text:"...", createdAt:"..."}` and `product:{id:"p-1",name:"Ankara Print Maxi Dress",slug:"ankara-print-maxi-dress",image:"..."}` ✓
+   368→   368→
+   369→   369→### Page compiles (all return 200, verified in single bash session)
+   370→   370→- `/` → 200 (home with search overlay)
+   371→   371→- `/search` → 200
+   372→   372→- `/vendor-orders` → 200 (now "Vendor Dashboard" with Orders/Reviews tabs + store selector)
+   373→   373→- `/profile/wallet` → 200 (now with Export CSV button)
+   374→   374→- `/orders/ord-1/track` → 200 (existing seed order tracking)
+   375→   375→- `/orders/order-seed-store-zara-1001/track` → 200 (real seed order tracking with LiveRouteMap + persisted delivery rating)
+   376→   376→
+   377→   377→### SSR HTML spot-checks
+   378→   378→- `/vendor-orders` SSR contains "Vendor Dashboard" ✓ (confirms new header text)
+   379→   379→- `/profile/wallet` SSR contains "kwik-gradient", "kwik-orange" ✓ (styling intact)
+   380→   380→- `/` SSR contains "Search products" ✓ (search overlay placeholder)
+   381→   381→- `/orders/order-seed-store-zara-1001/track` SSR contains "kwik-orange", "Live route", "Rate your delivery" ✓
+   382→   382→
+   383→   383→## Known Issues / Risks
+   384→   384→- **Sandbox memory (4GB)**: Same persistent issue — Next.js 16 Turbopack dev server is OOM-killed after ~30s of idle across separate bash invocations. All testing done in single bash sessions via curl. `agent-browser` cannot be used (server dies between bash invocations).
+   385→   385→- **Pre-existing TypeScript errors**: ~30 errors in files I did NOT touch this cycle (same set as cycles 5–8, out of scope).
+   386→   386→- **Demo store selector is dummy-only**: The `storeId` dropdown on the vendor reviews tab is a demo affordance — in production it would be hidden (the vendor's store is fixed by their session). The default `DEFAULT_STORE_ID = "store-zara"` is hardcoded.
+   387→   387→- **Vendor reply authorName defaults to store name**: When the vendor doesn't supply an explicit `authorName`, the API uses the product's store name. This is fine for dummy mode but a production backend would use the authenticated vendor's display name.
+   388→   388→- **Delivery rating is per-order, not per-agent**: The rating is attached to the order, not to the delivery agent. A future cycle could add per-agent rating aggregation (e.g., agent leaderboard).
+   389→   389→- **Real-time courier movement is client-side simulation**: The `liveProgress` tick (0.6% / 3s) is purely client-side — it doesn't reflect actual courier GPS. In production, this would be replaced by a WebSocket or polling the backend's live courier location.
+   390→   390→- **Search overlay suggestions are read-only**: The overlay shows suggestions but doesn't yet support arrow-key navigation through them. A future cycle could add full keyboard navigation (↑/↓ to move, Enter to select).
+   391→   391→
+   392→   392→## Priority Recommendations for Next Cycle
+   393→   393→1. **Search overlay keyboard navigation**: Add ↑/↓ arrow-key navigation through suggestions, with Enter to select the highlighted one. The infrastructure (mergedSuggestions list) is already in place.
+   394→   394→2. **Per-agent delivery rating aggregation**: Add a `GET /delivery-agents/:id/ratings` endpoint and an agent leaderboard page. The `deliveryRating` data is already being collected per-order.
+   395→   395→3. **Vendor reply editing/deleting**: Currently the vendor can post a reply (or "Edit reply" opens the form again, but posting again overwrites the old reply). Add `DELETE /reviews/:id/reply` and a confirm-dialog before overwriting.
+   396→   396→4. **Dynamic trending searches**: Track actual search queries (via `POST /search/log` or similar) and compute trending from real volume instead of the hardcoded list.
+   397→   397→5. **Home page hero video/animation**: The home page hero could use a video background or animated product carousel (still pending from cycle 7).
+   398→   398→6. **Wallet CSV with date-range column**: The CSV export currently has a "Coins After" column that's empty (the dummy API doesn't return running balances). A future cycle could compute the running balance from the transaction list.
+   399→   399→7. **Brand product carousel on home**: Enhance the ShopByBrandSection with a "View brand" hover overlay showing top 3 products from each brand (still pending from cycle 8).
+   400→   400→8. **Order tracking real courier GPS**: Replace the client-side `liveProgress` simulation with a real WebSocket or polling-based courier location feed.

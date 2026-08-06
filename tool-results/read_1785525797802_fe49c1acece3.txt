@@ -1,0 +1,571 @@
+     1→'use client'
+     2→
+     3→import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+     4→import { useRouter } from 'next/navigation'
+     5→import {
+     6→  Search,
+     7→  X,
+     8→  Clock,
+     9→  TrendingUp,
+    10→  Flame,
+    11→  Sparkles,
+    12→  Shirt,
+    13→  Smartphone,
+    14→  Gem,
+    15→  Home,
+    16→  UtensilsCrossed,
+    17→  Loader2,
+    18→  Package,
+    19→  Store as StoreIcon,
+    20→  Tag,
+    21→} from 'lucide-react'
+    22→import { motion, AnimatePresence } from 'framer-motion'
+    23→import { cn } from '@kwikseller/ui'
+    24→import { getSimilarSuggestions } from '@/lib/search-similarity'
+    25→import {
+    26→  POPULAR_SEARCH_CATEGORIES as POPULAR_CATEGORIES,
+    27→  SEARCH_PRODUCT_SUGGESTIONS as PRODUCT_SUGGESTIONS,
+    28→  type ProductSuggestion,
+    29→} from '@/constants/marketplace'
+    30→import { useTrendingSearches, useSearchSuggestions } from '@/lib/api-hooks'
+    31→import { useRecentSearches } from '@/hooks'
+    32→
+    33→// ─── Text highlight ──────────────────────────────────────────────
+    34→
+    35→function highlightMatch(text: string, query: string) {
+    36→  if (!query.trim()) return text
+    37→  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    38→  const regex = new RegExp(`(${escaped})`, 'gi')
+    39→  const parts = text.split(regex)
+    40→  return parts.map((part, i) =>
+    41→    regex.test(part) ? (
+    42→      <span key={i} className="font-semibold text-kwik-orange">
+    43→        {part}
+    44→      </span>
+    45→    ) : (
+    46→      part
+    47→    ),
+    48→  )
+    49→}
+    50→
+    51→// ─── Suggestion type icon ────────────────────────────────────────
+    52→
+    53→function SuggestionIcon({ label }: { label: string }) {
+    54→  // Heuristic: pick an icon based on the suggestion source so the user
+    55→  // can tell whether the suggestion is a product, brand, store, or category.
+    56→  const lower = label.toLowerCase()
+    57→  if (lower.includes('dress') || lower.includes('shirt') || lower.includes('sneaker') || lower.includes('fashion')) {
+    58→    return <Shirt className="h-4 w-4 text-pink-500" />
+    59→  }
+    60→  if (lower.includes('phone') || lower.includes('iphone') || lower.includes('samsung') || lower.includes('earbud') || lower.includes('speaker')) {
+    61→    return <Smartphone className="h-4 w-4 text-cyan-500" />
+    62→  }
+    63→  if (lower.includes('beauty') || lower.includes('serum') || lower.includes('cream') || lower.includes('makeup')) {
+    64→    return <Gem className="h-4 w-4 text-purple-500" />
+    65→  }
+    66→  if (lower.includes('kitchen') || lower.includes('home') || lower.includes('decor') || lower.includes('bed')) {
+    67→    return <Home className="h-4 w-4 text-amber-500" />
+    68→  }
+    69→  if (lower.includes('food') || lower.includes('coffee') || lower.includes('rice') || lower.includes('drink')) {
+    70→    return <UtensilsCrossed className="h-4 w-4 text-emerald-500" />
+    71→  }
+    72→  return <Package className="h-4 w-4 text-kwik-orange" />
+    73→}
+    74→
+    75→// ─── Component ────────────────────────────────────────────────────
+    76→
+    77→export function EnhancedSearchOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    78→  const router = useRouter()
+    79→  const inputRef = useRef<HTMLInputElement>(null)
+    80→  const [query, setQuery] = useState('')
+    81→
+    82→  // Unified recent searches hook (same one used by /search page).
+    83→  const { items: recentSearches, addSearch, removeSearch, clearSearches } = useRecentSearches()
+    84→
+    85→  // Live API-powered suggestions — debounced via React Query cache.
+    86→  const trimmedQuery = query.trim()
+    87→  const suggestionsQuery = useSearchSuggestions(trimmedQuery, trimmedQuery.length > 0)
+    88→  const liveSuggestions = suggestionsQuery.data ?? []
+    89→
+    90→  // Live API-powered trending searches.
+    91→  const trendingQuery = useTrendingSearches(8)
+    92→  const trendingItems = trendingQuery.data ?? []
+    93→
+    94→  // Focus input when overlay opens
+    95→  useEffect(() => {
+    96→    if (!isOpen) return
+    97→    const timer = setTimeout(() => inputRef.current?.focus(), 150)
+    98→    return () => clearTimeout(timer)
+    99→  }, [isOpen])
+   100→
+   101→  // ESC to close
+   102→  useEffect(() => {
+   103→    const handleEsc = (e: KeyboardEvent) => {
+   104→      if (e.key === 'Escape') onClose()
+   105→    }
+   106→    if (isOpen) window.addEventListener('keydown', handleEsc)
+   107→    return () => window.removeEventListener('keydown', handleEsc)
+   108→  }, [isOpen, onClose])
+   109→
+   110→  // Prevent body scroll when open
+   111→  useEffect(() => {
+   112→    if (isOpen) {
+   113→      document.body.style.overflow = 'hidden'
+   114→      return () => {
+   115→        document.body.style.overflow = ''
+   116→      }
+   117→    }
+   118→  }, [isOpen])
+   119→
+   120→  // Filter local product suggestions (kept as a richer visual fallback
+   121→  // so the overlay always has something to show even if the API is slow).
+   122→  const localSuggestions = useMemo(() => {
+   123→    if (!trimmedQuery) return []
+   124→    const q = trimmedQuery.toLowerCase()
+   125→    const exact = PRODUCT_SUGGESTIONS.filter(
+   126→      (p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
+   127→    )
+   128→    return (exact.length ? exact : getSimilarSuggestions(trimmedQuery, PRODUCT_SUGGESTIONS, 4)).slice(0, 4)
+   129→  }, [trimmedQuery])
+   130→
+   131→  // Merge live API suggestions with local ones, deduped by label (case-insensitive).
+   132→  const mergedSuggestions = useMemo(() => {
+   133→    if (!trimmedQuery) return []
+   134→    const seen = new Set<string>()
+   135→    const merged: Array<{ label: string; source: 'api' | 'local' }> = []
+   136→    for (const s of liveSuggestions) {
+   137→      const key = s.toLowerCase()
+   138→      if (!seen.has(key)) {
+   139→        seen.add(key)
+   140→        merged.push({ label: s, source: 'api' })
+   141→      }
+   142→    }
+   143→    for (const p of localSuggestions) {
+   144→      const key = p.name.toLowerCase()
+   145→      if (!seen.has(key)) {
+   146→        seen.add(key)
+   147→        merged.push({ label: p.name, source: 'local' })
+   148→      }
+   149→    }
+   150→    return merged.slice(0, 8)
+   151→  }, [liveSuggestions, localSuggestions, trimmedQuery])
+   152→
+   153→  const handleSearch = useCallback(
+   154→    (term: string) => {
+   155→      const trimmed = term.trim()
+   156→      if (!trimmed) return
+   157→      addSearch(trimmed)
+   158→      onClose()
+   159→      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
+   160→    },
+   161→    [addSearch, onClose, router],
+   162→  )
+   163→
+   164→  const handleRemoveHistory = useCallback((term: string, e: React.MouseEvent) => {
+   165→    e.stopPropagation()
+   166→    removeSearch(term)
+   167→  }, [removeSearch])
+   168→
+   169→  const handleKeyDown = useCallback(
+   170→    (e: React.KeyboardEvent) => {
+   171→      if (e.key === 'Enter') {
+   172→        handleSearch(query)
+   173→      }
+   174→    },
+   175→    [query, handleSearch],
+   176→  )
+   177→
+   178→  const handleCategoryClick = useCallback(
+   179→    (categoryName: string) => {
+   180→      const trimmed = categoryName.trim()
+   181→      if (!trimmed) return
+   182→      addSearch(trimmed)
+   183→      onClose()
+   184→      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
+   185→    },
+   186→    [addSearch, onClose, router],
+   187→  )
+   188→
+   189→  const hasQuery = trimmedQuery.length > 0
+   190→  const showSuggestions = hasQuery && mergedSuggestions.length > 0
+   191→  const showNoResults = hasQuery && !suggestionsQuery.isLoading && mergedSuggestions.length === 0
+   192→  const showRelated = hasQuery && !PRODUCT_SUGGESTIONS.some((p) => {
+   193→    const q = trimmedQuery.toLowerCase()
+   194→    return p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+   195→  })
+   196→
+   197→  return (
+   198→    <AnimatePresence>
+   199→      {isOpen && (
+   200→        <>
+   201→          {/* Full-screen backdrop */}
+   202→          <motion.div
+   203→            initial={{ opacity: 0 }}
+   204→            animate={{ opacity: 1 }}
+   205→            exit={{ opacity: 0 }}
+   206→            transition={{ duration: 0.2 }}
+   207→            className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-md"
+   208→            onClick={onClose}
+   209→            aria-hidden="true"
+   210→          />
+   211→
+   212→          {/* Main container */}
+   213→          <motion.div
+   214→            initial={{ opacity: 0, y: -30, scale: 0.95 }}
+   215→            animate={{ opacity: 1, y: 0, scale: 1 }}
+   216→            exit={{ opacity: 0, y: -30, scale: 0.95 }}
+   217→            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+   218→            className="fixed inset-x-0 top-0 z-[100] mx-auto w-full max-w-2xl px-4 pt-4 sm:top-8 sm:pt-0"
+   219→          >
+   220→            <div className="flex flex-col max-h-[85vh] sm:max-h-[80vh]">
+   221→              {/* Search bar - glassmorphism */}
+   222→              <div className="relative rounded-2xl bg-background/90 backdrop-blur-xl border border-kwik-border shadow-2xl overflow-hidden">
+   223→                <div className="flex items-center gap-3 px-5 py-4">
+   224→                  <Search className="w-5 h-5 text-kwik-muted flex-shrink-0" />
+   225→                  <input
+   226→                    ref={inputRef}
+   227→                    type="text"
+   228→                    value={query}
+   229→                    onChange={(e) => setQuery(e.target.value)}
+   230→                    onKeyDown={handleKeyDown}
+   231→                    placeholder="Search products, stores, categories..."
+   232→                    className="flex-1 bg-transparent text-base text-kwik-dark outline-none placeholder:text-kwik-muted dark:text-white"
+   233→                    aria-label="Search"
+   234→                    role="searchbox"
+   235→                  />
+   236→                  {hasQuery && suggestionsQuery.isLoading && (
+   237→                    <Loader2 className="h-4 w-4 animate-spin text-kwik-orange" aria-label="Loading suggestions" />
+   238→                  )}
+   239→                  {hasQuery && (
+   240→                    <motion.button
+   241→                      initial={{ opacity: 0, scale: 0.5 }}
+   242→                      animate={{ opacity: 1, scale: 1 }}
+   243→                      exit={{ opacity: 0, scale: 0.5 }}
+   244→                      onClick={() => setQuery('')}
+   245→                      className="p-1 rounded-full hover:bg-kwik-bg-light transition-colors text-kwik-muted hover:text-kwik-dark"
+   246→                      aria-label="Clear search"
+   247→                    >
+   248→                      <X className="w-4 h-4" />
+   249→                    </motion.button>
+   250→                  )}
+   251→                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-kwik-bg-light text-[11px] text-kwik-muted font-mono border border-kwik-border">
+   252→                    ESC
+   253→                  </kbd>
+   254→                </div>
+   255→              </div>
+   256→
+   257→              {/* Content panel */}
+   258→              <motion.div
+   259→                initial={{ opacity: 0, y: -10 }}
+   260→                animate={{ opacity: 1, y: 0 }}
+   261→                transition={{ delay: 0.1, duration: 0.2 }}
+   262→                className="mt-2 rounded-2xl bg-kwik-bg-surface/95 dark:bg-background/95 backdrop-blur-xl border border-kwik-border shadow-2xl overflow-hidden"
+   263→              >
+   264→                <div className="overflow-y-auto max-h-[60vh] sm:max-h-[55vh]">
+   265→                  <AnimatePresence mode="wait">
+   266→                    {/* ── Search Suggestions (when typing) ── */}
+   267→                    {showSuggestions && (
+   268→                      <motion.div
+   269→                        key="suggestions"
+   270→                        initial={{ opacity: 0 }}
+   271→                        animate={{ opacity: 1 }}
+   272→                        exit={{ opacity: 0 }}
+   273→                        transition={{ duration: 0.15 }}
+   274→                        className="p-4"
+   275→                      >
+   276→                        <div className="flex items-center justify-between mb-3 px-1">
+   277→                          <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
+   278→                            {showRelated ? 'Similar picks' : 'Suggestions'}
+   279→                          </h3>
+   280→                          <span className="text-xs text-kwik-muted">{mergedSuggestions.length} results</span>
+   281→                        </div>
+   282→                        <div className="space-y-1">
+   283→                          {mergedSuggestions.map((suggestion, index) => {
+   284→                            const localMatch = PRODUCT_SUGGESTIONS.find(
+   285→                              (p) => p.name.toLowerCase() === suggestion.label.toLowerCase(),
+   286→                            )
+   287→                            return (
+   288→                              <motion.button
+   289→                                key={`${suggestion.label}-${index}`}
+   290→                                initial={{ opacity: 0, x: -10 }}
+   291→                                animate={{ opacity: 1, x: 0 }}
+   292→                                transition={{ delay: index * 0.03 }}
+   293→                                onClick={() => handleSearch(suggestion.label)}
+   294→                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-kwik-bg-light transition-colors text-left group"
+   295→                              >
+   296→                                {/* Icon + colored chip */}
+   297→                                {localMatch ? (
+   298→                                  <div
+   299→                                    className={cn(
+   300→                                      'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold',
+   301→                                      localMatch.color,
+   302→                                    )}
+   303→                                  >
+   304→                                    {localMatch.initials}
+   305→                                  </div>
+   306→                                ) : (
+   307→                                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-kwik-orange-tint text-kwik-orange">
+   308→                                    <SuggestionIcon label={suggestion.label} />
+   309→                                  </div>
+   310→                                )}
+   311→                                <div className="flex-1 min-w-0">
+   312→                                  <div className="truncate text-sm font-medium text-kwik-dark dark:text-white">
+   313→                                    {highlightMatch(suggestion.label, trimmedQuery)}
+   314→                                  </div>
+   315→                                  <div className="flex items-center gap-1.5 text-xs text-kwik-gray-light dark:text-white/55">
+   316→                                    {localMatch ? (
+   317→                                      <>
+   318→                                        <Tag className="h-3 w-3" />
+   319→                                        {localMatch.category}
+   320→                                      </>
+   321→                                    ) : (
+   322→                                      <>
+   323→                                        <StoreIcon className="h-3 w-3" />
+   324→                                        Marketplace
+   325→                                      </>
+   326→                                    )}
+   327→                                  </div>
+   328→                                </div>
+   329→                                {localMatch && (
+   330→                                  <span className="flex-shrink-0 text-sm font-semibold text-kwik-dark dark:text-white">
+   331→                                    {localMatch.price}
+   332→                                  </span>
+   333→                                )}
+   334→                              </motion.button>
+   335→                            )
+   336→                          })}
+   337→                        </div>
+   338→                      </motion.div>
+   339→                    )}
+   340→
+   341→                    {/* ── No-results while typing ── */}
+   342→                    {showNoResults && (
+   343→                      <motion.div
+   344→                        key="no-results"
+   345→                        initial={{ opacity: 0 }}
+   346→                        animate={{ opacity: 1 }}
+   347→                        exit={{ opacity: 0 }}
+   348→                        transition={{ duration: 0.15 }}
+   349→                        className="p-8 text-center"
+   350→                      >
+   351→                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-kwik-orange-tint text-kwik-orange">
+   352→                          <Search className="h-7 w-7" />
+   353→                        </div>
+   354→                        <p className="mt-3 font-heading text-base font-bold text-foreground">
+   355→                          No matches for &ldquo;{trimmedQuery}&rdquo;
+   356→                        </p>
+   357→                        <p className="mt-1 text-sm text-kwik-muted">
+   358→                          Try a different keyword, or browse trending searches below.
+   359→                        </p>
+   360→                        {trendingItems.length > 0 && (
+   361→                          <div className="mt-4 flex flex-wrap justify-center gap-2">
+   362→                            {trendingItems.slice(0, 4).map((t) => (
+   363→                              <button
+   364→                                key={t.id}
+   365→                                onClick={() => handleSearch(t.label)}
+   366→                                className="inline-flex items-center gap-1.5 rounded-full border border-kwik-border-light bg-kwik-bg-surface px-3 py-1.5 text-xs font-medium text-kwik-dark transition hover:border-kwik-orange hover:text-kwik-orange dark:text-white"
+   367→                              >
+   368→                                <TrendingUp className="h-3 w-3" />
+   369→                                {t.label}
+   370→                              </button>
+   371→                            ))}
+   372→                          </div>
+   373→                        )}
+   374→                      </motion.div>
+   375→                    )}
+   376→
+   377→                    {/* ── Default state (no query) ── */}
+   378→                    {!hasQuery && (
+   379→                      <motion.div
+   380→                        key="default"
+   381→                        initial={{ opacity: 0 }}
+   382→                        animate={{ opacity: 1 }}
+   383→                        exit={{ opacity: 0 }}
+   384→                        transition={{ duration: 0.15 }}
+   385→                      >
+   386→                        {/* Recent Searches */}
+   387→                        {recentSearches.length > 0 && (
+   388→                          <div className="p-4 pb-2">
+   389→                            <div className="flex items-center justify-between mb-3 px-1">
+   390→                              <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
+   391→                                Recent Searches
+   392→                              </h3>
+   393→                              <button
+   394→                                onClick={clearSearches}
+   395→                                className="text-xs text-kwik-orange hover:text-kwik-orange-dark transition-colors font-medium"
+   396→                              >
+   397→                                Clear All
+   398→                              </button>
+   399→                            </div>
+   400→                            <div className="space-y-0.5">
+   401→                              {recentSearches.map((item, index) => (
+   402→                                <motion.div
+   403→                                  key={`${item.query}-${item.timestamp}`}
+   404→                                  initial={{ opacity: 0, x: -10 }}
+   405→                                  animate={{ opacity: 1, x: 0 }}
+   406→                                  transition={{ delay: index * 0.03 }}
+   407→                                  className="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-kwik-bg-light transition-colors cursor-pointer"
+   408→                                  onClick={() => handleSearch(item.query)}
+   409→                                  role="button"
+   410→                                  tabIndex={0}
+   411→                                  onKeyDown={(e) => {
+   412→                                    if (e.key === 'Enter') handleSearch(item.query)
+   413→                                  }}
+   414→                                >
+   415→                                  <Clock className="w-4 h-4 text-kwik-muted flex-shrink-0" />
+   416→                                  <div className="flex-1 min-w-0">
+   417→                                    <span className="block truncate text-sm text-kwik-dark dark:text-white">{item.query}</span>
+   418→                                    <span className="block text-[10px] text-kwik-muted">
+   419→                                      {formatRelative(item.timestamp)}
+   420→                                    </span>
+   421→                                  </div>
+   422→                                  <button
+   423→                                    onClick={(e) => handleRemoveHistory(item.query, e)}
+   424→                                    className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-kwik-bg-light transition-all text-kwik-muted hover:text-kwik-dark"
+   425→                                    aria-label={`Remove "${item.query}" from history`}
+   426→                                  >
+   427→                                    <X className="w-3.5 h-3.5" />
+   428→                                  </button>
+   429→                                </motion.div>
+   430→                              ))}
+   431→                            </div>
+   432→                          </div>
+   433→                        )}
+   434→
+   435→                        {recentSearches.length > 0 && (
+   436→                          <div className="px-4 pt-2">
+   437→                            <div className="h-px bg-kwik-border-light" />
+   438→                          </div>
+   439→                        )}
+   440→
+   441→                        {/* Trending Now (live from API) */}
+   442→                        <div className="p-4 pb-2">
+   443→                          <div className="flex items-center gap-2 mb-3 px-1">
+   444→                            <Flame className="w-4 h-4 text-kwik-orange" />
+   445→                            <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
+   446→                              Trending Now
+   447→                            </h3>
+   448→                            {trendingQuery.isLoading && (
+   449→                              <Loader2 className="h-3 w-3 animate-spin text-kwik-muted" />
+   450→                            )}
+   451→                          </div>
+   452→                          {trendingQuery.isLoading ? (
+   453→                            <div className="grid grid-cols-2 gap-1">
+   454→                              {Array.from({ length: 6 }).map((_, i) => (
+   455→                                <div
+   456→                                  key={i}
+   457→                                  className="h-12 rounded-xl bg-kwik-bg-light/60 animate-pulse"
+   458→                                />
+   459→                              ))}
+   460→                            </div>
+   461→                          ) : trendingItems.length > 0 ? (
+   462→                            <div className="grid grid-cols-2 gap-1">
+   463→                              {trendingItems.map((item, index) => (
+   464→                                <motion.button
+   465→                                  key={item.id}
+   466→                                  initial={{ opacity: 0, y: 5 }}
+   467→                                  animate={{ opacity: 1, y: 0 }}
+   468→                                  transition={{ delay: index * 0.04 }}
+   469→                                  onClick={() => handleSearch(item.label)}
+   470→                                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-kwik-bg-light transition-colors text-left group"
+   471→                                >
+   472→                                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-kwik-orange-tint text-[10px] font-bold text-kwik-orange">
+   473→                                    {index + 1}
+   474→                                  </span>
+   475→                                  <TrendingUp className="w-3.5 h-3.5 text-kwik-orange flex-shrink-0" />
+   476→                                  <div className="min-w-0 flex-1">
+   477→                                    <div className="truncate text-sm text-kwik-dark transition-colors group-hover:text-kwik-orange dark:text-white">
+   478→                                      {item.label}
+   479→                                    </div>
+   480→                                    <div className="text-[10px] text-kwik-muted">
+   481→                                      {item.count.toLocaleString()} searches
+   482→                                    </div>
+   483→                                  </div>
+   484→                                </motion.button>
+   485→                              ))}
+   486→                            </div>
+   487→                          ) : (
+   488→                            <p className="px-3 py-2 text-xs text-kwik-muted">Trending searches unavailable.</p>
+   489→                          )}
+   490→                        </div>
+   491→
+   492→                        <div className="px-4 pt-2">
+   493→                          <div className="h-px bg-kwik-border-light" />
+   494→                        </div>
+   495→
+   496→                        {/* Popular Categories */}
+   497→                        <div className="p-4">
+   498→                          <div className="flex items-center gap-2 mb-3 px-1">
+   499→                            <Sparkles className="w-4 h-4 text-kwik-orange" />
+   500→                            <h3 className="text-xs font-semibold text-kwik-muted uppercase tracking-wider">
+   501→                              Popular Categories
+   502→                            </h3>
+   503→                          </div>
+   504→                          <div className="grid grid-cols-3 gap-2">
+   505→                            {POPULAR_CATEGORIES.map((cat, index) => (
+   506→                              <motion.button
+   507→                                key={cat.name}
+   508→                                initial={{ opacity: 0, scale: 0.9 }}
+   509→                                animate={{ opacity: 1, scale: 1 }}
+   510→                                transition={{ delay: index * 0.05 }}
+   511→                                onClick={() => handleCategoryClick(cat.name)}
+   512→                                className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-kwik-bg-light transition-all cursor-pointer group"
+   513→                              >
+   514→                                <div
+   515→                                  className={cn(
+   516→                                    'w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110',
+   517→                                    cat.color,
+   518→                                  )}
+   519→                                >
+   520→                                  <cat.icon className="w-5 h-5" />
+   521→                                </div>
+   522→                                <span className="text-xs font-medium text-kwik-dark dark:text-white">{cat.name}</span>
+   523→                                <span className="text-[10px] text-kwik-muted">{cat.count}</span>
+   524→                              </motion.button>
+   525→                            ))}
+   526→                          </div>
+   527→                        </div>
+   528→                      </motion.div>
+   529→                    )}
+   530→                  </AnimatePresence>
+   531→                </div>
+   532→
+   533→                {/* Footer hint */}
+   534→                {!hasQuery && (
+   535→                  <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-kwik-border bg-kwik-bg-surface/50">
+   536→                    <span className="text-[11px] text-kwik-muted">
+   537→                      Press{' '}
+   538→                      <kbd className="px-1 py-0.5 rounded bg-kwik-bg-light text-[10px] font-mono mx-0.5 border border-kwik-border">
+   539→                        Enter
+   540→                      </kbd>{' '}
+   541→                      to search
+   542→                    </span>
+   543→                    <span className="text-kwik-muted">&middot;</span>
+   544→                    <span className="text-[11px] text-kwik-muted">
+   545→                      <kbd className="px-1 py-0.5 rounded bg-kwik-bg-light text-[10px] font-mono mx-0.5 border border-kwik-border">
+   546→                        ESC
+   547→                      </kbd>{' '}
+   548→                      to close
+   549→                    </span>
+   550→                  </div>
+   551→                )}
+   552→              </motion.div>
+   553→            </div>
+   554→          </motion.div>
+   555→        </>
+   556→      )}
+   557→    </AnimatePresence>
+   558→  )
+   559→}
+   560→
+   561→// ─── Helpers ──────────────────────────────────────────────────────
+   562→
+   563→function formatRelative(timestamp: number): string {
+   564→  const diff = Date.now() - timestamp
+   565→  if (diff < 60_000) return 'just now'
+   566→  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+   567→  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+   568→  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`
+   569→  return new Date(timestamp).toLocaleDateString('en-NG', { dateStyle: 'medium' })
+   570→}
+   571→

@@ -18,6 +18,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { kwikToast, useAuth } from "@kwikseller/utils";
+import { AccountLayout } from "@/components/layout/account-layout";
 
 // Mock data for demo mode (avoids importing the heavy order-workflow store
 // which would bloat the profile page's compilation bundle).
@@ -37,7 +38,7 @@ function formatNGN(n: number) {
   }).format(n);
 }
 
-export default function ProfilePage() {
+function ProfilePageInner() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -405,5 +406,13 @@ export default function ProfilePage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <AccountLayout>
+      <ProfilePageInner />
+    </AccountLayout>
   );
 }

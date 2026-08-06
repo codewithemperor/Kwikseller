@@ -3,7 +3,7 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import {
   Store,
   ArrowRight,
@@ -30,10 +30,9 @@ import {
   Phone as PhoneIcon,
   Globe,
   Award,
-  CheckCircle,
   SlidersHorizontal,
 } from "lucide-react";
-import { Button, Card, Chip, Input } from "@heroui/react";
+import { Button, Card, Chip } from "@heroui/react";
 import {
   motion,
   useInView,
@@ -44,8 +43,9 @@ import {
 import { cn } from "@kwikseller/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { marketplaceApi } from "@kwikseller/api-client";
+import { useStores } from "@/lib/api-hooks";
+import { ProductGridSkeleton } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // ─── Animation Helpers ─────────────────────────────────────────────
 
@@ -198,12 +198,6 @@ const VENDOR_SORT_OPTIONS = [
 
 type VendorSortValue = (typeof VENDOR_SORT_OPTIONS)[number]["value"];
 
-function unwrapApiData<T>(value: unknown): T {
-  const payload = value as { data?: unknown };
-  const nested = payload?.data as { data?: unknown } | undefined;
-  return (nested?.data ?? payload?.data ?? value) as T;
-}
-
 const categoryIcons: Record<string, React.ElementType> = {
   Fashion: Shirt,
   Electronics: Zap,
@@ -232,212 +226,116 @@ interface VendorData {
   isVerified: boolean;
 }
 
-const vendors: VendorData[] = [
-  {
-    id: "1",
-    storeName: "Zara's Collection",
-    initials: "ZC",
-    category: "Fashion",
-    location: "Lagos, Nigeria",
-    description:
-      "Nigeria's premier fashion destination for authentic African wear and contemporary designs.",
-    products: "1.2K",
-    rating: 4.9,
-    sold: "8.5K",
-    badge: "Featured",
-    badgeColor: "bg-amber-500",
-    coverColor: "bg-pink-500",
-    tags: ["Ankara", "Ready-to-Wear", "Accessories"],
-    isVerified: true,
-  },
-  {
-    id: "2",
-    storeName: "TechHub Africa",
-    initials: "TA",
-    category: "Electronics",
-    location: "Nairobi, Kenya",
-    description:
-      "Your trusted source for quality electronics and gadgets at competitive prices.",
-    products: "856",
-    rating: 4.8,
-    sold: "12K",
-    badge: "Top Rated",
-    badgeColor: "bg-emerald-500",
-    coverColor: "bg-cyan-500",
-    tags: ["Phones", "Laptops", "Accessories"],
-    isVerified: true,
-  },
-  {
-    id: "3",
-    storeName: "Glow Beauty Bar",
-    initials: "GB",
-    category: "Beauty",
-    location: "Accra, Ghana",
-    description:
-      "Premium beauty products from top global and African brands curated just for you.",
-    products: "634",
-    rating: 4.9,
-    sold: "6.2K",
-    badge: "Featured",
-    badgeColor: "bg-amber-500",
-    coverColor: "bg-violet-500",
-    tags: ["Skincare", "Makeup", "Hair"],
-    isVerified: true,
-  },
-  {
-    id: "4",
-    storeName: "FreshMart Express",
-    initials: "FE",
-    category: "Food",
-    location: "Kano, Nigeria",
-    description:
-      "Fresh produce and packaged goods delivered to your door with reliable logistics.",
-    products: "2.1K",
-    rating: 4.7,
-    sold: "15K",
-    badge: "Rising Star",
-    badgeColor: "bg-sky-500",
-    coverColor: "bg-green-500",
-    tags: ["Groceries", "Beverages", "Snacks"],
-    isVerified: true,
-  },
-  {
-    id: "5",
-    storeName: "HomeVibe Decor",
-    initials: "HV",
-    category: "Home",
-    location: "Enugu, Nigeria",
-    description:
-      "Transform your space with our curated home decor collection for every style.",
-    products: "478",
-    rating: 4.8,
-    sold: "3.8K",
-    badge: "Rising Star",
-    badgeColor: "bg-sky-500",
-    coverColor: "bg-orange-500",
-    tags: ["Furniture", "Decor", "Kitchen"],
-    isVerified: true,
-  },
-  {
-    id: "6",
-    storeName: "AutoParts NG",
-    initials: "AN",
-    category: "Automobiles",
-    location: "Lagos, Nigeria",
-    description:
-      "Genuine auto parts and accessories for all vehicle types with fast delivery.",
-    products: "923",
-    rating: 4.6,
-    sold: "5.1K",
-    badge: "Top Rated",
-    badgeColor: "bg-emerald-500",
-    coverColor: "bg-red-500",
-    tags: ["Car Parts", "Motorcycle", "Tools"],
-    isVerified: true,
-  },
-  {
-    id: "7",
-    storeName: "PhoneZone KE",
-    initials: "PZ",
-    category: "Phones",
-    location: "Mombasa, Kenya",
-    description:
-      "Latest smartphones and accessories with warranty and fast shipping across East Africa.",
-    products: "1.5K",
-    rating: 4.8,
-    sold: "9.3K",
-    badge: "Featured",
-    badgeColor: "bg-amber-500",
-    coverColor: "bg-amber-500",
-    tags: ["Smartphones", "Cases", "Chargers"],
-    isVerified: true,
-  },
-  {
-    id: "8",
-    storeName: "Kente Weavers",
-    initials: "KW",
-    category: "Fashion",
-    location: "Kumasi, Ghana",
-    description:
-      "Handwoven Kente cloth and traditional African textiles sourced directly from local artisans.",
-    products: "312",
-    rating: 4.9,
-    sold: "4.7K",
-    badge: "Top Rated",
-    badgeColor: "bg-emerald-500",
-    coverColor: "bg-yellow-500",
-    tags: ["Kente", "Textiles", "Handwoven"],
-    isVerified: true,
-  },
-  {
-    id: "9",
-    storeName: "SkinGlow SA",
-    initials: "SG",
-    category: "Beauty",
-    location: "Johannesburg, South Africa",
-    description:
-      "South Africa's favorite beauty store with organic skincare and premium cosmetics.",
-    products: "785",
-    rating: 4.7,
-    sold: "7.1K",
-    badge: "Verified",
-    badgeColor: "bg-gray-500",
-    coverColor: "bg-rose-500",
-    tags: ["Organic", "Skincare", "Cosmetics"],
-    isVerified: true,
-  },
-  {
-    id: "10",
-    storeName: "DigiTech Rwanda",
-    initials: "DT",
-    category: "Electronics",
-    location: "Kigali, Rwanda",
-    description:
-      "Cutting-edge electronics and smart home devices with after-sales support.",
-    products: "445",
-    rating: 4.8,
-    sold: "2.9K",
-    badge: "Rising Star",
-    badgeColor: "bg-sky-500",
-    coverColor: "bg-emerald-500",
-    tags: ["Smart Home", "Gadgets", "Audio"],
-    isVerified: true,
-  },
-  {
-    id: "11",
-    storeName: "Spice Route",
-    initials: "SR",
-    category: "Food",
-    location: "Dar es Salaam, Tanzania",
-    description:
-      "Premium spices, seasonings, and local ingredients for authentic African cuisine.",
-    products: "890",
-    rating: 4.6,
-    sold: "11K",
-    badge: "Top Rated",
-    badgeColor: "bg-emerald-500",
-    coverColor: "bg-orange-600",
-    tags: ["Spices", "Seasoning", "Local"],
-    isVerified: true,
-  },
-  {
-    id: "12",
-    storeName: "FurnitureHub NG",
-    initials: "FH",
-    category: "Home",
-    location: "Abuja, Nigeria",
-    description:
-      "Modern and traditional furniture for homes and offices with nationwide delivery.",
-    products: "356",
-    rating: 4.7,
-    sold: "2.4K",
-    badge: "Verified",
-    badgeColor: "bg-gray-500",
-    coverColor: "bg-amber-600",
-    tags: ["Sofas", "Beds", "Office"],
-    isVerified: true,
-  },
+// ─── Store → VendorData mapping (drives the directory grid) ────────────────
+
+const COVER_COLORS = [
+  "bg-pink-500",
+  "bg-cyan-500",
+  "bg-violet-500",
+  "bg-green-500",
+  "bg-orange-500",
+  "bg-red-500",
+  "bg-amber-500",
+  "bg-emerald-500",
 ];
+
+const CATEGORY_KEYWORDS: Array<{ match: string; category: VendorCategory }> = [
+  { match: "fashion", category: "Fashion" },
+  { match: "apparel", category: "Fashion" },
+  { match: "clothing", category: "Fashion" },
+  { match: "electronic", category: "Electronics" },
+  { match: "gadget", category: "Electronics" },
+  { match: "tech", category: "Electronics" },
+  { match: "beauty", category: "Beauty" },
+  { match: "skincare", category: "Beauty" },
+  { match: "cosmetic", category: "Beauty" },
+  { match: "food", category: "Food" },
+  { match: "grocery", category: "Food" },
+  { match: "fresh", category: "Food" },
+  { match: "home", category: "Home" },
+  { match: "decor", category: "Home" },
+  { match: "furniture", category: "Home" },
+  { match: "auto", category: "Automobiles" },
+  { match: "car", category: "Automobiles" },
+  { match: "phone", category: "Phones" },
+  { match: "mobile", category: "Phones" },
+];
+
+function inferCategory(haystack: string): VendorCategory {
+  const lc = haystack.toLowerCase();
+  for (const { match, category } of CATEGORY_KEYWORDS) {
+    if (lc.includes(match)) return category;
+  }
+  return "Fashion";
+}
+
+function initialsFor(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "KS"
+  );
+}
+
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
+}
+
+function toVendorData(
+  store: {
+    id: string;
+    name: string;
+    slug?: string;
+    description?: string | null;
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
+    rating?: number;
+    reviewCount?: number;
+    productCount?: number;
+    location?: string | null;
+    isVerified?: boolean;
+    category?: string | null;
+  },
+  index: number,
+): VendorData {
+  const category = inferCategory(
+    `${store.name} ${store.description ?? ""} ${store.category ?? ""}`,
+  );
+  const rating = Number(store.rating ?? 0);
+  const reviewCount = Number(store.reviewCount ?? 0);
+  const productCount = Number(store.productCount ?? 0);
+  const badge: VendorData["badge"] =
+    rating >= 4.8 ? "Top Rated" : productCount >= 100 ? "Featured" : "Verified";
+  const badgeColor =
+    badge === "Featured"
+      ? "bg-amber-500"
+      : badge === "Top Rated"
+        ? "bg-emerald-500"
+        : "bg-gray-500";
+  return {
+    id: String(store.id),
+    slug: store.slug,
+    storeName: store.name,
+    initials: initialsFor(store.name),
+    category,
+    location: store.location || "Africa",
+    description:
+      store.description ||
+      "Verified vendor on Kwikseller — quality products, escrow protected.",
+    products: formatCount(productCount),
+    rating,
+    sold: formatCount(reviewCount),
+    badge,
+    badgeColor,
+    coverColor: COVER_COLORS[index % COVER_COLORS.length],
+    tags: [category],
+    isVerified: Boolean(store.isVerified ?? true),
+  };
+}
 
 const whySellBenefits = [
   {
@@ -744,83 +642,39 @@ export default function VendorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<VendorSortValue>("rating");
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [apiVendors, setApiVendors] = useState<VendorData[]>([]);
-  const [isLoadingVendors, setIsLoadingVendors] = useState(true);
 
-  useEffect(() => {
-    const coverColors = [
-      "bg-pink-500",
-      "bg-cyan-500",
-      "bg-violet-500",
-      "bg-green-500",
-      "bg-orange-500",
-      "bg-red-500",
-      "bg-amber-500",
-      "bg-emerald-500",
-    ];
-
-    const normalizeCategory = (value?: string): VendorData["category"] => {
-      const match = categories.find((cat) => cat !== "All" && cat.toLowerCase() === value?.toLowerCase());
-      return match ?? "Fashion";
-    };
-
-    const initialsFor = (name: string) =>
-      name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join("") || "KS";
-
-    const loadVendors = async () => {
-      setIsLoadingVendors(true);
-      try {
-        const response = await marketplaceApi.getSellers({ limit: 48 });
-        const data = unwrapApiData<any>(response);
-        if (data) {
-          const list = Array.isArray(data) ? data : data.sellers || [];
-          setApiVendors(
-            list.map((seller: any, index: number) => {
-              const storeName = seller.storeName || seller.name || "Kwikseller vendor";
-              const category = normalizeCategory(
-                seller.category?.name || seller.category || seller.primaryCategory || seller.tags?.[0],
-              );
-              return {
-                id: String(seller.id ?? index),
-                slug: seller.username || seller.slug || seller.storeUsername,
-                storeName,
-                initials: seller.initials || initialsFor(storeName),
-                category,
-                location: seller.location || seller.address?.state || seller.country || "Nigeria",
-                description: seller.tagline || seller.description || "Verified seller on Kwikseller.",
-                products: seller.productCount ? `${seller.productCount}` : "0",
-                rating: Number(seller.rating ?? seller.averageRating ?? 0),
-                sold: seller.sold ? `${seller.sold}` : "0",
-                badge: seller.isFeatured ? "Featured" : seller.isVerified ? "Verified" : "Rising Star",
-                badgeColor: seller.isFeatured ? "bg-amber-500" : seller.isVerified ? "bg-gray-500" : "bg-sky-500",
-                coverColor: seller.coverColor || coverColors[index % coverColors.length],
-                tags: Array.isArray(seller.tags) ? seller.tags : [category],
-                isVerified: Boolean(seller.isVerified ?? seller.verified ?? true),
-              } satisfies VendorData;
-            }),
-          );
-        } else {
-          setApiVendors([]);
-        }
-      } catch {
-        setApiVendors([]);
-      } finally {
-        setIsLoadingVendors(false);
-      }
-    };
-
-    loadVendors();
-  }, []);
-
-  const vendorSource = apiVendors.length > 0 ? apiVendors : vendors;
+  // Fetch the vendor directory from the shared `useStores` hook (backed by
+  // the dummy API when NEXT_PUBLIC_USE_DUMMY_DATA=true, the real backend
+  // otherwise — no hardcoded fallback list).
+  const storesQuery = useStores();
+  const isLoadingVendors = storesQuery.isLoading;
+  const apiVendors = useMemo<VendorData[]>(
+    () =>
+      ((storesQuery.data ?? []) as Array<Record<string, unknown>>).map(
+        (store, index) =>
+          toVendorData(
+            {
+              id: String(store.id ?? index),
+              name: String(store.name ?? store.storeName ?? "Kwikseller vendor"),
+              slug: store.slug ? String(store.slug) : store.username ? String(store.username) : undefined,
+              description: (store.description ?? store.tagline) as string | null,
+              logoUrl: (store.logoUrl ?? store.logo) as string | null,
+              bannerUrl: store.bannerUrl as string | null,
+              rating: Number(store.rating ?? store.averageRating ?? 0),
+              reviewCount: Number(store.reviewCount ?? 0),
+              productCount: Number(store.productCount ?? 0),
+              location: (store.location ?? (store.address as { state?: string } | undefined)?.state) as string | null,
+              isVerified: Boolean(store.isVerified ?? store.verified ?? true),
+              category: store.category as string | null,
+            },
+            index,
+          ),
+      ),
+    [storesQuery.data],
+  );
 
   const filteredVendors = useMemo(() => {
-    const result = vendorSource.filter((v) => {
+    const result = apiVendors.filter((v) => {
       const matchesCategory =
         activeCategory === "All" || v.category === activeCategory;
       const matchesSearch =
@@ -845,7 +699,7 @@ export default function VendorsPage() {
     }
 
     return result;
-  }, [activeCategory, searchQuery, sortBy, vendorSource]);
+  }, [activeCategory, searchQuery, sortBy, apiVendors]);
 
   return (
     <>
@@ -893,67 +747,9 @@ export default function VendorsPage() {
           </div>
         </div>
       </section>
-      {/* ─── 1. Hero Section ─────────────────────────────────── */}
-      <section className="hidden">
-        <div className="absolute inset-0 pattern-grid opacity-10 pointer-events-none" />
-        {/* Decorative gradient orbs */}
-        <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full bg-white/5 blur-3xl pointer-events-none" />
-
-        <div className="container mx-auto px-0 md:px-4  py-16 sm:py-20 md:py-24 relative z-10">
-          <AnimatedSection>
-            <div className="max-w-3xl mx-auto text-center">
-              <Chip
-                variant="soft"
-                className="mb-5 bg-white/20 text-white border-white/20"
-              >
-                <Store className="w-3.5 h-3.5 mr-1" />
-                Africa&apos;s Marketplace
-              </Chip>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-5 text-shadow-md">
-                Join <span className="text-accent">10,000+</span> Vendors
-                <br className="hidden sm:block" /> Across Africa
-              </h1>
-              <p className="text-white/80 text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-                Discover verified sellers from Lagos to Nairobi, Accra to
-                Johannesburg. Find quality products, trusted stores, and the
-                best deals on Africa&apos;s fastest-growing marketplace.
-              </p>
-
-              {/* Search Bar */}
-              <div className="max-w-xl mx-auto">
-                <div className="relative">
-                  <Input
-                    placeholder="Search vendors by name, category, or location..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="[&_input]:text-white [&_input]:placeholder:text-white/60"
-                  />
-                </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 mt-8">
-                {[
-                  { value: "10K+", label: "Vendors" },
-                  { value: "500K+", label: "Products" },
-                  { value: "15+", label: "Countries" },
-                  { value: "2M+", label: "Orders" },
-                ].map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="text-xl sm:text-2xl font-bold text-white">
-                      {stat.value}
-                    </div>
-                    <div className="text-xs text-white/60 uppercase tracking-wider">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
+      {/* Hero section is intentionally omitted in this refactor — the
+          directory header above already provides the page title and search
+          affordance. Keeping the layout compact for a focused browse flow. */}
 
       {/* ─── 2. Vendor Categories Filter ─────────────────────── */}
       <section className="sticky top-[112px] z-[90] border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95 md:top-16">
@@ -1012,337 +808,37 @@ export default function VendorsPage() {
             </div>
           </AnimatedSection>
 
-          {filteredVendors.length > 0 ? (
+          {isLoadingVendors ? (
+            <ProductGridSkeleton count={8} columns={4} />
+          ) : filteredVendors.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredVendors.map((vendor, index) => (
                 <VendorCard key={vendor.id} vendor={vendor} index={index} />
               ))}
             </div>
           ) : (
-            <AnimatedSection>
-              <div className="text-center py-16">
-                <div className="w-16 h-16 rounded-full bg-default-100 dark:bg-default-100/50 flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-7 h-7 text-default-400" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No vendors found</h3>
-                <p className="text-default-500 text-sm max-w-sm mx-auto mb-4">
-                  Try adjusting your search or filter to find what you&apos;re
-                  looking for.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={() => {
+            <EmptyState
+              variant="search"
+              icon={<Search className="h-12 w-12" />}
+              title="No vendors found"
+              description="Try adjusting your search or filter to find what you're looking for."
+              action={
+                <button
+                  type="button"
+                  onClick={() => {
                     setActiveCategory("All");
                     setSearchQuery("");
                   }}
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
                 >
                   Clear Filters
-                </Button>
-              </div>
-            </AnimatedSection>
+                </button>
+              }
+            />
           )}
         </div>
       </section>
 
-      {false && (
-      <>
-      {/* ─── 4. Why Sell on Kwikseller ───────────────────────── */}
-      <section className="py-16 sm:py-20 bg-default-50 relative overflow-hidden">
-        <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-accent/5 blur-[80px] pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-success/5 blur-[80px] pointer-events-none" />
-
-        <div className="container mx-auto px-0 md:px-4  relative">
-          <AnimatedSection>
-            <div className="text-center mb-12">
-              <Chip variant="soft" className="mb-4">
-                <Zap className="w-4 h-4 mr-1" />
-                Why Kwikseller?
-              </Chip>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
-                Why Sell on Kwikseller?
-              </h2>
-              <p className="text-default-500 max-w-2xl mx-auto">
-                Everything you need to launch, grow, and scale your business —
-                all in one powerful platform.
-              </p>
-            </div>
-          </AnimatedSection>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {whySellBenefits.map((benefit, index) => (
-              <StaggerChild key={index} index={index}>
-                <Card className="group border-none shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-6 h-full text-center">
-                  <div
-                    className={cn(
-                      "w-14 h-14 rounded-2xl flex items-center justify-center mb-5 mx-auto transition-transform group-hover:scale-110",
-                      benefit.color,
-                    )}
-                  >
-                    <benefit.icon className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {benefit.title}
-                  </h3>
-                  <p className="text-default-500 text-sm leading-relaxed">
-                    {benefit.description}
-                  </p>
-                </Card>
-              </StaggerChild>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 5. Vendor Success Stats ─────────────────────────── */}
-      <section className="py-16 sm:py-20 bg-accent relative">
-        <div className="absolute inset-0 pattern-grid opacity-10 pointer-events-none" />
-        {/* Decorative elements */}
-        <div className="absolute top-10 right-10 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-10 left-10 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-
-        <div className="container mx-auto px-0 md:px-4  relative">
-          <AnimatedSection>
-            <div className="text-center mb-12">
-              <Chip
-                variant="soft"
-                className="mb-4 bg-white/20 text-white border-white/20"
-              >
-                <TrendingUp className="w-4 h-4 mr-1" />
-                By The Numbers
-              </Chip>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4">
-                Vendor Success Stats
-              </h2>
-              <p className="text-white/80 max-w-2xl mx-auto">
-                Real numbers from real sellers thriving on our platform every
-                day.
-              </p>
-            </div>
-          </AnimatedSection>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {vendorStats.map((stat, index) => (
-              <StaggerChild key={index} index={index}>
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 sm:p-8 text-center hover:bg-white/15 transition-colors border border-white/10">
-                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mx-auto mb-4">
-                    <stat.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1">
-                    <CounterAnimation
-                      target={stat.value}
-                      suffix={stat.suffix}
-                      prefix={stat.prefix}
-                      display={stat.display}
-                    />
-                  </div>
-                  <div className="text-sm text-white/70">{stat.label}</div>
-                </div>
-              </StaggerChild>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 6. Top Vendor Categories ────────────────────────── */}
-      <section className="py-16 sm:py-20">
-        <div className="container mx-auto px-0 md:px-4 ">
-          <AnimatedSection>
-            <div className="text-center mb-12">
-              <Chip variant="soft" className="mb-4">
-                <ShoppingBag className="w-4 h-4 mr-1" />
-                Popular Categories
-              </Chip>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
-                Top Vendor Categories
-              </h2>
-              <p className="text-default-500 max-w-2xl mx-auto">
-                Explore the most popular product categories where our vendors
-                are seeing the highest demand and growth.
-              </p>
-            </div>
-          </AnimatedSection>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-            {topCategories.map((cat, index) => {
-              const Icon = cat.icon;
-              return (
-                <StaggerChild key={index} index={index}>
-                  <Card className="group border-none shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-5 sm:p-6 cursor-pointer h-full">
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={cn(
-                          "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-white shadow-md group-hover:scale-110 transition-transform",
-                          cat.color,
-                        )}
-                      >
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm sm:text-base mb-1 truncate">
-                          {cat.name}
-                        </h3>
-                        <div className="flex items-center gap-1">
-                          <Package className="w-3 h-3 text-default-400" />
-                          <span
-                            className={cn(
-                              "text-sm font-semibold",
-                              cat.textColor,
-                            )}
-                          >
-                            {cat.count}
-                          </span>
-                          <span className="text-xs text-default-400">
-                            products
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-default-300 group-hover:text-accent group-hover:translate-x-1 transition-all shrink-0 mt-1" />
-                    </div>
-                  </Card>
-                </StaggerChild>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 7. Vendor Onboarding Steps ──────────────────────── */}
-      <section className="py-16 sm:py-20 bg-default-50 relative overflow-hidden">
-        <div className="absolute inset-0 pattern-dots opacity-30 pointer-events-none" />
-        <div className="container mx-auto px-0 md:px-4  relative">
-          <AnimatedSection>
-            <div className="text-center mb-14">
-              <Chip variant="soft" className="mb-4">
-                <Sparkles className="w-4 h-4 mr-1" />
-                Get Started
-              </Chip>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
-                Vendor Onboarding in{" "}
-                <span className="text-accent">4 Easy Steps</span>
-              </h2>
-              <p className="text-default-500 max-w-2xl mx-auto">
-                From sign-up to your first sale — get started in minutes, not
-                days.
-              </p>
-            </div>
-          </AnimatedSection>
-
-          {/* Steps Grid */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
-            {/* Connecting line (desktop only) */}
-            <div className="hidden lg:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-accent/30" />
-
-            {onboardingSteps.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <StaggerChild key={step.number} index={index}>
-                  <div className="relative text-center group">
-                    {/* Step number circle */}
-                    <div className="relative inline-flex items-center justify-center mb-6">
-                      <div
-                        className={cn(
-                          "w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 relative z-10 text-white",
-                          step.color,
-                        )}
-                      >
-                        <Icon className="w-8 h-8 text-white" />
-                      </div>
-                      {/* Floating step number */}
-                      <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-background border-2 border-accent flex items-center justify-center text-sm font-bold text-accent z-20 shadow-sm">
-                        {step.number}
-                      </div>
-                    </div>
-
-                    {/* Connector arrow on mobile/tablet */}
-                    {index < onboardingSteps.length - 1 && (
-                      <div className="lg:hidden flex justify-center mb-4">
-                        <ArrowRight className="w-5 h-5 text-default-300" />
-                      </div>
-                    )}
-
-                    <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                    <p className="text-default-500 text-sm leading-relaxed max-w-xs mx-auto">
-                      {step.description}
-                    </p>
-                  </div>
-                </StaggerChild>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 8. CTA Section ──────────────────────────────────── */}
-      <section className="py-16 sm:py-20">
-        <div className="container mx-auto px-0 md:px-4 ">
-          <AnimatedSection>
-            <Card className="border-none p-8 sm:p-10 md:p-14 bg-accent text-white overflow-hidden relative">
-              {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/[0.02] pointer-events-none" />
-
-              <div className="relative flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-                {/* Left content */}
-                <div className="flex-1 text-center lg:text-left">
-                  <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-5 mx-auto lg:mx-0 backdrop-blur-sm">
-                    <Store className="w-8 h-8 text-white" />
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 text-shadow-sm">
-                    Start Your Free Store Today
-                  </h2>
-                  <p className="text-white/80 text-sm sm:text-base max-w-lg mx-auto lg:mx-0 leading-relaxed">
-                    Join over 10,000 verified sellers on Africa&apos;s
-                    fastest-growing marketplace. Set up your store for free,
-                    reach millions of buyers, and start earning.
-                  </p>
-
-                  {/* Trust badges */}
-                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 mt-6">
-                    {[
-                      { icon: ShieldCheck, label: "Escrow Protected" },
-                      { icon: Wallet, label: "Zero Setup Fees" },
-                      { icon: Globe, label: "15+ Countries" },
-                    ].map((badge) => (
-                      <div
-                        key={badge.label}
-                        className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5 text-xs"
-                      >
-                        <badge.icon className="w-3.5 h-3.5 text-white/90" />
-                        <span className="text-white/90">{badge.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right CTA */}
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-4 flex-shrink-0">
-                  <Button
-                    size="lg"
-                    className="bg-white text-accent font-semibold hover:bg-white/90 kwik-shadow-lg transition-all min-w-[200px]"
-                    onPress={() => router.push("/register")}
-                  >
-                    <Sparkles className="mr-2 w-4 h-4" />
-                    Register Now — It&apos;s Free
-                    <ArrowRight className="ml-2 w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="border-white/30 text-white hover:bg-white/10 min-w-[200px]"
-                    onPress={() => router.push("/")}
-                  >
-                    Explore Marketplace
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </AnimatedSection>
-        </div>
-      </section>
-      </>
-      )}
     </>
   );
 }

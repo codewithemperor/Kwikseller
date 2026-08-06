@@ -22,12 +22,18 @@ import {
   Package,
   PackageCheck,
   CheckCircle2,
+  Tag,
+  X,
+  Zap,
+  Store,
 } from "lucide-react";
 import { useCartStore } from "@/stores";
 import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
 import { kwikToast } from "@kwikseller/utils";
 import { PAYMENT_PROVIDERS, DEFAULT_PAYMENT_PROVIDER, KwisCrow } from "@/constants/order-workflow";
 import { cn } from "@/lib/utils";
+import { useCheckout } from "@/lib/order-api";
+import { api } from "@kwikseller/api-client";
 
 function formatNGN(n: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -35,6 +41,81 @@ function formatNGN(n: number) {
     currency: "NGN",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+// ── Delivery options ──────────────────────────────────────────────────────
+// Buyer selects one of STANDARD / EXPRESS / PICKUP. The vendor still
+// confirms the final fee during quotation — this is the live estimate
+// shown in the order summary and sent to the backend as `deliveryType`.
+type DeliveryType = "STANDARD" | "EXPRESS" | "PICKUP";
+
+const DELIVERY_OPTIONS: Array<{
+  type: DeliveryType;
+  label: string;
+  Icon: typeof Truck;
+  etaDays: string;
+  priceLagos: string;
+  priceOther: string;
+  description: string;
+}> = [
+  {
+    type: "STANDARD",
+    label: "Standard",
+    Icon: Truck,
+    etaDays: "2-3 days",
+    priceLagos: formatNGN(1500),
+    priceOther: formatNGN(2000),
+    description: "Doorstep delivery via local courier.",
+  },
+  {
+    type: "EXPRESS",
+    label: "Express",
+    Icon: Zap,
+    etaDays: "1 day",
+    priceLagos: formatNGN(3500),
+    priceOther: formatNGN(4500),
+    description: "Next-day priority delivery.",
+  },
+  {
+    type: "PICKUP",
+    label: "Pickup",
+    Icon: Store,
+    etaDays: "Same day",
+    priceLagos: "Free",
+    priceOther: "Free",
+    description: "Pick up from the vendor's store.",
+  },
+];
+
+/**
+ * Estimated delivery fee based on the buyer's state + selected delivery type.
+ * Mirrors the dummy API's `deliveryFeeByState` for STANDARD, then applies the
+ * EXPRESS premium (+₦2,000) or PICKUP waiver.
+ */
+function deliveryFeeByStateAndType(state: string, type: DeliveryType): number {
+  if (type === "PICKUP") return 0;
+  const s = (state ?? "").toLowerCase();
+  let standard: number;
+  if (s.includes("lagos")) standard = 1500;
+  else if (s.includes("abuja")) standard = 2500;
+  else if (s.includes("rivers") || s.includes("port")) standard = 3000;
+  else if (s.includes("oyo") || s.includes("ibadan")) standard = 2200;
+  else if (s.includes("kano")) standard = 3200;
+  else standard = 2000;
+  if (type === "EXPRESS") return standard + 2000;
+  return standard;
+}
+
+function deliveryDaysByType(type: DeliveryType): number {
+  if (type === "EXPRESS") return 1;
+  if (type === "PICKUP") return 0;
+  return 3; // STANDARD upper bound
+}
+
+function deliveryEtaLabel(type: DeliveryType): string {
+  if (type === "EXPRESS") return "1 day";
+  if (type === "PICKUP") return "Same day";
+  return "2-3 days";
 }
 
 type PaymentProviderKey = keyof typeof PAYMENT_PROVIDERS;
@@ -60,6 +141,7 @@ export default function CheckoutPage() {
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
   const placeOrder = useOrderWorkflowStore((s) => s.placeOrder);
+  const checkout = useCheckout();
 
   const [address, setAddress] = useState<AddressForm>({
     fullName: "",
@@ -71,8 +153,84 @@ export default function CheckoutPage() {
   });
   const [paymentProvider, setPaymentProvider] =
     useState<PaymentProviderKey>(DEFAULT_PAYMENT_PROVIDER);
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>("STANDARD");
   const [placing, setPlacing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
+
+  // ── Coupon state ──
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountType: "PERCENT" | "AMOUNT" | "FREE_DELIVERY";
+    discountValue: number;
+    maxDiscount?: number;
+    minOrder?: number;
+    storeName?: string;
+    storeId?: string;
+    badgeText?: string;
+    accentColor?: "orange" | "amber" | "rose" | "emerald" | "violet";
+    message: string;
+  } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+
+  async function applyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      kwikToast.error("Enter a coupon code", "Type a code then tap Apply.");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      // Send the cart items so the server can enforce vendor-specific coupons.
+      const payloadItems = items.map((it) => ({
+        productId: it.productId,
+        storeId: it.storeId ?? it.storeSlug,
+        store: it.store ?? it.storeName,
+        productStoreId: it.storeId,
+      }));
+      const res = await api.post<{
+        code: string;
+        valid: boolean;
+        discountType: "PERCENT" | "AMOUNT" | "FREE_DELIVERY";
+        discountValue: number;
+        maxDiscount?: number;
+        minOrder?: number;
+        storeName?: string;
+        storeId?: string;
+        badgeText?: string;
+        accentColor?: "orange" | "amber" | "rose" | "emerald" | "violet";
+        message: string;
+      }>("cart/coupon", { code, items: payloadItems });
+      const data = res.data;
+      if (!data?.valid) {
+        setAppliedCoupon(null);
+        kwikToast.error(
+          "Coupon not applicable",
+          data?.message || "This code is not valid or has expired.",
+        );
+        return;
+      }
+      // Check min order
+      if (data.minOrder && data.minOrder > 0 && subtotal < data.minOrder) {
+        kwikToast.error("Minimum order not met", `This coupon requires a minimum order of ₦${data.minOrder.toLocaleString()}.`);
+        setAppliedCoupon(null);
+        return;
+      }
+      setAppliedCoupon(data);
+      kwikToast.success("Coupon applied", data.message || `${data.discountValue}${data.discountType === "PERCENT" ? "%" : data.discountType === "AMOUNT" ? " NGN" : ""} off your order.`);
+    } catch (e) {
+      setAppliedCoupon(null);
+      kwikToast.error("Invalid coupon", e instanceof Error ? e.message : "This code is not valid or has expired.");
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    kwikToast.info("Coupon removed", "The discount has been cleared.");
+  }
 
   // Group items by store (since the 1688 workflow sends each vendor a separate order).
   const itemsByStore = useMemo(() => {
@@ -101,7 +259,27 @@ export default function CheckoutPage() {
   // Estimated platform fee (demo) — the real delivery fee is set by the vendor
   // when they submit the quotation (see the 1688 workflow).
   const estimatedProcessingFee = Math.round(subtotal * 0.015);
-  const totalDueNow = subtotal + estimatedProcessingFee;
+  // Coupon discount applied at checkout.
+  const couponDiscount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.discountType === "FREE_DELIVERY") return 0; // waives delivery fee, not subtotal
+    if (appliedCoupon.discountType === "PERCENT") {
+      const raw = Math.round((subtotal * appliedCoupon.discountValue) / 100);
+      return appliedCoupon.maxDiscount ? Math.min(raw, appliedCoupon.maxDiscount) : raw;
+    }
+    // AMOUNT
+    return Math.min(appliedCoupon.discountValue, subtotal);
+  }, [appliedCoupon, subtotal]);
+  // Estimated delivery fee — live, based on the buyer's selected state +
+  // delivery type. The vendor still confirms the final fee during quotation.
+  const deliveryFee = useMemo(
+    () => deliveryFeeByStateAndType(address.state, deliveryType),
+    [address.state, deliveryType],
+  );
+  const estimatedDeliveryDays = deliveryDaysByType(deliveryType);
+  // Free-delivery coupons waive the delivery fee.
+  const effectiveDeliveryFee = appliedCoupon?.discountType === "FREE_DELIVERY" ? 0 : deliveryFee;
+  const totalDueNow = Math.max(0, subtotal - couponDiscount + estimatedProcessingFee + effectiveDeliveryFee);
 
   function validate(): boolean {
     const next: Partial<Record<keyof AddressForm, string>> = {};
@@ -127,14 +305,36 @@ export default function CheckoutPage() {
     }
 
     setPlacing(true);
-    // Simulate a brief network call so the user sees feedback.
-    await new Promise((r) => setTimeout(r, 900));
 
     try {
-      // Place one order per vendor (1688-style: each vendor quotes separately).
-      const orderIds: string[] = [];
-      for (const [storeKey, group] of Object.entries(itemsByStore)) {
-        const order = placeOrder({
+      // POST to the backend so the vendor actually RECEIVES the order
+      // (TODO #6). The backend groups items by vendor store and creates
+      // one order per store (split checkout), each linked to the vendor.
+      const result = await checkout.mutateAsync({
+        items: items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+        })),
+        shippingAddress: {
+          fullName: address.fullName,
+          phone: address.phone,
+          addressLine1: address.addressLine,
+          addressLine2: address.landmark,
+          city: address.city,
+          state: address.state,
+          country: "Nigeria",
+        },
+        paymentMethod: PAYMENT_PROVIDERS[paymentProvider]?.id ?? "CARD",
+        deliveryType,
+        couponCode: appliedCoupon?.code,
+      });
+
+      const apiOrders = result?.orders ?? [];
+
+      // Also mirror into the local workflow store so the rich quotation UI
+      // (timeline, escrow badge) keeps working for these orders.
+      for (const group of Object.values(itemsByStore)) {
+        placeOrder({
           items: group.items.map((i) => ({
             productId: i.productId,
             name: i.name,
@@ -142,22 +342,23 @@ export default function CheckoutPage() {
             quantity: i.quantity,
             image: i.image,
           })),
-          vendorId: storeKey,
+          vendorId: group.storeName,
           vendorName: group.storeName,
           deliveryAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state}. Phone: ${address.phone}${address.landmark ? `. Landmark: ${address.landmark}` : ""}`,
         });
-        if (order?.id) orderIds.push(order.id);
       }
 
       clearCart();
+      const count = apiOrders.length || Object.keys(itemsByStore).length;
       kwikToast.success(
         "Order placed!",
-        `${orderIds.length} order${orderIds.length > 1 ? "s" : ""} sent to vendor${orderIds.length > 1 ? "s" : ""} for quotation.`,
+        `${count} order${count > 1 ? "s" : ""} sent to vendor${count > 1 ? "s" : ""} for quotation. The vendor will confirm delivery & discount shortly.`,
       );
 
-      // Redirect to the first order's detail page (status: PENDING_QUOTE → QUOTED → TO_PAY).
-      if (orderIds.length > 0) {
-        router.push(`/orders/${orderIds[0]}`);
+      // Redirect to the first API order's detail page (status: PENDING →
+      // vendor quotes delivery/discount → CONFIRMED → buyer pays).
+      if (apiOrders.length > 0 && apiOrders[0]?.id) {
+        router.push(`/orders/${apiOrders[0].id}`);
       } else {
         router.push("/orders");
       }
@@ -327,6 +528,91 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* Delivery options — STANDARD / EXPRESS / PICKUP */}
+            <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5 md:p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-kwik-orange/10 text-kwik-orange">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-heading text-base font-semibold text-foreground">
+                    Delivery option
+                  </h2>
+                  <p className="text-xs text-kwik-muted">
+                    Pick how fast you want it. The vendor confirms the final fee
+                    during quotation.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {DELIVERY_OPTIONS.map((opt) => {
+                  const selected = deliveryType === opt.type;
+                  const Icon = opt.Icon;
+                  return (
+                    <button
+                      key={opt.type}
+                      type="button"
+                      onClick={() => setDeliveryType(opt.type)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange/40",
+                        selected
+                          ? "border-kwik-orange bg-kwik-orange/5 ring-1 ring-kwik-orange/30"
+                          : "border-kwik-border-light bg-kwik-bg-page hover:border-kwik-orange/40",
+                      )}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <div
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-lg",
+                            selected ? "bg-kwik-orange/15 text-kwik-orange" : "bg-kwik-bg-light text-kwik-muted",
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        {selected ? (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-kwik-orange text-white">
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          </span>
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{opt.label}</p>
+                        <p className="text-xs text-kwik-muted">{opt.description}</p>
+                      </div>
+                      <div className="mt-1 w-full space-y-0.5 border-t border-kwik-border-light pt-2 text-xs">
+                        <p className="flex items-center justify-between">
+                          <span className="text-kwik-muted">Lagos</span>
+                          <span className="font-semibold text-foreground">{opt.priceLagos}</span>
+                        </p>
+                        <p className="flex items-center justify-between">
+                          <span className="text-kwik-muted">Other states</span>
+                          <span className="font-semibold text-foreground">{opt.priceOther}</span>
+                        </p>
+                        <p className="flex items-center justify-between">
+                          <span className="text-kwik-muted">ETA</span>
+                          <span className="font-semibold text-kwik-orange">{opt.etaDays}</span>
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Live estimate hint — reflects the selected state */}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-kwik-bg-page px-4 py-2.5 text-xs">
+                <span className="text-kwik-muted">
+                  Estimate for <span className="font-semibold text-foreground">{address.state || "your state"}</span>:
+                </span>
+                <span className="font-semibold text-kwik-orange">
+                  {deliveryType === "PICKUP"
+                    ? "Free pickup"
+                    : `${formatNGN(deliveryFee)} · ${deliveryEtaLabel(deliveryType)}`}
+                </span>
+              </div>
+            </div>
+
             {/* Cart items grouped by vendor */}
             <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
               <div className="mb-4 flex items-center gap-2">
@@ -487,34 +773,126 @@ export default function CheckoutPage() {
 
           {/* ── Right: order summary (sticky) ── */}
           <aside className="lg:sticky lg:top-4 lg:h-fit">
-            <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+            <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5 md:p-6">
               <h2 className="mb-4 font-heading text-base font-semibold text-foreground">
                 Order summary
               </h2>
 
               <dl className="space-y-2.5 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Items subtotal</dt>
+                  <dt className="text-kwik-muted">Items subtotal</dt>
                   <dd className="font-medium text-foreground">{formatNGN(subtotal)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Processing fee (1.5%)</dt>
+                  <dt className="text-kwik-muted">Processing fee (1.5%)</dt>
                   <dd className="font-medium text-foreground">
                     {formatNGN(estimatedProcessingFee)}
                   </dd>
                 </div>
+                {appliedCoupon && (couponDiscount > 0 || appliedCoupon.discountType === "FREE_DELIVERY") && (
+                  <div className="flex justify-between text-kwik-green">
+                    <dt className="flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5" /> Coupon {appliedCoupon.code}
+                    </dt>
+                    <dd className="font-medium">
+                      {appliedCoupon.discountType === "FREE_DELIVERY"
+                        ? "Free delivery"
+                        : `−${formatNGN(couponDiscount)}`}
+                    </dd>
+                  </div>
+                )}
                 <div className="flex items-start justify-between">
-                  <dt className="text-gray-500">
+                  <dt className="text-kwik-muted">
                     Delivery fee
-                    <span className="block text-xs text-gray-400">
-                      Set by vendor after quotation
+                    <span className="block text-xs text-kwik-muted/70">
+                      {deliveryType === "PICKUP"
+                        ? `Pickup · ${deliveryEtaLabel(deliveryType)}`
+                        : `${deliveryEtaLabel(deliveryType)} · vendor confirms final`}
                     </span>
                   </dt>
-                  <dd className="font-medium text-primary-600">Pending</dd>
+                  <dd className="font-medium text-kwik-orange">
+                    {deliveryType === "PICKUP"
+                      ? "Free"
+                      : effectiveDeliveryFee === 0 && appliedCoupon?.discountType === "FREE_DELIVERY"
+                        ? "Free (coupon)"
+                        : formatNGN(deliveryFee)}
+                  </dd>
                 </div>
               </dl>
 
-              <div className="my-4 border-t border-border" />
+              {/* ── Coupon input ── */}
+              <div className="mt-4 border-t border-kwik-border-light pt-4">
+                {appliedCoupon ? (
+                  <div className="rounded-xl bg-kwik-green/5 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2 text-sm font-medium text-kwik-green">
+                        <Check className="h-4 w-4" />
+                        {appliedCoupon.code} ·{" "}
+                        {appliedCoupon.discountType === "PERCENT"
+                          ? `${appliedCoupon.discountValue}% off`
+                          : appliedCoupon.discountType === "FREE_DELIVERY"
+                            ? "Free delivery"
+                            : `${formatNGN(appliedCoupon.discountValue)} off`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={removeCoupon}
+                        aria-label="Remove coupon"
+                        className="rounded-lg p-1 text-kwik-muted transition hover:bg-kwik-red/5 hover:text-kwik-red"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {appliedCoupon.storeName && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-kwik-muted">
+                        <Store className="h-3 w-3" />
+                        Vendor-exclusive · applies to {appliedCoupon.storeName} items only
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Tag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            applyCoupon();
+                          }
+                        }}
+                        placeholder="Coupon code"
+                        className="h-10 w-full rounded-lg border border-kwik-border-light bg-kwik-bg-page pl-9 pr-3 text-sm text-foreground uppercase outline-none transition placeholder:normal-case placeholder:text-kwik-muted focus:border-kwik-orange focus:ring-2 focus:ring-kwik-orange/20"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={applyCoupon}
+                      disabled={couponLoading}
+                      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-kwik-border-light px-4 text-sm font-semibold text-kwik-dark transition hover:bg-kwik-bg-page disabled:opacity-60"
+                    >
+                      {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                    </button>
+                  </div>
+                )}
+                <p className="mt-1.5 text-xs text-kwik-muted">
+                  Try{" "}
+                  <button type="button" onClick={() => setCouponCode("KWIK10")} className="font-medium text-kwik-orange underline-offset-2 hover:underline">KWIK10</button>
+                  ,{" "}
+                  <button type="button" onClick={() => setCouponCode("WELCOME15")} className="font-medium text-kwik-orange underline-offset-2 hover:underline">WELCOME15</button>
+                  ,{" "}
+                  <button type="button" onClick={() => setCouponCode("FLASH50")} className="font-medium text-kwik-orange underline-offset-2 hover:underline">FLASH50</button>
+                  ,{" "}
+                  <button type="button" onClick={() => setCouponCode("SUMMER30")} className="font-medium text-kwik-orange underline-offset-2 hover:underline">SUMMER30</button>
+                  , or{" "}
+                  <button type="button" onClick={() => setCouponCode("FREEDELIVERY")} className="font-medium text-kwik-orange underline-offset-2 hover:underline">FREEDELIVERY</button>
+                </p>
+              </div>
+
+              <div className="my-4 border-t border-kwik-border-light" />
 
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-medium text-foreground">Due now</span>
@@ -522,7 +900,7 @@ export default function CheckoutPage() {
                   {formatNGN(totalDueNow)}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-kwik-muted">
                 Final total (with delivery fee) is confirmed once the vendor
                 submits a quotation. You pay on the &ldquo;To Pay&rdquo; step.
               </p>
@@ -531,7 +909,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={handlePlaceOrder}
                 disabled={placing}
-                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary-500 text-sm font-semibold text-white transition hover:bg-secondary-600 disabled:cursor-not-allowed disabled:opacity-70"
+                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-kwik-orange text-sm font-semibold text-white transition hover:bg-kwik-orange-hover disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {placing ? (
                   <>
@@ -545,9 +923,9 @@ export default function CheckoutPage() {
               </button>
 
               {/* KwisCrow protection */}
-              <div className="mt-4 flex items-start gap-2 rounded-xl bg-primary-50 p-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-                <div className="text-xs leading-5 text-primary-800">
+              <div className="mt-4 flex items-start gap-2 rounded-xl bg-kwik-orange/5 p-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-kwik-orange" />
+                <div className="text-xs leading-5 text-kwik-dark">
                   <span className="font-semibold">KwisCrow Buyer Protection.</span>{" "}
                   Your payment stays in escrow until you confirm receipt (or the
                   24-hour dispute window closes).
@@ -556,21 +934,21 @@ export default function CheckoutPage() {
 
               {/* Trust badges row */}
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-background p-2.5 text-center">
-                  <Lock className="h-4 w-4 text-primary-600" />
+                <div className="flex flex-col items-center gap-1 rounded-lg border border-kwik-border-light bg-kwik-bg-page p-2.5 text-center">
+                  <Lock className="h-4 w-4 text-kwik-orange" />
                   <span className="text-[10px] font-semibold text-foreground">SSL Secured</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-background p-2.5 text-center">
-                  <ShieldCheck className="h-4 w-4 text-success" />
+                <div className="flex flex-col items-center gap-1 rounded-lg border border-kwik-border-light bg-kwik-bg-page p-2.5 text-center">
+                  <ShieldCheck className="h-4 w-4 text-kwik-green" />
                   <span className="text-[10px] font-semibold text-foreground">Escrow Protected</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-background p-2.5 text-center">
-                  <RefreshCw className="h-4 w-4 text-warning" />
+                <div className="flex flex-col items-center gap-1 rounded-lg border border-kwik-border-light bg-kwik-bg-page p-2.5 text-center">
+                  <RefreshCw className="h-4 w-4 text-kwik-amber" />
                   <span className="text-[10px] font-semibold text-foreground">24h Disputes</span>
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+              <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-kwik-muted">
                 <Lock className="h-3 w-3" /> Secure SSL encrypted checkout · Paystack verified
               </div>
             </div>

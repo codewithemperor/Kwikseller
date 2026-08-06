@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { useCartStore, useWishlistStore } from '@/stores'
 import { kwikToast } from '@kwikseller/utils'
 import { AppImage } from '@/components/ui/app-image'
+import { AccountLayout } from '@/components/layout/account-layout'
 import type { WishlistItem } from '@/stores/wishlist-store'
 
 function formatCurrency(amount: number): string {
@@ -155,7 +156,7 @@ function WishlistCard({
   )
 }
 
-export default function WishlistPage() {
+function WishlistPageInner() {
   const { items, removeItem, clearAll, itemCount } = useWishlistStore()
   const addItemToCart = useCartStore((s) => s.addItem)
   const setCartOpen = useCartStore((s) => s.setCartOpen)
@@ -380,5 +381,13 @@ export default function WishlistPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function WishlistPage() {
+  return (
+    <AccountLayout>
+      <WishlistPageInner />
+    </AccountLayout>
   )
 }

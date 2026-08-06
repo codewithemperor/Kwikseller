@@ -83,6 +83,22 @@ export interface Brand {
   image?: string;
   status: boolean;
   _count?: { products: number };
+  // ── Enrichment (cycle 7) ────────────────────────────────────────────────
+  story?: string;
+  tagline?: string;
+  foundedYear?: number;
+  country?: string;
+  headquarters?: string;
+  website?: string;
+  rating?: number;
+  reviewCount?: number;
+  totalSales?: number;
+  followCount?: number;
+  verified?: boolean;
+  badges?: string[];
+  categories?: string[];
+  socialLinks?: { type: string; url: string }[];
+  coverImage?: string;
 }
 
 export interface Banner {

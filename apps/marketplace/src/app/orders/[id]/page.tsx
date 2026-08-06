@@ -19,8 +19,9 @@ import { ordersApi } from "@kwikseller/api-client";
 import type { Order } from "@kwikseller/types";
 import { ErrorBoundary, Skeleton } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
+import { useOrder, type ApiOrder } from "@/lib/order-api";
 
-import { OrderStatus, ORDER_STATUS_META, KwisCrow } from "@/constants/order-workflow";
+import { OrderStatus, ORDER_STATUS_META, KwisCrow, type OrderStatusValue } from "@/constants/order-workflow";
 import type { OrderWorkflowState } from "@/types/order-workflow";
 import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
 
@@ -101,6 +102,73 @@ function OrderNotFound({ id }: { id: string }) {
         Back to orders
       </Link>
     </main>
+  );
+}
+
+// ─── Track Order button (shared by mock + API order views) ──────────────────
+//
+// Links to `/orders/[id]/track` (built in Task 4). Shown for orders that are
+// past the initial quote stage (mock workflow) or confirmed+ (API order).
+// For PENDING orders the button renders disabled with a tooltip explaining
+// tracking becomes available once the vendor confirms.
+
+const TRACKABLE_MOCK_STATUSES = new Set<OrderStatusValue>([
+  OrderStatus.PAID,
+  OrderStatus.PROCESSING,
+  OrderStatus.SHIPPED,
+  OrderStatus.OUT_FOR_DELIVERY,
+  OrderStatus.DELIVERED,
+  OrderStatus.RECEIVED,
+  OrderStatus.COMPLETED,
+  OrderStatus.DISPUTED,
+]);
+
+const TRACKABLE_API_STATUSES = new Set<string>([
+  "CONFIRMED",
+  "PROCESSING",
+  "READY",
+  "SHIPPED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+]);
+
+function TrackOrderButton({
+  orderId,
+  enabled,
+  variant = "default",
+}: {
+  orderId: string;
+  enabled: boolean;
+  variant?: "default" | "onGradient";
+}) {
+  const baseClass =
+    "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-colors";
+  if (!enabled) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="Tracking available once vendor confirms"
+        aria-label="Tracking available once vendor confirms"
+        className={`${baseClass} cursor-not-allowed bg-kwik-gray-light text-kwik-muted`}
+      >
+        <Truck className="h-4 w-4" />
+        Track Order
+      </button>
+    );
+  }
+  const variantClass =
+    variant === "onGradient"
+      ? "bg-white text-kwik-orange hover:bg-white/90"
+      : "bg-kwik-orange text-white hover:bg-kwik-orange-hover";
+  return (
+    <Link
+      href={`/orders/${encodeURIComponent(orderId)}/track`}
+      className={`${baseClass} ${variantClass}`}
+    >
+      <Truck className="h-4 w-4" />
+      Track Order
+    </Link>
   );
 }
 
@@ -212,11 +280,18 @@ function MockOrderWorkflow({ order }: { order: OrderWorkflowState }) {
                 {liveOrder.vendor.name}
               </p>
             </div>
-            {liveOrder.escrow && (
-              <div className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
-                {KwisCrow.NAME}: {liveOrder.escrow.status}
-              </div>
-            )}
+            <div className="flex flex-col items-end gap-2">
+              {liveOrder.escrow && (
+                <div className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
+                  {KwisCrow.NAME}: {liveOrder.escrow.status}
+                </div>
+              )}
+              <TrackOrderButton
+                orderId={liveOrder.id}
+                enabled={TRACKABLE_MOCK_STATUSES.has(liveOrder.status)}
+                variant="onGradient"
+              />
+            </div>
           </div>
         </div>
         {/* Status hint strip */}
@@ -556,6 +631,185 @@ function LiveOrderDetail({ order }: { order: Order }) {
   );
 }
 
+// ─── API order view (orders created via POST /checkout — vendor receives) ──
+
+const API_STATUS_STYLES: Record<string, string> = {
+  PENDING: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+  CONFIRMED: "bg-kwik-blue/10 text-kwik-blue ring-kwik-blue/20",
+  PROCESSING: "bg-kwik-blue/10 text-kwik-blue ring-kwik-blue/20",
+  READY: "bg-kwik-blue/10 text-kwik-blue ring-kwik-blue/20",
+  SHIPPED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+  OUT_FOR_DELIVERY: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+  DELIVERED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+  CANCELLED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+  REJECTED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+};
+
+function ApiOrderDetail({ order }: { order: ApiOrder }) {
+  const isPending = order.status === "PENDING";
+  const statusStyle = API_STATUS_STYLES[order.status] ?? API_STATUS_STYLES.PENDING;
+  const grandTotal = order.subtotal + order.deliveryFee - order.discount + order.platformFee;
+
+  return (
+    <main className="mx-auto max-w-4xl px-4 py-8">
+      <Link
+        href="/orders"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-kwik-muted transition hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to orders
+      </Link>
+
+      {/* Order header */}
+      <section className="mt-6 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-kwik-muted">
+              Order
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-foreground">
+              {order.orderNumber}
+            </h1>
+            <p className="mt-1 text-sm text-kwik-muted">
+              Placed {formatDate(order.createdAt)} · {order.storeName}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusStyle}`}
+            >
+              {order.status.replace(/_/g, " ")}
+            </span>
+            <TrackOrderButton
+              orderId={order.id}
+              enabled={TRACKABLE_API_STATUSES.has(order.status)}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Vendor quotation card — the heart of TODO #6 */}
+      <section className="mt-4 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
+        <div className="flex items-center gap-2">
+          <Store className="h-5 w-5 text-kwik-orange" />
+          <h2 className="font-semibold text-foreground">Vendor Quotation</h2>
+        </div>
+
+        {isPending ? (
+          <div className="mt-4 flex items-center gap-3 rounded-xl bg-kwik-orange/5 p-4 text-sm text-kwik-orange">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span>
+              Your order has been sent to <strong>{order.storeName}</strong>. The
+              vendor is preparing a quotation with delivery fee &amp; any discount.
+              This page updates automatically.
+            </span>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2 text-sm">
+            <div className="flex justify-between text-kwik-muted">
+              <span>Subtotal ({order.items.length} item{order.items.length === 1 ? "" : "s"})</span>
+              <span className="font-medium text-foreground">{formatCurrency(order.subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-kwik-muted">
+              <span>Delivery fee (set by vendor)</span>
+              <span className="font-medium text-foreground">{formatCurrency(order.deliveryFee)}</span>
+            </div>
+            {order.discount > 0 && (
+              <div className="flex justify-between text-kwik-green">
+                <span>Vendor discount {order.couponCode ? `(${order.couponCode})` : ""}</span>
+                <span className="font-medium">−{formatCurrency(order.discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-kwik-muted">
+              <span>Platform fee</span>
+              <span className="font-medium text-foreground">{formatCurrency(order.platformFee)}</span>
+            </div>
+            <div className="mt-2 flex justify-between border-t border-kwik-border-light pt-3 text-base">
+              <span className="font-semibold text-foreground">Total due</span>
+              <span className="font-bold text-kwik-orange">{formatCurrency(grandTotal)}</span>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Status timeline */}
+      {order.timeline.length > 0 && (
+        <section className="mt-4 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
+          <h2 className="font-semibold text-foreground">Timeline</h2>
+          <ol className="mt-4 space-y-3">
+            {order.timeline.map((t, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-kwik-orange" />
+                <div>
+                  <p className="font-medium text-foreground">{t.status.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-kwik-muted">
+                    {formatDate(t.at)}{t.note ? ` · ${t.note}` : ""}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {/* Items */}
+      <section className="mt-4 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface">
+        <div className="border-b border-kwik-border-light p-4">
+          <h2 className="font-semibold text-foreground">Items</h2>
+        </div>
+        <div className="divide-y divide-kwik-border-light">
+          {order.items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-4 p-4">
+              <div className="flex items-center gap-3">
+                {item.product.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.product.image}
+                    alt={item.product.name}
+                    className="h-12 w-12 rounded-lg object-cover"
+                  />
+                ) : (
+                  <Package className="h-12 w-12 text-kwik-muted" />
+                )}
+                <div>
+                  <p className="font-semibold text-foreground">{item.product.name}</p>
+                  <p className="text-sm text-kwik-muted">Qty {item.quantity}</p>
+                </div>
+              </div>
+              <p className="shrink-0 font-semibold text-foreground">
+                {formatCurrency(item.totalPrice)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Delivery address */}
+      <section className="mt-4 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+        <div className="flex gap-3">
+          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-kwik-orange" />
+          <div>
+            <h2 className="font-semibold text-foreground">Delivery address</h2>
+            <p className="mt-1 text-sm leading-6 text-kwik-muted">
+              {order.deliveryAddress.fullName} · {order.deliveryAddress.phone}
+              <br />
+              {order.deliveryAddress.addressLine1}
+              {order.deliveryAddress.addressLine2 ? `, ${order.deliveryAddress.addressLine2}` : ""}
+              <br />
+              {order.deliveryAddress.city}, {order.deliveryAddress.state}
+            </p>
+            {order.trackingNumber && (
+              <p className="mt-2 text-xs text-kwik-muted">
+                Tracking: <span className="font-mono">{order.trackingNumber}</span>
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 // ─── Inner component (uses hooks; wrapped in ErrorBoundary by default export) ──
 
 function OrderDetailPageInner() {
@@ -595,6 +849,14 @@ function OrderDetailPageInner() {
     refetchOnWindowFocus: false,
   });
 
+  // Fallback to the dummy/real API order (no auth required in dummy mode).
+  // This is what renders orders created via POST /checkout (TODO #6), where
+  // the vendor receives the order and quotes delivery + discount.
+  const {
+    data: apiOrder,
+    isLoading: apiLoading,
+  } = useOrder(mockOrder ? undefined : orderId);
+
   // Boot: init the workflow store once (registers escrow listener, etc.)
   const initStore = useOrderWorkflowStore((s) => s._init);
   React.useEffect(() => {
@@ -625,6 +887,14 @@ function OrderDetailPageInner() {
 
   if (liveOrder) {
     return <LiveOrderDetail order={liveOrder} />;
+  }
+
+  // API order from POST /checkout (vendor-received order with quotation).
+  if (apiLoading) {
+    return <OrderDetailSkeleton />;
+  }
+  if (apiOrder) {
+    return <ApiOrderDetail order={apiOrder} />;
   }
 
   // Live API failed AND no mock order — show not-found.

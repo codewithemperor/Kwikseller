@@ -22,6 +22,17 @@ export interface MarketplaceReview {
   location: string;
   rating: number;
   text: string;
+  createdAt?: string;
+  title?: string;
+  verified?: boolean;
+  helpful?: number;
+  images?: string[];
+  vendorReply?: {
+    id: string;
+    authorName: string;
+    text: string;
+    createdAt: string;
+  };
 }
 
 export interface MarketplaceTrustItem {

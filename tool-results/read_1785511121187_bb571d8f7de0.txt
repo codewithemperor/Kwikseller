@@ -1,0 +1,785 @@
+     1→"use client";
+     2→
+     3→import { useState, useMemo } from "react";
+     4→import { useRouter } from "next/navigation";
+     5→import { motion } from "framer-motion";
+     6→import {
+     7→  ShieldCheck,
+     8→  CreditCard,
+     9→  Wallet,
+    10→  Banknote,
+    11→  Lock,
+    12→  ChevronRight,
+    13→  Minus,
+    14→  Plus,
+    15→  Trash2,
+    16→  ShoppingBag,
+    17→  Check,
+    18→  Loader2,
+    19→  Truck,
+    20→  MapPin,
+    21→  RefreshCw,
+    22→  Package,
+    23→  PackageCheck,
+    24→  CheckCircle2,
+    25→  Tag,
+    26→  X,
+    27→} from "lucide-react";
+    28→import { useCartStore } from "@/stores";
+    29→import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
+    30→import { kwikToast } from "@kwikseller/utils";
+    31→import { PAYMENT_PROVIDERS, DEFAULT_PAYMENT_PROVIDER, KwisCrow } from "@/constants/order-workflow";
+    32→import { cn } from "@/lib/utils";
+    33→import { useCheckout } from "@/lib/order-api";
+    34→import { api } from "@kwikseller/api-client";
+    35→
+    36→function formatNGN(n: number) {
+    37→  return new Intl.NumberFormat("en-NG", {
+    38→    style: "currency",
+    39→    currency: "NGN",
+    40→    maximumFractionDigits: 0,
+    41→  }).format(n);
+    42→}
+    43→
+    44→type PaymentProviderKey = keyof typeof PAYMENT_PROVIDERS;
+    45→
+    46→interface AddressForm {
+    47→  fullName: string;
+    48→  phone: string;
+    49→  addressLine: string;
+    50→  city: string;
+    51→  state: string;
+    52→  landmark?: string;
+    53→}
+    54→
+    55→const NIGERIAN_STATES = [
+    56→  "Lagos", "Abuja FCT", "Rivers", "Kano", "Oyo", "Kaduna", "Enugu", "Delta",
+    57→  "Ogun", "Anambra", "Edo", "Plateau", "Imo", "Ondo", "Akwa Ibom", "Cross River",
+    58→];
+    59→
+    60→export default function CheckoutPage() {
+    61→  const router = useRouter();
+    62→  const items = useCartStore((s) => s.items);
+    63→  const updateQuantity = useCartStore((s) => s.updateQuantity);
+    64→  const removeItem = useCartStore((s) => s.removeItem);
+    65→  const clearCart = useCartStore((s) => s.clearCart);
+    66→  const placeOrder = useOrderWorkflowStore((s) => s.placeOrder);
+    67→  const checkout = useCheckout();
+    68→
+    69→  const [address, setAddress] = useState<AddressForm>({
+    70→    fullName: "",
+    71→    phone: "",
+    72→    addressLine: "",
+    73→    city: "",
+    74→    state: "Lagos",
+    75→    landmark: "",
+    76→  });
+    77→  const [paymentProvider, setPaymentProvider] =
+    78→    useState<PaymentProviderKey>(DEFAULT_PAYMENT_PROVIDER);
+    79→  const [placing, setPlacing] = useState(false);
+    80→  const [errors, setErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
+    81→
+    82→  // ── Coupon state (TODO: coupon application in checkout) ──
+    83→  const [couponCode, setCouponCode] = useState("");
+    84→  const [appliedCoupon, setAppliedCoupon] = useState<{
+    85→    code: string;
+    86→    discountType: "PERCENT" | "AMOUNT";
+    87→    discountValue: number;
+    88→    message: string;
+    89→  } | null>(null);
+    90→  const [couponLoading, setCouponLoading] = useState(false);
+    91→
+    92→  async function applyCoupon() {
+    93→    const code = couponCode.trim().toUpperCase();
+    94→    if (!code) {
+    95→      kwikToast.error("Enter a coupon code", "Type a code then tap Apply.");
+    96→      return;
+    97→    }
+    98→    setCouponLoading(true);
+    99→    try {
+   100→      const res = await api.post<{ code: string; valid: boolean; discountType: "PERCENT" | "AMOUNT"; discountValue: number; message: string }>(
+   101→        "cart/coupon",
+   102→        { code },
+   103→      );
+   104→      const data = res.data;
+   105→      if (!data?.valid) {
+   106→        setAppliedCoupon(null);
+   107→        kwikToast.error("Invalid coupon", data?.message || "This code is not valid or has expired.");
+   108→        return;
+   109→      }
+   110→      setAppliedCoupon(data);
+   111→      kwikToast.success("Coupon applied", data.message || `${data.discountValue}${data.discountType === "PERCENT" ? "%" : " NGN"} off your order.`);
+   112→    } catch (e) {
+   113→      setAppliedCoupon(null);
+   114→      kwikToast.error("Invalid coupon", e instanceof Error ? e.message : "This code is not valid or has expired.");
+   115→    } finally {
+   116→      setCouponLoading(false);
+   117→    }
+   118→  }
+   119→
+   120→  function removeCoupon() {
+   121→    setAppliedCoupon(null);
+   122→    setCouponCode("");
+   123→    kwikToast.info("Coupon removed", "The discount has been cleared.");
+   124→  }
+   125→
+   126→  // Group items by store (since the 1688 workflow sends each vendor a separate order).
+   127→  const itemsByStore = useMemo(() => {
+   128→    const groups: Record<string, { storeName: string; items: typeof items; subtotal: number }> =
+   129→      {};
+   130→    for (const item of items) {
+   131→      const key = item.storeSlug ?? item.store ?? "unknown";
+   132→      if (!groups[key]) {
+   133→        groups[key] = {
+   134→          storeName: item.store ?? item.storeName ?? "Vendor",
+   135→          items: [],
+   136→          subtotal: 0,
+   137→        };
+   138→      }
+   139→      groups[key].items.push(item);
+   140→      groups[key].subtotal += item.price * item.quantity;
+   141→    }
+   142→    return groups;
+   143→  }, [items]);
+   144→
+   145→  const subtotal = useMemo(
+   146→    () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+   147→    [items],
+   148→  );
+   149→  const storeCount = Object.keys(itemsByStore).length;
+   150→  // Estimated platform fee (demo) — the real delivery fee is set by the vendor
+   151→  // when they submit the quotation (see the 1688 workflow).
+   152→  const estimatedProcessingFee = Math.round(subtotal * 0.015);
+   153→  // Coupon discount applied at checkout (TODO: coupon application).
+   154→  const couponDiscount = useMemo(() => {
+   155→    if (!appliedCoupon) return 0;
+   156→    return appliedCoupon.discountType === "PERCENT"
+   157→      ? Math.round((subtotal * appliedCoupon.discountValue) / 100)
+   158→      : Math.min(appliedCoupon.discountValue, subtotal);
+   159→  }, [appliedCoupon, subtotal]);
+   160→  const totalDueNow = Math.max(0, subtotal - couponDiscount + estimatedProcessingFee);
+   161→
+   162→  function validate(): boolean {
+   163→    const next: Partial<Record<keyof AddressForm, string>> = {};
+   164→    if (!address.fullName.trim()) next.fullName = "Full name is required";
+   165→    if (!address.phone.trim()) next.phone = "Phone number is required";
+   166→    else if (!/^[0-9+\s-]{7,}$/.test(address.phone.trim()))
+   167→      next.phone = "Enter a valid phone number";
+   168→    if (!address.addressLine.trim()) next.addressLine = "Street address is required";
+   169→    if (!address.city.trim()) next.city = "City is required";
+   170→    if (!address.state.trim()) next.state = "State is required";
+   171→    setErrors(next);
+   172→    return Object.keys(next).length === 0;
+   173→  }
+   174→
+   175→  async function handlePlaceOrder() {
+   176→    if (items.length === 0) {
+   177→      kwikToast.error("Your cart is empty", "Add products before checking out.");
+   178→      return;
+   179→    }
+   180→    if (!validate()) {
+   181→      kwikToast.error("Missing delivery details", "Please complete the delivery address.");
+   182→      return;
+   183→    }
+   184→
+   185→    setPlacing(true);
+   186→
+   187→    try {
+   188→      // POST to the backend so the vendor actually RECEIVES the order
+   189→      // (TODO #6). The backend groups items by vendor store and creates
+   190→      // one order per store (split checkout), each linked to the vendor.
+   191→      const result = await checkout.mutateAsync({
+   192→        items: items.map((i) => ({
+   193→          productId: i.productId,
+   194→          quantity: i.quantity,
+   195→        })),
+   196→        shippingAddress: {
+   197→          fullName: address.fullName,
+   198→          phone: address.phone,
+   199→          addressLine1: address.addressLine,
+   200→          addressLine2: address.landmark,
+   201→          city: address.city,
+   202→          state: address.state,
+   203→          country: "Nigeria",
+   204→        },
+   205→        paymentMethod: PAYMENT_PROVIDERS[paymentProvider]?.id ?? "CARD",
+   206→        deliveryType: "STANDARD",
+   207→        couponCode: appliedCoupon?.code,
+   208→      });
+   209→
+   210→      const apiOrders = result?.orders ?? [];
+   211→
+   212→      // Also mirror into the local workflow store so the rich quotation UI
+   213→      // (timeline, escrow badge) keeps working for these orders.
+   214→      for (const group of Object.values(itemsByStore)) {
+   215→        placeOrder({
+   216→          items: group.items.map((i) => ({
+   217→            productId: i.productId,
+   218→            name: i.name,
+   219→            unitPrice: i.price,
+   220→            quantity: i.quantity,
+   221→            image: i.image,
+   222→          })),
+   223→          vendorId: group.storeName,
+   224→          vendorName: group.storeName,
+   225→          deliveryAddress: `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state}. Phone: ${address.phone}${address.landmark ? `. Landmark: ${address.landmark}` : ""}`,
+   226→        });
+   227→      }
+   228→
+   229→      clearCart();
+   230→      const count = apiOrders.length || Object.keys(itemsByStore).length;
+   231→      kwikToast.success(
+   232→        "Order placed!",
+   233→        `${count} order${count > 1 ? "s" : ""} sent to vendor${count > 1 ? "s" : ""} for quotation. The vendor will confirm delivery & discount shortly.`,
+   234→      );
+   235→
+   236→      // Redirect to the first API order's detail page (status: PENDING →
+   237→      // vendor quotes delivery/discount → CONFIRMED → buyer pays).
+   238→      if (apiOrders.length > 0 && apiOrders[0]?.id) {
+   239→        router.push(`/orders/${apiOrders[0].id}`);
+   240→      } else {
+   241→        router.push("/orders");
+   242→      }
+   243→    } catch (err) {
+   244→      setPlacing(false);
+   245→      kwikToast.error(
+   246→        "Checkout failed",
+   247→        err instanceof Error ? err.message : "Please try again.",
+   248→      );
+   249→    }
+   250→  }
+   251→
+   252→  // ── Empty cart state ──
+   253→  if (items.length === 0) {
+   254→    return (
+   255→      <div className="bg-background min-h-screen">
+   256→        <div className="container mx-auto max-w-2xl px-4 py-20 text-center">
+   257→          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+   258→            <ShoppingBag className="h-10 w-10 text-gray-400" />
+   259→          </div>
+   260→          <h1 className="mt-6 font-heading text-2xl font-bold text-foreground">
+   261→            Your cart is empty
+   262→          </h1>
+   263→          <p className="mt-2 text-sm text-gray-500">
+   264→            Add products to your cart before checking out.
+   265→          </p>
+   266→          <button
+   267→            type="button"
+   268→            onClick={() => router.push("/products")}
+   269→            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-secondary-500 px-6 text-sm font-semibold text-white hover:bg-secondary-600"
+   270→          >
+   271→            Browse products
+   272→          </button>
+   273→        </div>
+   274→      </div>
+   275→    );
+   276→  }
+   277→
+   278→  return (
+   279→    <div className="bg-background min-h-screen">
+   280→      {/* ── Hero header (matches order detail page design) ── */}
+   281→      <section className="kwik-gradient relative overflow-hidden">
+   282→        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+   283→        <div className="container mx-auto max-w-7xl px-4 py-8 relative">
+   284→          <motion.div
+   285→            initial={{ opacity: 0, y: 12 }}
+   286→            animate={{ opacity: 1, y: 0 }}
+   287→            transition={{ duration: 0.35 }}
+   288→          >
+   289→            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+   290→              1688-style checkout
+   291→            </p>
+   292→            <h1 className="mt-1 font-heading text-2xl font-bold text-white md:text-4xl">
+   293→              Review &amp; place your order
+   294→            </h1>
+   295→            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">
+   296→              No payment now — the vendor will send a quotation with the delivery
+   297→              fee and ETA. Your funds stay protected by {KwisCrow.NAME} escrow
+   298→              until you confirm receipt.
+   299→            </p>
+   300→
+   301→            {/* Workflow steps strip */}
+   302→            <div className="mt-4 flex flex-wrap items-center gap-2">
+   303→              {[
+   304→                { icon: Package, label: "1. Place order", active: true },
+   305→                { icon: PackageCheck, label: "2. Vendor quotes", active: false },
+   306→                { icon: Wallet, label: "3. Pay (escrow)", active: false },
+   307→                { icon: Truck, label: "4. Delivery", active: false },
+   308→                { icon: CheckCircle2, label: "5. Confirm", active: false },
+   309→              ].map((step, idx) => (
+   310→                <div
+   311→                  key={idx}
+   312→                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur ${
+   313→                    step.active
+   314→                      ? "bg-white/25 text-white"
+   315→                      : "bg-white/10 text-white/70"
+   316→                  }`}
+   317→                >
+   318→                  <step.icon className="h-3.5 w-3.5" />
+   319→                  {step.label}
+   320→                </div>
+   321→              ))}
+   322→            </div>
+   323→          </motion.div>
+   324→        </div>
+   325→      </section>
+   326→
+   327→      <section className="container mx-auto max-w-7xl px-4 py-8">
+   328→        <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+   329→          {/* ── Left: address + items + payment ── */}
+   330→          <div className="space-y-6">
+   331→            {/* Delivery address */}
+   332→            <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+   333→              <div className="mb-4 flex items-center gap-2">
+   334→                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+   335→                  <MapPin className="h-5 w-5" />
+   336→                </div>
+   337→                <div>
+   338→                  <h2 className="font-heading text-base font-semibold text-foreground">
+   339→                    Delivery address
+   340→                  </h2>
+   341→                  <p className="text-xs text-gray-500">
+   342→                    Where should the vendor ship your order?
+   343→                  </p>
+   344→                </div>
+   345→              </div>
+   346→
+   347→              <div className="grid gap-4 sm:grid-cols-2">
+   348→                <Field
+   349→                  label="Full name"
+   350→                  required
+   351→                  error={errors.fullName}
+   352→                  value={address.fullName}
+   353→                  onChange={(v) => setAddress((a) => ({ ...a, fullName: v }))}
+   354→                  placeholder="Jane Doe"
+   355→                />
+   356→                <Field
+   357→                  label="Phone number"
+   358→                  required
+   359→                  error={errors.phone}
+   360→                  value={address.phone}
+   361→                  onChange={(v) => setAddress((a) => ({ ...a, phone: v }))}
+   362→                  placeholder="+234 801 234 5678"
+   363→                />
+   364→                <div className="sm:col-span-2">
+   365→                  <Field
+   366→                    label="Street address"
+   367→                    required
+   368→                    error={errors.addressLine}
+   369→                    value={address.addressLine}
+   370→                    onChange={(v) => setAddress((a) => ({ ...a, addressLine: v }))}
+   371→                    placeholder="House 12, Allen Avenue, Ikeja"
+   372→                  />
+   373→                </div>
+   374→                <Field
+   375→                  label="City"
+   376→                  required
+   377→                  error={errors.city}
+   378→                  value={address.city}
+   379→                  onChange={(v) => setAddress((a) => ({ ...a, city: v }))}
+   380→                  placeholder="Ikeja"
+   381→                />
+   382→                <div>
+   383→                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+   384→                    State <span className="text-danger">*</span>
+   385→                  </label>
+   386→                  <select
+   387→                    value={address.state}
+   388→                    onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value }))}
+   389→                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+   390→                  >
+   391→                    {NIGERIAN_STATES.map((s) => (
+   392→                      <option key={s} value={s}>
+   393→                        {s}
+   394→                      </option>
+   395→                    ))}
+   396→                  </select>
+   397→                </div>
+   398→                <div className="sm:col-span-2">
+   399→                  <Field
+   400→                    label="Landmark (optional)"
+   401→                    value={address.landmark ?? ""}
+   402→                    onChange={(v) => setAddress((a) => ({ ...a, landmark: v }))}
+   403→                    placeholder="Opposite the petrol station"
+   404→                  />
+   405→                </div>
+   406→              </div>
+   407→            </div>
+   408→
+   409→            {/* Cart items grouped by vendor */}
+   410→            <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+   411→              <div className="mb-4 flex items-center gap-2">
+   412→                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+   413→                  <ShoppingBag className="h-5 w-5" />
+   414→                </div>
+   415→                <div>
+   416→                  <h2 className="font-heading text-base font-semibold text-foreground">
+   417→                    Your items
+   418→                  </h2>
+   419→                  <p className="text-xs text-gray-500">
+   420→                    {items.length} item{items.length > 1 ? "s" : ""} from{" "}
+   421→                    {storeCount} vendor{storeCount > 1 ? "s" : ""} — each vendor
+   422→                    quotes delivery separately.
+   423→                  </p>
+   424→                </div>
+   425→              </div>
+   426→
+   427→              <div className="space-y-5">
+   428→                {Object.entries(itemsByStore).map(([key, group]) => (
+   429→                  <div key={key} className="rounded-xl border border-border bg-background p-4">
+   430→                    <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+   431→                      <Truck className="h-4 w-4 text-primary-600" />
+   432→                      <span className="text-sm font-semibold text-foreground">
+   433→                        {group.storeName}
+   434→                      </span>
+   435→                      <span className="ml-auto text-xs text-gray-500">
+   436→                        Subtotal: {formatNGN(group.subtotal)}
+   437→                      </span>
+   438→                    </div>
+   439→                    <div className="space-y-3">
+   440→                      {group.items.map((item) => (
+   441→                        <div key={item.id} className="flex gap-3">
+   442→                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-gray-100">
+   443→                            {/* eslint-disable-next-line @next/next/no-img-element */}
+   444→                            <img
+   445→                              src={item.image}
+   446→                              alt={item.name}
+   447→                              className="h-full w-full object-cover"
+   448→                              loading="lazy"
+   449→                            />
+   450→                          </div>
+   451→                          <div className="min-w-0 flex-1">
+   452→                            <p className="line-clamp-2 text-sm font-medium text-foreground">
+   453→                              {item.name}
+   454→                            </p>
+   455→                            <p className="mt-0.5 text-sm font-semibold text-foreground">
+   456→                              {formatNGN(item.price)}
+   457→                            </p>
+   458→                            {item.comparePrice ? (
+   459→                              <p className="text-xs text-gray-400 line-through">
+   460→                                {formatNGN(item.comparePrice)}
+   461→                              </p>
+   462→                            ) : null}
+   463→                          </div>
+   464→                          <div className="flex flex-col items-end gap-2">
+   465→                            <div className="flex items-center rounded-lg border border-border">
+   466→                              <button
+   467→                                type="button"
+   468→                                aria-label="Decrease quantity"
+   469→                                onClick={() =>
+   470→                                  updateQuantity(item.productId, item.quantity - 1, item.storeSlug)
+   471→                                }
+   472→                                className="flex h-8 w-8 items-center justify-center text-gray-500 hover:text-foreground"
+   473→                              >
+   474→                                <Minus className="h-3.5 w-3.5" />
+   475→                              </button>
+   476→                              <span className="w-8 text-center text-sm font-medium text-foreground">
+   477→                                {item.quantity}
+   478→                              </span>
+   479→                              <button
+   480→                                type="button"
+   481→                                aria-label="Increase quantity"
+   482→                                onClick={() =>
+   483→                                  updateQuantity(item.productId, item.quantity + 1, item.storeSlug)
+   484→                                }
+   485→                                className="flex h-8 w-8 items-center justify-center text-gray-500 hover:text-foreground"
+   486→                              >
+   487→                                <Plus className="h-3.5 w-3.5" />
+   488→                              </button>
+   489→                            </div>
+   490→                            <button
+   491→                              type="button"
+   492→                              aria-label={`Remove ${item.name}`}
+   493→                              onClick={() => removeItem(item.productId, item.storeSlug)}
+   494→                              className="text-gray-400 hover:text-danger"
+   495→                            >
+   496→                              <Trash2 className="h-4 w-4" />
+   497→                            </button>
+   498→                          </div>
+   499→                        </div>
+   500→                      ))}
+   501→                    </div>
+   502→                  </div>
+   503→                ))}
+   504→              </div>
+   505→            </div>
+   506→
+   507→            {/* Payment method */}
+   508→            <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+   509→              <div className="mb-4 flex items-center gap-2">
+   510→                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+   511→                  <CreditCard className="h-5 w-5" />
+   512→                </div>
+   513→                <div>
+   514→                  <h2 className="font-heading text-base font-semibold text-foreground">
+   515→                    Payment method
+   516→                  </h2>
+   517→                  <p className="text-xs text-gray-500">
+   518→                    You won&rsquo;t be charged now — payment happens after the vendor
+   519→                    sends a quotation.
+   520→                  </p>
+   521→                </div>
+   522→              </div>
+   523→
+   524→              <div className="grid gap-3 sm:grid-cols-3">
+   525→                {(Object.keys(PAYMENT_PROVIDERS) as PaymentProviderKey[]).map((key) => {
+   526→                  const provider = PAYMENT_PROVIDERS[key];
+   527→                  const selected = paymentProvider === key;
+   528→                  const Icon =
+   529→                    key === "WALLET" ? Wallet : key === "FLUTTERWAVE" ? Banknote : CreditCard;
+   530→                  return (
+   531→                    <button
+   532→                      key={key}
+   533→                      type="button"
+   534→                      onClick={() => setPaymentProvider(key)}
+   535→                      className={cn(
+   536→                        "relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition",
+   537→                        selected
+   538→                          ? "border-primary-500 bg-primary-50 ring-2 ring-primary-500/20"
+   539→                          : "border-border bg-background hover:border-primary-300",
+   540→                      )}
+   541→                      aria-pressed={selected}
+   542→                    >
+   543→                      <Icon
+   544→                        className={cn(
+   545→                          "h-6 w-6",
+   546→                          selected ? "text-primary-600" : "text-gray-500",
+   547→                        )}
+   548→                      />
+   549→                      <div>
+   550→                        <p className="text-sm font-semibold text-foreground">
+   551→                          {provider.label}
+   552→                        </p>
+   553→                        <p className="text-xs text-gray-500">{provider.blurb}</p>
+   554→                      </div>
+   555→                      {selected ? (
+   556→                        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-white">
+   557→                          <Check className="h-3 w-3" strokeWidth={3} />
+   558→                        </span>
+   559→                      ) : null}
+   560→                    </button>
+   561→                  );
+   562→                })}
+   563→              </div>
+   564→            </div>
+   565→          </div>
+   566→
+   567→          {/* ── Right: order summary (sticky) ── */}
+   568→          <aside className="lg:sticky lg:top-4 lg:h-fit">
+   569→            <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5 md:p-6">
+   570→              <h2 className="mb-4 font-heading text-base font-semibold text-foreground">
+   571→                Order summary
+   572→              </h2>
+   573→
+   574→              <dl className="space-y-2.5 text-sm">
+   575→                <div className="flex justify-between">
+   576→                  <dt className="text-kwik-muted">Items subtotal</dt>
+   577→                  <dd className="font-medium text-foreground">{formatNGN(subtotal)}</dd>
+   578→                </div>
+   579→                <div className="flex justify-between">
+   580→                  <dt className="text-kwik-muted">Processing fee (1.5%)</dt>
+   581→                  <dd className="font-medium text-foreground">
+   582→                    {formatNGN(estimatedProcessingFee)}
+   583→                  </dd>
+   584→                </div>
+   585→                {appliedCoupon && couponDiscount > 0 && (
+   586→                  <div className="flex justify-between text-kwik-green">
+   587→                    <dt className="flex items-center gap-1.5">
+   588→                      <Tag className="h-3.5 w-3.5" /> Coupon {appliedCoupon.code}
+   589→                    </dt>
+   590→                    <dd className="font-medium">−{formatNGN(couponDiscount)}</dd>
+   591→                  </div>
+   592→                )}
+   593→                <div className="flex items-start justify-between">
+   594→                  <dt className="text-kwik-muted">
+   595→                    Delivery fee
+   596→                    <span className="block text-xs text-kwik-muted/70">
+   597→                      Set by vendor after quotation
+   598→                    </span>
+   599→                  </dt>
+   600→                  <dd className="font-medium text-kwik-orange">Pending</dd>
+   601→                </div>
+   602→              </dl>
+   603→
+   604→              {/* ── Coupon input ── */}
+   605→              <div className="mt-4 border-t border-kwik-border-light pt-4">
+   606→                {appliedCoupon ? (
+   607→                  <div className="flex items-center justify-between rounded-xl bg-kwik-green/5 px-3 py-2.5">
+   608→                    <span className="flex items-center gap-2 text-sm font-medium text-kwik-green">
+   609→                      <Check className="h-4 w-4" />
+   610→                      {appliedCoupon.code} ·{" "}
+   611→                      {appliedCoupon.discountType === "PERCENT"
+   612→                        ? `${appliedCoupon.discountValue}% off`
+   613→                        : `${formatNGN(appliedCoupon.discountValue)} off`}
+   614→                    </span>
+   615→                    <button
+   616→                      type="button"
+   617→                      onClick={removeCoupon}
+   618→                      aria-label="Remove coupon"
+   619→                      className="rounded-lg p-1 text-kwik-muted transition hover:bg-kwik-red/5 hover:text-kwik-red"
+   620→                    >
+   621→                      <X className="h-4 w-4" />
+   622→                    </button>
+   623→                  </div>
+   624→                ) : (
+   625→                  <div className="flex gap-2">
+   626→                    <div className="relative flex-1">
+   627→                      <Tag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
+   628→                      <input
+   629→                        type="text"
+   630→                        value={couponCode}
+   631→                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+   632→                        onKeyDown={(e) => {
+   633→                          if (e.key === "Enter") {
+   634→                            e.preventDefault();
+   635→                            applyCoupon();
+   636→                          }
+   637→                        }}
+   638→                        placeholder="Coupon code"
+   639→                        className="h-10 w-full rounded-lg border border-kwik-border-light bg-kwik-bg-page pl-9 pr-3 text-sm text-foreground uppercase outline-none transition placeholder:normal-case placeholder:text-kwik-muted focus:border-kwik-orange focus:ring-2 focus:ring-kwik-orange/20"
+   640→                      />
+   641→                    </div>
+   642→                    <button
+   643→                      type="button"
+   644→                      onClick={applyCoupon}
+   645→                      disabled={couponLoading}
+   646→                      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-kwik-border-light px-4 text-sm font-semibold text-kwik-dark transition hover:bg-kwik-bg-page disabled:opacity-60"
+   647→                    >
+   648→                      {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+   649→                    </button>
+   650→                  </div>
+   651→                )}
+   652→                <p className="mt-1.5 text-xs text-kwik-muted">
+   653→                  Try{" "}
+   654→                  <button
+   655→                    type="button"
+   656→                    onClick={() => setCouponCode("KWIK10")}
+   657→                    className="font-medium text-kwik-orange underline-offset-2 hover:underline"
+   658→                  >
+   659→                    KWIK10
+   660→                  </button>
+   661→                  ,{" "}
+   662→                  <button
+   663→                    type="button"
+   664→                    onClick={() => setCouponCode("WELCOME15")}
+   665→                    className="font-medium text-kwik-orange underline-offset-2 hover:underline"
+   666→                  >
+   667→                    WELCOME15
+   668→                  </button>
+   669→                  , or{" "}
+   670→                  <button
+   671→                    type="button"
+   672→                    onClick={() => setCouponCode("FLASH50")}
+   673→                    className="font-medium text-kwik-orange underline-offset-2 hover:underline"
+   674→                  >
+   675→                    FLASH50
+   676→                  </button>
+   677→                </p>
+   678→              </div>
+   679→
+   680→              <div className="my-4 border-t border-kwik-border-light" />
+   681→
+   682→              <div className="flex items-baseline justify-between">
+   683→                <span className="text-sm font-medium text-foreground">Due now</span>
+   684→                <span className="font-heading text-xl font-bold text-foreground">
+   685→                  {formatNGN(totalDueNow)}
+   686→                </span>
+   687→              </div>
+   688→              <p className="mt-1 text-xs text-kwik-muted">
+   689→                Final total (with delivery fee) is confirmed once the vendor
+   690→                submits a quotation. You pay on the &ldquo;To Pay&rdquo; step.
+   691→              </p>
+   692→
+   693→              <button
+   694→                type="button"
+   695→                onClick={handlePlaceOrder}
+   696→                disabled={placing}
+   697→                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-kwik-orange text-sm font-semibold text-white transition hover:bg-kwik-orange-hover disabled:cursor-not-allowed disabled:opacity-70"
+   698→              >
+   699→                {placing ? (
+   700→                  <>
+   701→                    <Loader2 className="h-4 w-4 animate-spin" /> Placing order…
+   702→                  </>
+   703→                ) : (
+   704→                  <>
+   705→                    Place order <ChevronRight className="h-4 w-4" />
+   706→                  </>
+   707→                )}
+   708→              </button>
+   709→
+   710→              {/* KwisCrow protection */}
+   711→              <div className="mt-4 flex items-start gap-2 rounded-xl bg-kwik-orange/5 p-3">
+   712→                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-kwik-orange" />
+   713→                <div className="text-xs leading-5 text-kwik-dark">
+   714→                  <span className="font-semibold">KwisCrow Buyer Protection.</span>{" "}
+   715→                  Your payment stays in escrow until you confirm receipt (or the
+   716→                  24-hour dispute window closes).
+   717→                </div>
+   718→              </div>
+   719→
+   720→              {/* Trust badges row */}
+   721→              <div className="mt-3 grid grid-cols-3 gap-2">
+   722→                <div className="flex flex-col items-center gap-1 rounded-lg border border-kwik-border-light bg-kwik-bg-page p-2.5 text-center">
+   723→                  <Lock className="h-4 w-4 text-kwik-orange" />
+   724→                  <span className="text-[10px] font-semibold text-foreground">SSL Secured</span>
+   725→                </div>
+   726→                <div className="flex flex-col items-center gap-1 rounded-lg border border-kwik-border-light bg-kwik-bg-page p-2.5 text-center">
+   727→                  <ShieldCheck className="h-4 w-4 text-kwik-green" />
+   728→                  <span className="text-[10px] font-semibold text-foreground">Escrow Protected</span>
+   729→                </div>
+   730→                <div className="flex flex-col items-center gap-1 rounded-lg border border-kwik-border-light bg-kwik-bg-page p-2.5 text-center">
+   731→                  <RefreshCw className="h-4 w-4 text-kwik-amber" />
+   732→                  <span className="text-[10px] font-semibold text-foreground">24h Disputes</span>
+   733→                </div>
+   734→              </div>
+   735→
+   736→              <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-kwik-muted">
+   737→                <Lock className="h-3 w-3" /> Secure SSL encrypted checkout · Paystack verified
+   738→              </div>
+   739→            </div>
+   740→          </aside>
+   741→        </div>
+   742→      </section>
+   743→    </div>
+   744→  );
+   745→}
+   746→
+   747→// ── Reusable text field ─────────────────────────────────────────────────────
+   748→
+   749→function Field({
+   750→  label,
+   751→  value,
+   752→  onChange,
+   753→  placeholder,
+   754→  required,
+   755→  error,
+   756→}: {
+   757→  label: string;
+   758→  value: string;
+   759→  onChange: (v: string) => void;
+   760→  placeholder?: string;
+   761→  required?: boolean;
+   762→  error?: string;
+   763→}) {
+   764→  return (
+   765→    <div>
+   766→      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+   767→        {label} {required ? <span className="text-danger">*</span> : null}
+   768→      </label>
+   769→      <input
+   770→        type="text"
+   771→        value={value}
+   772→        onChange={(e) => onChange(e.target.value)}
+   773→        placeholder={placeholder}
+   774→        className={cn(
+   775→          "h-11 w-full rounded-xl border bg-background px-3 text-sm text-foreground placeholder:text-gray-400 focus:outline-none focus:ring-2",
+   776→          error
+   777→            ? "border-danger focus:ring-danger/20"
+   778→            : "border-border focus:border-primary-500 focus:ring-primary-500/20",
+   779→        )}
+   780→      />
+   781→      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+   782→    </div>
+   783→  );
+   784→}
+   785→

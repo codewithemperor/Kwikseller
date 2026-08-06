@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Check,
@@ -12,7 +13,10 @@ import {
   PackageOpen,
   ShieldCheck,
   ShoppingCart,
+  Sparkle,
+  Sparkles,
   Store,
+  Truck,
   Users,
 } from "lucide-react";
 import { marketplaceApi } from "@kwikseller/api-client";
@@ -27,6 +31,7 @@ import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 import { SellerSpotlightSection } from "@/components/landing/seller-spotlight-section";
 import { FlashDealsSection } from "@/components/landing/flash-deals-section";
 import { NewsletterSection } from "@/components/landing/newsletter-section";
+import { ShopByBrandSection } from "@/components/landing/shop-by-brand-section";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { useCartStore, useHomeFeedStore, useRecentlyViewedStore, useWishlistStore } from "@/stores";
 import { rankProductsForMember } from "@/lib/marketplace-ranking";
@@ -515,12 +520,26 @@ export function MarketplaceHomeFeedPage() {
 
   return (
     <div className="bg-background pb-12">
-      <section className="border-b border-border bg-background">
-        <div className=" mx-auto  py-5 md:py-7">
+      <section className="relative overflow-hidden border-b border-border bg-gradient-to-br from-kwik-bg-warm via-background to-kwik-bg-surface">
+        {/* Decorative blurred orbs — adds depth without hex colors */}
+        <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-kwik-orange/10 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-kwik-amber/10 blur-3xl" aria-hidden />
+
+        <div className="relative mx-auto py-5 md:py-7 container-px">
+          {/* Mobile hero — image with overlay text */}
           <div className="lg:hidden">
-            <Link href={banner.href || "/search"} className="block">
-              <div className="aspect-[16/10] overflow-hidden bg-neutral-100">
-                <AppImage src={banner.image} alt={banner.title} className="h-full w-full object-cover" fallbackVariant="product" />
+            <Link href={banner.href || "/search"} className="group block overflow-hidden rounded-2xl shadow-lg">
+              <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100">
+                <AppImage src={banner.image} alt={banner.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" fallbackVariant="product" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-kwik-orange px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                    <Sparkle className="h-3 w-3" />
+                    {banner.badge || "Kwikseller"}
+                  </span>
+                  <h1 className="mt-2 text-2xl font-bold leading-tight text-white drop-shadow-sm">{banner.title}</h1>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/85">{banner.subtitle}</p>
+                </div>
               </div>
             </Link>
             {banners.length > 1 && (
@@ -530,7 +549,7 @@ export function MarketplaceHomeFeedPage() {
                     key={`${item.id}-${index}`}
                     type="button"
                     onClick={() => setActiveBanner(index)}
-                    className={`h-1.5 rounded-full transition-all ${index === activeBanner ? "w-6 bg-kwik-dark" : "w-1.5 bg-neutral-300"}`}
+                    className={`h-1.5 rounded-full transition-all ${index === activeBanner ? "w-6 bg-kwik-orange" : "w-1.5 bg-neutral-300"}`}
                     aria-label={`Show banner ${index + 1}`}
                   />
                 ))}
@@ -538,42 +557,95 @@ export function MarketplaceHomeFeedPage() {
             )}
           </div>
 
+          {/* Desktop hero — image with overlay + stats aside */}
           <div className="hidden gap-5 lg:grid lg:grid-cols-[minmax(0,1.45fr)_380px] xl:grid-cols-[minmax(0,1.55fr)_430px]">
-            <Link href={banner.href || "/search"} className="block h-[390px] overflow-hidden bg-neutral-100 xl:h-[430px]">
-              <AppImage src={banner.image} alt={banner.title} className="h-full w-full object-cover transition duration-700 hover:scale-[1.02]" fallbackVariant="product" />
-            </Link>
+            <Link href={banner.href || "/search"} className="group relative block h-[390px] overflow-hidden rounded-2xl bg-neutral-100 shadow-lg xl:h-[430px]">
+              <AppImage src={banner.image} alt={banner.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]" fallbackVariant="product" />
+              {/* Gradient overlay for legibility */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/25 to-transparent" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
 
-            <aside className="flex h-[390px] flex-col justify-between border border-neutral-200 p-6 dark:border-white/10 xl:h-[430px]">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-kwik-orange">{banner.badge || "Kwikseller Pool"}</p>
-                <h1 className="mt-4 text-3xl font-semibold leading-tight text-kwik-dark dark:text-white xl:text-4xl">{banner.title}</h1>
-                <p className="mt-3 text-sm leading-6 text-kwik-muted dark:text-white/60">{banner.subtitle}</p>
+              {/* Top-left badge with pulse */}
+              <div className="absolute left-5 top-5 flex flex-col gap-2">
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-kwik-orange opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kwik-orange" />
+                  </span>
+                  Live · {banner.badge || "Kwikseller Pool"}
+                </span>
               </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 border-y border-neutral-200 py-4 dark:border-white/10">
+              {/* Bottom content over the image */}
+              <div className="absolute inset-x-0 bottom-0 p-6 xl:p-8">
+                <motion.h1
+                  key={banner.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="max-w-xl text-3xl font-bold leading-tight text-white drop-shadow-md xl:text-5xl"
+                >
+                  {banner.title}
+                </motion.h1>
+                <motion.p
+                  key={`${banner.id}-sub`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.05 }}
+                  className="mt-2 max-w-md text-sm leading-6 text-white/85 xl:text-base"
+                >
+                  {banner.subtitle}
+                </motion.p>
+                <div className="mt-4 flex items-center gap-3">
+                  <span className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-kwik-orange px-5 text-sm font-semibold text-white shadow-md transition-transform group-hover:scale-[1.02]">
+                    Shop now
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                  <span className="text-xs text-white/70">{banners.length > 1 ? `${activeBanner + 1} / ${banners.length}` : ""}</span>
+                </div>
+              </div>
+            </Link>
+
+            <aside className="relative flex h-[390px] flex-col justify-between overflow-hidden rounded-2xl border border-kwik-border-light bg-background p-6 shadow-lg xl:h-[430px]">
+              {/* Subtle gradient wash on the aside card */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-kwik-orange/5 via-transparent to-kwik-amber/5" aria-hidden />
+
+              <div className="relative">
+                <p className="text-xs font-semibold uppercase tracking-wide text-kwik-orange">Marketplace at a glance</p>
+                <h2 className="mt-3 text-2xl font-bold leading-tight text-kwik-dark dark:text-white">
+                  Shop vendor stock, pool offers & group buys
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-kwik-muted dark:text-white/60">
+                  Real inventory from verified Nigerian vendors — fulfilled through Kwikseller escrow.
+                </p>
+              </div>
+
+              <div className="relative space-y-4">
+                <div className="grid grid-cols-3 border-y border-kwik-border-light py-4">
                   <div>
-                    <p className="text-2xl font-semibold text-kwik-dark dark:text-white">{feed.categories.length}</p>
+                    <p className="text-2xl font-bold text-kwik-dark dark:text-white">{feed.categories.length}</p>
                     <p className="text-xs text-kwik-muted dark:text-white/55">Categories</p>
                   </div>
-                  <div className="border-x border-neutral-200 px-4 dark:border-white/10">
-                    <p className="text-2xl font-semibold text-kwik-dark dark:text-white">{poolOffers.length}</p>
+                  <div className="border-x border-kwik-border-light px-4">
+                    <p className="text-2xl font-bold text-kwik-dark dark:text-white">{poolOffers.length}</p>
                     <p className="text-xs text-kwik-muted dark:text-white/55">Pool offers</p>
                   </div>
                   <div className="pl-4">
-                    <p className="text-2xl font-semibold text-kwik-dark dark:text-white">{campaigns.length}</p>
+                    <p className="text-2xl font-bold text-kwik-dark dark:text-white">{campaigns.length}</p>
                     <p className="text-xs text-kwik-muted dark:text-white/55">Group buys</p>
                   </div>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-2.5">
                   {[
-                    { icon: PackageCheck, title: "Vendor Stock", text: "Physical products with real inventory rules." },
-                    { icon: Users, title: "Partner network", text: "More products fulfilled through verified partners." },
-                    { icon: Download, title: "Digital Delivery", text: "Checkout skips shipping when fulfillment is digital." },
+                    { icon: PackageCheck, title: "Vendor Stock", text: "Physical products with real inventory rules.", tone: "text-kwik-orange" },
+                    { icon: Users, title: "Partner network", text: "More products fulfilled through verified partners.", tone: "text-kwik-violet" },
+                    { icon: Download, title: "Digital Delivery", text: "Checkout skips shipping when fulfillment is digital.", tone: "text-kwik-emerald" },
                   ].map((item) => (
-                    <div key={item.title} className="flex gap-3">
-                      <item.icon className="mt-0.5 h-4 w-4 text-kwik-orange" />
+                    <div key={item.title} className="flex items-start gap-3 rounded-lg p-2 transition-colors hover:bg-kwik-bg-surface">
+                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background ${item.tone}`}>
+                        <item.icon className="h-3.5 w-3.5" />
+                      </div>
                       <div>
                         <p className="text-sm font-semibold text-kwik-dark dark:text-white">{item.title}</p>
                         <p className="text-xs leading-5 text-kwik-muted dark:text-white/55">{item.text}</p>
@@ -585,14 +657,14 @@ export function MarketplaceHomeFeedPage() {
                 <div className="flex gap-3">
                   <Link
                     href="/search"
-                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-kwik-dark px-4 text-sm font-semibold text-white transition dark:bg-black"
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-kwik-gradient px-4 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] dark:bg-black"
                   >
                     Browse
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link
                     href="/cart"
-                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-neutral-300 px-4 text-sm font-semibold text-kwik-dark transition hover:border-kwik-dark"
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-kwik-border-light bg-background px-4 text-sm font-semibold text-kwik-dark transition-colors hover:border-kwik-orange hover:text-kwik-orange dark:text-white"
                   >
                     Cart
                     <ShoppingCart className="h-4 w-4" />
@@ -724,6 +796,40 @@ export function MarketplaceHomeFeedPage() {
             ))}
           </div>
            </div>
+        </section>
+
+        {/* Shop by Brand — horizontal carousel of featured brands */}
+        <ShopByBrandSection />
+
+        {/* Delivery agents leaderboard — CTA banner linking to /delivery-agents */}
+        <section className="container-px py-2">
+          <Link
+            href="/delivery-agents"
+            className="group relative block overflow-hidden rounded-3xl border border-kwik-border-light bg-gradient-to-br from-kwik-bg-surface via-kwik-orange-tint/40 to-kwik-amber-tint/30 p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-kwik-orange/10 sm:p-8"
+          >
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-kwik-gradient text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                  <Truck className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-kwik-orange-tint px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-kwik-orange">
+                    <Sparkles className="h-3 w-3" /> Top-rated couriers
+                  </div>
+                  <h2 className="font-heading text-lg font-bold text-kwik-dark sm:text-xl">
+                    Meet our delivery agents
+                  </h2>
+                  <p className="mt-1 max-w-xl text-sm text-kwik-muted">
+                    Real ratings from real buyers. See who&apos;s delivering your orders across Nigeria — ranked by speed, care, and friendliness.
+                  </p>
+                </div>
+              </div>
+              <div className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-kwik-orange px-5 text-sm font-semibold text-white shadow-sm transition-all duration-300 group-hover:bg-kwik-orange-dark group-hover:shadow-md">
+                View leaderboard
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </div>
+            </div>
+          </Link>
         </section>
 
         <section className="bg-foreground px-5 py-6 text-background md:px-8">

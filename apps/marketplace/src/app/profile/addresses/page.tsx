@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Home, Loader2, MapPin, Pencil, Plus, Star, Trash2, X 
 import { AppButton, FieldAutocomplete, FieldInput } from "@kwikseller/ui";
 import { usersApi } from "@kwikseller/api-client";
 import { getLgasForState, kwikToast, NIGERIA_STATES, useAuth } from "@kwikseller/utils";
+import { AccountLayout } from "@/components/layout/account-layout";
 
 type Address = {
   id: string;
@@ -47,7 +48,7 @@ function formatAddressParts(parts: Array<string | undefined>) {
   return parts.map((part) => part?.trim()).filter(Boolean).join(", ");
 }
 
-export default function DeliveryAddressesPage() {
+function DeliveryAddressesPageInner() {
   const { isAuthenticated, isLoading } = useAuth();
   const [addresses, setAddresses] = React.useState<Address[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = React.useState(true);
@@ -333,5 +334,13 @@ export default function DeliveryAddressesPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function DeliveryAddressesPage() {
+  return (
+    <AccountLayout>
+      <DeliveryAddressesPageInner />
+    </AccountLayout>
   );
 }

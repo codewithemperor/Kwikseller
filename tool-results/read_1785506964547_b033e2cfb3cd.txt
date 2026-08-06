@@ -1,0 +1,719 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import Image from "next/image";
+     5→import Link from "next/link";
+     6→import dynamic from "next/dynamic";
+     7→import { useCallback, useEffect, useRef, useState } from "react";
+     8→import { usePathname, useRouter, useSearchParams } from "next/navigation";
+     9→import {
+    10→  ArrowLeft,
+    11→  ArrowRight,
+    12→  Heart,
+    13→  LogOut,
+    14→  Menu,
+    15→  Search,
+    16→  ShoppingCart,
+    17→  SlidersHorizontal,
+    18→  User,
+    19→  X,
+    20→} from "lucide-react";
+    21→import { AnimatePresence, motion } from "framer-motion";
+    22→import { Button, Separator } from "@heroui/react";
+    23→import { OfflineBanner } from "@kwikseller/ui";
+    24→import { kwikToast, useAuth } from "@kwikseller/utils";
+    25→import { ThemeToggle } from "@/components/theme-toggle";
+    26→import { NotificationBell } from "@/components/layout/notification-bell";
+    27→// Heavy layout components are lazy-loaded (ssr:false) to reduce the
+    28→// server-side compilation bundle. This prevents Turbopack OOM kills
+    29→// when compiling routes in memory-constrained environments.
+    30→const CartDrawer = dynamic(() => import("@/components/landing/cart-drawer").then(m => ({ default: m.CartDrawer })), { ssr: false });
+    31→const ComparePanel = dynamic(() => import("@/components/landing/compare-panel").then(m => ({ default: m.ComparePanel })), { ssr: false });
+    32→const EnhancedFooter = dynamic(() => import("@/components/landing/enhanced-footer").then(m => ({ default: m.EnhancedFooter })), { ssr: false });
+    33→const EnhancedSearchOverlay = dynamic(() => import("@/components/landing/enhanced-search-overlay").then(m => ({ default: m.EnhancedSearchOverlay })), { ssr: false });
+    34→const MegaNav = dynamic(() => import("@/components/landing/mega-menu").then(m => ({ default: m.MegaNav })), { ssr: false });
+    35→const OrderTrackingWidget = dynamic(() => import("@/components/landing/order-tracking-widget").then(m => ({ default: m.OrderTrackingWidget })), { ssr: false });
+    36→const PageLoader = dynamic(() => import("@/components/landing/page-loader").then(m => ({ default: m.PageLoader })), { ssr: false });
+    37→const PriceDropAlert = dynamic(() => import("@/components/landing/price-drop-alert").then(m => ({ default: m.PriceDropAlert })), { ssr: false });
+    38→const NotificationToastStack = dynamic(() => import("@/components/landing/notification-toast").then(m => ({ default: m.NotificationToastStack })), { ssr: false });
+    39→const WishlistSidebar = dynamic(() => import("@/components/landing/wishlist-sidebar").then(m => ({ default: m.WishlistSidebar })), { ssr: false });
+    40→import { MobileBottomNav } from "@/components/landing/mobile-bottom-nav";
+    41→import { SearchAutoSuggest } from "@/components/landing/search-auto-suggest";
+    42→import { ScrollProgress } from "@/components/landing/scroll-progress";
+    43→import { MarketplaceShellProvider } from "@/components/layout/marketplace-shell-context";
+    44→import { useCartStore, useWishlistStore } from "@/stores";
+    45→import { AppImage } from "@/components/ui/app-image";
+    46→import { MOBILE_DRAWER_LINKS as pageLinks } from "@/constants/navigation";
+    47→
+    48→function MobileDrawerContent({
+    49→  onClose,
+    50→  isAuthenticated,
+    51→  user,
+    52→  isAuthLoading,
+    53→  handleLogout,
+    54→  router,
+    55→  onNavigateStart,
+    56→}: {
+    57→  onClose: () => void;
+    58→  isAuthenticated: boolean;
+    59→  user: any;
+    60→  isAuthLoading: boolean;
+    61→  handleLogout: () => void;
+    62→  router: ReturnType<typeof useRouter>;
+    63→  onNavigateStart?: () => void;
+    64→}) {
+    65→  const pathname = usePathname();
+    66→
+    67→  const handleNavClick = (href: string) => {
+    68→    onClose();
+    69→    onNavigateStart?.();
+    70→    router.push(href);
+    71→  };
+    72→
+    73→  return (
+    74→    <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
+    75→      <div className="mb-6 flex items-center justify-between">
+    76→        <div className="flex items-center gap-2">
+    77→          <Image
+    78→            src="/icon.png"
+    79→            alt="KWIKSELLER"
+    80→            width={32}
+    81→            height={32}
+    82→            className="rounded-lg"
+    83→          />
+    84→          <span className="text-xl font-bold">KWIKSELLER</span>
+    85→        </div>
+    86→        <Button
+    87→          isIconOnly
+    88→          variant="ghost"
+    89→          onPress={onClose}
+    90→          aria-label="Close menu"
+    91→        >
+    92→          <X className="h-5 w-5" />
+    93→        </Button>
+    94→      </div>
+    95→
+    96→      <nav className="mb-4 flex flex-col gap-1">
+    97→        {pageLinks.map((link) => {
+    98→          const Icon = link.icon;
+    99→          const isActive = pathname === link.href;
+   100→
+   101→          return (
+   102→            <button
+   103→              key={link.href}
+   104→              type="button"
+   105→              onClick={() => handleNavClick(link.href)}
+   106→              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-medium transition-colors ${
+   107→                isActive
+   108→                  ? "bg-kwik-orange-tint text-kwik-orange"
+   109→                  : "text-kwik-gray hover:bg-kwik-bg-surface hover:text-kwik-dark"
+   110→              }`}
+   111→            >
+   112→              <Icon className="h-4 w-4" />
+   113→              {link.label}
+   114→            </button>
+   115→          );
+   116→        })}
+   117→      </nav>
+   118→
+   119→      <Separator className="mb-4" />
+   120→
+   121→      <div className="mt-auto flex flex-col gap-3">
+   122→        {isAuthLoading ? null : isAuthenticated && user ? (
+   123→          <>
+   124→            <div className="flex items-center gap-3 rounded-xl bg-kwik-bg-surface px-4 py-3">
+   125→              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-kwik-orange font-semibold text-white">
+   126→                {(user.profile?.firstName || user.email.split("@")[0])
+   127→                  .charAt(0)
+   128→                  .toUpperCase()}
+   129→              </div>
+   130→              <div>
+   131→                <div className="text-sm font-medium">
+   132→                  {user.profile?.firstName || user.email.split("@")[0]}
+   133→                </div>
+   134→                <div className="text-xs text-kwik-gray-light">{user.email}</div>
+   135→              </div>
+   136→            </div>
+   137→            <Button
+   138→              variant="ghost"
+   139→              className="w-full justify-start"
+   140→              onPress={() => {
+   141→                handleLogout();
+   142→                onClose();
+   143→              }}
+   144→            >
+   145→              <LogOut className="h-4 w-4" />
+   146→              Logout
+   147→            </Button>
+   148→          </>
+   149→        ) : (
+   150→          <>
+   151→            <Button
+   152→              variant="ghost"
+   153→              className="w-full"
+   154→              onPress={() => {
+   155→                onNavigateStart?.();
+   156→                router.push("/login");
+   157→                onClose();
+   158→              }}
+   159→            >
+   160→              Sign In
+   161→            </Button>
+   162→            <Button
+   163→              variant="primary"
+   164→              className="w-full bg-kwik-orange text-white"
+   165→              onPress={() => {
+   166→                onNavigateStart?.();
+   167→                router.push("/register");
+   168→                onClose();
+   169→              }}
+   170→            >
+   171→              Get Started
+   172→              <ArrowRight className="ml-2 h-4 w-4" />
+   173→            </Button>
+   174→          </>
+   175→        )}
+   176→      </div>
+   177→    </div>
+   178→  );
+   179→}
+   180→
+   181→/* ─── Inline Search Bar (shown in header on /search page) ──── */
+   182→
+   183→function InlineSearchBar({
+   184→  query,
+   185→  onSearch,
+   186→  onBack,
+   187→  showFilters,
+   188→  onToggleFilters,
+   189→}: {
+   190→  query: string;
+   191→  onSearch: (q: string) => void;
+   192→  onBack: () => void;
+   193→  showFilters: boolean;
+   194→  onToggleFilters: () => void;
+   195→}) {
+   196→  const [inputValue, setInputValue] = useState(query);
+   197→
+   198→  useEffect(() => {
+   199→    setInputValue(query);
+   200→  }, [query]);
+   201→
+   202→  const handleSubmit = (e: React.FormEvent) => {
+   203→    e.preventDefault();
+   204→    const trimmed = inputValue.trim();
+   205→    if (trimmed) onSearch(trimmed);
+   206→  };
+   207→
+   208→  return (
+   209→    <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1 min-w-0">
+   210→      <button
+   211→        type="button"
+   212→        onClick={onBack}
+   213→        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl hover:bg-kwik-bg-light transition-colors"
+   214→        aria-label="Go back"
+   215→      >
+   216→        <ArrowLeft className="h-4 w-4 text-kwik-dark-medium" />
+   217→      </button>
+   218→
+   219→      <div className="relative flex-1 min-w-0">
+   220→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-kwik-muted" />
+   221→        <input
+   222→          type="text"
+   223→          value={inputValue}
+   224→          onChange={(e) => setInputValue(e.target.value)}
+   225→          placeholder="Search products, stores, categories..."
+   226→          className="w-full h-9 rounded-xl border border-kwik-border bg-kwik-bg-surface pl-9 pr-9 text-sm text-kwik-dark placeholder:text-kwik-muted outline-none focus:border-kwik-orange focus:ring-1 focus:ring-kwik-orange transition-colors"
+   227→          autoFocus
+   228→        />
+   229→        {inputValue && (
+   230→          <button
+   231→            type="button"
+   232→            onClick={() => setInputValue("")}
+   233→            className="absolute right-3 top-1/2 -translate-y-1/2 text-kwik-muted hover:text-kwik-dark-medium"
+   234→          >
+   235→            <X className="h-3.5 w-3.5" />
+   236→          </button>
+   237→        )}
+   238→      </div>
+   239→
+   240→      <button
+   241→        type="button"
+   242→        onClick={onToggleFilters}
+   243→        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+   244→          showFilters ? "bg-kwik-orange-tint text-kwik-orange" : "hover:bg-kwik-bg-light text-kwik-dark-medium"
+   245→        }`}
+   246→        aria-label="Toggle filters"
+   247→      >
+   248→        <SlidersHorizontal className="h-4 w-4" />
+   249→      </button>
+   250→    </form>
+   251→  );
+   252→}
+   253→
+   254→/* ─── Wishlist Nav Button (client component) ──────────────────── */
+   255→
+   256→function WishlistNavButton({ onNavigateStart }: { onNavigateStart?: () => void }) {
+   257→  const router = useRouter();
+   258→  const wishlistCount = useWishlistStore((s) => s.itemCount);
+   259→  const [mounted, setMounted] = React.useState(false);
+   260→
+   261→  React.useLayoutEffect(() => {
+   262→    setMounted(true);
+   263→  }, []);
+   264→
+   265→  return (
+   266→    <Button
+   267→      isIconOnly
+   268→      variant="ghost"
+   269→      size="sm"
+   270→      onPress={() => {
+   271→        onNavigateStart?.();
+   272→        router.push("/wishlist");
+   273→      }}
+   274→      aria-label="Wishlist"
+   275→      className="relative text-kwik-gray-light"
+   276→    >
+   277→      <Heart className="h-4 w-4" />
+   278→      {mounted && wishlistCount > 0 ? (
+   279→        <motion.span
+   280→          key={wishlistCount}
+   281→          initial={{ scale: 0 }}
+   282→          animate={{ scale: 1 }}
+   283→          transition={{
+   284→            type: "spring",
+   285→            stiffness: 500,
+   286→            damping: 15,
+   287→          }}
+   288→          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-kwik-red text-[10px] font-bold text-white shadow-sm"
+   289→        >
+   290→          {wishlistCount > 9 ? "9+" : wishlistCount}
+   291→        </motion.span>
+   292→      ) : null}
+   293→    </Button>
+   294→  );
+   295→}
+   296→
+   297→/* ─── Main Layout Component ─────────────────────────────────── */
+   298→
+   299→export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
+   300→  const router = useRouter();
+   301→  const pathname = usePathname();
+   302→  const searchParams = useSearchParams();
+   303→  const { user, isAuthenticated, logout, isLoading: isAuthLoading } = useAuth();
+   304→  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+   305→  const [isSearchOpen, setIsSearchOpen] = useState(false);
+   306→  const [isAutoSuggestOpen, setIsAutoSuggestOpen] = useState(false);
+   307→  const desktopSearchBtnRef = useRef<HTMLButtonElement>(null);
+   308→  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+   309→  const [isPageLoading, setIsPageLoading] = useState(true);
+   310→  const [isScrolled, setIsScrolled] = useState(false);
+   311→  const [showFilters, setShowFilters] = useState(false);
+   312→  const isPageLoadingRef = useRef(true);
+   313→  const [isClientMounted, setIsClientMounted] = useState(false);
+   314→
+   315→  const isSearchPage = pathname === "/search";
+   316→  const isCartPage = pathname === "/cart";
+   317→  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
+   318→  const isVendorStorefrontRoute = pathname.startsWith("/vendor/");
+   319→  const hideTopNav = isCartPage || isAuthPage || isVendorStorefrontRoute;
+   320→  const searchQuery = searchParams.get("q") || "";
+   321→  const startNavigationLoading = useCallback(() => {
+   322→    isPageLoadingRef.current = true;
+   323→    setIsPageLoading(true);
+   324→  }, []);
+   325→
+   326→  useEffect(() => {
+   327→    setIsClientMounted(true);
+   328→  }, []);
+   329→
+   330→  useEffect(() => {
+   331→    if (!isDrawerOpen) return undefined;
+   332→    const previousOverflow = document.body.style.overflow;
+   333→    document.body.style.overflow = "hidden";
+   334→    return () => {
+   335→      document.body.style.overflow = previousOverflow;
+   336→    };
+   337→  }, [isDrawerOpen]);
+   338→
+   339→  useEffect(() => {
+   340→    const handleScroll = () => {
+   341→      setIsScrolled(window.scrollY > 12);
+   342→    };
+   343→
+   344→    window.addEventListener("scroll", handleScroll, { passive: true });
+   345→    return () => window.removeEventListener("scroll", handleScroll);
+   346→  }, []);
+   347→
+   348→  useEffect(() => {
+   349→    isPageLoadingRef.current = true;
+   350→    setIsPageLoading(true);
+   351→    const timer = setTimeout(() => {
+   352→      isPageLoadingRef.current = false;
+   353→      setIsPageLoading(false);
+   354→    }, 420);
+   355→
+   356→    return () => clearTimeout(timer);
+   357→  }, [pathname]);
+   358→
+   359→  useEffect(() => {
+   360→    const handleDocumentClick = (event: MouseEvent) => {
+   361→      const target = event.target as Element | null;
+   362→      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+   363→      if (!anchor || event.defaultPrevented) return;
+   364→      if (anchor.target && anchor.target !== "_self") return;
+   365→
+   366→      const nextUrl = new URL(anchor.href, window.location.href);
+   367→      if (nextUrl.origin !== window.location.origin) return;
+   368→      if (nextUrl.pathname === window.location.pathname && nextUrl.search === window.location.search) return;
+   369→
+   370→      startNavigationLoading();
+   371→    };
+   372→
+   373→    document.addEventListener("click", handleDocumentClick, true);
+   374→    return () => document.removeEventListener("click", handleDocumentClick, true);
+   375→  }, [startNavigationLoading]);
+   376→
+   377→  // Reset filters when leaving search page
+   378→  useEffect(() => {
+   379→    if (!isSearchPage) setShowFilters(false);
+   380→  }, [isSearchPage]);
+   381→
+   382→  const cartItemCount = useCartStore((s) =>
+   383→    s.items.length,
+   384→  );
+   385→  const [prevCartCount, setPrevCartCount] = useState(cartItemCount);
+   386→  const [badgeKey, setBadgeKey] = useState(0);
+   387→
+   388→  // Animate badge when cart count changes
+   389→  useEffect(() => {
+   390→    if (cartItemCount !== prevCartCount) {
+   391→      setBadgeKey((k) => k + 1);
+   392→      setPrevCartCount(cartItemCount);
+   393→    }
+   394→  }, [cartItemCount, prevCartCount]);
+   395→  const setCartOpen = useCartStore((s) => s.setCartOpen);
+   396→
+   397→  const handleLogout = async () => {
+   398→    try {
+   399→      await logout();
+   400→      kwikToast.success("Logged out successfully");
+   401→      router.refresh();
+   402→    } catch {
+   403→      kwikToast.error("Failed to log out");
+   404→    }
+   405→  };
+   406→
+   407→  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+   408→
+   409→  const handleSearchSubmit = useCallback(
+   410→    (q: string) => {
+   411→      const params = new URLSearchParams();
+   412→      params.set("q", q);
+   413→      const category = searchParams.get("category");
+   414→      if (category) params.set("category", category);
+   415→      startNavigationLoading();
+   416→      router.push(`/search?${params.toString()}`);
+   417→    },
+   418→    [router, searchParams, startNavigationLoading],
+   419→  );
+   420→
+   421→  const handleSearchBack = useCallback(() => {
+   422→    startNavigationLoading();
+   423→    router.push("/");
+   424→  }, [router, startNavigationLoading]);
+   425→
+   426→  const handleToggleFilters = useCallback(() => {
+   427→    setShowFilters((prev) => !prev);
+   428→    if (isSearchPage) {
+   429→      const params = new URLSearchParams(searchParams.toString());
+   430→      if (!showFilters) {
+   431→        params.set("filters", "true");
+   432→      } else {
+   433→        params.delete("filters");
+   434→      }
+   435→      startNavigationLoading();
+   436→      router.replace(`/search?${params.toString()}`, { scroll: false });
+   437→    }
+   438→  }, [isSearchPage, router, searchParams, showFilters, startNavigationLoading]);
+   439→
+   440→  return (
+   441→    <MarketplaceShellProvider
+   442→      value={{
+   443→        openSearch: () => setIsSearchOpen(true),
+   444→        showFilters,
+   445→        setShowFilters,
+   446→      }}
+   447→    >
+   448→      <div className="flex min-h-screen flex-col bg-background">
+   449→        {!isVendorStorefrontRoute && <PageLoader isLoading={isPageLoading} />}
+   450→        <OfflineBanner />
+   451→        {!isSearchPage && !isVendorStorefrontRoute && (
+   452→          <EnhancedSearchOverlay
+   453→            isOpen={isSearchOpen}
+   454→            onClose={() => setIsSearchOpen(false)}
+   455→          />
+   456→        )}
+   457→
+   458→        {!hideTopNav && (
+   459→          <>
+   460→            <header
+   461→              className={`fixed inset-x-0 top-0 z-80 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
+   462→                isScrolled
+   463→                  ? "shadow-md border-b border-kwik-orange/10"
+   464→                  : "border-b border-kwik-border"
+   465→              }`}
+   466→            >
+   467→              <div className=" mx-auto px-0 md:px-4">
+   468→                {/* Top row: logo + actions */}
+   469→                <div className="flex py-2 md:h-16 items-center justify-between">
+   470→                  <div className="flex min-w-0 items-center gap-1 md:gap-2">
+   471→                    <Button
+   472→                      isIconOnly
+   473→                      variant="ghost"
+   474→                      className="md:hidden"
+   475→                      onPress={() => setIsDrawerOpen(true)}
+   476→                      aria-label="Open menu"
+   477→                    >
+   478→                      <Menu className="h-5 w-5" />
+   479→                    </Button>
+   480→
+   481→                    {/* Logo */}
+   482→                    <button
+   483→                      type="button"
+   484→                      onClick={() => {
+   485→                        startNavigationLoading();
+   486→                        router.push("/");
+   487→                      }}
+   488→                      className="flex min-w-0 items-center gap-1.5 transition-opacity hover:opacity-80 md:gap-2"
+   489→                    >
+   490→                      <div className="y-2">
+   491→                        <Image
+   492→                          src="/icon.png"
+   493→                          alt="KWIKSELLER"
+   494→                          width={20}
+   495→                          height={20}
+   496→                          className="rounded-md md:rounded-lg md:h-8! md:w-8!"
+   497→                        />
+   498→                      </div>
+   499→                      <span className="truncate text-lg font-bold text-kwik-dark md:text-xl">
+   500→                        KWIKSELLER
+   501→                      </span>
+   502→                    </button>
+   503→                  </div>
+   504→
+   505→                  <MegaNav />
+   506→
+   507→                  <div className="flex items-center gap-0 md:gap-2">
+   508→                    {/* Desktop search - auto suggest on desktop */}
+   509→                    {!isSearchPage && (
+   510→                      <div className="relative hidden md:block">
+   511→                        <button
+   512→                          ref={desktopSearchBtnRef}
+   513→                          type="button"
+   514→                          onClick={() => setIsAutoSuggestOpen(true)}
+   515→                          className="flex h-11 min-w-[190px] items-center gap-2 rounded-2xl border border-kwik-border bg-kwik-bg-surface px-4 text-sm text-kwik-gray-light transition-colors hover:border-kwik-orange hover:shadow-md hover:shadow-kwik-orange/5 lg:min-w-[260px] cursor-pointer"
+   516→                        >
+   517→                          <Search className="h-4 w-4 shrink-0 text-kwik-muted" />
+   518→                          <span className="truncate">Search products, brands...</span>
+   519→                        </button>
+   520→                        <SearchAutoSuggest
+   521→                          isOpen={isAutoSuggestOpen}
+   522→                          onClose={() => setIsAutoSuggestOpen(false)}
+   523→                          anchorRef={desktopSearchBtnRef as React.RefObject<HTMLElement>}
+   524→                        />
+   525→                      </div>
+   526→                    )}
+   527→
+   528→                    <Button
+   529→                      isIconOnly
+   530→                      variant="ghost"
+   531→                      size="sm"
+   532→                      onPress={() => setCartOpen(true)}
+   533→                      aria-label="Shopping cart"
+   534→                      className="relative text-kwik-gray-light"
+   535→                    >
+   536→                      <ShoppingCart className="h-4 w-4" />
+   537→                      {isClientMounted && cartItemCount > 0 && (
+   538→                        <motion.span
+   539→                          key={badgeKey}
+   540→                          initial={{ scale: 0 }}
+   541→                          animate={{ scale: 1 }}
+   542→                          transition={{
+   543→                            type: "spring",
+   544→                            stiffness: 500,
+   545→                            damping: 15,
+   546→                          }}
+   547→                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-kwik-orange text-[10px] font-bold text-white shadow-sm shadow-kwik-orange/30"
+   548→                        >
+   549→                          {/* Pulse ring animation */}
+   550→                          <motion.span
+   551→                            className="absolute inset-0 rounded-full bg-kwik-orange"
+   552→                            initial={{ scale: 1, opacity: 0.6 }}
+   553→                            animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+   554→                            transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 3 }}
+   555→                          />
+   556→                          <span className="relative z-10">{cartItemCount > 9 ? "9+" : cartItemCount}</span>
+   557→                        </motion.span>
+   558→                      )}
+   559→                    </Button>
+   560→
+   561→                    {/* Wishlist button */}
+   562→                    <WishlistNavButton onNavigateStart={startNavigationLoading} />
+   563→
+   564→                    {/* Notifications bell */}
+   565→                    <NotificationBell />
+   566→
+   567→                    <ThemeToggle />
+   568→
+   569→                    <div className="hidden items-center gap-3 md:flex">
+   570→                      {!isClientMounted || isAuthLoading ? null : isAuthenticated && user ? (
+   571→                        <>
+   572→                          <button
+   573→                            type="button"
+   574→                            onClick={() => {
+   575→                              startNavigationLoading();
+   576→                              router.push("/profile");
+   577→                            }}
+   578→                            className="hidden items-center gap-2 rounded-full px-2 py-1 text-sm text-kwik-gray transition hover:bg-default hover:text-foreground lg:inline-flex"
+   579→                            aria-label="Go to profile"
+   580→                          >
+   581→                            <User className="h-4 w-4" />
+   582→                            {user.profile?.firstName || user.email.split("@")[0]}
+   583→                          </button>
+   584→                          <Button
+   585→                            variant="ghost"
+   586→                            size="sm"
+   587→                            onPress={handleLogout}
+   588→                            className="text-kwik-gray"
+   589→                          >
+   590→                            <LogOut className="h-4 w-4" />
+   591→                            <span className="hidden sm:inline">Logout</span>
+   592→                          </Button>
+   593→                        </>
+   594→                      ) : (
+   595→                        <>
+   596→                          <Button
+   597→                            variant="ghost"
+   598→                            size="sm"
+   599→                            onPress={() => {
+   600→                              startNavigationLoading();
+   601→                              router.push("/login");
+   602→                            }}
+   603→                          >
+   604→                            Sign In
+   605→                          </Button>
+   606→                          <Button
+   607→                            variant="primary"
+   608→                            size="sm"
+   609→                            onPress={() => {
+   610→                              startNavigationLoading();
+   611→                              router.push("/register");
+   612→                            }}
+   613→                            className="bg-kwik-orange text-white"
+   614→                          >
+   615→                            Get Started
+   616→                          </Button>
+   617→                        </>
+   618→                      )}
+   619→                    </div>
+   620→                  </div>
+   621→                </div>
+   622→
+   623→                {/* Bottom search row - shown on search page */}
+   624→                {isSearchPage && (
+   625→                  <div className="pb-2 px-3 md:pb-3 md:px-4">
+   626→                    <InlineSearchBar
+   627→                      query={searchQuery}
+   628→                      onSearch={handleSearchSubmit}
+   629→                      onBack={handleSearchBack}
+   630→                      showFilters={showFilters}
+   631→                      onToggleFilters={handleToggleFilters}
+   632→                    />
+   633→                  </div>
+   634→                )}
+   635→
+   636→                {/* Mobile search button */}
+   637→                {!isSearchPage && (
+   638→                  <div className="md:hidden pb-2 px-3">
+   639→                    <motion.button
+   640→                      type="button"
+   641→                      onClick={() => setIsSearchOpen(true)}
+   642→                      whileTap={{ scale: 0.98 }}
+   643→                      className="flex w-full h-12 items-center gap-2 rounded-2xl border border-kwik-border bg-kwik-bg-surface px-4 text-sm text-kwik-gray-light transition-all duration-200 hover:border-kwik-orange hover:shadow-md hover:shadow-kwik-orange/5"
+   644→                      aria-label="Open search"
+   645→                    >
+   646→                      <Search className="h-4 w-4 shrink-0 text-kwik-muted" />
+   647→                      <span className="truncate">
+   648→                        Search products, brands and categories
+   649→                      </span>
+   650→                    </motion.button>
+   651→                  </div>
+   652→                )}
+   653→              </div>
+   654→            </header>
+   655→            <div aria-hidden className="h-[112px] shrink-0 md:h-16" />
+   656→          </>
+   657→        )}
+   658→
+   659→        <AnimatePresence>
+   660→          {isDrawerOpen && (
+   661→            <>
+   662→              <motion.div
+   663→                initial={{ opacity: 0 }}
+   664→                animate={{ opacity: 1 }}
+   665→                exit={{ opacity: 0 }}
+   666→                transition={{ duration: 0.25 }}
+   667→                className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-[2px] md:hidden"
+   668→                onClick={closeDrawer}
+   669→              />
+   670→              <motion.div
+   671→                initial={{ x: "-100%" }}
+   672→                animate={{ x: 0 }}
+   673→                exit={{ x: "-100%" }}
+   674→                transition={{ type: "spring", damping: 30, stiffness: 320 }}
+   675→                className="fixed bottom-0 left-0 top-0 z-[120] w-[300px] max-w-[85vw] overflow-hidden border-r border-kwik-border bg-background shadow-2xl md:hidden"
+   676→              >
+   677→                <MobileDrawerContent
+   678→                  onClose={closeDrawer}
+   679→                  isAuthenticated={isAuthenticated}
+   680→                  user={user}
+   681→                  isAuthLoading={isAuthLoading}
+   682→                  handleLogout={handleLogout}
+   683→                  router={router}
+   684→                  onNavigateStart={startNavigationLoading}
+   685→                />
+   686→              </motion.div>
+   687→            </>
+   688→          )}
+   689→        </AnimatePresence>
+   690→
+   691→        <main className={isVendorStorefrontRoute ? "flex-1" : "flex-1 pb-20 md:pb-0"}>
+   692→          {!isVendorStorefrontRoute && <PriceDropAlert />}
+   693→          {!isVendorStorefrontRoute && <NotificationToastStack />}
+   694→          {isVendorStorefrontRoute ? (
+   695→            children
+   696→          ) : (
+   697→            <div className="mx-auto w-full">
+   698→              {children}
+   699→            </div>
+   700→          )}
+   701→        </main>
+   702→
+   703→        {!isVendorStorefrontRoute && <ScrollProgress />}
+   704→        {!isVendorStorefrontRoute && <OrderTrackingWidget />}
+   705→        {!isVendorStorefrontRoute && <CartDrawer />}
+   706→        {!isVendorStorefrontRoute && <ComparePanel />}
+   707→        {!isVendorStorefrontRoute && (
+   708→          <WishlistSidebar
+   709→            isOpen={isWishlistOpen}
+   710→            onClose={() => setIsWishlistOpen(false)}
+   711→          />
+   712→        )}
+   713→        {!isVendorStorefrontRoute && <MobileBottomNav onNavigateStart={startNavigationLoading} />}
+   714→        {!isVendorStorefrontRoute && <EnhancedFooter />}
+   715→      </div>
+   716→    </MarketplaceShellProvider>
+   717→  );
+   718→}
+   719→

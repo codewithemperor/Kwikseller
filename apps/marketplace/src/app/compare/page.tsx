@@ -116,14 +116,17 @@ export default function ComparePage() {
 
       <section className="container mx-auto max-w-7xl px-4 py-6">
         {products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface py-20 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-              <Scale className="h-8 w-8 text-gray-400" />
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-kwik-border-light bg-kwik-bg-surface py-20 text-center">
+            <div className="relative">
+              <div className="absolute -inset-4 rounded-full bg-kwik-orange/5 blur-2xl" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-kwik-orange-tint">
+                <Scale className="h-8 w-8 text-kwik-orange" />
+              </div>
             </div>
             <h2 className="mt-4 font-heading text-lg font-semibold text-foreground">
               No products to compare yet
             </h2>
-            <p className="mt-1 max-w-sm text-sm text-gray-500">
+            <p className="mt-1 max-w-sm text-sm text-kwik-muted">
               Add products to see a side-by-side comparison of prices, ratings,
               and specifications.
             </p>
@@ -131,14 +134,14 @@ export default function ComparePage() {
               <button
                 type="button"
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-secondary-500 px-5 text-sm font-semibold text-white hover:bg-secondary-600"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-kwik-gradient px-5 text-sm font-semibold text-white shadow-md shadow-kwik-orange/20 hover:opacity-95"
               >
                 <Plus className="h-4 w-4" /> Add products
               </button>
               <button
                 type="button"
                 onClick={() => router.push("/products")}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-semibold text-foreground hover:bg-gray-100"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-kwik-border-light bg-background px-5 text-sm font-semibold text-foreground hover:border-kwik-orange/50 hover:text-kwik-orange"
               >
                 Browse all <ArrowRight className="h-4 w-4" />
               </button>
@@ -147,7 +150,7 @@ export default function ComparePage() {
         ) : (
           <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-kwik-muted">
                 Comparing{" "}
                 <span className="font-semibold text-foreground">
                   {products.length}
@@ -159,7 +162,7 @@ export default function ComparePage() {
                   <button
                     type="button"
                     onClick={() => setShowAddModal(true)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-gray-100"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-kwik-border-light bg-background px-3 text-sm font-medium text-foreground hover:border-kwik-orange/50 hover:text-kwik-orange"
                   >
                     <Plus className="h-4 w-4" /> Add product
                   </button>
@@ -170,39 +173,39 @@ export default function ComparePage() {
                     clearAll();
                     kwikToast.info("Compare cleared");
                   }}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-gray-600 hover:text-danger hover:border-danger/30"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-kwik-border-light bg-background px-3 text-sm font-medium text-kwik-gray hover:text-kwik-red hover:border-kwik-red/30"
                 >
                   <Trash2 className="h-4 w-4" /> Clear all
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+            <div className="overflow-x-auto rounded-2xl border border-kwik-border-light bg-kwik-bg-surface shadow-sm">
               <table className="w-full min-w-[640px] border-collapse">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="sticky left-0 z-10 w-32 bg-surface p-4 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <tr className="border-b border-kwik-border-light">
+                    <th className="sticky left-0 z-10 w-32 bg-kwik-bg-surface p-4 text-left text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
                       Product
                     </th>
                     {products.map((p) => (
-                      <th key={p.id} className="border-l border-border p-4 align-top">
+                      <th key={p.id} className="border-l border-kwik-border-light p-4 align-top">
                         <div className="relative">
                           <button
                             type="button"
                             onClick={() => removeProduct(p.id)}
                             aria-label={`Remove ${p.name}`}
-                            className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background text-gray-400 shadow-sm hover:text-danger hover:bg-danger/5"
+                            className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background text-kwik-muted shadow-sm transition hover:bg-kwik-red/10 hover:text-kwik-red"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
-                          <div className="aspect-square overflow-hidden rounded-lg border border-border bg-gray-100">
+                          <div className="aspect-square overflow-hidden rounded-lg border border-kwik-border-light bg-kwik-bg-light">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={p.image} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
                           </div>
                           <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-foreground">
                             {p.name}
                           </h3>
-                          <p className="mt-0.5 text-xs text-gray-500">{p.store}</p>
+                          <p className="mt-0.5 text-xs text-kwik-muted">{p.store}</p>
                         </div>
                       </th>
                     ))}
@@ -211,17 +214,17 @@ export default function ComparePage() {
                 <tbody>
                   <Row label="Price">
                     {products.map((p) => (
-                      <td key={p.id} className="border-l border-border p-4">
+                      <td key={p.id} className="border-l border-kwik-border-light p-4">
                         <div className="flex items-center gap-2">
-                          <span className={cn("font-heading text-base font-bold", p.id === lowestPriceId ? "text-success" : "text-foreground")}>
+                          <span className={cn("font-heading text-base font-bold", p.id === lowestPriceId ? "text-kwik-green" : "text-foreground")}>
                             {formatNGN(p.price)}
                           </span>
                           {p.id === lowestPriceId ? (
-                            <span className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-bold text-success">Best price</span>
+                            <span className="rounded-full bg-kwik-green/10 px-1.5 py-0.5 text-[10px] font-bold text-kwik-green">Best price</span>
                           ) : null}
                         </div>
                         {p.comparePrice && p.comparePrice > p.price ? (
-                          <span className="text-xs text-gray-400 line-through">{formatNGN(p.comparePrice)}</span>
+                          <span className="text-xs text-kwik-muted line-through">{formatNGN(p.comparePrice)}</span>
                         ) : null}
                       </td>
                     ))}
@@ -229,13 +232,13 @@ export default function ComparePage() {
 
                   <Row label="Rating">
                     {products.map((p) => (
-                      <td key={p.id} className="border-l border-border p-4">
+                      <td key={p.id} className="border-l border-kwik-border-light p-4">
                         <div className="flex items-center gap-1.5">
-                          <Star className={cn("h-4 w-4", p.id === highestRatingId ? "fill-warning text-warning" : "fill-gray-300 text-gray-300")} />
+                          <Star className={cn("h-4 w-4", p.id === highestRatingId ? "fill-kwik-amber text-kwik-amber" : "fill-kwik-muted text-kwik-muted")} />
                           <span className="text-sm font-semibold text-foreground">{p.rating.toFixed(1)}</span>
-                          <span className="text-xs text-gray-400">({p.reviews})</span>
+                          <span className="text-xs text-kwik-muted">({p.reviews})</span>
                           {p.id === highestRatingId ? (
-                            <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold text-warning">Top rated</span>
+                            <span className="rounded-full bg-kwik-amber/10 px-1.5 py-0.5 text-[10px] font-bold text-kwik-amber">Top rated</span>
                           ) : null}
                         </div>
                       </td>
@@ -244,21 +247,21 @@ export default function ComparePage() {
 
                   <Row label="Category">
                     {products.map((p) => (
-                      <td key={p.id} className="border-l border-border p-4 text-sm text-foreground">{p.category}</td>
+                      <td key={p.id} className="border-l border-kwik-border-light p-4 text-sm text-foreground">{p.category}</td>
                     ))}
                   </Row>
 
                   <Row label="Vendor">
                     {products.map((p) => (
-                      <td key={p.id} className="border-l border-border p-4 text-sm text-foreground">{p.store}</td>
+                      <td key={p.id} className="border-l border-kwik-border-light p-4 text-sm text-foreground">{p.store}</td>
                     ))}
                   </Row>
 
                   {allSpecKeys.map((specKey) => (
                     <Row key={specKey} label={specKey}>
                       {products.map((p) => (
-                        <td key={p.id} className="border-l border-border p-4 text-sm text-foreground">
-                          {p.specs[specKey] ?? <span className="text-gray-400">—</span>}
+                        <td key={p.id} className="border-l border-kwik-border-light p-4 text-sm text-foreground">
+                          {p.specs[specKey] ?? <span className="text-kwik-muted">—</span>}
                         </td>
                       ))}
                     </Row>
@@ -268,12 +271,12 @@ export default function ComparePage() {
                     {products.map((p) => {
                       const isWishlisted = wishlistItems.some((w) => w.id === p.id);
                       return (
-                        <td key={p.id} className="border-l border-border p-4">
+                        <td key={p.id} className="border-l border-kwik-border-light p-4">
                           <div className="flex flex-col gap-2">
                             <button
                               type="button"
                               onClick={() => handleAddToCart(p)}
-                              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-secondary-500 text-xs font-semibold text-white hover:bg-secondary-600"
+                              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-kwik-orange text-xs font-semibold text-white shadow-sm shadow-kwik-orange/20 hover:bg-kwik-orange-hover"
                             >
                               <ShoppingCart className="h-3.5 w-3.5" /> Add to cart
                             </button>
@@ -283,8 +286,8 @@ export default function ComparePage() {
                               className={cn(
                                 "flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border text-xs font-semibold transition-colors",
                                 isWishlisted
-                                  ? "border-danger/30 bg-danger/5 text-danger"
-                                  : "border-border bg-background text-gray-600 hover:text-danger hover:border-danger/30",
+                                  ? "border-kwik-red/30 bg-kwik-red/5 text-kwik-red"
+                                  : "border-kwik-border-light bg-background text-kwik-gray hover:text-kwik-red hover:border-kwik-red/30",
                               )}
                             >
                               <Heart className={cn("h-3.5 w-3.5", isWishlisted && "fill-current")} />
@@ -293,7 +296,7 @@ export default function ComparePage() {
                             <button
                               type="button"
                               onClick={() => router.push(`/products/${p.id}`)}
-                              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-xs font-semibold text-primary-600 hover:bg-primary-50"
+                              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-kwik-border-light bg-background text-xs font-semibold text-kwik-orange hover:bg-kwik-orange-tint"
                             >
                               View details <ArrowRight className="h-3 w-3" />
                             </button>
@@ -316,8 +319,8 @@ export default function ComparePage() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <tr className="border-b border-border last:border-b-0">
-      <td className="sticky left-0 z-10 w-32 bg-surface p-4 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+    <tr className="border-b border-kwik-border-light last:border-b-0 hover:bg-kwik-bg-light/40">
+      <td className="sticky left-0 z-10 w-32 bg-kwik-bg-surface p-4 text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
         {label}
       </td>
       {children}

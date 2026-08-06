@@ -145,10 +145,21 @@
   --kwik-red: oklch(0.54 0.23 27);
   --kwik-blue: var(--primary-500);
   --kwik-amber: oklch(0.75 0.16 70);
+  --kwik-amber-tint: oklch(0.96 0.03 70);
+  --kwik-orange-dark: var(--secondary-700);
+  --kwik-green-tint: oklch(0.95 0.03 155);
   --kwik-whatsapp: oklch(0.7 0.17 150);
   --kwik-bg-warm: oklch(0.98 0.012 48);
   --kwik-bg-warm-gray: oklch(0.96 0.010 48);
   --kwik-bg-warm-light: oklch(0.99 0.006 48);
+
+  /* Accent colors for badges, seasonal coupons, notification channels */
+  --kwik-violet: oklch(0.6 0.18 295);
+  --kwik-rose: oklch(0.65 0.21 12);
+  --kwik-emerald: oklch(0.65 0.15 165);
+  --kwik-violet-tint: oklch(0.96 0.02 295);
+  --kwik-rose-tint: oklch(0.96 0.02 12);
+  --kwik-emerald-tint: oklch(0.96 0.02 165);
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
@@ -253,6 +264,17 @@
   --kwik-bg-warm: var(--secondary-100);
   --kwik-bg-warm-gray: var(--gray-900);
   --kwik-bg-warm-light: var(--gray-800);
+  --kwik-amber-tint: oklch(0.34 0.06 70);
+  --kwik-orange-dark: var(--secondary-300);
+  --kwik-green-tint: oklch(0.32 0.05 155);
+
+  /* Accent colors — brightened for dark backgrounds */
+  --kwik-violet: oklch(0.7 0.18 295);
+  --kwik-rose: oklch(0.72 0.21 12);
+  --kwik-emerald: oklch(0.72 0.15 165);
+  --kwik-violet-tint: oklch(0.28 0.06 295);
+  --kwik-rose-tint: oklch(0.28 0.06 12);
+  --kwik-emerald-tint: oklch(0.28 0.06 165);
 }
 
 /* ============================================================
@@ -388,7 +410,16 @@
   --color-kwik-red: var(--kwik-red);
   --color-kwik-blue: var(--kwik-blue);
   --color-kwik-amber: var(--kwik-amber);
+  --color-kwik-amber-tint: var(--kwik-amber-tint);
+  --color-kwik-orange-dark: var(--kwik-orange-dark);
+  --color-kwik-green-tint: var(--kwik-green-tint);
   --color-kwik-whatsapp: var(--kwik-whatsapp);
+  --color-kwik-violet: var(--kwik-violet);
+  --color-kwik-rose: var(--kwik-rose);
+  --color-kwik-emerald: var(--kwik-emerald);
+  --color-kwik-violet-tint: var(--kwik-violet-tint);
+  --color-kwik-rose-tint: var(--kwik-rose-tint);
+  --color-kwik-emerald-tint: var(--kwik-emerald-tint);
   --color-kwik-bg-warm: var(--kwik-bg-warm);
   --color-kwik-bg-warm-gray: var(--kwik-bg-warm-gray);
   --color-kwik-bg-warm-light: var(--kwik-bg-warm-light);

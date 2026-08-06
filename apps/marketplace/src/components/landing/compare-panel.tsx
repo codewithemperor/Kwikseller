@@ -7,7 +7,6 @@ import {
   X,
   Star,
   Trash2,
-  ChevronUp,
   ChevronDown,
   ArrowUpDown,
 } from 'lucide-react'
@@ -334,66 +333,6 @@ export function ComparePanel() {
         )}
       </AnimatePresence>
 
-      {/* Minimized bar — always visible when products exist */}
-      <AnimatePresence>
-        {false && !isOpen && (
-          <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-[64px] left-1/2 z-[90] -translate-x-1/2 md:bottom-4"
-          >
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-background border border-divider shadow-[0_-4px_20px_rgba(0,0,0,0.1)] backdrop-blur-md">
-              {/* Mini product thumbnails */}
-              <div className="flex -space-x-2">
-                {products.slice(0, 4).map((product, index) => (
-                  <div
-                    key={product.id}
-                    className="w-8 h-8 rounded-lg overflow-hidden border-2 border-background shadow-sm relative"
-                  >
-                    <div
-                      className={`absolute inset-0 ${FLAT_COLORS[index % FLAT_COLORS.length]} opacity-20`}
-                    />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <span className="text-sm font-medium whitespace-nowrap">
-                Compare ({count})
-              </span>
-
-              <Button
-                size="sm"
-                variant="ghost"
-                onPress={() => {
-                  clearAll()
-                  kwikToast.success('Comparison cleared')
-                }}
-                className="text-danger text-xs h-7 px-2"
-              >
-                Clear
-              </Button>
-
-              <Button
-                size="sm"
-                variant="primary"
-                onPress={toggleOpen}
-                className="kwik-shadow text-xs h-7"
-              >
-                Compare Now
-                <ChevronUp className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   )
 }

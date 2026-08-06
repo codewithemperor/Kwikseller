@@ -48,6 +48,15 @@ export default [
     },
   },
   {
-    ignores: ['.next/**', 'node_modules/**', 'out/**', 'dist/**'],
+    ignores: [
+      '.next/**',
+      'node_modules/**',
+      'out/**',
+      'dist/**',
+      // Config files that the project service can't parse (not part of tsconfig).
+      'eslint.config.mjs',
+      'postcss.config.mjs',
+      'public/sw.js',
+    ],
   },
 ];
