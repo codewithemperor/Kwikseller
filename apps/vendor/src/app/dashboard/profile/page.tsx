@@ -698,6 +698,7 @@ export default function VendorProfilePage() {
             onDrop={handleAvatarDrop}
           >
             {avatarPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarPreview}
                 alt="Profile avatar"
@@ -951,6 +952,7 @@ export default function VendorProfilePage() {
           <div className="mt-2 flex items-start gap-4">
             {storeProfile.logoPreview ? (
               <div className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-kwik-border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={storeProfile.logoPreview}
                   alt="Store logo"
@@ -994,6 +996,7 @@ export default function VendorProfilePage() {
           <div className="mt-2">
             {storeProfile.bannerPreview ? (
               <div className="group relative aspect-[3/1] w-full max-w-md overflow-hidden rounded-lg border border-kwik-border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={storeProfile.bannerPreview}
                   alt="Store banner"

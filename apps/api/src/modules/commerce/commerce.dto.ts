@@ -91,6 +91,23 @@ export class ShippingAddressDto {
   country!: string;
 }
 
+export class CheckoutItemDto {
+  @IsString()
+  productId!: string;
+
+  @IsOptional()
+  @IsString()
+  variantId?: string;
+
+  @IsOptional()
+  @IsString()
+  poolOfferId?: string;
+
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+}
+
 export class CheckoutDto {
   @IsOptional()
   @IsString()
@@ -99,6 +116,16 @@ export class CheckoutDto {
   @IsOptional()
   @IsString()
   storeSlug?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CheckoutItemDto)
+  items?: CheckoutItemDto[];
+
+  @IsOptional()
+  @IsString()
+  deliveryMethod?: 'PICKUP' | 'STANDARD_DELIVERY';
 
   @IsOptional()
   @ValidateNested()

@@ -79,6 +79,7 @@ export interface DummyProduct {
   name: string;
   slug: string;
   description: string;
+  shortDescription?: string;
   price: number;
   comparePrice?: number;
   sku: string;
@@ -91,7 +92,7 @@ export interface DummyProduct {
   categoryId: string;
   brandId: string;
   storeId: string;
-  store: { id: string; name: string; slug: string; logoUrl?: string };
+  store: { id: string; name: string; slug: string; logoUrl?: string; location?: string };
   category: { id: string; name: string; slug: string };
   brand: { id: string; name: string; slug: string; image?: string };
   images: { id: string; url: string; alt?: string; isMain: boolean; position: number }[];
@@ -120,6 +121,7 @@ export interface DummyDeal {
   id: string;
   title: string;
   description?: string;
+  imageUrl?: string;
   dealType: string;
   discountType: string;
   discountValue: number;
@@ -565,7 +567,7 @@ function makeProduct(s: ProductSeed): DummyProduct {
     categoryId: s.categoryId,
     brandId: s.brandId,
     storeId: s.storeId,
-    store: { id: store.id, name: store.name, slug: store.slug, logoUrl: store.logoUrl },
+    store: { id: store.id, name: store.name, slug: store.slug, logoUrl: store.logoUrl, location: store.location },
     category: { id: category.id, name: category.name, slug: category.slug },
     brand: { id: brand.id, name: brand.name, slug: brand.slug, image: brand.image },
     images: [
@@ -657,6 +659,7 @@ export const deals: DummyDeal[] = [
     id: "deal-flash",
     title: "Flash Deals",
     description: "Up to 50% off — ends soon!",
+    imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80",
     dealType: "FLASH",
     discountType: "PERCENTAGE",
     discountValue: 50,
@@ -672,6 +675,7 @@ export const deals: DummyDeal[] = [
     id: "deal-featured",
     title: "Featured Deals",
     description: "Handpicked offers on bestsellers.",
+    imageUrl: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=800&q=80",
     dealType: "FEATURED",
     discountType: "PERCENTAGE",
     discountValue: 25,
@@ -681,6 +685,23 @@ export const deals: DummyDeal[] = [
     products: products.filter((p) => p.isFeatured).slice(0, 6).map((p) => ({
       id: `dp-${p.id}`,
       dealPrice: Math.round(p.price * 0.85),
+      product: p,
+    })),
+  },
+  {
+    id: "deal-of-the-day",
+    title: "Deal of the Day",
+    description: "Daily handpicked discounts on best-selling accessories.",
+    imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+    dealType: "DEAL_OF_THE_DAY",
+    discountType: "PERCENTAGE",
+    discountValue: 30,
+    startDate: "2025-07-01T00:00:00.000Z",
+    endDate: "2025-12-31T23:59:59.000Z",
+    isActive: true,
+    products: products.filter((p) => p.comparePrice && p.comparePrice > p.price).slice(0, 6).map((p) => ({
+      id: `dp-${p.id}`,
+      dealPrice: Math.round(p.price * 0.7),
       product: p,
     })),
   },

@@ -14,7 +14,7 @@ interface AppImageProps {
   height?: number | string;
   objectFit?: "cover" | "contain" | "fill" | "none";
   unoptimized?: boolean;
-  fallbackVariant?: "default" | "product";
+  fallbackVariant?: "default" | "product" | "avatar" | "store";
   fallbackHint?: string;
 }
 

@@ -466,6 +466,9 @@ export interface Order {
   addressId?: string
   poolOrderId?: string
   checkoutReference?: string
+  quoteStatus?: QuoteStatus
+  deliveryMethod?: DeliveryMethod
+  agreedDeliveryFee?: number
   deliveryRateId?: string
   deliveryState?: string
   deliveryLocalGovernment?: string
@@ -483,6 +486,49 @@ export interface Order {
   escrow?: Escrow
   delivery?: Delivery
   fulfillments?: Fulfillment[]
+}
+
+export type DeliveryMethod = 'PICKUP' | 'STANDARD_DELIVERY' | 'EXPRESS_DELIVERY'
+export type QuoteStatus =
+  | 'PENDING_VENDOR_QUOTE'
+  | 'QUOTED'
+  | 'CUSTOMER_REQUESTED_REDUCTION'
+  | 'VENDOR_REVISED'
+  | 'AGREED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED'
+
+export type QuoteRevisionType =
+  | 'VENDOR_QUOTE'
+  | 'CUSTOMER_REQUEST_REDUCTION'
+  | 'VENDOR_REVISE'
+  | 'VENDOR_ACCEPT_REDUCTION'
+  | 'VENDOR_REJECT_REDUCTION'
+  | 'CUSTOMER_ACCEPT'
+  | 'CUSTOMER_REJECT'
+  | 'SYSTEM_EXPIRE'
+  | 'SYSTEM_CANCEL'
+
+export interface QuoteRevision {
+  id: string
+  quoteId: string
+  type: QuoteRevisionType
+  amount: number
+  note?: string
+  createdBy: string
+  createdAt: string
+}
+
+export interface OrderQuote {
+  id: string
+  orderId: string
+  status: QuoteStatus
+  currentAmount: number
+  expiresAt?: string
+  agreedAmount?: number
+  agreedAt?: string
+  revisions?: QuoteRevision[]
 }
 
 export interface OrderItem {

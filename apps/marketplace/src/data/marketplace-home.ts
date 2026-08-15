@@ -99,6 +99,9 @@ export interface MarketplaceProduct {
   storeId?: string;
   storeSlug?: string;
   category: string;
+  categoryId?: string;
+  categorySlug?: string;
+  brandId?: string;
   productType?: "PHYSICAL" | "DIGITAL";
   productSource?: "VENDOR_STOCK" | "POOL_RESALE" | "GROUP_BUY";
   requiresShipping?: boolean;
@@ -106,7 +109,10 @@ export interface MarketplaceProduct {
   lowStock?: number;
   poolProductId?: string;
   isNew?: boolean;
+  isFeatured?: boolean;
   tag?: string;
+  tags?: string[];
+  inStock?: boolean;
   dimensions?: string;
   description?: string;
   images?: string[];

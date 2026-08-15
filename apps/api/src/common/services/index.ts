@@ -8,3 +8,6 @@ export { StorageService } from './storage.service';
 export { AuditService } from './audit.service';
 export { NotificationService } from './notification.service';
 export { PaymentService } from './payment.service';
+export { PlatformSettingService } from './platform-setting.service';
+export { OrderEventListener } from './order-event.listener';
+export { InventoryCronService } from './inventory-cron.service';

@@ -141,6 +141,7 @@ function FeaturedProductCard() {
       <Card className="border-none shadow-clean hover-lift rounded-2xl overflow-hidden">
         {/* Product Image */}
         <div className="relative h-56 sm:h-64 md:h-72 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={featuredProduct.image}
             alt={featuredProduct.name}
@@ -274,6 +275,7 @@ function SideProductCard({
         <div className="flex flex-row sm:flex-row md:flex-col">
           {/* Image */}
           <div className="relative w-28 sm:w-32 md:w-full h-24 sm:h-28 md:h-44 flex-shrink-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={product.image}
               alt={product.name}

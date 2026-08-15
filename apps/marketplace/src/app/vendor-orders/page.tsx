@@ -691,7 +691,7 @@ function VendorDashboardContent() {
   const [topTab, setTopTab] = useState<TopTab>("orders");
   const [storeId, setStoreId] = useState<string>(DEFAULT_STORE_ID);
   const { data: stores } = useStores();
-  const allStores = stores ?? [];
+  const allStores = (stores ?? []) as Array<{ id: string; name: string }>;
 
   return (
     <div className="mx-auto max-w-5xl">

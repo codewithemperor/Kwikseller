@@ -1,17 +1,21 @@
 /**
- * KWIKSELLER Database Seed Script
+ * KWIKSELLER Database Seed Script — Realistic Marketplace Dataset
  *
- * Comprehensive seed for the Kwikseller e-commerce platform:
- * - Super Admin user
- * - System configurations
- * - Vendor milestones
- * - 10 Brands (Nigerian/African electronics & fashion)
- * - 12 Categories
- * - Nigerian Naira (₦) currency
- * - Demo Vendor + Store
- * - 400+ Products with real images spread across all categories & brands
+ * Produces a clean, internally-consistent development database:
+ *   - 1 Super Admin + 1 Admin
+ *   - 8 Customers (BUYER)
+ *   - 10 Vendors (VENDOR) with Stores + delivery settings + wallets
+ *   - 1 Rider
+ *   - ~130 Products (physical + digital) with matched images
+ *   - Categories (parent + child) + Brands
+ *   - 8 Order scenarios covering the full quote→payment→escrow→wallet lifecycle
+ *   - Quotes, QuoteRevisions, Payments, Escrow, WalletTransactions, Commissions
+ *   - Deliveries, Fulfillments, Reviews, Notifications, Banners, Deals, Coupons
+ *   - Carts, Wishlists
  *
- * Run with: cd apps/api && npx prisma db seed
+ * SAFETY: This script refuses to run when NODE_ENV=production.
+ *
+ * Run:  cd apps/api && npx prisma db seed
  */
 
 import {
@@ -20,6 +24,9 @@ import {
   UserStatus,
   AdminRole,
   ProductStatus,
+  BannerType,
+  DealType,
+  DiscountType,
 } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
@@ -28,866 +35,467 @@ import { join } from "node:path";
 const prisma = new PrismaClient();
 const db = prisma as any;
 
-type NigeriaLgaSeedRow = {
-  name: string;
-  state_code: string;
-  state_name: string;
-};
-
-function loadNigeriaLocations(): NigeriaLgaSeedRow[] {
-  const filePath = join(__dirname, "nigeria-lgas-flat.json");
-  return JSON.parse(readFileSync(filePath, "utf8")) as NigeriaLgaSeedRow[];
-}
-
 // ============================================================
-// SUPER ADMIN
+// SAFETY: block production runs
 // ============================================================
-const SUPER_ADMIN_CONFIG = {
-  email: process.env.SUPER_ADMIN_EMAIL || "superadmin@kwikseller.com",
-  password: process.env.SUPER_ADMIN_PASSWORD || "SuperAdmin@2024!",
-  firstName: "Super",
-  lastName: "Admin",
-};
-
-// ============================================================
-// SYSTEM CONFIGS
-// ============================================================
-const SYSTEM_CONFIGS = [
-  { key: "platform_fee_percent", value: "5" },
-  { key: "min_withdrawal_amount", value: "1000" },
-  { key: "delivery_fee_base", value: "500" },
-  { key: "delivery_fee_per_km", value: "50" },
-  { key: "max_products_starter", value: "10" },
-  { key: "max_products_growth", value: "50" },
-  { key: "max_products_pro", value: "200" },
-  { key: "max_products_scale", value: "1000" },
-  { key: "kwikcoins_per_referral", value: "100" },
-  { key: "otp_expiry_minutes", value: "10" },
-  { key: "password_reset_expiry_minutes", value: "15" },
-];
-
-// ============================================================
-// VENDOR MILESTONES
-// ============================================================
-const VENDOR_MILESTONES = [
-  { key: "first_product", name: "First Product Listed", description: "List your first product", coinsAwarded: 50, isRepeatable: false },
-  { key: "first_sale", name: "First Sale", description: "Complete your first sale", coinsAwarded: 100, isRepeatable: false },
-  { key: "sales_10", name: "10 Sales Milestone", description: "Complete 10 sales", coinsAwarded: 200, isRepeatable: false },
-  { key: "sales_50", name: "50 Sales Milestone", description: "Complete 50 sales", coinsAwarded: 500, isRepeatable: false },
-  { key: "sales_100", name: "100 Sales Milestone", description: "Complete 100 sales", coinsAwarded: 1000, isRepeatable: false },
-  { key: "first_ad_campaign", name: "First Ad Campaign", description: "Create your first advertisement", coinsAwarded: 50, isRepeatable: false },
-  { key: "profile_complete", name: "Complete Profile", description: "Fill out all profile information", coinsAwarded: 30, isRepeatable: false },
-  { key: "store_verified", name: "Store Verified", description: "Get your store verified", coinsAwarded: 200, isRepeatable: false },
-  { key: "monthly_referral", name: "Monthly Referral Bonus", description: "Refer a new vendor each month", coinsAwarded: 50, isRepeatable: true },
-];
-
-// ============================================================
-// CURRENCY
-// ============================================================
-const CURRENCIES = [
-  { name: "Nigerian Naira", code: "NGN", symbol: "₦", exchangeRate: 1, isDefault: true, isActive: true },
-  { name: "US Dollar", code: "USD", symbol: "$", exchangeRate: 1580, isDefault: false, isActive: true },
-];
-
-// ============================================================
-// 10 BRANDS (Nigerian / African electronics & fashion)
-// ============================================================
-const BRANDS = [
-  { name: "Samsung", slug: "samsung", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Apple", slug: "apple", image: "https://images.unsplash.com/photo-1491933382434-500287f9b54b?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Tecno", slug: "tecno", image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Infinix", slug: "infinix", image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Oraimo", slug: "oraimo", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Nike", slug: "nike", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Adidas", slug: "adidas", image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Gucci", slug: "gucci", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "HP", slug: "hp", image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-  { name: "Lenovo", slug: "lenovo", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=400&h=400&q=80", status: true },
-];
-
-// ============================================================
-// 12 CATEGORIES
-// ============================================================
-const CATEGORIES = [
-  { name: "Electronics", slug: "electronics", icon: "Zap", position: 1 },
-  { name: "Fashion", slug: "fashion", icon: "Shirt", position: 2 },
-  { name: "Home & Kitchen", slug: "home-kitchen", icon: "Home", position: 3 },
-  { name: "Beauty", slug: "beauty", icon: "Sparkles", position: 4 },
-  { name: "Sports", slug: "sports", icon: "Dumbbell", position: 5 },
-  { name: "Books", slug: "books", icon: "BookOpen", position: 6 },
-  { name: "Toys", slug: "toys", icon: "Gamepad2", position: 7 },
-  { name: "Automotive", slug: "automotive", icon: "Car", position: 8 },
-  { name: "Health", slug: "health", icon: "Heart", position: 9 },
-  { name: "Food & Drinks", slug: "food-drinks", icon: "Utensils", position: 10 },
-  { name: "Phones", slug: "phones", icon: "Smartphone", position: 11 },
-  { name: "Computers", slug: "computers", icon: "Laptop", position: 12 },
-];
-
-// ============================================================
-// 400+ PRODUCTS
-// ============================================================
-interface SeedProduct {
-  name: string;
-  slug: string;
-  description: string;
-  price: number;
-  comparePrice: number;
-  sku: string;
-  stock: number;
-  status: "ACTIVE" | "DRAFT";
-  isFeatured: boolean;
-  categoryId: string;
-  brandId: string;
-}
-
-function richProductDescription(name: string, shortDescription: string): string {
-  return [
-    `<h2>${name}</h2>`,
-    `<p>${shortDescription}</p>`,
-    "<ul>",
-    "<li>Quality checked for Kwikseller marketplace listings.</li>",
-    "<li>Ready for secure checkout, inventory tracking, and vendor fulfillment.</li>",
-    "<li>Ships from a configured vendor delivery zone where available.</li>",
-    "</ul>",
-  ].join("");
-}
-
-function barcodeForSku(sku: string): string {
-  const digits = sku
-    .split("")
-    .reduce((value, char) => value + char.charCodeAt(0), 100000000000)
-    .toString()
-    .slice(0, 12)
-    .padEnd(12, "0");
-  return digits;
-}
-
-function seededProductColumns(input: {
-  name: string;
-  description: string;
-  sku: string;
-  price: number;
-  stock: number;
-  index: number;
-  isPhysical?: boolean;
-}) {
-  const isPhysical = input.isPhysical ?? true;
-  return {
-    shortDescription: input.description,
-    description: richProductDescription(input.name, input.description),
-    barcode: barcodeForSku(input.sku),
-    minOrderQuantity: input.index % 11 === 0 ? 2 : 1,
-    maxOrderQuantity: isPhysical ? Math.max(5, Math.min(input.stock, 25)) : 1,
-    condition: "NEW" as const,
-    isPreorder: input.index % 19 === 0,
-    preorderDate: input.index % 19 === 0 ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null,
-    weight: isPhysical ? Number((0.2 + (input.price % 9000) / 3000).toFixed(2)) : null,
-    useStoreDeliveryZones: true,
-  };
-}
-
-function seededDimension(input: { id: string; price: number; weight?: number | null }) {
-  const sizeSeed = Math.max(1, Math.round((input.price % 50000) / 2500));
-  return {
-    productId: input.id,
-    weight: input.weight ?? Number((0.5 + sizeSeed / 10).toFixed(2)),
-    length: 18 + sizeSeed,
-    width: 12 + Math.round(sizeSeed / 2),
-    height: 6 + Math.round(sizeSeed / 3),
-  };
-}
-
-function seededSeo(product: { id: string; name: string; shortDescription?: string | null; sku?: string | null }) {
-  return {
-    productId: product.id,
-    metaTitle: `${product.name} | Kwikseller`,
-    metaDescription: product.shortDescription ?? `Shop ${product.name} on Kwikseller.`,
-    metaKeywords: [product.name, product.sku, "Kwikseller", "Nigeria marketplace"].filter(Boolean).join(", "),
-  };
-}
-
-// Helper: generate SKU
-function makeSku(prefix: string, index: number): string {
-  return `${prefix}-${String(index).padStart(4, "0")}`;
-}
-
-const REAL_IMAGE_POOLS: Record<string, string[]> = {
-  electronics: [
-    "photo-1505740420928-5e560c06d30e",
-    "photo-1545454675-3531b543be5d",
-    "photo-1542751371-adc38448a05e",
-    "photo-1498049794561-7780e7231661",
-    "photo-1516321318423-f06f85e504b3",
-  ],
-  phones: [
-    "photo-1511707171634-5f897ff02aa9",
-    "photo-1598327105666-5b89351aff97",
-    "photo-1580910051074-3eb694886505",
-    "photo-1592750475338-74b7b21085ab",
-    "photo-1616348436168-de43ad0db179",
-  ],
-  computers: [
-    "photo-1496181133206-80ce9b88a853",
-    "photo-1517336714731-489689fd1ca8",
-    "photo-1498050108023-c5249f4df085",
-    "photo-1484788984921-03950022c9ef",
-    "photo-1525547719571-a2d4ac8945e2",
-  ],
-  fashion: [
-    "photo-1542291026-7eec264c27ff",
-    "photo-1529139574466-a303027c1d8b",
-    "photo-1483985988355-763728e1935b",
-    "photo-1515886657613-9f3515b0c78f",
-    "photo-1525507119028-ed4c629a60a3",
-  ],
-  "home-kitchen": [
-    "photo-1556909114-f6e7ad7d3136",
-    "photo-1556911220-bff31c812dba",
-    "photo-1556912172-45b7abe8b7e1",
-    "photo-1513694203232-719a280e022f",
-    "photo-1484154218962-a197022b5858",
-  ],
-  beauty: [
-    "photo-1596462502278-27bfdc403348",
-    "photo-1522338242992-e1a54906a8da",
-    "photo-1512496015851-a90fb38ba796",
-    "photo-1608248543803-ba4f8c70ae0b",
-    "photo-1571781926291-c477ebfd024b",
-  ],
-  sports: [
-    "photo-1517836357463-d25dfeac3438",
-    "photo-1517649763962-0c623066013b",
-    "photo-1571019613454-1cb2f99b2d8b",
-    "photo-1521412644187-c49fa049e84d",
-    "photo-1599058917212-d750089bc07e",
-  ],
-  books: [
-    "photo-1512820790803-83ca734da794",
-    "photo-1495446815901-a7297e633e8d",
-    "photo-1519682337058-a94d519337bc",
-    "photo-1521587760476-6c12a4b040da",
-    "photo-1456513080510-7bf3a84b82f8",
-  ],
-  toys: [
-    "photo-1558060370-d644479cb6f7",
-    "photo-1566576912321-d58ddd7a6088",
-    "photo-1515488042361-ee00e0ddd4e4",
-    "photo-1535572290543-960a8046f5af",
-    "photo-1596461404969-9ae70f2830c1",
-  ],
-  automotive: [
-    "photo-1503376780353-7e6692767b70",
-    "photo-1492144534655-ae79c964c9d7",
-    "photo-1542362567-b07e54358753",
-    "photo-1511919884226-fd3cad34687c",
-    "photo-1502877338535-766e1452684a",
-  ],
-  health: [
-    "photo-1505751172876-fa1923c5c528",
-    "photo-1584515933487-779824d29309",
-    "photo-1576091160550-2173dba999ef",
-    "photo-1506126613408-eca07ce68773",
-    "photo-1532938911079-1b06ac7ceec7",
-  ],
-  "food-drinks": [
-    "photo-1504674900247-0877df9cc836",
-    "photo-1498837167922-ddd27525d352",
-    "photo-1540189549336-e6e99c3679fe",
-    "photo-1512621776951-a57141f2eefd",
-    "photo-1551024506-0bccd828d307",
-  ],
-  banners: [
-    "photo-1441986300917-64674bd600d8",
-    "photo-1607083206869-4c7672e72a8a",
-    "photo-1607082349566-187342175e2f",
-    "photo-1556742049-0cfed4f6a45d",
-  ],
-  brand: [
-    "photo-1523275335684-37898b6baf30",
-    "photo-1445205170230-053b83016050",
-    "photo-1491933382434-500287f9b54b",
-  ],
-};
-
-const IMAGE_KEYWORDS: Array<[string, string]> = [
-  ["phone", "phones"],
-  ["iphone", "phones"],
-  ["galaxy", "phones"],
-  ["tecno", "phones"],
-  ["infinix", "phones"],
-  ["laptop", "computers"],
-  ["macbook", "computers"],
-  ["desktop", "computers"],
-  ["monitor", "computers"],
-  ["book", "books"],
-  ["novel", "books"],
-  ["sneaker", "fashion"],
-  ["shoe", "fashion"],
-  ["shirt", "fashion"],
-  ["dress", "fashion"],
-  ["bag", "fashion"],
-  ["beauty", "beauty"],
-  ["cream", "beauty"],
-  ["lipstick", "beauty"],
-  ["foundation", "beauty"],
-  ["kettle", "home-kitchen"],
-  ["cooker", "home-kitchen"],
-  ["kitchen", "home-kitchen"],
-  ["blender", "home-kitchen"],
-  ["football", "sports"],
-  ["training", "sports"],
-  ["gym", "sports"],
-  ["toy", "toys"],
-  ["lego", "toys"],
-  ["barbie", "toys"],
-  ["car", "automotive"],
-  ["charger", "automotive"],
-  ["dash", "automotive"],
-  ["health", "health"],
-  ["monitor", "health"],
-  ["thermometer", "health"],
-  ["milo", "food-drinks"],
-  ["drink", "food-drinks"],
-  ["food", "food-drinks"],
-  ["coffee", "food-drinks"],
-  ["tv", "electronics"],
-  ["speaker", "electronics"],
-  ["airpods", "electronics"],
-  ["printer", "electronics"],
-];
-
-function stableHash(value: string): number {
-  return value.split("").reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
-}
-
-function imageGroupFor(text: string): string {
-  const lower = text.toLowerCase();
-  return IMAGE_KEYWORDS.find(([keyword]) => lower.includes(keyword))?.[1] ?? "electronics";
-}
-
-function realImageFromPool(group: string, seed: string, width = 600, height = 600): string {
-  const pool = REAL_IMAGE_POOLS[group] ?? REAL_IMAGE_POOLS.electronics;
-  const photoId = pool[Math.abs(stableHash(seed)) % pool.length];
-  return `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=${width}&h=${height}&q=80`;
-}
-
-// Helper: deterministic real image URL
-function imageUrl(text: string, _color: string = "f97316"): string {
-  return realImageFromPool(imageGroupFor(text), text);
-}
-
-function bannerImageUrl(seed: string): string {
-  return realImageFromPool("banners", seed, 1200, 400);
-}
-
-function brandImageUrl(seed: string): string {
-  return realImageFromPool("brand", seed, 400, 400);
-}
-
-// Seeded random for deterministic featured/status
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-async function buildProducts(
-  categoryMap: Record<string, string>,
-  brandMap: Record<string, string>,
-  storeId: string,
-): Promise<SeedProduct[]> {
-  const products: SeedProduct[] = [];
-  let idx = 1;
-
-  // Category: Electronics (10 products)
-  const electronicsBrandIds = [
-    brandMap.samsung, brandMap.hp, brandMap.lenovo, brandMap.apple, brandMap.tecno,
-  ];
-  const electronicsProducts = [
-    { name: "Samsung 43-inch Crystal UHD Smart TV", price: 185000, brand: brandMap.samsung, desc: "Brilliant 4K display with Crystal Processor for vibrant colours and sharp details." },
-    { name: "Samsung Galaxy Tab A9+ 11-inch", price: 142000, brand: brandMap.samsung, desc: "Powerful tablet with 90Hz display and quad speakers for immersive entertainment." },
-    { name: "HP 15.6-inch Laptop Intel Core i5", price: 485000, brand: brandMap.hp, desc: "Reliable performance for work and school with 8GB RAM and 256GB SSD." },
-    { name: "Lenovo IdeaPad 3 15.6-inch AMD Ryzen 5", price: 420000, brand: brandMap.lenovo, desc: "Affordable everyday laptop with anti-glare display and long battery life." },
-    { name: "Samsung Sound Tower MX-T50", price: 95000, brand: brandMap.samsung, desc: "Bi-directional sound with deep bass for parties and outdoor gatherings." },
-    { name: "Apple AirPods Max Silver", price: 750000, brand: brandMap.apple, desc: "High-fidelity audio with active noise cancellation and spatial audio." },
-    { name: "HP DeskJet 2755e Wireless Printer", price: 65000, brand: brandMap.hp, desc: "All-in-one wireless colour printer with scanner and copier." },
-    { name: "Samsung Microwave 20L Solo", price: 42000, brand: brandMap.samsung, desc: "Compact solo microwave with 6 power levels and auto-cook menus." },
-    { name: "Lenovo 500 Bluetooth Speaker", price: 28000, brand: brandMap.lenovo, desc: "Portable Bluetooth speaker with 10-hour battery and rich sound." },
-    { name: "Samsung Digital Inverter Split AC 1.5HP", price: 320000, brand: brandMap.samsung, desc: "Energy-efficient air conditioner with fast cooling and digital inverter tech." },
-  ];
-  electronicsProducts.forEach((p, i) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("ELEC", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.electronics,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Phones (10 products)
-  const phonesProducts = [
-    { name: "Samsung Galaxy A54 5G 128GB", price: 225000, brand: brandMap.samsung, desc: "Stunning 6.4-inch AMOLED display with 50MP triple camera and 5000mAh battery." },
-    { name: "Apple iPhone 15 128GB Blue", price: 780000, brand: brandMap.apple, desc: "Dynamic Island, A16 Bionic chip and 48MP main camera." },
-    { name: "Tecno Camon 20 Premier 256GB", price: 235000, brand: brandMap.tecno, desc: "RGBW lens system with 50MP main camera and 32MP selfie." },
-    { name: "Infinix Note 40 Pro 5G 256GB", price: 265000, brand: brandMap.infinix, desc: "120Hz AMOLED display with 108MP camera and 5000mAh battery." },
-    { name: "Samsung Galaxy S24 Ultra 256GB", price: 850000, brand: brandMap.samsung, desc: "Galaxy AI powered S Pen with 200MP camera and titanium frame." },
-    { name: "Tecno Spark 20 128GB", price: 85000, brand: brandMap.tecno, desc: "Budget-friendly smartphone with 6.6-inch display and 50MP camera." },
-    { name: "Apple iPhone 14 Plus 128GB", price: 650000, brand: brandMap.apple, desc: "Big 6.7-inch Super Retina display with A15 Bionic chip." },
-    { name: "Infinix Hot 40 Pro 256GB", price: 120000, brand: brandMap.infinix, desc: "108MP main camera and 33W fast charging at an affordable price." },
-    { name: "Tecno Phantom V Fold 256GB", price: 550000, brand: brandMap.tecno, desc: "Foldable 7.85-inch LTPO AMOLED display with flagship performance." },
-    { name: "Samsung Galaxy Z Flip5 256GB", price: 620000, brand: brandMap.samsung, desc: "Compact foldable design with Flex Mode and 12MP dual camera." },
-  ];
-  phonesProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("PHON", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.phones,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Computers (8 products)
-  const computersProducts = [
-    { name: "HP ProBook 450 G10 Intel i7", price: 585000, brand: brandMap.hp, desc: "Business laptop with 16GB RAM, 512GB SSD and Windows 11 Pro." },
-    { name: "Lenovo ThinkPad E14 Gen 5 AMD", price: 510000, brand: brandMap.lenovo, desc: "Durable business laptop with spill-resistant keyboard and long battery." },
-    { name: "Apple MacBook Air M2 256GB", price: 730000, brand: brandMap.apple, desc: "Ultra-thin laptop with M2 chip, 18-hour battery and Liquid Retina." },
-    { name: "HP EliteDesk 800 G9 Desktop", price: 350000, brand: brandMap.hp, desc: "Powerful mini desktop with Intel Core i7 and 16GB RAM for office use." },
-    { name: "Lenovo IdeaCentre AIO 24-inch", price: 310000, brand: brandMap.lenovo, desc: "All-in-one desktop with FHD display and integrated webcam." },
-    { name: "Samsung 27-inch Smart Monitor M7", price: 195000, brand: brandMap.samsung, desc: "4K UHD smart monitor with built-in streaming apps and USB-C." },
-    { name: "HP 14-inch Chromebook x360", price: 155000, brand: brandMap.hp, desc: "Convertible Chromebook with touch screen and all-day battery life." },
-    { name: "Lenovo Legion 5 15.6-inch Gaming Laptop", price: 680000, brand: brandMap.lenovo, desc: "Gaming laptop with RTX 4060, 16GB RAM and 144Hz display." },
-    { name: "Apple iMac 24-inch M3 256GB", price: 850000, brand: brandMap.apple, desc: "All-in-one desktop with stunning 4.5K Retina display and M3 chip." },
-    { name: "HP 27-inch All-in-One Desktop PC", price: 390000, brand: brandMap.hp, desc: "Space-saving all-in-one with Intel i5, 8GB RAM and webcam." },
-  ];
-  computersProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("COMP", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.computers,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Fashion (12 products)
-  const fashionBrandIds = [brandMap.nike, brandMap.adidas, brandMap.gucci];
-  const fashionProducts = [
-    { name: "Nike Air Max 270 React Sneakers", price: 45000, brand: brandMap.nike, desc: "Iconic Air Max cushioning with React foam for all-day comfort." },
-    { name: "Adidas Ultraboost 23 Running Shoes", price: 52000, brand: brandMap.adidas, desc: "Responsive Boost midsole with Primeknit upper for premium fit." },
-    { name: "Gucci GG Marmont Small Shoulder Bag", price: 150000, brand: brandMap.gucci, desc: "Luxurious matelassé chevron leather bag with gold GG hardware." },
-    { name: "Nike Dri-FIT Men's Training T-Shirt", price: 8500, brand: brandMap.nike, desc: "Moisture-wicking fabric for dry comfort during workouts." },
-    { name: "Adidas Originals Trefoil Hoodie", price: 18000, brand: brandMap.adidas, desc: "Classic heavyweight fleece hoodie with embroidered trefoil logo." },
-    { name: "Gucci Ace Embroidered Sneaker", price: 120000, brand: brandMap.gucci, desc: "Low-top leather sneaker with iconic bee and web embroidery." },
-    { name: "Nike Women's Air Force 1 '07", price: 38000, brand: brandMap.nike, desc: "Timeless basketball shoe with Air-Sole unit and padded collar." },
-    { name: "Adidas Men's Essentials 3-Stripes Jogger", price: 12500, brand: brandMap.adidas, desc: "Comfortable cotton jogger pants with side pockets and tapered fit." },
-    { name: "Gucci Men's Cotton Jersey Polo Shirt", price: 65000, brand: brandMap.gucci, desc: "Premium cotton pique polo with embroidered Gucci logo." },
-    { name: "Nike Quest 4 Women's Training Shoes", price: 32000, brand: brandMap.nike, desc: "Versatile training shoes with durable rubber outsole and cushioned midsole." },
-    { name: "Adidas Tiro 24 Competition Shorts", price: 9000, brand: brandMap.adidas, desc: "Lightweight football shorts with AEROREADY moisture management." },
-    { name: "Gucci GG Supreme Canvas Belt", price: 85000, brand: brandMap.gucci, desc: "Interlocking G buckle on signature GG Supreme canvas belt." },
-  ];
-  fashionProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("FSHN", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.fashion,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Home & Kitchen (10 products)
-  const homeProducts = [
-    { name: "Binatone 1.7L Electric Kettle", price: 8500, brand: brandMap.samsung, desc: "Rapid boil stainless steel kettle with auto shut-off and boil-dry protection." },
-    { name: "Samsung 8kg Front Load Washing Machine", price: 245000, brand: brandMap.samsung, desc: "Digital inverter motor with eco wash cycle and quick wash option." },
-    { name: "Nexus 4-Burner Gas Cooker with Oven", price: 85000, brand: brandMap.samsung, desc: "Stainless steel freestanding cooker with oven, grill and glass lid." },
-    { name: "Binatone 2-Slice Toaster", price: 6500, brand: brandMap.samsung, desc: "Compact toaster with 6 browning levels and removable crumb tray." },
-    { name: "Samsung 320L Bottom Mount Refrigerator", price: 210000, brand: brandMap.samsung, desc: "Digital inverter technology with all-around cooling and deodorizer." },
-    { name: "Sayona Home Theatre 5.1 Channel", price: 35000, brand: brandMap.samsung, desc: "Surround sound system with Bluetooth, USB and FM radio connectivity." },
-    { name: "Midea 1.5HP Split AC Remote Control", price: 175000, brand: brandMap.samsung, desc: "Energy-efficient split air conditioner with turbo cooling mode." },
-    { name: "Oraimo SmartChef 5L Air Fryer", price: 25000, brand: brandMap.oraimo, desc: "Healthy oil-free cooking with digital timer and temperature control." },
-    { name: "Binatone Blender 1.5L BLG-450", price: 12000, brand: brandMap.samsung, desc: "Powerful blender with stainless steel blades and 2 speed settings." },
-    { name: "Samsung Robot Vacuum Cleaner VR20M", price: 180000, brand: brandMap.samsung, desc: "Smart navigation vacuum with Wi-Fi control and automatic charging." },
-  ];
-  homeProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("HOME", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap["home-kitchen"],
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Beauty (8 products)
-  const beautyProducts = [
-    { name: "Oraimo Electric Facial Cleansing Brush", price: 5500, brand: brandMap.oraimo, desc: "Silicone sonic facial brush with 5 modes for deep pore cleansing." },
-    { name: "Nivea Soft Moisturizing Cream 200ml", price: 3500, brand: brandMap.samsung, desc: "Lightweight moisturizer enriched with Vitamin E and Jojoba Oil." },
-    { name: "L'Oreal Paris Revitalift Laser Day Cream 50ml", price: 15000, brand: brandMap.samsung, desc: "Anti-ageing day cream with Pro-Retinol for visibly younger-looking skin." },
-    { name: "Oraimo Hair Clipper OCD-50 Professional", price: 8500, brand: brandMap.oraimo, desc: "Cordless hair clipper with LED display and 8 guide combs." },
-    { name: "Maybelline Fit Me Matte Foundation 128", price: 5500, brand: brandMap.samsung, desc: "Oil-free liquid foundation with pore-minimizing micro-powders." },
-    { name: "Oraimo Electric Toothbrush OCD-100", price: 7500, brand: brandMap.oraimo, desc: "Sonic toothbrush with 5 cleaning modes and 2-week battery life." },
-    { name: "Black Opium Eau de Parfum 90ml", price: 42000, brand: brandMap.samsung, desc: "Bold and addictive fragrance with coffee and vanilla notes." },
-    { name: "Mac Fix+ Setting Spray 100ml", price: 18000, brand: brandMap.samsung, desc: "Lightweight mist infused with aloe and green tea to set makeup." },
-  ];
-  beautyProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("BTY", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.beauty,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Sports (8 products)
-  const sportsProducts = [
-    { name: "Nike Quest 5 Men's Running Shoes", price: 35000, brand: brandMap.nike, desc: "Lightweight running shoes with cushioned foam midsole." },
-    { name: "Adidas Adipower Weightlifting Shoes", price: 55000, brand: brandMap.adidas, desc: "Stable platform with elevated heel for Olympic lifting." },
-    { name: "Nike Pro Dri-FIT Compression Tights", price: 15000, brand: brandMap.nike, desc: "Tight-fitting base layer with sweat-wicking Dri-FIT technology." },
-    { name: "Adidas Starlancer Club Football", price: 8000, brand: brandMap.adidas, desc: "Durable training football with machine-stitched TPU cover." },
-    { name: "Nike Brasilia Training Duffel Bag", price: 20000, brand: brandMap.nike, desc: "Spacious duffel with ventilated shoe compartment and zip pockets." },
-    { name: "Adidas Gym Dumbbell Set 10kg", price: 25000, brand: brandMap.adidas, desc: "Adjustable dumbbell set with rubber coating for home workouts." },
-    { name: "Nike Fly Fast Running Cap", price: 5500, brand: brandMap.nike, desc: "Lightweight Dri-FIT cap with reflective details for visibility." },
-    { name: "Adidas Adizero Ubersonic 4 Tennis Shoes", price: 48000, brand: brandMap.adidas, desc: "Lightweight tennis shoes with Adiwear outsole for durability." },
-  ];
-  sportsProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("SPRT", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.sports,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Books (6 products)
-  const bookProducts = [
-    { name: "The Intelligent Investor by Benjamin Graham", price: 7500, brand: brandMap.samsung, desc: "The definitive book on value investing, revised and updated edition." },
-    { name: "Atomic Habits by James Clear", price: 5500, brand: brandMap.samsung, desc: "Tiny changes, remarkable results — a proven framework for building good habits." },
-    { name: "Rich Dad Poor Dad by Robert Kiyosaki", price: 4500, brand: brandMap.samsung, desc: "What the rich teach their kids about money that the poor and middle class do not." },
-    { name: "Becoming by Michelle Obama", price: 9500, brand: brandMap.samsung, desc: "An intimate memoir by the former First Lady of the United States." },
-    { name: "Start With Why by Simon Sinek", price: 6000, brand: brandMap.samsung, desc: "How great leaders inspire everyone to take action." },
-    { name: "The Lean Startup by Eric Ries", price: 5500, brand: brandMap.samsung, desc: "How constant innovation creates radically successful businesses." },
-  ];
-  bookProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("BOOK", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.books,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Toys (6 products)
-  const toyProducts = [
-    { name: "LEGO City Fire Rescue Helicopter", price: 25000, brand: brandMap.samsung, desc: "Buildable fire rescue helicopter with water cannon and minifigures." },
-    { name: "Hot Wheels Track Builder Multi-Loop Set", price: 15000, brand: brandMap.samsung, desc: "Multi-loop stunt track with motorized booster for speed." },
-    { name: "Barbie Dreamtopia Rainbow Princess Doll", price: 12000, brand: brandMap.samsung, desc: "Fantasy doll with rainbow hair, crown and sparkling dress." },
-    { name: "Fisher-Price Learning Walker", price: 18000, brand: brandMap.samsung, desc: "Interactive baby walker with music, lights and learning activities." },
-    { name: " Nerf N-Strike Elite Disruptor Blaster", price: 10000, brand: brandMap.samsung, desc: "Quick-draw 6-dart blaster with slam-fire action." },
-    { name: "Hasbro Monopoly Nigeria Edition", price: 8500, brand: brandMap.samsung, desc: "Classic property trading board game with Nigerian locations." },
-  ];
-  toyProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("TOYS", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.toys,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Automotive (6 products)
-  const automotiveProducts = [
-    { name: "Oraimo Car Phone Mount OCD-M33", price: 4500, brand: brandMap.oraimo, desc: "Magnetic car mount with 360° rotation and one-hand operation." },
-    { name: "Samsung 20000mAh Car Jump Starter", price: 35000, brand: brandMap.samsung, desc: "Portable car jump starter with USB output and LED flashlight." },
-    { name: "Oraimo Car Charger OCD-C28 45W", price: 5500, brand: brandMap.oraimo, desc: "Dual USB-C car charger with 45W fast charging support." },
-    { name: "Samsung Wireless Car Charger", price: 15000, brand: brandMap.samsung, desc: "Qi-certified wireless car charger with automatic clamping." },
-    { name: "Oraimo Dash Cam OCD-D01 1080P", price: 22000, brand: brandMap.oraimo, desc: "Full HD dash camera with night vision and loop recording." },
-    { name: "Samsung Car Air Purifier AF-Q300", price: 28000, brand: brandMap.samsung, desc: "Compact car air purifier with HEPA filter and USB charging." },
-  ];
-  automotiveProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("AUTO", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.automotive,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Health (6 products)
-  const healthProducts = [
-    { name: "Oraimo Smart Scale OCD-S21", price: 15000, brand: brandMap.oraimo, desc: "Digital body scale with 13 body metrics and app connectivity." },
-    { name: "Samsung BP Upper Arm Blood Pressure Monitor", price: 32000, brand: brandMap.samsung, desc: "Accurate blood pressure monitor with irregular heartbeat detection." },
-    { name: "Omron Nebulizer NE-C28", price: 25000, brand: brandMap.samsung, desc: "Compact nebulizer for effective respiratory treatment at home." },
-    { name: "Oraimo Pulse Oximeter OCD-O1", price: 4500, brand: brandMap.oraimo, desc: "Fingertip pulse oximeter with OLED display for SpO2 and pulse rate." },
-    { name: "Samsung Infrared Thermometer TH-600", price: 12000, brand: brandMap.samsung, desc: "Non-contact digital thermometer with fever alert and memory function." },
-    { name: "Infinix Smartband 6 Fitness Tracker", price: 18000, brand: brandMap.infinix, desc: "1.47-inch AMOLED display with heart rate, SpO2 and 14-day battery." },
-    { name: "Samsung Digital Thermometer SHS-2000", price: 8500, brand: brandMap.samsung, desc: "Fast and accurate digital thermometer with flexible tip and fever alarm." },
-    { name: "Oraimo Smart Body Fat Scale OCD-S25", price: 12000, brand: brandMap.oraimo, desc: "Bluetooth body composition scale with 18 metrics and app sync." },
-  ];
-  healthProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("HLTH", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap.health,
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  // Category: Food & Drinks (6 products)
-  const foodProducts = [
-    { name: "Nestle Milo 400g Energy Drink", price: 3200, brand: brandMap.samsung, desc: "Choco-malt energy drink fortified with ACTIV-GO for active kids and adults." },
-    { name: "Dangote Sugar 1kg", price: 1800, brand: brandMap.samsung, desc: "Refined white sugar perfect for cooking, baking and beverages." },
-    { name: "Indomie Instant Noodles Chicken Flavour 70g x 12", price: 2800, brand: brandMap.samsung, desc: "Nigeria's favourite instant noodles with delicious chicken seasoning." },
-    { name: "Chi Exotic Fruit Juice 1L", price: 1500, brand: brandMap.samsung, desc: "Tropical fruit juice blend made from real fruits — refreshing taste." },
-    { name: "Honeywell Wheat Meal 2kg", price: 2200, brand: brandMap.samsung, desc: "Premium quality wheat meal for preparing healthy semo and fufu." },
-    { name: "Peak Full Cream Milk Powder 900g", price: 7500, brand: brandMap.samsung, desc: "Rich and creamy milk powder ideal for the whole family." },
-  ];
-  foodProducts.forEach((p) => {
-    const r = seededRandom(idx);
-    products.push({
-      name: p.name,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: p.desc,
-      price: p.price,
-      comparePrice: Math.round(p.price * (1.1 + r * 0.25)),
-      sku: makeSku("FOOD", idx),
-      stock: Math.floor(seededRandom(idx + 100) * 495) + 5,
-      status: seededRandom(idx + 200) > 0.15 ? "ACTIVE" : "DRAFT",
-      isFeatured: r < 0.2,
-      categoryId: categoryMap["food-drinks"],
-      brandId: p.brand,
-    });
-    idx++;
-  });
-
-  console.log(`   📦 Built ${products.length} products`);
-  const expansionCatalog = [
-    { category: "electronics", sku: "ELECX", brandPool: [brandMap.samsung, brandMap.oraimo, brandMap.hp, brandMap.lenovo], names: ["Noise Cancelling Headphones", "Portable Bluetooth Speaker", "Smart LED Projector", "Wireless Gaming Mouse", "USB-C Charging Dock", "Solar Power Station", "4K Action Camera", "Smart Home Security Camera", "LED Ring Light Kit", "Portable Karaoke Speaker"], basePrice: 18000 },
-    { category: "phones", sku: "PHONX", brandPool: [brandMap.apple, brandMap.samsung, brandMap.tecno, brandMap.infinix], names: ["Android Smartphone 128GB", "Flagship Smartphone 256GB", "Budget 4G Smartphone", "Foldable Display Smartphone", "Gaming Smartphone", "Pro Camera Phone", "Dual SIM Smartphone", "Rugged Outdoor Phone", "5G Business Phone", "Compact Smartphone"], basePrice: 85000 },
-    { category: "computers", sku: "COMPX", brandPool: [brandMap.hp, brandMap.lenovo, brandMap.apple, brandMap.samsung], names: ["Business Laptop 14-inch", "Gaming Laptop RTX Edition", "All-in-One Desktop", "Portable SSD 1TB", "Mechanical Keyboard", "USB-C Monitor", "Laptop Stand", "Wireless Office Mouse", "Mini Desktop PC", "Creator Laptop 16-inch"], basePrice: 45000 },
-    { category: "fashion", sku: "FASHX", brandPool: [brandMap.nike, brandMap.adidas, brandMap.gucci], names: ["Ankara Midi Dress", "Leather Crossbody Bag", "Running Sneakers", "Cotton Polo Shirt", "Denim Jacket", "Athleisure Joggers", "Formal Loafers", "Streetwear Hoodie", "Canvas Tote Bag", "Performance Training Shorts"], basePrice: 6500 },
-    { category: "home-kitchen", sku: "HOMEX", brandPool: [brandMap.samsung, brandMap.oraimo, brandMap.lenovo], names: ["Non-Stick Cookware Set", "Digital Air Fryer", "Stainless Blender", "Electric Pressure Cooker", "Compact Microwave", "Tabletop Gas Cooker", "Smart Robot Vacuum", "Ceramic Dinner Set", "Kitchen Storage Rack", "Electric Coffee Maker"], basePrice: 9000 },
-    { category: "beauty", sku: "BTYX", brandPool: [brandMap.oraimo, brandMap.gucci, brandMap.samsung], names: ["Matte Lipstick Set", "Hydrating Face Serum", "Professional Hair Clipper", "Body Wave Hair Bundle", "Makeup Brush Kit", "Vitamin C Face Cream", "Sonic Facial Brush", "Perfume Gift Set", "Nail Care Kit", "Setting Spray"], basePrice: 3500 },
-    { category: "sports", sku: "SPRTX", brandPool: [brandMap.nike, brandMap.adidas], names: ["Training Dumbbell Pair", "Yoga Mat Pro", "Running Shoe", "Football Training Ball", "Gym Duffel Bag", "Compression Tights", "Fitness Resistance Bands", "Basketball Jersey", "Tennis Racket", "Cycling Helmet"], basePrice: 5500 },
-    { category: "books", sku: "BOOKX", brandPool: [brandMap.samsung, brandMap.hp], names: ["Business Strategy Book", "Personal Finance Guide", "Children Story Collection", "African Fiction Novel", "Startup Playbook", "Leadership Workbook", "Exam Prep Textbook", "Cookbook Collection", "Self Improvement Journal", "Tech Career Handbook"], basePrice: 2500 },
-    { category: "toys", sku: "TOYX", brandPool: [brandMap.samsung, brandMap.lenovo], names: ["Building Blocks Set", "Remote Control Car", "Learning Tablet Toy", "Plush Animal Gift", "Kids Puzzle Board", "STEM Robot Kit", "Doll House Set", "Toy Kitchen Set", "Board Game Set", "Outdoor Bubble Machine"], basePrice: 3000 },
-    { category: "automotive", sku: "AUTOX", brandPool: [brandMap.oraimo, brandMap.samsung], names: ["Car Phone Mount", "Dual USB Car Charger", "Dash Camera", "Portable Tire Inflator", "Car Vacuum Cleaner", "Jump Starter Pack", "Seat Organizer", "Wireless Car Charger", "Car Air Purifier", "Bluetooth FM Transmitter"], basePrice: 4500 },
-    { category: "health", sku: "HLTHX", brandPool: [brandMap.oraimo, brandMap.infinix, brandMap.samsung], names: ["Digital Blood Pressure Monitor", "Smart Body Scale", "Pulse Oximeter", "Infrared Thermometer", "Massage Gun", "Fitness Smart Band", "First Aid Kit", "Nebulizer Machine", "Posture Corrector", "Sleep Eye Mask"], basePrice: 3500 },
-    { category: "food-drinks", sku: "FOODX", brandPool: [brandMap.samsung, brandMap.tecno], names: ["Organic Coffee Beans", "Premium Fruit Juice", "Breakfast Cereal Pack", "Instant Noodles Carton", "Energy Drink Pack", "Baking Flour Bag", "Milk Powder Tin", "Snack Variety Box", "Herbal Tea Set", "Rice Value Pack"], basePrice: 1500 },
-  ];
-
-  const variants = ["Classic", "Premium", "Urban", "Family", "Pro", "Value", "Compact", "Deluxe", "Everyday", "Limited"];
-  const targetExtraProducts = 300;
-  for (let extra = 0; extra < targetExtraProducts; extra += 1) {
-    const group = expansionCatalog[extra % expansionCatalog.length];
-    const nameBase = group.names[Math.floor(extra / expansionCatalog.length) % group.names.length];
-    const variant = variants[extra % variants.length];
-    const edition = Math.floor(extra / group.names.length) + 1;
-    const r = seededRandom(idx);
-    const price = Math.round((group.basePrice + (extra % 25) * group.basePrice * 0.12 + r * group.basePrice * 0.8) / 100) * 100;
-    const name = `${variant} ${nameBase} ${edition}`;
-
-    products.push({
-      name,
-      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      description: `${name} with reliable quality, practical details, and marketplace-ready inventory for Kwikseller shoppers.`,
-      price,
-      comparePrice: Math.round(price * (1.12 + r * 0.22)),
-      sku: makeSku(group.sku, idx),
-      stock: Math.floor(seededRandom(idx + 100) * 240) + 10,
-      status: seededRandom(idx + 200) > 0.08 ? "ACTIVE" : "DRAFT",
-      isFeatured: extra % 11 === 0,
-      categoryId: categoryMap[group.category],
-      brandId: group.brandPool[extra % group.brandPool.length],
-    });
-    idx++;
+function assertDevOnly() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FATAL: Seed script cannot run in production (NODE_ENV=production). Aborting.",
+    );
   }
-
-  console.log(`   Built ${products.length} products`);
-  return products;
+  const url = process.env.DATABASE_URL || "";
+  if (url.startsWith("postgres") || url.startsWith("mysql")) {
+    throw new Error(
+      "FATAL: DATABASE_URL points to a non-SQLite database. Seed is dev-only. Aborting.",
+    );
+  }
 }
 
 // ============================================================
-// MAIN SEED FUNCTION
+// PASSWORDS (documented in final summary)
+// ============================================================
+const PWD = {
+  superAdmin: "SuperAdmin@2024!",
+  admin: "Admin@2024!",
+  customer: "Customer@2024!",
+  vendor: "Vendor@2024!",
+  rider: "Rider@2024!",
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function stableHash(value: string): number {
+  return value.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+}
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function makeSku(prefix: string, idx: number): string {
+  return `${prefix}-${String(idx).padStart(5, "0")}`;
+}
+
+function randSuffix(): string {
+  return Math.random().toString(36).substring(2, 7);
+}
+
+function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+}
+function daysAhead(n: number): Date {
+  return new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+}
+
+type NigeriaLgaRow = { name: string; state_code: string; state_name: string };
+function loadNigeriaLocations(): NigeriaLgaRow[] {
+  return JSON.parse(
+    readFileSync(join(__dirname, "nigeria-lgas-flat.json"), "utf8"),
+  ) as NigeriaLgaRow[];
+}
+
+// ============================================================
+// CURATED IMAGE POOLS — every product image visually matches its type
+// ============================================================
+const IMG: Record<string, string[]> = {
+  smartphone: ["photo-1511707171634-5f897ff02aa9", "photo-1598327105666-5b89351aff97", "photo-1580910051074-3eb694886505", "photo-1592750475338-74b7b21085ab", "photo-1616348436168-de43ad0db179"],
+  iphone: ["photo-1592286927505-1def25115558", "photo-1510557880182-3d4d3cba73ea", "photo-1591336038662-f2064590c22b"],
+  tablet: ["photo-1544244015-0df4b3ffc6b0", "photo-1561078433-941f8f2d7b89"],
+  phoneAccessory: ["photo-1607936814486-8b594608603a", "photo-1601972602237-8c79241e468b", "photo-1572569511254-d8f925fe2cbb"],
+  earbuds: ["photo-1590658268037-6bf12165a8df", "photo-1583394838336-acd977736f90", "photo-1606220588913-b3aacb4d2f46"],
+  charger: ["photo-1583863788434-e58a36330cf0", "photo-1591290619762-c2b9bbef4f60"],
+  powerbank: ["photo-1609592424823-91f4d2a3b95a", "photo-1606293459339-aa5d34a7b0e1"],
+  laptop: ["photo-1496181133206-80ce9b88a853", "photo-1517336714731-489689fd1ca8", "photo-1498050108023-c5249f4df085", "photo-1484788984921-03950022c9ef"],
+  macbook: ["photo-1517336714731-489689fd1ca8", "photo-1611186871348-b1ce696e52c9"],
+  monitor: ["photo-1527443224154-c4a3942d3acf", "photo-1540814275-9f3e8c5d3b79"],
+  keyboard: ["photo-1587829741301-dc798b83add3", "photo-1595044426077-d36d9236d54a"],
+  mouse: ["photo-1527864550417-7fd91fc51a46", "photo-1615663249855-ec7b0d7d6f1b"],
+  tv: ["photo-1593359677879-a4bb92f829d1", "photo-1461151304267-38535e780c79"],
+  speaker: ["photo-1545454675-3531b543be5d", "photo-1608043152269-423dbba4e7e1"],
+  headphones: ["photo-1505740420928-5e560c06d30e", "photo-1583394838336-acd977736f90", "photo-1484704849700-f032a568e944"],
+  camera: ["photo-1502920917128-1aa500764cbd", "photo-1516035069371-29a1b244cc32"],
+  mensShirt: ["photo-1576566588028-4147f3842f27", "photo-1602810318383-e386cc2a3ccf"],
+  mensShoes: ["photo-1542291026-7eec264c27ff", "photo-1595950653106-6c9ebd614d3a"],
+  womensDress: ["photo-1595777457583-95e059d581b8", "photo-1572804013309-59a88b7e92f1"],
+  womensBag: ["photo-1584917865442-de89df76afd3", "photo-1591561954557-26941169b49e"],
+  womensShoes: ["photo-1543163521-1bf3a327fe57", "photo-1535043934128-cf0b28d52f95"],
+  sneakers: ["photo-1542291026-7eec264c27ff", "photo-1556906781-9a412961c28c", "photo-1595950653106-6c9ebd614d3a"],
+  hoodie: ["photo-1556821840-3a63f95609a7", "photo-1620799140408-edc6dcb6d633"],
+  jacket: ["photo-1591047139829-d91aecb6caea", "photo-1551028719-00167b16eac5"],
+  sunglasses: ["photo-1572635196237-14b3f281503f", "photo-1577803645773-f96470509666"],
+  kettle: ["photo-1517048676732-659acc648b9a", "photo-1606859822318-2ae9122c8c7f"],
+  blender: ["photo-1570222094114-d054a817e56b", "photo-1585515320310-259814833e62"],
+  airfryer: ["photo-1626806787461-102c1b86f924", "photo-1585442487324-91b4d60f3e88"],
+  cooker: ["photo-1556909114-f6e7ad7d3136", "photo-1556911220-bff31c812dba"],
+  refrigerator: ["photo-1571175443880-49e1d25b2bc5", "photo-1607990281513-084a1f3d3b8d"],
+  microwave: ["photo-1574269909862-7e1d70bb8073", "photo-1585515320310-259814833e62"],
+  vacuum: ["photo-1558317374-067fb5f30001", "photo-1581578731548-c64695cc6952"],
+  skincare: ["photo-1556228720-195a672e8a03", "photo-1570194065650-d99fb4bedf0a"],
+  lipstick: ["photo-1586495777744-4413f21062fa", "photo-1591361454773-e98c3ae73c68"],
+  perfume: ["photo-1541643600914-78b084683601", "photo-1592945403244-b3fbafd7f539"],
+  makeup: ["photo-1596462502278-27bfdc403348", "photo-1522338242992-e1a54906a8da"],
+  dumbbell: ["photo-1571019613454-1cb2f99b2d8b", "photo-1583454110551-21f2fa2afe61"],
+  yoga: ["photo-1518611012118-696072aa579a", "photo-1592432678016-e910b452d9d2"],
+  football: ["photo-1614632537190-23e4146777db", "photo-1579952363873-27f3bade9f55"],
+  basketball: ["photo-1546519638-68e10949833d", "photo-1574623450792-9ee7b5270d5d"],
+  bloodpressure: ["photo-1631217868264-e5b90bb7e133", "photo-1576091160550-2173dba999ef"],
+  thermometer: ["photo-1631217868264-e5b90bb7e133", "photo-1584515933487-779824d29309"],
+  scale: ["photo-1576091160399-112ba8d25d1d", "photo-1512621776951-a57141f2eefd"],
+  coffee: ["photo-1559056199-641a0ac8b55e", "photo-1447933601403-0c6688de566e"],
+  juice: ["photo-1600271886742-f049cd451bba", "photo-1622597467836-f3285f2131b8"],
+  cereal: ["photo-1517673132651-8dd5da8d5b8a", "photo-1602184167779-2d2f5b3b3a7a"],
+  noodles: ["photo-1612929633738-8fe44f7ec841", "photo-1569718212165-3a8278d5f677"],
+  book: ["photo-1544947950-fa07a98d237f", "photo-1512820790803-83ca734da794", "photo-1495446815901-a7297e633e8d"],
+  ebook: ["photo-1592432678016-e910b452d9d2", "photo-1524995997946-a1c2e315a42f"],
+  dashcam: ["photo-1583121274602-3e2823c6e7c9", "photo-1503376780353-7e6692767b70"],
+  carcharger: ["photo-1601362840469-51e4d8d58785", "photo-1591290619762-c2b9bbef4f60"],
+  tireinflator: ["photo-1632823469850-2f77dd9c7f93", "photo-1503376780353-7e6692767b70"],
+  digitalTemplate: ["photo-1551288049-bebda4e38f71", "photo-1460925895917-afdab827c52f"],
+  digitalCourse: ["photo-1516321318423-f06f85e504b3", "photo-1522202176988-66273c2fd55f"],
+  softwareLicense: ["photo-1629654297299-c8506221ca97", "photo-1551288049-bebda4e38f71"],
+  bannerElectronics: ["photo-1518770660439-4636190af475"],
+  bannerFashion: ["photo-1483985988355-763728e1935b"],
+  bannerDeals: ["photo-1607083206869-4c7672e72a8a"],
+  bannerHome: ["photo-1556909114-f6e7ad7d3136"],
+  bannerDigital: ["photo-1516321318423-f06f85e504b3"],
+  storeLogo: ["photo-1523275335684-37898b6baf30", "photo-1445205170230-053b83016050", "photo-1491933382434-500287f9b54b"],
+  brandLogo: ["photo-1523275335684-37898b6baf30", "photo-1445205170230-053b83016050", "photo-1491933382434-500287f9b54b"],
+};
+
+function img(key: string, seed: string, size = 800): string {
+  const pool = IMG[key] ?? IMG.book;
+  const id = pool[Math.abs(stableHash(seed)) % pool.length];
+  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${size}&h=${size}&q=80`;
+}
+function bannerImg(key: string): string {
+  const pool = IMG[key] ?? IMG.bannerElectronics;
+  return `https://images.unsplash.com/${pool[0]}?auto=format&fit=crop&w=1200&h=400&q=80`;
+}
+function storeImg(seed: string): string {
+  return `https://images.unsplash.com/${IMG.storeLogo[Math.abs(stableHash(seed)) % IMG.storeLogo.length]}?auto=format&fit=crop&w=400&h=400&q=80`;
+}
+function brandImg(seed: string): string {
+  return `https://images.unsplash.com/${IMG.brandLogo[Math.abs(stableHash(seed)) % IMG.brandLogo.length]}?auto=format&fit=crop&w=400&h=400&q=80`;
+}
+
+// ============================================================
+// DATA DEFINITIONS
+// ============================================================
+
+interface ProductSeed {
+  name: string;
+  price: number;
+  img: string;
+  brand: string; // slug
+  cat: string; // category slug
+  stock: number;
+  digital?: boolean;
+  digitalAsset?: { deliveryType: "DOWNLOAD" | "LICENSE_KEY" | "EXTERNAL_ACCESS"; name: string; fileUrl?: string; accessUrl?: string; licenseKey?: string; maxDownloads?: number; expiresAfterDays?: number };
+  variants?: { type: string; values: string[] }[];
+}
+
+interface VendorSeed {
+  email: string;
+  firstName: string;
+  lastName: string;
+  storeName: string;
+  storeSlug: string;
+  description: string;
+  category: string;
+  city: string;
+  stateCode: string;
+  lgaName: string;
+  primaryColor: string;
+  accentColor: string;
+  products: ProductSeed[];
+}
+
+const VENDORS: VendorSeed[] = [
+  {
+    email: "ade.okoye@example.com", firstName: "Ade", lastName: "Okoye",
+    storeName: "AdeTech Electronics", storeSlug: "adetech-electronics",
+    description: "Premium electronics store — smartphones, tablets, audio, and accessories from top brands. Lagos-based with nationwide delivery.",
+    category: "Electronics", city: "Lagos", stateCode: "LA", lgaName: "Ikeja",
+    primaryColor: "#071A2F", accentColor: "#F97316",
+    products: [
+      { name: "Samsung Galaxy A54 5G 128GB", price: 225000, img: "smartphone", brand: "samsung", cat: "smartphones", stock: 45 },
+      { name: "Apple iPhone 15 128GB Blue", price: 780000, img: "iphone", brand: "apple", cat: "smartphones", stock: 18, variants: [{ type: "Storage", values: ["128GB", "256GB"] }] },
+      { name: "Samsung Galaxy Tab A9+ 11-inch", price: 142000, img: "tablet", brand: "samsung", cat: "tablets", stock: 22 },
+      { name: "Apple AirPods Pro 2nd Gen", price: 95000, img: "earbuds", brand: "apple", cat: "phone-accessories", stock: 60 },
+      { name: "Anker PowerCore 20000mAh Power Bank", price: 18000, img: "powerbank", brand: "anker", cat: "phone-accessories", stock: 120 },
+      { name: "Samsung 25W Fast Charger", price: 6500, img: "charger", brand: "samsung", cat: "phone-accessories", stock: 200 },
+      { name: "Sony WH-1000XM5 Headphones", price: 185000, img: "headphones", brand: "sony", cat: "tvs-audio", stock: 15 },
+      { name: "Samsung Sound Tower MX-T50", price: 95000, img: "speaker", brand: "samsung", cat: "tvs-audio", stock: 8 },
+      { name: "Samsung 43-inch Crystal UHD Smart TV", price: 185000, img: "tv", brand: "samsung", cat: "tvs-audio", stock: 12 },
+      { name: "Anker Wireless Charging Dock", price: 22000, img: "charger", brand: "anker", cat: "phone-accessories", stock: 4 },
+      { name: "Logitech Wireless Mouse M331", price: 8500, img: "mouse", brand: "anker", cat: "computer-accessories", stock: 80 },
+      { name: "Logitech Mechanical Keyboard", price: 32000, img: "keyboard", brand: "anker", cat: "computer-accessories", stock: 25 },
+      { name: "Canon EOS M50 Mirrorless Camera", price: 320000, img: "camera", brand: "sony", cat: "cameras", stock: 6 },
+      { name: "Samsung Galaxy S24 Ultra 256GB", price: 850000, img: "smartphone", brand: "samsung", cat: "smartphones", stock: 10, variants: [{ type: "Storage", values: ["256GB", "512GB"] }] },
+      { name: "Tecno Camon 20 Premier 256GB", price: 235000, img: "smartphone", brand: "tecno", cat: "smartphones", stock: 30 },
+    ],
+  },
+  {
+    email: "bola.adeyemi@example.com", firstName: "Bola", lastName: "Adeyemi",
+    storeName: "Bola Fashion House", storeSlug: "bola-fashion-house",
+    description: "Trendy fashion for men and women — sneakers, dresses, shirts, and accessories. Quality fabrics, modern styles.",
+    category: "Fashion", city: "Lagos", stateCode: "LA", lgaName: "Eti Osa",
+    primaryColor: "#831843", accentColor: "#EC4899",
+    products: [
+      { name: "Nike Air Max 270 React Sneakers", price: 45000, img: "sneakers", brand: "nike", cat: "shoes", stock: 35, variants: [{ type: "Size", values: ["40", "41", "42", "43", "44"] }] },
+      { name: "Adidas Ultraboost 23 Running Shoes", price: 52000, img: "sneakers", brand: "adidas", cat: "shoes", stock: 20, variants: [{ type: "Size", values: ["40", "41", "42", "43"] }] },
+      { name: "Nike Dri-FIT Men's Training T-Shirt", price: 8500, img: "mensShirt", brand: "nike", cat: "mens-fashion", stock: 100, variants: [{ type: "Size", values: ["S", "M", "L", "XL"] }] },
+      { name: "Adidas Originals Trefoil Hoodie", price: 18000, img: "hoodie", brand: "adidas", cat: "mens-fashion", stock: 45, variants: [{ type: "Size", values: ["S", "M", "L", "XL"] }] },
+      { name: "Women's Ankara Midi Dress", price: 15000, img: "womensDress", brand: "gucci", cat: "womens-fashion", stock: 30, variants: [{ type: "Size", values: ["S", "M", "L"] }] },
+      { name: "Leather Crossbody Bag", price: 28000, img: "womensBag", brand: "gucci", cat: "bags-accessories", stock: 18 },
+      { name: "Women's Block Heel Pumps", price: 22000, img: "womensShoes", brand: "gucci", cat: "shoes", stock: 15, variants: [{ type: "Size", values: ["37", "38", "39", "40"] }] },
+      { name: "Men's Casual Denim Jacket", price: 25000, img: "jacket", brand: "adidas", cat: "mens-fashion", stock: 28, variants: [{ type: "Size", values: ["S", "M", "L", "XL"] }] },
+      { name: "Polarized Sunglasses UV400", price: 8500, img: "sunglasses", brand: "gucci", cat: "bags-accessories", stock: 60 },
+      { name: "Men's Leather Formal Shoes", price: 35000, img: "mensShoes", brand: "gucci", cat: "shoes", stock: 12, variants: [{ type: "Size", values: ["40", "41", "42", "43", "44"] }] },
+      { name: "Women's Silk Evening Gown", price: 42000, img: "womensDress", brand: "gucci", cat: "womens-fashion", stock: 8 },
+      { name: "Nike Sportswear Hoodie", price: 21000, img: "hoodie", brand: "nike", cat: "mens-fashion", stock: 3, variants: [{ type: "Size", values: ["M", "L", "XL"] }] },
+      { name: "Designer Tote Bag", price: 38000, img: "womensBag", brand: "gucci", cat: "bags-accessories", stock: 10 },
+    ],
+  },
+  {
+    email: "chinedu.eze@example.com", firstName: "Chinedu", lastName: "Eze",
+    storeName: "Naija Home Essentials", storeSlug: "naija-home-essentials",
+    description: "Everything for your home and kitchen — appliances, cookware, and more. Quality products at affordable prices.",
+    category: "Home & Kitchen", city: "Abuja", stateCode: "FC", lgaName: "Abuja",
+    primaryColor: "#064E3B", accentColor: "#10B981",
+    products: [
+      { name: "Binatone 1.7L Electric Kettle", price: 8500, img: "kettle", brand: "binatone", cat: "appliances", stock: 80 },
+      { name: "Oraimo SmartChef 5L Air Fryer", price: 25000, img: "airfryer", brand: "oraimo", cat: "appliances", stock: 35 },
+      { name: "Binatone Blender 1.5L BLG-450", price: 12000, img: "blender", brand: "binatone", cat: "appliances", stock: 45 },
+      { name: "Nexus 4-Burner Gas Cooker with Oven", price: 85000, img: "cooker", brand: "binatone", cat: "appliances", stock: 12 },
+      { name: "Samsung 320L Bottom Mount Refrigerator", price: 210000, img: "refrigerator", brand: "samsung", cat: "appliances", stock: 8 },
+      { name: "Samsung Microwave 20L Solo", price: 42000, img: "microwave", brand: "samsung", cat: "appliances", stock: 20 },
+      { name: "Samsung Robot Vacuum Cleaner", price: 180000, img: "vacuum", brand: "samsung", cat: "appliances", stock: 6 },
+      { name: "Non-Stick Cookware Set 10pc", price: 35000, img: "cooker", brand: "binatone", cat: "cookware", stock: 25 },
+      { name: "Stainless Steel Dinner Set 16pc", price: 15000, img: "cooker", brand: "binatone", cat: "cookware", stock: 40 },
+      { name: "Electric Coffee Maker 12-Cup", price: 28000, img: "kettle", brand: "binatone", cat: "appliances", stock: 15 },
+      { name: "Oraimo Air Fryer 6L Family Size", price: 32000, img: "airfryer", brand: "oraimo", cat: "appliances", stock: 5 },
+      { name: "Wooden Dining Table Set 6-Seater", price: 145000, img: "cooker", brand: "binatone", cat: "furniture", stock: 4 },
+    ],
+  },
+  {
+    email: "fatima.aliyu@example.com", firstName: "Fatima", lastName: "Aliyu",
+    storeName: "Glow Beauty Hub", storeSlug: "glow-beauty-hub",
+    description: "Authentic beauty products — skincare, makeup, hair care, and fragrances. Look and feel your best.",
+    category: "Beauty", city: "Kano", stateCode: "KN", lgaName: "Kano Municipal",
+    primaryColor: "#581C87", accentColor: "#A855F7",
+    products: [
+      { name: "Nivea Soft Moisturizing Cream 200ml", price: 3500, img: "skincare", brand: "oraimo", cat: "skincare", stock: 150 },
+      { name: "L'Oreal Revitalift Day Cream 50ml", price: 15000, img: "skincare", brand: "oraimo", cat: "skincare", stock: 60 },
+      { name: "Maybelline Fit Me Foundation 128", price: 5500, img: "makeup", brand: "oraimo", cat: "makeup", stock: 80 },
+      { name: "MAC Matte Lipstick Set", price: 18000, img: "lipstick", brand: "oraimo", cat: "makeup", stock: 35 },
+      { name: "Calvin Klein Eternity Perfume 100ml", price: 45000, img: "perfume", brand: "oraimo", cat: "makeup", stock: 18 },
+      { name: "Vitamin C Face Serum 30ml", price: 8500, img: "skincare", brand: "oraimo", cat: "skincare", stock: 90 },
+      { name: "Professional Makeup Brush Kit 12pc", price: 12000, img: "makeup", brand: "oraimo", cat: "makeup", stock: 45 },
+      { name: "Argan Hair Care Oil 100ml", price: 6500, img: "skincare", brand: "oraimo", cat: "hair-care", stock: 70 },
+      { name: "Setting Spray Makeup Lock 60ml", price: 7500, img: "makeup", brand: "oraimo", cat: "makeup", stock: 3 },
+      { name: "Oraimo Electric Facial Cleansing Brush", price: 5500, img: "skincare", brand: "oraimo", cat: "skincare", stock: 55 },
+    ],
+  },
+  {
+    email: "tunde.ogundimu@example.com", firstName: "Tunde", lastName: "Ogundimu",
+    storeName: "ProSports NG", storeSlug: "prosports-ng",
+    description: "Sports and fitness gear for athletes — equipment, apparel, and accessories. Train hard, play harder.",
+    category: "Sports", city: "Lagos", stateCode: "LA", lgaName: "Lagos Island",
+    primaryColor: "#7C2D12", accentColor: "#F59E0B",
+    products: [
+      { name: "Adjustable Dumbbell Pair 20kg", price: 45000, img: "dumbbell", brand: "nike", cat: "fitness-equipment", stock: 25 },
+      { name: "Pro Yoga Mat 6mm Thick", price: 8500, img: "yoga", brand: "adidas", cat: "fitness-equipment", stock: 80 },
+      { name: "Official Football Size 5", price: 6500, img: "football", brand: "adidas", cat: "sportswear", stock: 120 },
+      { name: "Spalding Basketball Official", price: 12000, img: "basketball", brand: "nike", cat: "sportswear", stock: 45 },
+      { name: "Nike Running Shoes Pegasus 40", price: 55000, img: "sneakers", brand: "nike", cat: "sportswear", stock: 30, variants: [{ type: "Size", values: ["40", "41", "42", "43", "44"] }] },
+      { name: "Resistance Bands Set 5pc", price: 5500, img: "yoga", brand: "adidas", cat: "fitness-equipment", stock: 100 },
+      { name: "Adjustable Bench Press", price: 85000, img: "dumbbell", brand: "nike", cat: "fitness-equipment", stock: 8 },
+      { name: "Adidas Training Shorts", price: 7500, img: "hoodie", brand: "adidas", cat: "sportswear", stock: 65, variants: [{ type: "Size", values: ["S", "M", "L", "XL"] }] },
+      { name: "Kettlebell 16kg Cast Iron", price: 18000, img: "dumbbell", brand: "nike", cat: "fitness-equipment", stock: 2 },
+      { name: "Compression Training Tights", price: 15000, img: "hoodie", brand: "nike", cat: "sportswear", stock: 40, variants: [{ type: "Size", values: ["S", "M", "L", "XL"] }] },
+    ],
+  },
+  {
+    email: "grace.obi@example.com", firstName: "Grace", lastName: "Obi",
+    storeName: "Knowledge Books", storeSlug: "knowledge-books",
+    description: "Books, digital guides, and educational resources. From fiction to professional development.",
+    category: "Books", city: "Port Harcourt", stateCode: "RI", lgaName: "Port Harcourt",
+    primaryColor: "#1E3A8A", accentColor: "#3B82F6",
+    products: [
+      { name: "Think and Grow Rich Paperback", price: 3500, img: "book", brand: "samsung", cat: "fiction-books", stock: 50 },
+      { name: "Rich Dad Poor Dad", price: 4000, img: "book", brand: "samsung", cat: "fiction-books", stock: 65 },
+      { name: "Half of a Yellow Sun", price: 4500, img: "book", brand: "samsung", cat: "fiction-books", stock: 40 },
+      { name: "Digital Marketing Mastery Ebook", price: 7500, img: "ebook", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Digital Marketing Mastery PDF", fileUrl: "https://example.com/kwikseller/digital-marketing-mastery.pdf", maxDownloads: 5, expiresAfterDays: 30 } },
+      { name: "Startup Playbook Digital Guide", price: 6500, img: "ebook", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Startup Playbook PDF", fileUrl: "https://example.com/kwikseller/startup-playbook.pdf", maxDownloads: 5, expiresAfterDays: 30 } },
+      { name: "Personal Finance Handbook", price: 5500, img: "book", brand: "samsung", cat: "fiction-books", stock: 35 },
+      { name: "Children's Story Collection", price: 6500, img: "book", brand: "samsung", cat: "fiction-books", stock: 28 },
+      { name: "JAMB Prep Textbook 2024", price: 8500, img: "book", brand: "samsung", cat: "fiction-books", stock: 90 },
+      { name: "Web Development Course Ebook", price: 12000, img: "ebook", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Web Dev Course PDF", fileUrl: "https://example.com/kwikseller/web-dev-course.pdf", maxDownloads: 5, expiresAfterDays: 30 } },
+      { name: "African Fiction Anthology", price: 5000, img: "book", brand: "samsung", cat: "fiction-books", stock: 22 },
+    ],
+  },
+  {
+    email: "yakubu.musa@example.com", firstName: "Yakubu", lastName: "Musa",
+    storeName: "AutoParts Express", storeSlug: "autoparts-express",
+    description: "Automotive accessories and tools — dash cams, chargers, inflators, and more for your vehicle.",
+    category: "Automotive", city: "Kano", stateCode: "KN", lgaName: "Nassarawa",
+    primaryColor: "#1F2937", accentColor: "#6B7280",
+    products: [
+      { name: "4K Dual Dash Camera", price: 35000, img: "dashcam", brand: "oraimo", cat: "electronics-accessories", stock: 30 },
+      { name: "Dual USB Car Charger Fast Charge", price: 4500, img: "carcharger", brand: "anker", cat: "electronics-accessories", stock: 150 },
+      { name: "Portable Tire Inflator 12V", price: 18000, img: "tireinflator", brand: "oraimo", cat: "electronics-accessories", stock: 25 },
+      { name: "Wireless Car Phone Mount", price: 6500, img: "carcharger", brand: "oraimo", cat: "electronics-accessories", stock: 80 },
+      { name: "Jump Starter Pack 2000A", price: 45000, img: "tireinflator", brand: "oraimo", cat: "electronics-accessories", stock: 12 },
+      { name: "Car Vacuum Cleaner Portable", price: 12000, img: "tireinflator", brand: "oraimo", cat: "electronics-accessories", stock: 35 },
+      { name: "Bluetooth FM Transmitter", price: 5500, img: "carcharger", brand: "anker", cat: "electronics-accessories", stock: 90 },
+      { name: "360 Camera Car Security System", price: 85000, img: "dashcam", brand: "oraimo", cat: "electronics-accessories", stock: 4 },
+      { name: "OBD2 Scanner Diagnostic Tool", price: 22000, img: "dashcam", brand: "oraimo", cat: "electronics-accessories", stock: 18 },
+      { name: "Car Seat Leather Cushion Set", price: 28000, img: "carcharger", brand: "oraimo", cat: "electronics-accessories", stock: 15 },
+    ],
+  },
+  {
+    email: "aisha.mohammed@example.com", firstName: "Aisha", lastName: "Mohammed",
+    storeName: "Wellness Pharmacy", storeSlug: "wellness-pharmacy",
+    description: "Health and wellness devices — monitors, thermometers, and fitness trackers. Your health, our priority.",
+    category: "Health", city: "Abuja", stateCode: "FC", lgaName: "Abuja",
+    primaryColor: "#065F46", accentColor: "#34D399",
+    products: [
+      { name: "Samsung BP Monitor Upper Arm", price: 32000, img: "bloodpressure", brand: "samsung", cat: "health-monitors", stock: 40 },
+      { name: "Omron Nebulizer NE-C28", price: 25000, img: "bloodpressure", brand: "samsung", cat: "wellness-devices", stock: 20 },
+      { name: "Oraimo Pulse Oximeter", price: 4500, img: "thermometer", brand: "oraimo", cat: "health-monitors", stock: 85 },
+      { name: "Infrared Thermometer TH-600", price: 12000, img: "thermometer", brand: "samsung", cat: "health-monitors", stock: 55 },
+      { name: "Oraimo Smart Scale OCD-S21", price: 15000, img: "scale", brand: "oraimo", cat: "wellness-devices", stock: 45 },
+      { name: "Infinix Smartband 6 Fitness Tracker", price: 18000, img: "scale", brand: "infinix", cat: "wellness-devices", stock: 30 },
+      { name: "Digital Thermometer Flexible Tip", price: 3500, img: "thermometer", brand: "samsung", cat: "health-monitors", stock: 100 },
+      { name: "Oraimo Smart Body Fat Scale", price: 12000, img: "scale", brand: "oraimo", cat: "wellness-devices", stock: 35 },
+      { name: "First Aid Kit Home 100pc", price: 8500, img: "bloodpressure", brand: "samsung", cat: "wellness-devices", stock: 60 },
+      { name: "Blood Glucose Monitor Kit", price: 15000, img: "bloodpressure", brand: "samsung", cat: "health-monitors", stock: 3 },
+    ],
+  },
+  {
+    email: "emeka.odi@example.com", firstName: "Emeka", lastName: "Odi",
+    storeName: "FreshMart Foods", storeSlug: "freshmart-foods",
+    description: "Fresh food, beverages, and grocery staples delivered to your door. Quality you can taste.",
+    category: "Food", city: "Lagos", stateCode: "LA", lgaName: "Surulere",
+    primaryColor: "#92400E", accentColor: "#FBBF24",
+    products: [
+      { name: "Nestle Milo 400g", price: 3200, img: "cereal", brand: "samsung", cat: "beverages", stock: 200 },
+      { name: "Chi Exotic Fruit Juice 1L", price: 1500, img: "juice", brand: "samsung", cat: "beverages", stock: 150 },
+      { name: "Premium Coffee Beans 500g", price: 6500, img: "coffee", brand: "samsung", cat: "beverages", stock: 80 },
+      { name: "Indomie Noodles Carton 40pc", price: 9500, img: "noodles", brand: "samsung", cat: "staples", stock: 100 },
+      { name: "Peak Milk Powder 900g", price: 7500, img: "cereal", brand: "samsung", cat: "staples", stock: 90 },
+      { name: "Breakfast Cereal Pack 500g", price: 4200, img: "cereal", brand: "samsung", cat: "staples", stock: 120 },
+      { name: "Honeywell Wheat Meal 2kg", price: 2200, img: "cereal", brand: "samsung", cat: "staples", stock: 110 },
+      { name: "Dangote Sugar 1kg", price: 1800, img: "cereal", brand: "samsung", cat: "staples", stock: 180 },
+      { name: "Herbal Tea Set 3-Flavour", price: 5500, img: "coffee", brand: "samsung", cat: "beverages", stock: 45 },
+      { name: "Organic Honey 500ml", price: 4500, img: "cereal", brand: "samsung", cat: "staples", stock: 5 },
+    ],
+  },
+  {
+    email: "layla.hassan@example.com", firstName: "Layla", lastName: "Hassan",
+    storeName: "Digital Downloads Co", storeSlug: "digital-downloads-co",
+    description: "Premium digital products — design templates, online courses, software licenses, and ebooks. Instant delivery.",
+    category: "Digital", city: "Lagos", stateCode: "LA", lgaName: "Ikeja",
+    primaryColor: "#0F172A", accentColor: "#06B6D4",
+    products: [
+      { name: "Business Plan Template Pro", price: 7500, img: "digitalTemplate", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Business Plan Template", fileUrl: "https://example.com/kwikseller/business-plan-template.pdf", maxDownloads: 5, expiresAfterDays: 30 } },
+      { name: "Social Media Marketing Course", price: 25000, img: "digitalCourse", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "EXTERNAL_ACCESS", name: "Course Access Link", accessUrl: "https://learn.kwikseller.example.com/social-media-marketing", expiresAfterDays: 365 } },
+      { name: "Adobe Creative Cloud License 1yr", price: 180000, img: "softwareLicense", brand: "samsung", cat: "software-licenses", stock: 0, digital: true, digitalAsset: { deliveryType: "LICENSE_KEY", name: "Adobe CC License Key", licenseKey: "ADOBE-CC-2024-KWIK-001", expiresAfterDays: 365 } },
+      { name: "Resume Design Template Bundle", price: 5500, img: "digitalTemplate", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Resume Templates ZIP", fileUrl: "https://example.com/kwikseller/resume-templates.zip", maxDownloads: 10, expiresAfterDays: 90 } },
+      { name: "Web Design Masterclass", price: 35000, img: "digitalCourse", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "EXTERNAL_ACCESS", name: "Masterclass Access", accessUrl: "https://learn.kwikseller.example.com/web-design", expiresAfterDays: 365 } },
+      { name: "Microsoft Office 365 License", price: 45000, img: "softwareLicense", brand: "samsung", cat: "software-licenses", stock: 0, digital: true, digitalAsset: { deliveryType: "LICENSE_KEY", name: "MS Office 365 Key", licenseKey: "MS-O365-2024-KWIK-001", expiresAfterDays: 365 } },
+      { name: "Financial Modeling Excel Pack", price: 8500, img: "digitalTemplate", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Financial Models XLSX", fileUrl: "https://example.com/kwikseller/financial-models.xlsx", maxDownloads: 5, expiresAfterDays: 30 } },
+      { name: "Photography Editing Course", price: 18000, img: "digitalCourse", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "EXTERNAL_ACCESS", name: "Photo Editing Course", accessUrl: "https://learn.kwikseller.example.com/photo-editing", expiresAfterDays: 180 } },
+      { name: "SEO Optimization Guide Ebook", price: 6500, img: "ebook", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "SEO Guide PDF", fileUrl: "https://example.com/kwikseller/seo-guide.pdf", maxDownloads: 5, expiresAfterDays: 30 } },
+      { name: "Premium Icon Pack 500+", price: 4500, img: "digitalTemplate", brand: "samsung", cat: "digital-guides", stock: 0, digital: true, digitalAsset: { deliveryType: "DOWNLOAD", name: "Icon Pack ZIP", fileUrl: "https://example.com/kwikseller/icon-pack.zip", maxDownloads: 10, expiresAfterDays: 90 } },
+    ],
+  },
+];
+
+const CUSTOMERS = [
+  { email: "chidi.okeke@example.com", firstName: "Chidi", lastName: "Okeke", phone: "+2348012345678", city: "Lagos", stateCode: "LA", lgaName: "Ikeja", line1: "12 Allen Avenue, Ikeja" },
+  { email: "ngozi.eze@example.com", firstName: "Ngozi", lastName: "Eze", phone: "+2348023456789", city: "Abuja", stateCode: "FC", lgaName: "Abuja", line1: "45 Wuse 2 Crescent, Abuja" },
+  { email: "emeka.nwosu@example.com", firstName: "Emeka", lastName: "Nwosu", phone: "+2348034567890", city: "Port Harcourt", stateCode: "RI", lgaName: "Port Harcourt", line1: "78 Aba Road, Port Harcourt" },
+  { email: "fatima.yusuf@example.com", firstName: "Fatima", lastName: "Yusuf", phone: "+2348045678901", city: "Kano", stateCode: "KN", lgaName: "Kano Municipal", line1: "23 Ahmadu Bello Way, Kano" },
+  { email: "tope.adebayo@example.com", firstName: "Tope", lastName: "Adebayo", phone: "+2348056789012", city: "Lagos", stateCode: "LA", lgaName: "Eti Osa", line1: "90 Admiralty Way, Lekki" },
+  { email: "aisha.ibrahim@example.com", firstName: "Aisha", lastName: "Ibrahim", phone: "+2348067890123", city: "Abuja", stateCode: "FC", lgaName: "Abuja", line1: "15 Garki Area 3, Abuja" },
+  { email: "kunle.ogundimu@example.com", firstName: "Kunle", lastName: "Ogundimu", phone: "+2348078901234", city: "Ibadan", stateCode: "OY", lgaName: "Ibadan North", line1: "5 Bodija Road, Ibadan" },
+  { email: "zainab.musa@example.com", firstName: "Zainab", lastName: "Musa", phone: "+2348089012345", city: "Lagos", stateCode: "LA", lgaName: "Lagos Island", line1: "30 Broad Street, Lagos Island" },
+];
+
+const BRANDS = [
+  { name: "Samsung", slug: "samsung" },
+  { name: "Apple", slug: "apple" },
+  { name: "Tecno", slug: "tecno" },
+  { name: "Infinix", slug: "infinix" },
+  { name: "Oraimo", slug: "oraimo" },
+  { name: "Nike", slug: "nike" },
+  { name: "Adidas", slug: "adidas" },
+  { name: "Gucci", slug: "gucci" },
+  { name: "HP", slug: "hp" },
+  { name: "Lenovo", slug: "lenovo" },
+  { name: "Sony", slug: "sony" },
+  { name: "Binatone", slug: "binatone" },
+  { name: "Anker", slug: "anker" },
+];
+
+const CATEGORIES: { name: string; slug: string; icon: string; parent?: string }[] = [
+  { name: "Electronics", slug: "electronics", icon: "Zap" },
+  { name: "Phones & Tablets", slug: "phones-tablets", icon: "Smartphone" },
+  { name: "Computers", slug: "computers", icon: "Laptop" },
+  { name: "Fashion", slug: "fashion", icon: "Shirt" },
+  { name: "Home & Kitchen", slug: "home-kitchen", icon: "Home" },
+  { name: "Beauty", slug: "beauty", icon: "Sparkles" },
+  { name: "Sports & Fitness", slug: "sports-fitness", icon: "Dumbbell" },
+  { name: "Health & Wellness", slug: "health-wellness", icon: "Heart" },
+  { name: "Food & Drinks", slug: "food-drinks", icon: "Utensils" },
+  { name: "Books & Digital", slug: "books-digital", icon: "BookOpen" },
+  // children
+  { name: "TVs & Audio", slug: "tvs-audio", icon: "Tv", parent: "electronics" },
+  { name: "Cameras", slug: "cameras", icon: "Camera", parent: "electronics" },
+  { name: "Electronics Accessories", slug: "electronics-accessories", icon: "Plug", parent: "electronics" },
+  { name: "Smartphones", slug: "smartphones", icon: "Smartphone", parent: "phones-tablets" },
+  { name: "Tablets", slug: "tablets", icon: "Tablet", parent: "phones-tablets" },
+  { name: "Phone Accessories", slug: "phone-accessories", icon: "Cable", parent: "phones-tablets" },
+  { name: "Laptops", slug: "laptops", icon: "Laptop", parent: "computers" },
+  { name: "Desktops", slug: "desktops", icon: "Monitor", parent: "computers" },
+  { name: "Computer Accessories", slug: "computer-accessories", icon: "Keyboard", parent: "computers" },
+  { name: "Men's Fashion", slug: "mens-fashion", icon: "User", parent: "fashion" },
+  { name: "Women's Fashion", slug: "womens-fashion", icon: "User", parent: "fashion" },
+  { name: "Shoes", slug: "shoes", icon: "Footprints", parent: "fashion" },
+  { name: "Bags & Accessories", slug: "bags-accessories", icon: "ShoppingBag", parent: "fashion" },
+  { name: "Appliances", slug: "appliances", icon: "Microwave", parent: "home-kitchen" },
+  { name: "Cookware", slug: "cookware", icon: "CookingPot", parent: "home-kitchen" },
+  { name: "Furniture", slug: "furniture", icon: "Sofa", parent: "home-kitchen" },
+  { name: "Skincare", slug: "skincare", icon: "Droplet", parent: "beauty" },
+  { name: "Hair Care", slug: "hair-care", icon: "Scissors", parent: "beauty" },
+  { name: "Makeup", slug: "makeup", icon: "Palette", parent: "beauty" },
+  { name: "Fitness Equipment", slug: "fitness-equipment", icon: "Dumbbell", parent: "sports-fitness" },
+  { name: "Sportswear", slug: "sportswear", icon: "Shirt", parent: "sports-fitness" },
+  { name: "Health Monitors", slug: "health-monitors", icon: "Activity", parent: "health-wellness" },
+  { name: "Wellness Devices", slug: "wellness-devices", icon: "HeartPulse", parent: "health-wellness" },
+  { name: "Beverages", slug: "beverages", icon: "Coffee", parent: "food-drinks" },
+  { name: "Staples", slug: "staples", icon: "Wheat", parent: "food-drinks" },
+  { name: "Fiction Books", slug: "fiction-books", icon: "Book", parent: "books-digital" },
+  { name: "Digital Guides", slug: "digital-guides", icon: "FileText", parent: "books-digital" },
+  { name: "Software Licenses", slug: "software-licenses", icon: "Key", parent: "books-digital" },
+];
+
+// ============================================================
+// MAIN
 // ============================================================
 async function main() {
-  console.log("🌱 Starting Kwikseller database seed...\n");
+  assertDevOnly();
+  console.log("🌱 Starting Kwikseller realistic marketplace seed...\n");
 
-  // ── 1. Super Admin ──────────────────────────────────────────
-  console.log("👤 Creating Super Admin...");
-
-  const existingAdmin = await prisma.user.findUnique({
-    where: {
-      email_role: {
-        email: SUPER_ADMIN_CONFIG.email,
-        role: UserRole.SUPER_ADMIN,
-      },
-    },
-  });
-
-  if (existingAdmin) {
-    const passwordHash = await bcrypt.hash(SUPER_ADMIN_CONFIG.password, 12);
-    await prisma.user.update({
-      where: { id: existingAdmin.id },
-      data: { passwordHash },
-    });
-    console.log("   ⚠️  Super Admin already exists — password updated\n");
-  } else {
-    const passwordHash = await bcrypt.hash(SUPER_ADMIN_CONFIG.password, 12);
-    await prisma.user.create({
-      data: {
-        email: SUPER_ADMIN_CONFIG.email,
-        passwordHash,
-        role: UserRole.SUPER_ADMIN,
-        status: UserStatus.ACTIVE,
-        emailVerified: true,
-        profile: {
-          create: {
-            firstName: SUPER_ADMIN_CONFIG.firstName,
-            lastName: SUPER_ADMIN_CONFIG.lastName,
-          },
-        },
-        adminPermission: {
-          create: {
-            role: AdminRole.SUPER_ADMIN,
-            permissions: "*",
-            grantedBy: "system",
-            isActive: true,
-          },
-        },
-      },
-    });
-    console.log("   ✅ Super Admin created\n");
-  }
-
-  // ── 2. System Configurations ───────────────────────────────
-  console.log("⚙️  Seeding system configurations...");
-  for (const config of SYSTEM_CONFIGS) {
-    await prisma.systemConfig.upsert({
-      where: { key: config.key },
-      update: { value: config.value },
-      create: config,
-    });
-  }
-  console.log(`   ✅ ${SYSTEM_CONFIGS.length} system configurations seeded\n`);
-
-  // ── 3. Vendor Milestones ───────────────────────────────────
-  console.log("🏆 Seeding vendor milestones...");
-  for (const milestone of VENDOR_MILESTONES) {
-    await prisma.milestone.upsert({
-      where: { key: milestone.key },
-      update: milestone,
-      create: milestone,
-    });
-  }
-  console.log(`   ✅ ${VENDOR_MILESTONES.length} vendor milestones seeded\n`);
-
-  // ── 4. Currencies ──────────────────────────────────────────
-  console.log("💱 Seeding currencies...");
-  for (const curr of CURRENCIES) {
-    await prisma.currency.upsert({
-      where: { code: curr.code },
-      update: curr,
-      create: curr,
-    });
-  }
-  console.log(`   ✅ ${CURRENCIES.length} currencies seeded\n`);
-
-  console.log("Seeding Nigerian states and LGAs...");
+  // ── 1. Nigerian states & LGAs (reference data, upsert) ──
+  console.log("📍 Seeding Nigerian states & LGAs...");
   const lgaRows = loadNigeriaLocations();
   const statesByCode = new Map<string, { code: string; name: string; lgas: string[] }>();
   for (const row of lgaRows) {
@@ -897,1047 +505,906 @@ async function main() {
     existing.lgas.push(row.name);
     statesByCode.set(code, existing);
   }
-
-  let seededLgaCount = 0;
-  for (const stateSeed of statesByCode.values()) {
-    const state = await db.state.upsert({
-      where: { code: stateSeed.code },
-      update: { name: stateSeed.name, isActive: true },
-      create: { code: stateSeed.code, name: stateSeed.name, isActive: true },
-    });
-
-    for (const lgaName of stateSeed.lgas) {
-      await db.localGovernment.upsert({
-        where: {
-          stateId_name: {
-            stateId: state.id,
-            name: lgaName,
-          },
-        },
-        update: { isActive: true },
-        create: { stateId: state.id, name: lgaName, isActive: true },
-      });
-      seededLgaCount += 1;
+  for (const s of statesByCode.values()) {
+    await db.state.upsert({ where: { code: s.code }, update: { name: s.name, isActive: true }, create: { code: s.code, name: s.name, isActive: true } });
+    const state = await db.state.findUnique({ where: { code: s.code } });
+    for (const lgaName of s.lgas) {
+      await db.localGovernment.upsert({ where: { stateId_name: { stateId: state.id, name: lgaName } }, update: { isActive: true }, create: { stateId: state.id, name: lgaName, isActive: true } });
     }
   }
-  console.log(`   Seeded ${statesByCode.size} states/FCT and ${seededLgaCount} LGAs\n`);
+  console.log(`   ✅ ${statesByCode.size} states + LGAs\n`);
 
-  // ── 5. Clean up existing seed data ─────────────────────────
-  console.log("🧹 Cleaning up existing seed data...");
-  try {
-    await db.inventoryReservation?.deleteMany();
-    await db.fulfillment?.deleteMany();
-    await db.poolSettlement?.deleteMany();
-    await db.payment?.deleteMany();
-    await db.orderItem?.deleteMany();
-    await db.order?.deleteMany();
-    await db.cartItem?.deleteMany();
-    await db.cart?.deleteMany();
-    await db.digitalAsset?.deleteMany();
-    await db.inventoryItem?.deleteMany();
-    await db.vendorPoolOffer?.deleteMany();
-    await db.poolCampaign?.deleteMany();
-    await db.poolProduct?.deleteMany();
+  // ── 2. System configs, platform settings, milestones, currencies ──
+  console.log("⚙️  Seeding reference configs...");
+  for (const c of [
+    { key: "platform_fee_percent", value: "1" },
+    { key: "min_withdrawal_amount", value: "1000" },
+    { key: "delivery_fee_base", value: "500" },
+    { key: "max_products_starter", value: "10" },
+    { key: "max_products_growth", value: "50" },
+    { key: "max_products_pro", value: "200" },
+    { key: "max_products_scale", value: "1000" },
+    { key: "kwikcoins_per_referral", value: "100" },
+    { key: "otp_expiry_minutes", value: "10" },
+    { key: "password_reset_expiry_minutes", value: "15" },
+  ]) {
+    await db.systemConfig.upsert({ where: { key: c.key }, update: { value: c.value }, create: c });
+  }
+  await db.platformSetting.upsert({ where: { key: "processing_fee_percent" }, update: { value: "1", description: "Platform processing fee on order subtotal" }, create: { key: "processing_fee_percent", value: "1", description: "Platform processing fee on order subtotal" } });
 
-    // Delete product media first (depends on products)
-    await prisma.productMedia.deleteMany();
-    console.log("   🗑️  Cleared product media");
-
-    // Delete products
-    const deletedProducts = await prisma.product.deleteMany();
-    console.log(`   🗑️  Cleared ${deletedProducts.count} products`);
-
-    // Delete brands
-    const deletedBrands = await prisma.brand.deleteMany();
-    console.log(`   🗑️  Cleared ${deletedBrands.count} brands`);
-
-    // Delete categories (except those that might be referenced elsewhere)
-    const deletedCategories = await prisma.category.deleteMany();
-    console.log(`   🗑️  Cleared ${deletedCategories.count} categories`);
-  } catch (error) {
-    console.log("   ⚠️  Cleanup warning (may be first run):", error instanceof Error ? error.message : error);
+  for (const m of [
+    { key: "first_product", name: "First Product Listed", description: "List your first product", coinsAwarded: 50, isRepeatable: false },
+    { key: "first_sale", name: "First Sale", description: "Complete your first sale", coinsAwarded: 100, isRepeatable: false },
+    { key: "sales_10", name: "10 Sales Milestone", description: "Complete 10 sales", coinsAwarded: 200, isRepeatable: false },
+    { key: "sales_50", name: "50 Sales Milestone", description: "Complete 50 sales", coinsAwarded: 500, isRepeatable: false },
+    { key: "sales_100", name: "100 Sales Milestone", description: "Complete 100 sales", coinsAwarded: 1000, isRepeatable: false },
+    { key: "store_verified", name: "Store Verified", description: "Get your store verified", coinsAwarded: 200, isRepeatable: false },
+  ]) {
+    await db.milestone.upsert({ where: { key: m.key }, update: m, create: m });
   }
 
-  // ── 6. Create Demo Vendor + Store ──────────────────────────
-  console.log("\n🏪 Creating demo vendor and store...");
-
-  const vendorPasswordHash = await bcrypt.hash("DemoVendor@2024!", 12);
-
-  const vendor = await prisma.user.upsert({
-    where: {
-      email_role: {
-        email: "vendor@kwikseller.com",
-        role: UserRole.VENDOR,
-      },
-    },
-    update: {},
-    create: {
-      email: "vendor@kwikseller.com",
-      passwordHash: vendorPasswordHash,
-      role: UserRole.VENDOR,
-      status: UserStatus.ACTIVE,
-      emailVerified: true,
-      profile: {
-        create: {
-          firstName: "Kwik",
-          lastName: "Vendor",
-          bio: "Official Kwikseller demo store — showcasing Nigerian & African products.",
-        },
-      },
-      store: {
-        create: {
-          name: "Kwikseller Demo Store",
-          slug: "kwikseller-demo-store",
-          description: "Official demo store showcasing top Nigerian and African products across electronics, fashion, and lifestyle categories.",
-          logoUrl: brandImageUrl("Kwikseller Demo Store logo"),
-          bannerUrl: bannerImageUrl("Kwikseller Demo Store banner"),
-          category: "Multi-category",
-          isVerified: true,
-          onboardingComplete: true,
-          verificationStatus: "APPROVED" as any,
-        },
-      },
-      subscription: {
-        create: {
-          plan: "SCALE" as any,
-          status: "ACTIVE" as any,
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          productLimit: 1000,
-          autoRenew: false,
-        },
-      },
-      kwikCoins: {
-        create: {
-          balance: 5000,
-          totalEarned: 5000,
-        },
-      },
-      wallet: {
-        create: {
-          availableBalance: 250000,
-          pendingBalance: 50000,
-          totalEarned: 500000,
-        },
-      },
-    },
-    include: { store: true },
-  });
-
-  if (!vendor.store) {
-    // In case the store wasn't created (already existed but wasn't fetched)
-    const store = await prisma.store.upsert({
-      where: { slug: "kwikseller-demo-store" },
-      update: {},
-      create: {
-        vendorId: vendor.id,
-        name: "Kwikseller Demo Store",
-        slug: "kwikseller-demo-store",
-        description: "Official demo store showcasing top Nigerian and African products.",
-        logoUrl: brandImageUrl("Kwikseller Demo Store logo"),
-        bannerUrl: bannerImageUrl("Kwikseller Demo Store banner"),
-        category: "Multi-category",
-        isVerified: true,
-        onboardingComplete: true,
-      },
-    });
-    console.log(`   ✅ Demo vendor & store ready (Store ID: ${store.id})\n`);
-  } else {
-    console.log(`   ✅ Demo vendor & store ready (Store ID: ${vendor.store.id})\n`);
+  for (const curr of [
+    { name: "Nigerian Naira", code: "NGN", symbol: "₦", exchangeRate: 1, isDefault: true, isActive: true },
+    { name: "US Dollar", code: "USD", symbol: "$", exchangeRate: 1580, isDefault: false, isActive: true },
+  ]) {
+    await db.currency.upsert({ where: { code: curr.code }, update: curr, create: curr });
   }
 
-  const storeId = vendor.store?.id || (await prisma.store.findUnique({ where: { slug: "kwikseller-demo-store" } }))!.id;
-
-  const secondVendor = await prisma.user.upsert({
-    where: {
-      email_role: {
-        email: "vendor2@kwikseller.com",
-        role: UserRole.VENDOR,
-      },
-    },
-    update: {},
-    create: {
-      email: "vendor2@kwikseller.com",
-      passwordHash: vendorPasswordHash,
-      role: UserRole.VENDOR,
-      status: UserStatus.ACTIVE,
-      emailVerified: true,
-      profile: {
-        create: {
-          firstName: "Amina",
-          lastName: "Stores",
-        },
-      },
-      store: {
-        create: {
-          name: "Amina Urban Market",
-          slug: "amina-urban-market",
-          description: "A second demo vendor for split checkout testing across fashion, digital, and lifestyle products.",
-          logoUrl: brandImageUrl("Amina Urban Market logo"),
-          bannerUrl: bannerImageUrl("Amina Urban Market banner"),
-          category: "Lifestyle",
-          isVerified: true,
-          onboardingComplete: true,
-        },
-      },
-      kwikCoins: {
-        create: {
-          balance: 3000,
-          totalEarned: 3000,
-        },
-      },
-      wallet: {
-        create: {
-          availableBalance: 125000,
-          pendingBalance: 15000,
-          totalEarned: 220000,
-        },
-      },
-    },
-    include: { store: true },
-  });
-
-  if (!secondVendor.store) {
-    await prisma.store.upsert({
-      where: { slug: "amina-urban-market" },
-      update: {},
-      create: {
-        vendorId: secondVendor.id,
-        name: "Amina Urban Market",
-        slug: "amina-urban-market",
-        description: "A second demo vendor for split checkout testing across fashion, digital, and lifestyle products.",
-        logoUrl: brandImageUrl("Amina Urban Market logo"),
-        bannerUrl: bannerImageUrl("Amina Urban Market banner"),
-        category: "Lifestyle",
-        isVerified: true,
-        onboardingComplete: true,
-      },
-    });
+  // Delivery rates for major LGAs
+  for (const r of [
+    { state: "Lagos State", localGovernment: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
+    { state: "Lagos State", localGovernment: "Eti Osa", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
+    { state: "Lagos State", localGovernment: "Lagos Island", fee: 2500, minDeliveryDays: 2, maxDeliveryDays: 4 },
+    { state: "Lagos State", localGovernment: "Surulere", fee: 1800, minDeliveryDays: 1, maxDeliveryDays: 3 },
+    { state: "Federal Capital Territory", localGovernment: "Abuja", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
+    { state: "Rivers State", localGovernment: "Port Harcourt", fee: 3500, minDeliveryDays: 3, maxDeliveryDays: 6 },
+    { state: "Kano State", localGovernment: "Kano Municipal", fee: 4000, minDeliveryDays: 4, maxDeliveryDays: 7 },
+    { state: "Oyo State", localGovernment: "Ibadan North", fee: 2800, minDeliveryDays: 2, maxDeliveryDays: 5 },
+  ]) {
+    await db.deliveryRate.upsert({ where: { state_localGovernment: { state: r.state, localGovernment: r.localGovernment } }, update: r, create: { ...r, isActive: true } });
   }
+  console.log("   ✅ Configs, milestones, currencies, delivery rates\n");
 
-  const secondStore = await prisma.store.findUnique({ where: { slug: "amina-urban-market" } });
-  const secondStoreId = secondStore!.id;
-  const deliverySeedAreas = [
-    { state: "Lagos", localGovernment: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
-    { state: "Lagos", localGovernment: "Lekki", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
-    { state: "Abuja", localGovernment: "Municipal", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
-    { state: "Kwara State", localGovernment: "Ilorin West", fee: 2000, minDeliveryDays: 2, maxDeliveryDays: 4 },
+  // ── 3. FK-SAFE CLEANUP (children → parents) ──
+  console.log("🧹 Cleaning existing marketplace data...");
+  const cleanupOrder = [
+    "walletTransaction", "withdrawal", "commission", "escrow", "quoteRevision", "quote",
+    "delivery", "fulfillment", "paymentWebhookEvent", "payment", "inventoryReservation",
+    "orderItem", "order", "parentCheckout", "review", "productQuestion", "wishlist",
+    "cartItem", "cart", "notification", "pushSubscription", "dealProduct", "deal",
+    "couponProduct", "couponCategory", "coupon", "banner", "productMedia",
+    "productDeliveryZone", "productDeliveryOverride", "productAttribute", "productDimension",
+    "productSeo", "productTag", "relatedProduct", "digitalAsset", "inventoryItem",
+    "productVariant", "variantValue", "variantType", "product", "storeDeliveryArea",
+    "storeDeliveryZone", "storeDeliverySetting", "storefrontDesign", "store",
+    "category", "brand", "kwikCoins", "coinTransaction", "subscription", "vendorMilestone",
+    "referral", "rider", "wallet", "adminPermission", "user",
+    "adCampaign", "adImpression", "poolSettlement", "vendorPoolOffer", "poolCampaign", "poolProduct",
   ];
-  const kwaraDeliveryZoneSeedAreas = lgaRows
-    .filter((row) => row.state_code.toUpperCase() === "KW")
-    .map((row) => ({
-      stateCode: "KW",
-      lgaName: row.name,
-      fee: 2000,
-      minDeliveryDays: 2,
-      maxDeliveryDays: 4,
-    }));
-  const deliveryZoneSeedAreas = [
-    { stateCode: "LA", lgaName: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
-    { stateCode: "LA", lgaName: "Eti Osa", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
-    { stateCode: "FC", lgaName: "Abuja", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
-    ...kwaraDeliveryZoneSeedAreas,
-  ];
-  for (const seedStoreId of [storeId, secondStoreId]) {
-    const deliverySetting = await db.storeDeliverySetting?.upsert({
-      where: { storeId: seedStoreId },
-      update: {
-        manualDeliveryEnabled: true,
-        kwiksellerDeliveryEnabled: false,
-        processingDays: 1,
-        dispatchNote: "Seeded manual delivery plan for Pool and checkout testing.",
-      },
-      create: {
-        storeId: seedStoreId,
-        manualDeliveryEnabled: true,
-        kwiksellerDeliveryEnabled: false,
-        processingDays: 1,
-        dispatchNote: "Seeded manual delivery plan for Pool and checkout testing.",
-      },
-    });
-    for (const area of deliverySeedAreas) {
-      await db.storeDeliveryArea?.upsert({
-        where: {
-          settingId_state_localGovernment: {
-            settingId: deliverySetting.id,
-            state: area.state,
-            localGovernment: area.localGovernment,
-          },
-        },
-        update: { ...area, isActive: true },
-        create: {
-          settingId: deliverySetting.id,
-          ...area,
-          isActive: true,
-        },
-      });
-    }
-    for (const area of deliveryZoneSeedAreas) {
-      const state = await db.state.findUnique({ where: { code: area.stateCode } });
-      const lga = state
-        ? await db.localGovernment.findFirst({ where: { stateId: state.id, name: area.lgaName } })
-        : null;
-      if (!state || !lga) continue;
-
-      await db.storeDeliveryZone?.upsert({
-        where: {
-          storeId_stateId_lgaId: {
-            storeId: seedStoreId,
-            stateId: state.id,
-            lgaId: lga.id,
-          },
-        },
-        update: {
-          fee: area.fee,
-          minDeliveryDays: area.minDeliveryDays,
-          maxDeliveryDays: area.maxDeliveryDays,
-          isActive: true,
-        },
-        create: {
-          storeId: seedStoreId,
-          stateId: state.id,
-          lgaId: lga.id,
-          fee: area.fee,
-          minDeliveryDays: area.minDeliveryDays,
-          maxDeliveryDays: area.maxDeliveryDays,
-          isActive: true,
-        },
-      });
-    }
-    await db.store.update({
-      where: { id: seedStoreId },
-      data: { deliverySetupComplete: true },
-    });
+  for (const model of cleanupOrder) {
+    try { await db[model]?.deleteMany(); } catch { /* model may not exist */ }
   }
-  console.log("   ✅ Store delivery settings seeded for Pool source vendors\n");
-  const kwaraDeliveryRateSeedAreas = lgaRows
-    .filter((row) => row.state_code.toUpperCase() === "KW")
-    .flatMap((row) => [
-      { state: "Kwara State", localGovernment: row.name, fee: 2000, minDeliveryDays: 2, maxDeliveryDays: 4 },
-      { state: "Kwara", localGovernment: row.name, fee: 2000, minDeliveryDays: 2, maxDeliveryDays: 4 },
-    ]);
+  try { await db.auditLog?.deleteMany(); } catch {}
+  console.log("   ✅ All marketplace data cleared\n");
 
-  for (const area of kwaraDeliveryRateSeedAreas) {
-    await db.deliveryRate?.upsert({
-      where: {
-        state_localGovernment: {
-          state: area.state,
-          localGovernment: area.localGovernment,
-        },
-      },
-      update: { ...area, isActive: true },
-      create: { ...area, isActive: true },
-    });
-  }
-
-  await db.storefrontDesign?.upsert({
-    where: { storeId: secondStoreId },
-    update: {
-      themePreset: "FRESH",
-      primaryColor: "#064E3B",
-      accentColor: "#14B8A6",
-      heroTitle: "Amina Urban Market",
-      heroSubtitle: "Curated lifestyle essentials, vendor stock, and digital guides for modern buyers.",
-      sections: JSON.stringify(["hero", "products", "policies"]),
-    },
-    create: {
-      storeId: secondStoreId,
-      themePreset: "FRESH",
-      primaryColor: "#064E3B",
-      accentColor: "#14B8A6",
-      heroTitle: "Amina Urban Market",
-      heroSubtitle: "Curated lifestyle essentials, vendor stock, and digital guides for modern buyers.",
-      sections: JSON.stringify(["hero", "products", "policies"]),
-    },
-  });
-  console.log(`   ✅ Second demo vendor ready for split checkout (Store ID: ${secondStoreId})\n`);
-
-  // ── 7. Create 10 Brands ────────────────────────────────────
-  console.log("🏷️  Creating 10 brands...");
-  for (const brand of BRANDS) {
-    await prisma.brand.create({
-      data: {
-        ...brand,
-        image: brandImageUrl(brand.name),
-      },
-    });
-  }
-  console.log(`   ✅ ${BRANDS.length} brands created\n`);
-
-  // Build brand lookup
-  const brandRecords = await prisma.brand.findMany();
-  const brandMap: Record<string, string> = {};
-  for (const b of brandRecords) {
-    brandMap[b.slug] = b.id;
-  }
-
-  // ── 8. Create 12 Categories ────────────────────────────────
-  console.log("📂 Creating 12 categories...");
-  for (const category of CATEGORIES) {
-    await prisma.category.create({
-      data: { ...category, imageUrl: imageUrl(category.name), isActive: true },
-    });
-  }
-  console.log(`   ✅ ${CATEGORIES.length} categories created\n`);
-
-  // Build category lookup
-  const categoryRecords = await prisma.category.findMany();
+  // ── 4. Categories (parent + child) ──
+  console.log("📂 Creating categories...");
   const categoryMap: Record<string, string> = {};
-  for (const c of categoryRecords) {
-    categoryMap[c.slug] = c.id;
+  // Parents first
+  for (const c of CATEGORIES.filter((c) => !c.parent)) {
+    const cat = await prisma.category.create({ data: { name: c.name, slug: c.slug, icon: c.icon, imageUrl: img(c.slug, c.name), isActive: true, position: CATEGORIES.indexOf(c) + 1 } });
+    categoryMap[c.slug] = cat.id;
   }
-
-  // ── 9. Create 100 Products ─────────────────────────────────
-  console.log("🛍️  Building 100 products...");
-  const products = await buildProducts(categoryMap, brandMap, storeId);
-
-  console.log("   ⏳ Inserting products into database...");
-  let insertedCount = 0;
-
-  // Insert products in batches for efficiency
-  const BATCH_SIZE = 20;
-  for (let i = 0; i < products.length; i += BATCH_SIZE) {
-    const batch = products.slice(i, i + BATCH_SIZE);
-    await prisma.product.createMany({
-      data: batch.map((p, batchIndex) => {
-        const productIndex = i + batchIndex;
-        const poolEnabled = p.status === "ACTIVE" && productIndex % 5 === 0;
-        const poolBasePrice = Math.max(1, Math.round(p.price * 0.82));
-        return {
-          storeId,
-          name: p.name,
-          slug: `${p.slug}-${Math.random().toString(36).substring(2, 7)}`,
-          ...seededProductColumns({
-            name: p.name,
-            description: p.description,
-            sku: p.sku,
-            price: p.price,
-            stock: p.stock,
-            index: productIndex,
-          }),
-          price: p.price,
-          comparePrice: p.comparePrice,
-          sku: p.sku,
-          stock: p.stock,
-          productType: "PHYSICAL",
-          productSource: "VENDOR_STOCK",
-          inventoryPolicy: "TRACKED",
-          requiresShipping: true,
-          trackInventory: true,
-          status: p.status as ProductStatus,
-          categoryId: p.categoryId,
-          brandId: p.brandId,
-          isFeatured: p.isFeatured,
-          poolEnabled,
-          poolBasePrice: poolEnabled ? poolBasePrice : null,
-          poolMinSalePrice: poolEnabled ? Math.max(poolBasePrice, p.price) : null,
-          poolMaxSelectableQuantity: poolEnabled ? Math.min(p.stock, 50) : null,
-        };
-      }) as any,
-    });
-    insertedCount += batch.length;
-    process.stdout.write(`   📊 ${insertedCount}/${products.length} products inserted\r`);
+  // Children
+  for (const c of CATEGORIES.filter((c) => c.parent)) {
+    const cat = await prisma.category.create({ data: { name: c.name, slug: c.slug, icon: c.icon, imageUrl: img(c.slug, c.name), isActive: true, parentId: categoryMap[c.parent!] } });
+    categoryMap[c.slug] = cat.id;
   }
-  console.log(`   ✅ ${insertedCount} products inserted\n`);
+  console.log(`   ✅ ${CATEGORIES.length} categories (${CATEGORIES.filter((c) => !c.parent).length} parents + ${CATEGORIES.filter((c) => c.parent).length} children)\n`);
 
-  // ── 10. Create Product Images ──────────────────────────────
-  console.log("🖼️  Creating product images...");
+  // ── 5. Brands ──
+  console.log("🏷️  Creating brands...");
+  const brandMap: Record<string, string> = {};
+  for (const b of BRANDS) {
+    const brand = await prisma.brand.create({ data: { name: b.name, slug: b.slug, image: brandImg(b.name), status: true } });
+    brandMap[b.slug] = brand.id;
+  }
+  console.log(`   ✅ ${BRANDS.length} brands\n`);
 
-  // Get all products to assign images
-  const allProducts = await prisma.product.findMany({
-    where: { storeId },
-    select: { id: true, name: true, slug: true, sku: true, stock: true },
+  // ── 6. Super Admin + Admin ──
+  console.log("👤 Creating admins...");
+  const superAdminHash = await bcrypt.hash(PWD.superAdmin, 12);
+  const adminHash = await bcrypt.hash(PWD.admin, 12);
+
+  await prisma.user.create({
+    data: { email: "superadmin@example.com", passwordHash: superAdminHash, role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerified: true, profile: { create: { firstName: "Super", lastName: "Admin" } }, adminPermission: { create: { role: AdminRole.SUPER_ADMIN, permissions: "*", grantedBy: "system", isActive: true } } },
   });
-
-  console.log("📦 Creating inventory records...");
-  await db.inventoryItem?.createMany({
-    data: allProducts.map((product) => ({
-      productId: product.id,
-      storeId,
-      sku: product.sku,
-      available: product.stock,
-      reserved: 0,
-      lowStockThreshold: 5,
-      policy: "TRACKED",
-    })),
+  await prisma.user.create({
+    data: { email: "admin@example.com", passwordHash: adminHash, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerified: true, profile: { create: { firstName: "Admin", lastName: "User" } }, adminPermission: { create: { role: AdminRole.SUPER_ADMIN, permissions: "*", grantedBy: "system", isActive: true } } },
   });
-  console.log(`   ✅ ${allProducts.length} inventory records created\n`);
+  console.log("   ✅ Super Admin + Admin created\n");
 
-  const secondStoreProducts = await Promise.all([
-    db.product?.create({
+  // ── 7. Customers ──
+  console.log("👥 Creating customers...");
+  const customerIds: string[] = [];
+  const customerHash = await bcrypt.hash(PWD.customer, 12);
+  const customerAddresses: Record<string, { id: string; line1: string; city: string }[]> = {};
+
+  for (const c of CUSTOMERS) {
+    const state = await db.state.findUnique({ where: { code: c.stateCode } });
+    const lga = state ? await db.localGovernment.findFirst({ where: { stateId: state.id, name: c.lgaName } }) : null;
+    const user = await prisma.user.create({
       data: {
-        storeId: secondStoreId,
-        name: "Amina Ankara Tote Bag",
-        slug: `amina-ankara-tote-bag-${Math.random().toString(36).substring(2, 7)}`,
-        ...seededProductColumns({
-          name: "Amina Ankara Tote Bag",
-          description: "A physical product from the second demo vendor for multi-vendor checkout testing.",
-          sku: "AMINA-TOTE-0001",
-          price: 18500,
-          stock: 42,
-          index: 1001,
-        }),
-        price: 18500,
-        comparePrice: 24000,
-        sku: "AMINA-TOTE-0001",
-        stock: 42,
-        productType: "PHYSICAL",
-        productSource: "VENDOR_STOCK",
-        inventoryPolicy: "TRACKED",
-        requiresShipping: true,
-        trackInventory: true,
-        status: ProductStatus.ACTIVE,
-        categoryId: categoryMap.fashion,
-        isFeatured: true,
-        poolEnabled: true,
-        poolBasePrice: 15000,
-        poolMinSalePrice: 18500,
-        poolMaxSelectableQuantity: 30,
-        inventoryItems: {
+        email: c.email, phone: c.phone, passwordHash: customerHash, role: UserRole.BUYER, status: UserStatus.ACTIVE, emailVerified: true,
+        profile: { create: { firstName: c.firstName, lastName: c.lastName } },
+        addresses: { create: [{ line1: c.line1, city: c.city, stateId: state?.id, lgaId: lga?.id, country: "Nigeria", isDefault: true, type: "SHIPPING" }] },
+      },
+      include: { addresses: true },
+    });
+    customerIds.push(user.id);
+    customerAddresses[user.id] = user.addresses.map((a) => ({ id: a.id, line1: a.line1, city: a.city }));
+  }
+  console.log(`   ✅ ${CUSTOMERS.length} customers created\n`);
+
+  // ── 8. Vendors + Stores + Wallets ──
+  console.log("🏪 Creating vendors & stores...");
+  const vendorHash = await bcrypt.hash(PWD.vendor, 12);
+  const vendorInfo: { userId: string; storeId: string; storeSlug: string; storeName: string }[] = [];
+
+  for (let vi = 0; vi < VENDORS.length; vi++) {
+    const v = VENDORS[vi];
+    const state = await db.state.findUnique({ where: { code: v.stateCode } });
+    const lga = state ? await db.localGovernment.findFirst({ where: { stateId: state.id, name: v.lgaName } }) : null;
+
+    const openingBalance = vi < 3 ? [250000, 125000, 85000][vi] : vi < 5 ? 45000 : 0;
+
+    const user = await prisma.user.create({
+      data: {
+        email: v.email, phone: `+234700000${String(vi + 1).padStart(3, "0")}`, passwordHash: vendorHash, role: UserRole.VENDOR, status: UserStatus.ACTIVE, emailVerified: true,
+        profile: { create: { firstName: v.firstName, lastName: v.lastName, bio: v.description } },
+        store: {
           create: {
-            storeId: secondStoreId,
-            sku: "AMINA-TOTE-0001",
-            available: 42,
-            reserved: 0,
-            lowStockThreshold: 6,
-            policy: "TRACKED",
+            name: v.storeName, slug: v.storeSlug, description: v.description, logoUrl: storeImg(v.storeName), bannerUrl: bannerImg(`banner${vi % 2 === 0 ? "Electronics" : "Fashion"}`),
+            category: v.category, isVerified: true, onboardingComplete: true, onboardingStep: "COMPLETED", verificationStatus: "APPROVED", deliverySetupComplete: true,
+            bankCode: "057", bankName: "Zenith Bank", accountNumber: String(1000000000 + vi * 1111111111).slice(0, 10), accountName: `${v.firstName} ${v.lastName}`,
+            storefrontDesign: { create: { primaryColor: v.primaryColor, accentColor: v.accentColor, heroTitle: v.storeName, heroSubtitle: v.description, sections: JSON.stringify(["hero", "products", "policies"]) } },
+            deliverySetting: { create: { manualDeliveryEnabled: true, kwiksellerDeliveryEnabled: false, processingDays: 1, dispatchNote: "Orders processed within 24 hours.", returnPolicy: "7-day return policy for unused items in original packaging." } },
           },
         },
-      } as any,
-    }),
-    db.product?.create({
-      data: {
-        storeId: secondStoreId,
-        name: "Amina Style Capsule Lookbook",
-        slug: `amina-style-capsule-lookbook-${Math.random().toString(36).substring(2, 7)}`,
-        ...seededProductColumns({
-          name: "Amina Style Capsule Lookbook",
-          description: "Digital lookbook from a second vendor; useful for testing mixed physical and digital carts.",
-          sku: "AMINA-DIGI-0001",
-          price: 4500,
-          stock: 0,
-          index: 1002,
-          isPhysical: false,
-        }),
-        price: 4500,
-        comparePrice: 7000,
-        sku: "AMINA-DIGI-0001",
-        stock: 0,
-        productType: "DIGITAL",
-        productSource: "VENDOR_STOCK",
-        inventoryPolicy: "UNLIMITED",
-        requiresShipping: false,
-        trackInventory: false,
-        status: ProductStatus.ACTIVE,
-        categoryId: categoryMap.fashion,
-        digitalAssets: {
-          create: {
-            deliveryType: "DOWNLOAD",
-            name: "Amina Style Capsule PDF",
-            fileUrl: "https://example.com/kwikseller/amina-style-capsule.pdf",
-            maxDownloads: 5,
-            expiresAfterDays: 30,
-          },
-        },
-      } as any,
-    }),
-  ]);
-  console.log("   ✅ Second vendor physical and digital products created for split checkout testing\n");
-
-  console.log("💾 Creating digital and Pool commerce samples...");
-  const digitalProduct = await db.product?.create({
-    data: {
-      storeId,
-      name: "Kwikseller Vendor Growth Playbook",
-      slug: `kwikseller-vendor-growth-playbook-${Math.random().toString(36).substring(2, 7)}`,
-      ...seededProductColumns({
-        name: "Kwikseller Vendor Growth Playbook",
-        description: "A downloadable guide for vendors learning product listing, pricing, fulfillment, and Pool resale.",
-        sku: "DIGI-0001",
-        price: 7500,
-        stock: 0,
-        index: 1003,
-        isPhysical: false,
-      }),
-      price: 7500,
-      comparePrice: 12000,
-      sku: "DIGI-0001",
-      stock: 0,
-      productType: "DIGITAL",
-      productSource: "VENDOR_STOCK",
-      inventoryPolicy: "UNLIMITED",
-      requiresShipping: false,
-      trackInventory: false,
-      status: ProductStatus.ACTIVE,
-      categoryId: categoryMap.books,
-      isFeatured: true,
-      digitalAssets: {
-        create: {
-          deliveryType: "DOWNLOAD",
-          name: "Vendor Growth Playbook PDF",
-          fileUrl: "https://example.com/kwikseller/vendor-growth-playbook.pdf",
-          maxDownloads: 5,
-          expiresAfterDays: 30,
-        },
+        subscription: { create: { plan: "SCALE", status: "ACTIVE", startDate: new Date(), endDate: daysAhead(365), productLimit: 1000, autoRenew: false } },
+        kwikCoins: { create: { balance: 1000 + vi * 500, totalEarned: 1000 + vi * 500 } },
+        wallet: { create: { availableBalance: openingBalance, pendingBalance: 0, totalEarned: openingBalance, totalWithdrawn: 0 } },
       },
-    } as any,
-  });
-
-  const poolProduct = await db.poolProduct?.create({
-    data: {
-      name: "Pool Pack: Oraimo Smart Accessories",
-      description: "Admin Pool Catalog sample for vendor resale with markup.",
-      wholesalePrice: 18000,
-      suggestedRetailPrice: 24500,
-      productType: "PHYSICAL",
-      status: "ACTIVE",
-      categoryId: categoryMap.electronics,
-      category: "Electronics",
-      stock: 300,
-      images: JSON.stringify([imageUrl("Oraimo Pool Pack", "10b981")]),
-      isActive: true,
-    },
-  });
-
-  await db.inventoryItem?.create({
-    data: {
-      poolProductId: poolProduct.id,
-      storeId: null,
-      sku: "POOL-ORAIMO-0001",
-      available: 300,
-      reserved: 0,
-      lowStockThreshold: 25,
-      policy: "TRACKED",
-    },
-  });
-
-  const poolListing = await db.product?.create({
-    data: {
-      storeId,
-      poolProductId: poolProduct.id,
-      name: "Oraimo Smart Accessories Pool Resale Pack",
-      slug: `oraimo-smart-accessories-pool-resale-${Math.random().toString(36).substring(2, 7)}`,
-      ...seededProductColumns({
-        name: "Oraimo Smart Accessories Pool Resale Pack",
-        description: "Vendor storefront listing backed by the Admin Pool Catalog.",
-        sku: "POOL-LIST-0001",
-        price: 24500,
-        stock: 0,
-        index: 1004,
-      }),
-      price: 24500,
-      comparePrice: 28000,
-      sku: "POOL-LIST-0001",
-      stock: 0,
-      productType: "PHYSICAL",
-      productSource: "POOL_RESALE",
-      inventoryPolicy: "TRACKED",
-      requiresShipping: true,
-      trackInventory: true,
-      status: ProductStatus.ACTIVE,
-      categoryId: categoryMap.electronics,
-      isPoolProduct: true,
-      poolSourceBasePrice: 18000,
-      poolMargin: 6500,
-      isFeatured: true,
-    } as any,
-  });
-
-  await db.vendorPoolOffer?.create({
-    data: {
-      storeId,
-      poolProductId: poolProduct.id,
-      sourceType: "ADMIN_POOL",
-      sourceBasePrice: 18000,
-      productId: poolListing.id,
-      retailPrice: 24500,
-      markup: 6500,
-      status: "ACTIVE",
-      isActive: true,
-    },
-  });
-
-  await db.poolCampaign?.create({
-    data: {
-      poolProductId: poolProduct.id,
-      title: "Group Buy: Smart Accessories Starter Pack",
-      targetQuantity: 10,
-      committedQuantity: 0,
-      unitPrice: 21500,
-      status: "SCHEDULED",
-      startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      endsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  console.log(`   ✅ Digital sample created (${digitalProduct.name})`);
-  console.log("   ✅ Pool catalog, vendor offer, and group-buy campaign samples created\n");
-
-  const imageColors = ["f97316", "10b981", "8b5cf6", "ef4444", "06b6d4", "ec4899", "14b8a6", "f59e0b"];
-
-  const productsForImages = [...allProducts, ...secondStoreProducts.filter(Boolean)];
-  const imageData = productsForImages.flatMap((product) => {
-    const shortName = product.name.length > 20 ? product.name.substring(0, 18) + "…" : product.name;
-    const color = imageColors[product.id.length % imageColors.length];
-
-    return [
-      {
-        productId: product.id,
-        url: imageUrl(shortName, color),
-        alt: product.name,
-        position: 0,
-        isMain: true,
-      },
-      {
-        productId: product.id,
-        url: imageUrl(`${shortName}-2`, "374151"),
-        alt: `${product.name} - View 2`,
-        position: 1,
-        isMain: false,
-      },
-      {
-        productId: product.id,
-        url: imageUrl(`${shortName}-3`, "1e3a5f"),
-        alt: `${product.name} - View 3`,
-        position: 2,
-        isMain: false,
-      },
-    ];
-  });
-
-  const IMAGE_BATCH_SIZE = 100;
-  for (let i = 0; i < imageData.length; i += IMAGE_BATCH_SIZE) {
-    const batch = imageData.slice(i, i + IMAGE_BATCH_SIZE);
-    await prisma.productMedia.createMany({ data: batch });
-  }
-
-  const vendorPoolSource = await db.product?.findFirst({
-    where: { storeId, poolEnabled: true, status: ProductStatus.ACTIVE },
-    include: { images: true },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  if (vendorPoolSource) {
-    const sourceBasePrice = Number(
-      vendorPoolSource.poolBasePrice ??
-        Math.round(Number(vendorPoolSource.price) * 0.82),
-    );
-    const resalePrice = Math.max(
-      Number(vendorPoolSource.poolMinSalePrice ?? vendorPoolSource.price),
-      sourceBasePrice + 3000,
-    );
-    const sourceSku = vendorPoolSource.sku ?? "0001";
-
-    const selectedPoolProduct = await db.product?.create({
-      data: {
-        storeId: secondStoreId,
-        name: vendorPoolSource.name,
-        slug: `${vendorPoolSource.slug}-partner-${Math.random().toString(36).substring(2, 7)}`,
-        shortDescription: vendorPoolSource.shortDescription,
-        description: vendorPoolSource.description,
-        barcode: barcodeForSku(`AMINA-POOL-${sourceSku}`),
-        minOrderQuantity: 1,
-        maxOrderQuantity: 20,
-        condition: "NEW",
-        isPreorder: false,
-        preorderDate: null,
-        weight: vendorPoolSource.weight,
-        useStoreDeliveryZones: true,
-        price: resalePrice,
-        comparePrice: vendorPoolSource.comparePrice,
-        sku: `AMINA-POOL-${sourceSku}`.slice(0, 64),
-        stock: 0,
-        productType: vendorPoolSource.productType,
-        productSource: "POOL_RESALE",
-        inventoryPolicy: "TRACKED",
-        requiresShipping: true,
-        trackInventory: true,
-        status: ProductStatus.ACTIVE,
-        categoryId: vendorPoolSource.categoryId,
-        brandId: vendorPoolSource.brandId,
-        isPoolProduct: true,
-        poolSourceStoreId: storeId,
-        poolSourceProductId: vendorPoolSource.id,
-        poolSourceBasePrice: sourceBasePrice,
-        poolMargin: resalePrice - sourceBasePrice,
-        images: vendorPoolSource.images?.length
-          ? {
-              create: vendorPoolSource.images.slice(0, 3).map((image: any, index: number) => ({
-                url: image.url,
-                alt: vendorPoolSource.name,
-                position: index,
-                isMain: index === 0,
-              })),
-            }
-          : undefined,
-      } as any,
+      include: { store: true, wallet: true },
     });
 
-    if (selectedPoolProduct) {
-      await db.vendorPoolOffer?.create({
+    const storeId = user.store!.id;
+    const walletId = user.wallet!.id;
+
+    // Store delivery areas
+    const deliverySetting = await db.storeDeliverySetting.findUnique({ where: { storeId } });
+    if (deliverySetting) {
+      for (const area of [
+        { state: "Lagos State", localGovernment: "Ikeja", fee: 1500, minDeliveryDays: 1, maxDeliveryDays: 3 },
+        { state: "Lagos State", localGovernment: "Eti Osa", fee: 2200, minDeliveryDays: 2, maxDeliveryDays: 4 },
+        { state: "Federal Capital Territory", localGovernment: "Abuja", fee: 3000, minDeliveryDays: 3, maxDeliveryDays: 5 },
+        { state: "Rivers State", localGovernment: "Port Harcourt", fee: 3500, minDeliveryDays: 3, maxDeliveryDays: 6 },
+      ]) {
+        await db.storeDeliveryArea.create({ data: { settingId: deliverySetting.id, ...area, isActive: true } });
+      }
+      // Store delivery zones (link to State/LGA)
+      const zoneSpecs = [
+        { stateCode: "LA", lgaName: "Ikeja", fee: 1500 },
+        { stateCode: "LA", lgaName: "Eti Osa", fee: 2200 },
+        { stateCode: "FC", lgaName: "Abuja", fee: 3000 },
+        { stateCode: "RI", lgaName: "Port Harcourt", fee: 3500 },
+      ];
+      for (const z of zoneSpecs) {
+        const zState = await db.state.findUnique({ where: { code: z.stateCode } });
+        const zLga = zState ? await db.localGovernment.findFirst({ where: { stateId: zState.id, name: z.lgaName } }) : null;
+        if (zState && zLga) {
+          await db.storeDeliveryZone.create({ data: { storeId, stateId: zState.id, lgaId: zLga.id, fee: z.fee, minDeliveryDays: 1, maxDeliveryDays: 5, isActive: true } });
+        }
+      }
+    }
+
+    // Opening balance wallet transaction (if balance > 0)
+    if (openingBalance > 0) {
+      await db.walletTransaction.create({
+        data: { walletId, vendorId: user.id, type: "OPENING_BALANCE", amount: openingBalance, balanceAfter: openingBalance, reference: `OPENING-${user.id.slice(-8)}`, reason: "Opening balance from prior sales", createdBy: "system" },
+      });
+    }
+
+    vendorInfo.push({ userId: user.id, storeId, storeSlug: v.storeSlug, storeName: v.storeName });
+  }
+  console.log(`   ✅ ${VENDORS.length} vendors + stores + wallets created\n`);
+
+  // ── 9. Rider ──
+  console.log("🚴 Creating rider...");
+  const riderHash = await bcrypt.hash(PWD.rider, 12);
+  const riderUser = await prisma.user.create({
+    data: {
+      email: "rider@kwikseller.com", phone: "+2348090000001", passwordHash: riderHash, role: UserRole.RIDER, status: UserStatus.ACTIVE, emailVerified: true,
+      profile: { create: { firstName: "Rider", lastName: "One" } },
+      rider: { create: { vehicleBrand: "Toyota", vehicleModel: "Camry", vehicleYear: 2020, vehicleColor: "Silver", licenseNumber: "LAG-12345", isAvailable: true, onboardingComplete: true, onboardingStep: "COMPLETED", verificationStatus: "APPROVED", rating: 4.8, totalDeliveries: 45, totalEarnings: 85000 } },
+    },
+  });
+  console.log("   ✅ Rider created\n");
+
+  // ── 10. Products ──
+  console.log("🛍️  Creating products...");
+  let productIdx = 1;
+  const allProducts: { id: string; name: string; price: number; mainImage: string; storeId: string; vendorIdx: number; isDigital: boolean; categoryId: string; brandId: string; stock: number }[] = [];
+
+  for (let vi = 0; vi < VENDORS.length; vi++) {
+    const v = VENDORS[vi];
+    const { storeId } = vendorInfo[vi];
+
+    for (const ps of v.products) {
+      const slug = `${slugify(ps.name)}-${randSuffix()}`;
+      const sku = makeSku(`V${vi + 1}`, productIdx);
+      const comparePrice = Math.round(ps.price * 1.15);
+      const isDigital = ps.digital ?? false;
+      const mainImg = img(ps.img, ps.name);
+      const product = await prisma.product.create({
         data: {
-          storeId: secondStoreId,
-          sourceType: "VENDOR_PRODUCT",
-          sourceStoreId: storeId,
-          sourceProductId: vendorPoolSource.id,
-          sourceBasePrice,
-          productId: selectedPoolProduct.id,
-          retailPrice: resalePrice,
-          markup: resalePrice - sourceBasePrice,
-          status: "ACTIVE",
-          isActive: true,
+          storeId, name: ps.name, slug,
+          shortDescription: `${ps.name} — quality product available on Kwikseller.`,
+          description: `<h2>${ps.name}</h2><p>Premium quality product from a verified Kwikseller vendor. Ships from Nigeria with secure escrow-protected payment.</p><ul><li>Quality checked and verified.</li><li>Secure checkout with Kwikscrow escrow protection.</li><li>Fast delivery from ${v.city}.</li></ul>`,
+          price: ps.price, comparePrice, sku, barcode: sku.padEnd(12, "0").slice(0, 12),
+          productType: isDigital ? "DIGITAL" : "PHYSICAL", productSource: "VENDOR_STOCK",
+          inventoryPolicy: isDigital ? "UNLIMITED" : "TRACKED", requiresShipping: !isDigital, trackInventory: !isDigital,
+          stock: ps.stock, lowStock: 5, minOrderQuantity: 1, maxOrderQuantity: isDigital ? 1 : Math.min(ps.stock, 25),
+          condition: "NEW", status: ProductStatus.ACTIVE, categoryId: categoryMap[ps.cat], brandId: brandMap[ps.brand],
+          isFeatured: productIdx % 7 === 0, weight: isDigital ? null : Number((0.3 + (ps.price % 5000) / 10000).toFixed(2)),
+          images: {
+            create: [
+              { url: mainImg, alt: ps.name, position: 0, isMain: true },
+              { url: img(ps.img, ps.name + "-2"), alt: `${ps.name} view 2`, position: 1, isMain: false },
+              { url: img(ps.img, ps.name + "-3"), alt: `${ps.name} view 3`, position: 2, isMain: false },
+            ],
+          },
+          ...(isDigital ? {} : { inventoryItems: { create: { storeId, sku, available: ps.stock, reserved: 0, lowStockThreshold: 5, policy: "TRACKED" } } }),
+          dimension: isDigital ? undefined : { create: { weight: Number((0.5 + (ps.price % 3000) / 6000).toFixed(2)), length: 20, width: 15, height: 8 } },
+          seo: { create: { metaTitle: `${ps.name} | Kwikseller`, metaDescription: `Buy ${ps.name} on Kwikseller.`, metaKeywords: `${ps.name}, Kwikseller, Nigeria` } },
+          ...(ps.digitalAsset ? { digitalAssets: { create: ps.digitalAsset } } : {}),
         },
       });
 
-      console.log("   Vendor-to-vendor Pool selection sample created for Amina Urban Market\n");
+      // Variants
+      if (ps.variants && !isDigital) {
+        for (const vdef of ps.variants) {
+          const vt = await prisma.variantType.create({ data: { productId: product.id, name: vdef.type, position: 0 } });
+          for (let i = 0; i < vdef.values.length; i++) {
+            await prisma.variantValue.create({ data: { variantTypeId: vt.id, value: vdef.values[i], position: i } });
+            const varPrice = ps.price + i * Math.round(ps.price * 0.05);
+            await prisma.productVariant.create({
+              data: { productId: product.id, name: `${vdef.type}: ${vdef.values[i]}`, price: varPrice, stock: Math.max(1, Math.floor(ps.stock / vdef.values.length)), sku: `${sku}-${vdef.values[i].slice(0, 3).toUpperCase()}` },
+            });
+          }
+        }
+      }
+
+      allProducts.push({ id: product.id, name: ps.name, price: ps.price, mainImage: mainImg, storeId, vendorIdx: vi, isDigital, categoryId: categoryMap[ps.cat], brandId: brandMap[ps.brand], stock: ps.stock });
+      productIdx++;
+    }
+  }
+  console.log(`   ✅ ${allProducts.length} products created with matched images\n`);
+
+  // ── 11. Banners ──
+  console.log("🖼️  Creating banners...");
+  for (const b of [
+    { title: "Tech Mega Sale", subTitle: "Up to 20% off top electronics", image: bannerImg("bannerElectronics"), url: "/categories/electronics", bannerType: "MAIN_BANNER", backgroundColor: "#F97316", buttonText: "Shop Tech", position: 1 },
+    { title: "Fashion Week Collection", subTitle: "Latest trends in Nigerian fashion", image: bannerImg("bannerFashion"), url: "/categories/fashion", bannerType: "MAIN_BANNER", backgroundColor: "#EC4899", buttonText: "Explore Fashion", position: 2 },
+    { title: "Flash Deals This Week", subTitle: "Limited time offers on gadgets", image: bannerImg("bannerDeals"), url: "/deals", bannerType: "PROMO_BANNER", backgroundColor: "#10B981", buttonText: "View Deals", position: 3 },
+    { title: "Home Makeover Sale", subTitle: "Transform your space today", image: bannerImg("bannerHome"), url: "/categories/home-kitchen", bannerType: "PROMO_BANNER", backgroundColor: "#3B82F6", buttonText: "Shop Home", position: 4 },
+    { title: "Digital Downloads", subTitle: "Instant access to ebooks & courses", image: bannerImg("bannerDigital"), url: "/categories/books-digital", bannerType: "SIDEBAR_BANNER", backgroundColor: "#06B6D4", buttonText: "Browse Digital", position: 5 },
+  ]) {
+    await prisma.banner.create({ data: { ...b, isActive: true, bannerType: b.bannerType as BannerType } });
+  }
+  console.log("   ✅ 5 banners created\n");
+
+  // ── 12. Deals ──
+  console.log("🏷️  Creating deals...");
+  const v0Products = allProducts.filter((p) => p.vendorIdx === 0).slice(0, 6); // electronics
+  const v1Products = allProducts.filter((p) => p.vendorIdx === 1).slice(0, 6); // fashion
+  const v2Products = allProducts.filter((p) => p.vendorIdx === 2).slice(0, 5); // home
+  const dealSpecs = [
+    { title: "Flash Sale — 20% Off Electronics", dealType: "FLASH_DEAL", discountValue: 20, endDate: daysAhead(7), products: v0Products, img: bannerImg("bannerElectronics") },
+    { title: "Deal of the Day — Fashion Picks", dealType: "DEAL_OF_THE_DAY", discountValue: 15, endDate: daysAhead(3), products: v1Products, img: bannerImg("bannerFashion") },
+    { title: "Featured Deal — Home Essentials", dealType: "FEATURED_DEAL", discountValue: 10, endDate: daysAhead(14), products: v2Products, img: bannerImg("bannerHome") },
+  ];
+  for (const ds of dealSpecs) {
+    const deal = await prisma.deal.create({ data: { title: ds.title, description: ds.title, imageUrl: ds.img, dealType: ds.dealType as DealType, discountType: "PERCENTAGE", discountValue: ds.discountValue, startDate: new Date(), endDate: ds.endDate, minOrderValue: 0, isActive: true } });
+    for (const p of ds.products) {
+      await db.dealProduct.create({ data: { dealId: deal.id, productId: p.id, dealPrice: Math.round(p.price * (1 - ds.discountValue / 100)) } });
+    }
+  }
+  console.log("   ✅ 3 deals created with linked products\n");
+
+  // ── 13. Coupons ──
+  console.log("🎫 Creating coupons...");
+  for (const c of [
+    { code: "WELCOME10", title: "10% Welcome Discount", description: "Get 10% off your first order", discountType: "PERCENTAGE", discountValue: 10, minOrderValue: 2000, maxDiscount: 5000, maxUses: 1000, startDate: new Date(), endDate: daysAhead(30), isActive: true },
+    { code: "FLASH20", title: "20% Flash Sale Coupon", description: "Extra 20% off during flash sales", discountType: "PERCENTAGE", discountValue: 20, minOrderValue: 5000, maxDiscount: 10000, maxUses: 200, startDate: new Date(), endDate: daysAhead(7), isActive: true },
+  ]) {
+    await prisma.coupon.create({ data: { ...c, discountType: c.discountType as DiscountType } });
+  }
+  console.log("   ✅ 2 coupons created\n");
+
+  // ── 14. ORDERS (8 scenarios) ──
+  console.log("📦 Creating orders with full lifecycle...");
+  let orderCounter = 0;
+  const nextRef = (prefix: string) => `${prefix}-${String(++orderCounter).padStart(4, "0")}`;
+
+  // Helper to compute totals (1% processing fee)
+  function computeTotals(subtotal: number, shippingFee: number, discount = 0) {
+    const processingFeeAmount = Math.round(subtotal * 0.01 * 100) / 100;
+    const totalAmount = Math.round((subtotal + shippingFee + processingFeeAmount - discount) * 100) / 100;
+    return { processingFeePercent: 1.0, processingFeeAmount, totalAmount };
+  }
+
+  // Helper to create an order with full chain
+  async function createOrderChain(opts: {
+    buyerId: string;
+    storeId: string;
+    vendorUserId: string;
+    items: { product: typeof allProducts[0]; qty: number; unitPrice?: number }[];
+    deliveryMethod: "PICKUP" | "STANDARD_DELIVERY";
+    quoteStatus: "PENDING_VENDOR_QUOTE" | "AGREED" | "CANCELLED";
+    quoteRevisions?: { type: string; amount: number; actorId: string; note?: string; daysAgo: number }[];
+    agreedDeliveryFee?: number;
+    orderStatus: string;
+    paymentStatus: string;
+    paid?: boolean;
+    escrowStatus?: "HELD" | "RELEASED" | null;
+    deliveryStatus?: string | null;
+    fulfillmentStatus?: string | null;
+    fulfillmentType?: string | null;
+    review?: { rating: number; comment: string } | null;
+    notifications?: { userId: string; type: string; title: string; message: string }[];
+    parentCheckoutId?: string;
+    deliveryAddress?: string;
+    pickupAddress?: string;
+    daysOffset?: number; // how many days ago the order was placed
+    customerConfirmed?: boolean;
+  }) {
+    const offset = opts.daysOffset ?? 5;
+    const placedAt = daysAgo(offset);
+    const subtotal = opts.items.reduce((s, i) => s + (i.unitPrice ?? i.product.price) * i.qty, 0);
+    const shippingFee = opts.quoteStatus === "AGREED" ? (opts.agreedDeliveryFee ?? 0) : 0;
+    const { processingFeePercent, processingFeeAmount, totalAmount } = computeTotals(subtotal, shippingFee);
+    const checkoutRef = nextRef("KWIK-CHK");
+
+    // Create order
+    const order = await prisma.order.create({
+      data: {
+        buyerId: opts.buyerId, storeId: opts.storeId, parentCheckoutId: opts.parentCheckoutId,
+        status: opts.orderStatus as any, subtotal, shippingFee, discount: 0, totalAmount,
+        paymentStatus: opts.paymentStatus as any, checkoutReference: checkoutRef,
+        deliveryMethod: opts.deliveryMethod as any, quoteStatus: opts.quoteStatus as any,
+        quoteExpiresAt: opts.quoteStatus === "PENDING_VENDOR_QUOTE" ? daysAhead(2) : null,
+        processingFeePercent, processingFeeAmount, agreedDeliveryFee: opts.agreedDeliveryFee ?? 0,
+        agreedAt: opts.quoteStatus === "AGREED" ? daysAgo(offset - 1) : null,
+        createdAt: placedAt, updatedAt: placedAt,
+        deliveryState: opts.deliveryMethod === "STANDARD_DELIVERY" ? "Lagos State" : null,
+        deliveryLocalGovernment: opts.deliveryMethod === "STANDARD_DELIVERY" ? "Ikeja" : null,
+      },
+    });
+
+    // Order items with snapshots
+    for (const it of opts.items) {
+      const unitPrice = it.unitPrice ?? it.product.price;
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id, productId: it.product.id, quantity: it.qty, unitPrice, totalPrice: unitPrice * it.qty,
+          productType: it.product.isDigital ? "DIGITAL" : "PHYSICAL", productSource: "VENDOR_STOCK",
+          sellerStoreId: opts.storeId, fulfillmentStatus: (opts.fulfillmentStatus ?? "PENDING") as any,
+          productNameSnapshot: it.product.name, productSkuSnapshot: `SKU-V${it.product.vendorIdx + 1}`,
+          productSlugSnapshot: slugify(it.product.name), productImageSnapshot: it.product.mainImage,
+          vendorNameSnapshot: vendorInfo[it.product.vendorIdx].storeName, vendorStoreIdSnapshot: it.product.storeId,
+        },
+      });
+    }
+
+    // Quote + revisions
+    if (opts.quoteStatus !== "PENDING_VENDOR_QUOTE" || opts.quoteRevisions) {
+      const quote = await prisma.quote.create({
+        data: {
+          orderId: order.id, vendorId: opts.vendorUserId, buyerId: opts.buyerId, status: opts.quoteStatus as any,
+          currentAmount: opts.agreedDeliveryFee ?? 0,
+          agreedAmount: opts.quoteStatus === "AGREED" ? (opts.agreedDeliveryFee ?? 0) : null,
+          expiresAt: daysAhead(5), agreedAt: opts.quoteStatus === "AGREED" ? daysAgo(offset - 1) : null,
+          rejectedAt: opts.quoteStatus === "CANCELLED" ? daysAgo(offset - 1) : null,
+          rejectedBy: opts.quoteStatus === "CANCELLED" ? opts.buyerId : null,
+          rejectReason: opts.quoteStatus === "CANCELLED" ? "Cancelled by customer" : null,
+        },
+      });
+      if (opts.quoteRevisions) {
+        for (const r of opts.quoteRevisions) {
+          await prisma.quoteRevision.create({ data: { quoteId: quote.id, type: r.type as any, amount: r.amount, actorId: r.actorId, note: r.note, createdAt: daysAgo(r.daysAgo) } });
+        }
+      }
+    } else if (opts.quoteStatus === "PENDING_VENDOR_QUOTE") {
+      await prisma.quote.create({ data: { orderId: order.id, vendorId: opts.vendorUserId, buyerId: opts.buyerId, status: "PENDING_VENDOR_QUOTE", currentAmount: 0, expiresAt: daysAhead(2) } });
+    }
+
+    // Payment (only for standalone orders — parent-checkout orders get their payment on the ParentCheckout)
+    if (opts.paid && !opts.parentCheckoutId) {
+      const payRef = nextRef("PAY");
+      await prisma.payment.create({
+        data: { orderId: order.id, entityType: "ORDER", entityId: order.id, amount: totalAmount, gateway: "PAYSTACK", reference: payRef, status: "PAID", paidAt: placedAt, verifiedAt: placedAt },
+      });
+    }
+
+    // Escrow
+    if (opts.escrowStatus) {
+      const escRef = nextRef("ESC");
+      const escrow = await prisma.escrow.create({
+        data: { orderId: order.id, vendorId: opts.vendorUserId, amount: totalAmount, status: opts.escrowStatus, heldAt: placedAt, releasedAt: opts.escrowStatus === "RELEASED" ? daysAgo(Math.max(1, offset - 3)) : null, transactionRef: escRef },
+      });
+
+      // If released → wallet transaction + commission
+      if (opts.escrowStatus === "RELEASED") {
+        const wallet = await prisma.wallet.findUnique({ where: { vendorId: opts.vendorUserId } });
+        if (wallet) {
+          const vendorEarnings = Math.round((subtotal + shippingFee - processingFeeAmount) * 100) / 100;
+          const newBalance = Math.round((wallet.availableBalance + vendorEarnings) * 100) / 100;
+          const wtRef = nextRef("WT");
+          await db.walletTransaction.create({ data: { walletId: wallet.id, vendorId: opts.vendorUserId, type: "ESCROW_RELEASE", amount: vendorEarnings, balanceAfter: newBalance, reference: wtRef, orderId: order.id, escrowId: escrow.id, reason: `Escrow release for order ${checkoutRef}`, createdBy: "system" } });
+          await prisma.wallet.update({ where: { id: wallet.id }, data: { availableBalance: newBalance, totalEarned: Math.round((wallet.totalEarned + vendorEarnings) * 100) / 100 } });
+        }
+        await prisma.commission.create({ data: { orderId: order.id, vendorId: opts.vendorUserId, saleAmount: subtotal, platformFeePercent: 1.0, platformFeeAmount: processingFeeAmount, vendorEarnings: Math.round((subtotal + shippingFee - processingFeeAmount) * 100) / 100, plan: "SCALE", settledAt: daysAgo(Math.max(1, offset - 3)) } });
+      }
+    }
+
+    // Delivery
+    if (opts.deliveryStatus && opts.deliveryMethod === "STANDARD_DELIVERY") {
+      await prisma.delivery.create({
+        data: {
+          orderId: order.id, status: opts.deliveryStatus as any, riderId: opts.deliveryStatus === "IN_TRANSIT" || opts.deliveryStatus === "DELIVERED" || opts.deliveryStatus === "COMPLETED" ? riderUser.id : null,
+          assignedAt: opts.deliveryStatus !== "PENDING" ? daysAgo(offset - 2) : null, acceptedAt: opts.deliveryStatus !== "PENDING" ? daysAgo(offset - 2) : null,
+          vendorPreparingAt: daysAgo(offset - 2), vendorReadyAt: opts.deliveryStatus !== "PENDING" ? daysAgo(offset - 2) : null,
+          pickedUpAt: opts.deliveryStatus === "IN_TRANSIT" || opts.deliveryStatus === "DELIVERED" || opts.deliveryStatus === "COMPLETED" ? daysAgo(offset - 1) : null,
+          inTransitAt: opts.deliveryStatus === "IN_TRANSIT" || opts.deliveryStatus === "DELIVERED" || opts.deliveryStatus === "COMPLETED" ? daysAgo(offset - 1) : null,
+          deliveredAt: (opts.deliveryStatus === "DELIVERED" || opts.deliveryStatus === "COMPLETED") ? daysAgo(Math.max(1, offset - 3)) : null,
+          customerConfirmed: opts.customerConfirmed ?? (opts.deliveryStatus === "COMPLETED"), customerConfirmedAt: opts.customerConfirmed ? daysAgo(Math.max(1, offset - 3)) : null,
+          pickupAddress: opts.pickupAddress ?? "Vendor store", deliveryAddress: opts.deliveryAddress ?? "Customer address",
+          deliveryContactName: "Customer", deliveryContactPhone: "+2348000000000",
+        },
+      });
+    }
+
+    // Fulfillment
+    if (opts.fulfillmentStatus && opts.fulfillmentType) {
+      const digitalProduct = opts.items.find((i) => i.product.isDigital);
+      const digitalAsset = digitalProduct ? await db.digitalAsset.findFirst({ where: { productId: digitalProduct.product.id } }) : null;
+      await prisma.fulfillment.create({
+        data: {
+          orderId: order.id, type: opts.fulfillmentType as any, status: opts.fulfillmentStatus as any,
+          digitalAssetId: digitalAsset?.id, accessUrl: digitalAsset?.accessUrl ?? digitalAsset?.fileUrl,
+          deliveredAt: (opts.fulfillmentStatus === "FULFILLED" || opts.fulfillmentStatus === "DELIVERED") ? daysAgo(Math.max(1, offset - 3)) : null,
+        },
+      });
+    }
+
+    // Review
+    if (opts.review) {
+      const reviewProduct = opts.items[0].product;
+      await prisma.review.create({
+        data: { productId: reviewProduct.id, userId: opts.buyerId, orderId: order.id, rating: opts.review.rating, title: opts.review.rating >= 4 ? "Great product!" : "Decent", comment: opts.review.comment, isApproved: true, isVerifiedPurchase: true },
+      });
+      // Update product rating
+      const reviews = await prisma.review.findMany({ where: { productId: reviewProduct.id }, select: { rating: true } });
+      const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+      await prisma.product.update({ where: { id: reviewProduct.id }, data: { rating: Math.round(avg * 10) / 10, reviewCount: reviews.length } });
+    }
+
+    // Notifications
+    if (opts.notifications) {
+      for (const n of opts.notifications) {
+        await prisma.notification.create({ data: { userId: n.userId, type: n.type, title: n.title, message: n.message, isRead: false } });
+      }
+    }
+
+    return order;
+  }
+
+  // Scenario 1: Pickup order, fully completed (Vendor 1, Customer 1)
+  await createOrderChain({
+    buyerId: customerIds[0], storeId: vendorInfo[0].storeId, vendorUserId: vendorInfo[0].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 0 && p.name.includes("Galaxy A54"))!, qty: 1 }],
+    deliveryMethod: "PICKUP", quoteStatus: "AGREED", agreedDeliveryFee: 0,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 0, actorId: vendorInfo[0].userId, note: "Pickup — no delivery fee", daysAgo: 5 },
+      { type: "CUSTOMER_ACCEPT", amount: 0, actorId: customerIds[0], daysAgo: 5 },
+    ],
+    orderStatus: "DELIVERED", paymentStatus: "PAID", paid: true, escrowStatus: "RELEASED",
+    fulfillmentStatus: "FULFILLED", fulfillmentType: "PHYSICAL_MANUAL",
+    review: { rating: 5, comment: "Great product, fast pickup!" },
+    notifications: [
+      { userId: customerIds[0], type: "ORDER_DELIVERED", title: "Order Delivered", message: "Your order has been delivered. Please confirm receipt." },
+      { userId: vendorInfo[0].userId, type: "WALLET_CREDITED", title: "Payment Released", message: "Escrow payment has been released to your wallet." },
+    ],
+    daysOffset: 5,
+  });
+
+  // Scenario 2: Standard delivery, in transit (Vendor 2, Customer 2)
+  await createOrderChain({
+    buyerId: customerIds[1], storeId: vendorInfo[1].storeId, vendorUserId: vendorInfo[1].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 1 && p.name.includes("Air Max"))!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "AGREED", agreedDeliveryFee: 2500,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 2500, actorId: vendorInfo[1].userId, note: "Standard delivery to Abuja", daysAgo: 4 },
+      { type: "CUSTOMER_ACCEPT", amount: 2500, actorId: customerIds[1], daysAgo: 4 },
+    ],
+    orderStatus: "SHIPPED", paymentStatus: "PAID", paid: true, escrowStatus: "HELD",
+    deliveryStatus: "IN_TRANSIT", fulfillmentStatus: "PROCESSING", fulfillmentType: "PHYSICAL_MANUAL",
+    deliveryAddress: "45 Wuse 2 Crescent, Abuja", pickupAddress: "Bola Fashion House, Lagos",
+    notifications: [
+      { userId: customerIds[1], type: "ORDER_IN_TRANSIT", title: "Order In Transit", message: "Your order is on the way to Abuja." },
+      { userId: vendorInfo[1].userId, type: "NEW_ORDER", title: "New Order Received", message: "You received a new order. Payment is held in escrow." },
+    ],
+    daysOffset: 4,
+  });
+
+  // Scenario 3: Multi-vendor via ParentCheckout (Vendor 1 + Vendor 3, Customer 3)
+  const parentCheckout = await prisma.parentCheckout.create({
+    data: { buyerId: customerIds[2], status: "PAID", subtotal: 0, shippingFee: 0, discount: 0, totalAmount: 0, paymentStatus: "PAID", checkoutReference: nextRef("KWIK-CHK"), idempotencyKey: `idem-${orderCounter}` },
+  });
+
+  // Order A: Vendor 1 headphones — delivered, escrow released
+  const order3a = await createOrderChain({
+    buyerId: customerIds[2], storeId: vendorInfo[0].storeId, vendorUserId: vendorInfo[0].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 0 && p.name.includes("AirPods"))!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "AGREED", agreedDeliveryFee: 2000,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 2000, actorId: vendorInfo[0].userId, daysAgo: 6 },
+      { type: "CUSTOMER_ACCEPT", amount: 2000, actorId: customerIds[2], daysAgo: 6 },
+    ],
+    orderStatus: "DELIVERED", paymentStatus: "PAID", paid: true, escrowStatus: "RELEASED",
+    deliveryStatus: "COMPLETED", fulfillmentStatus: "FULFILLED", fulfillmentType: "PHYSICAL_MANUAL",
+    deliveryAddress: "78 Aba Road, Port Harcourt", customerConfirmed: true,
+    review: { rating: 4, comment: "Good sound quality, fast delivery." },
+    notifications: [
+      { userId: customerIds[2], type: "ORDER_DELIVERED", title: "Order Delivered", message: "Your AirPods have been delivered." },
+    ],
+    parentCheckoutId: parentCheckout.id, daysOffset: 6,
+  });
+
+  // Order B: Vendor 3 airfryer — confirmed, escrow held
+  const order3b = await createOrderChain({
+    buyerId: customerIds[2], storeId: vendorInfo[2].storeId, vendorUserId: vendorInfo[2].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 2 && p.name.includes("Air Fryer") && p.price === 25000)!, qty: 2 }],
+    deliveryMethod: "PICKUP", quoteStatus: "AGREED", agreedDeliveryFee: 0,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 0, actorId: vendorInfo[2].userId, note: "Pickup — no fee", daysAgo: 6 },
+      { type: "CUSTOMER_ACCEPT", amount: 0, actorId: customerIds[2], daysAgo: 6 },
+    ],
+    orderStatus: "CONFIRMED", paymentStatus: "PAID", paid: true, escrowStatus: "HELD",
+    fulfillmentStatus: "PENDING", fulfillmentType: "PHYSICAL_MANUAL",
+    notifications: [
+      { userId: vendorInfo[2].userId, type: "NEW_ORDER", title: "New Order Received", message: "You received a new pickup order." },
+    ],
+    parentCheckoutId: parentCheckout.id, daysOffset: 6,
+  });
+
+  // Update parent checkout totals
+  const sub3 = order3a.totalAmount + order3b.totalAmount;
+  await prisma.parentCheckout.update({ where: { id: parentCheckout.id }, data: { subtotal: sub3, totalAmount: sub3 } });
+  await prisma.payment.create({ data: { parentCheckoutId: parentCheckout.id, entityType: "CHECKOUT", entityId: parentCheckout.id, amount: sub3, gateway: "PAYSTACK", reference: nextRef("PAY"), status: "PAID", paidAt: daysAgo(6), verifiedAt: daysAgo(6) } });
+
+  // Scenario 4: Digital product order, fulfilled (Vendor 10, Customer 4)
+  await createOrderChain({
+    buyerId: customerIds[3], storeId: vendorInfo[9].storeId, vendorUserId: vendorInfo[9].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 9 && p.name.includes("Marketing Course"))!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "AGREED", agreedDeliveryFee: 0,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 0, actorId: vendorInfo[9].userId, note: "Digital — no delivery fee", daysAgo: 4 },
+      { type: "CUSTOMER_ACCEPT", amount: 0, actorId: customerIds[3], daysAgo: 4 },
+    ],
+    orderStatus: "FULFILLED", paymentStatus: "PAID", paid: true, escrowStatus: "RELEASED",
+    fulfillmentStatus: "FULFILLED", fulfillmentType: "DIGITAL_ACCESS",
+    review: { rating: 5, comment: "Excellent digital course, instant access!" },
+    notifications: [
+      { userId: customerIds[3], type: "DIGITAL_READY", title: "Digital Purchase Ready", message: "Your digital course is ready to access." },
+      { userId: vendorInfo[9].userId, type: "WALLET_CREDITED", title: "Payment Released", message: "Escrow payment released to your wallet." },
+    ],
+    daysOffset: 4,
+  });
+
+  // Scenario 5: Pending vendor quote, no payment (Vendor 5, Customer 5)
+  await createOrderChain({
+    buyerId: customerIds[4], storeId: vendorInfo[4].storeId, vendorUserId: vendorInfo[4].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 4 && p.name.includes("Dumbbell"))!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "PENDING_VENDOR_QUOTE",
+    orderStatus: "PENDING", paymentStatus: "PENDING", paid: false,
+    notifications: [
+      { userId: vendorInfo[4].userId, type: "QUOTE_REQUESTED", title: "New Order Awaiting Quote", message: "A customer placed an order. Please submit a delivery quote." },
+    ],
+    daysOffset: 1,
+  });
+
+  // Scenario 6: Quote negotiation, agreed but not paid (Vendor 2, Customer 6)
+  await createOrderChain({
+    buyerId: customerIds[5], storeId: vendorInfo[1].storeId, vendorUserId: vendorInfo[1].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 1 && p.name.includes("Ankara"))!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "AGREED", agreedDeliveryFee: 3000,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 3500, actorId: vendorInfo[1].userId, note: "Standard delivery to Abuja", daysAgo: 4 },
+      { type: "CUSTOMER_REQUEST_REDUCTION", amount: 2500, actorId: customerIds[5], note: "Can you reduce to 2500?", daysAgo: 3 },
+      { type: "VENDOR_REVISE", amount: 3000, actorId: vendorInfo[1].userId, note: "Best I can do is 3000", daysAgo: 2 },
+      { type: "CUSTOMER_ACCEPT", amount: 3000, actorId: customerIds[5], daysAgo: 1 },
+    ],
+    orderStatus: "PENDING_PAYMENT", paymentStatus: "PENDING", paid: false,
+    notifications: [
+      { userId: vendorInfo[1].userId, type: "QUOTE_NEGOTIATION", title: "Customer Requested Reduction", message: "Customer requested a delivery fee reduction." },
+      { userId: customerIds[5], type: "QUOTE_REVISED", title: "Vendor Revised Quote", message: "Vendor revised delivery fee to ₦3,000." },
+    ],
+    daysOffset: 4,
+  });
+
+  // Scenario 7: Cancelled order (Vendor 1, Customer 7)
+  await createOrderChain({
+    buyerId: customerIds[6], storeId: vendorInfo[0].storeId, vendorUserId: vendorInfo[0].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 0 && p.name.includes("Charger") && p.price === 6500)!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "CANCELLED",
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 2000, actorId: vendorInfo[0].userId, daysAgo: 3 },
+      { type: "CUSTOMER_REJECT", amount: 0, actorId: customerIds[6], note: "Found a better deal elsewhere", daysAgo: 2 },
+    ],
+    orderStatus: "CANCELLED", paymentStatus: "PENDING", paid: false,
+    notifications: [
+      { userId: vendorInfo[0].userId, type: "ORDER_CANCELLED", title: "Order Cancelled", message: "Customer cancelled the order." },
+    ],
+    daysOffset: 3,
+  });
+
+  // Scenario 8: Completed standard delivery with review (Vendor 3, Customer 8)
+  await createOrderChain({
+    buyerId: customerIds[7], storeId: vendorInfo[2].storeId, vendorUserId: vendorInfo[2].userId,
+    items: [{ product: allProducts.find((p) => p.vendorIdx === 2 && p.name.includes("Air Fryer") && p.price === 25000)!, qty: 1 }],
+    deliveryMethod: "STANDARD_DELIVERY", quoteStatus: "AGREED", agreedDeliveryFee: 2200,
+    quoteRevisions: [
+      { type: "VENDOR_QUOTE", amount: 2200, actorId: vendorInfo[2].userId, daysAgo: 5 },
+      { type: "CUSTOMER_ACCEPT", amount: 2200, actorId: customerIds[7], daysAgo: 5 },
+    ],
+    orderStatus: "DELIVERED", paymentStatus: "PAID", paid: true, escrowStatus: "RELEASED",
+    deliveryStatus: "COMPLETED", fulfillmentStatus: "FULFILLED", fulfillmentType: "PHYSICAL_MANUAL",
+    deliveryAddress: "30 Broad Street, Lagos Island", customerConfirmed: true,
+    review: { rating: 4, comment: "Works well, slightly smaller than expected." },
+    notifications: [
+      { userId: customerIds[7], type: "ORDER_DELIVERED", title: "Order Delivered", message: "Your air fryer has been delivered." },
+      { userId: vendorInfo[2].userId, type: "WALLET_CREDITED", title: "Payment Released", message: "Escrow payment released to your wallet." },
+    ],
+    daysOffset: 5,
+  });
+
+  const orderCount = await prisma.order.count();
+  console.log(`   ✅ ${orderCount} orders created with full lifecycle chains\n`);
+
+  // ── 15. Carts ──
+  console.log("🛒 Creating carts...");
+  // Cart 1: customer1 with 1 item
+  const cart1 = await prisma.cart.create({ data: { userId: customerIds[0] } });
+  const p1 = allProducts.find((p) => p.vendorIdx === 0 && p.name.includes("Galaxy A54"))!;
+  await prisma.cartItem.create({ data: { cartId: cart1.id, productId: p1.id, quantity: 1, price: p1.price, productType: "PHYSICAL", productSource: "VENDOR_STOCK", requiresShipping: true } });
+  // Cart 2: customer2 with 2 items from different vendors
+  const cart2 = await prisma.cart.create({ data: { userId: customerIds[1] } });
+  const p2a = allProducts.find((p) => p.vendorIdx === 1 && p.name.includes("Air Max"))!;
+  const p2b = allProducts.find((p) => p.vendorIdx === 4 && p.name.includes("Football"))!;
+  await prisma.cartItem.create({ data: { cartId: cart2.id, productId: p2a.id, quantity: 1, price: p2a.price, productType: "PHYSICAL", productSource: "VENDOR_STOCK", requiresShipping: true } });
+  await prisma.cartItem.create({ data: { cartId: cart2.id, productId: p2b.id, quantity: 2, price: p2b.price, productType: "PHYSICAL", productSource: "VENDOR_STOCK", requiresShipping: true } });
+  // Cart 3: empty
+  await prisma.cart.create({ data: { userId: customerIds[2] } });
+  console.log("   ✅ 3 carts created\n");
+
+  // ── 16. Wishlists ──
+  console.log("💝 Creating wishlists...");
+  const wlProducts = allProducts.filter((p) => !p.isDigital).slice(0, 5);
+  for (let i = 0; i < 3; i++) await prisma.wishlist.create({ data: { userId: customerIds[0], productId: wlProducts[i].id } });
+  for (let i = 3; i < 5; i++) await prisma.wishlist.create({ data: { userId: customerIds[1], productId: wlProducts[i].id } });
+  console.log("   ✅ 5 wishlist entries created\n");
+
+  // ── 17. General notifications ──
+  console.log("🔔 Creating general notifications...");
+  await prisma.notification.create({ data: { userId: customerIds[0], type: "WELCOME", title: "Welcome to Kwikseller!", message: "Thank you for joining Kwikseller. Start shopping today!", isRead: false } });
+  await prisma.notification.create({ data: { userId: customerIds[1], type: "WISHLIST_SALE", title: "Wishlist Item on Sale", message: "An item on your wishlist is now on sale!", isRead: false } });
+  await prisma.notification.create({ data: { userId: vendorInfo[0].userId, type: "STORE_VERIFIED", title: "Store Verified", message: "Your store has been verified. You can now publish products.", isRead: true } });
+  console.log("   ✅ 3 general notifications created\n");
+
+  // ── 18. VALIDATION ──
+  console.log("🔍 Running validation checks...\n");
+  let passCount = 0, failCount = 0;
+  async function check(name: string, fn: () => Promise<boolean | string>) {
+    try {
+      const result = await fn();
+      if (result === true) { console.log(`   ✅ PASS: ${name}`); passCount++; }
+      else { console.log(`   ❌ FAIL: ${name} — ${result}`); failCount++; }
+    } catch (e: any) {
+      console.log(`   ❌ FAIL: ${name} — ${e.message}`); failCount++;
     }
   }
 
-  const seededProductsForMetadata = await prisma.product.findMany({
-    where: { storeId: { in: [storeId, secondStoreId] } },
-    select: {
-      id: true,
-      name: true,
-      sku: true,
-      price: true,
-      weight: true,
-      shortDescription: true,
-      productType: true,
-    },
+  await check("Every Product has a valid store", async () => {
+    const products = await prisma.product.findMany({ select: { storeId: true } });
+    const storeIds = new Set((await prisma.store.findMany({ select: { id: true } })).map((s) => s.id));
+    const orphan = products.filter((p) => !storeIds.has(p.storeId)).length;
+    return orphan === 0 ? true : `${orphan} products with missing store`;
+  });
+  await check("Every Product has at least 1 image", async () => {
+    const productsWithImages = await prisma.product.findMany({ select: { id: true, _count: { select: { images: true } } } });
+    const noImg = productsWithImages.filter((p) => p._count.images === 0).length;
+    return noImg === 0 ? true : `${noImg} products with 0 images`;
+  });
+  await check("Every Product has a category", async () => {
+    const noCat = await prisma.product.count({ where: { categoryId: null } });
+    return noCat === 0 ? true : `${noCat} products without category`;
+  });
+  await check("Every Order has OrderItems", async () => {
+    const orders = await prisma.order.findMany({ select: { id: true, _count: { select: { items: true } } } });
+    const empty = orders.filter((o) => o._count.items === 0).length;
+    return empty === 0 ? true : `${empty} orders with 0 items`;
+  });
+  await check("Every Deal has DealProducts", async () => {
+    const deals = await prisma.deal.findMany({ select: { id: true, _count: { select: { products: true } } } });
+    const empty = deals.filter((d) => d._count.products === 0).length;
+    return empty === 0 ? true : `${empty} deals with 0 products`;
+  });
+  await check("Every Wallet belongs to a VENDOR", async () => {
+    const wallets = await prisma.wallet.findMany({ include: { vendor: { select: { role: true } } } });
+    const bad = wallets.filter((w) => w.vendor.role !== "VENDOR").length;
+    return bad === 0 ? true : `${bad} wallets on non-vendors`;
+  });
+  await check("WalletTransaction references are unique", async () => {
+    const txs = await prisma.walletTransaction.findMany({ select: { reference: true } });
+    const refs = txs.map((t) => t.reference);
+    return new Set(refs).size === refs.length ? true : `${refs.length - new Set(refs).size} duplicate refs`;
+  });
+  await check("Every Escrow has a valid Order", async () => {
+    const escs = await prisma.escrow.findMany({ include: { order: { select: { id: true } } } });
+    const bad = escs.filter((e) => !e.order).length;
+    return bad === 0 ? true : `${bad} orphan escrows`;
+  });
+  await check("Every Review references real Product + User", async () => {
+    const reviews = await prisma.review.findMany({ include: { product: { select: { id: true } }, user: { select: { id: true } } } });
+    const bad = reviews.filter((r) => !r.product || !r.user).length;
+    return bad === 0 ? true : `${bad} orphan reviews`;
+  });
+  await check("Every Notification belongs to a real User", async () => {
+    const notifs = await prisma.notification.findMany({ include: { user: { select: { id: true } } } });
+    const bad = notifs.filter((n) => !n.user).length;
+    return bad === 0 ? true : `${bad} orphan notifications`;
+  });
+  await check("Digital Fulfillments only reference DIGITAL products", async () => {
+    const digitalFul = await prisma.fulfillment.findMany({ where: { type: "DIGITAL_ACCESS" }, include: { order: { include: { items: { include: { product: { select: { productType: true } } } } } } } });
+    let bad = 0;
+    for (const f of digitalFul) {
+      for (const it of f.order.items) {
+        if (it.product.productType !== "DIGITAL") bad++;
+      }
+    }
+    return bad === 0 ? true : `${bad} digital fulfillments on physical products`;
+  });
+  await check("Every Quote matches a real Order", async () => {
+    const quotes = await prisma.quote.findMany({ include: { order: { select: { id: true } } } });
+    const bad = quotes.filter((q) => !q.order).length;
+    return bad === 0 ? true : `${bad} orphan quotes`;
+  });
+  await check("Order totals are consistent", async () => {
+    const orders = await prisma.order.findMany({ select: { subtotal: true, shippingFee: true, processingFeeAmount: true, discount: true, totalAmount: true } });
+    let bad = 0;
+    for (const o of orders) {
+      const expected = Math.round((o.subtotal + o.shippingFee + o.processingFeeAmount - o.discount) * 100) / 100;
+      if (Math.abs(expected - o.totalAmount) > 1) bad++;
+    }
+    return bad === 0 ? true : `${bad} orders with inconsistent totals`;
   });
 
-  await db.productDimension?.createMany({
-    data: seededProductsForMetadata
-      .filter((product) => product.productType === "PHYSICAL")
-      .map((product) => seededDimension(product)),
-    skipDuplicates: true,
-  });
+  console.log(`\n   Validation: ${passCount} passed, ${failCount} failed\n`);
 
-  await db.productSeo?.createMany({
-    data: seededProductsForMetadata.map((product) => seededSeo(product)),
-    skipDuplicates: true,
-  });
-
-  console.log(`   ✅ ${imageData.length} product media created`);
-  console.log(`   ✅ Dimensions and SEO seeded for ${seededProductsForMetadata.length} products\n`);
-
-  // ── Summary ────────────────────────────────────────────────
-  console.log("══════════════════════════════════════════════════");
-  // ── 11. Create Admin User ─────────────────────────────────
-  console.log("\n👤 Creating admin user...");
-
-  const adminExisting = await prisma.user.findUnique({
-    where: {
-      email_role: {
-        email: "admin@kwikseller.com",
-        role: UserRole.ADMIN,
-      },
-    },
-  });
-
-  if (!adminExisting) {
-    const adminHash = await bcrypt.hash("Admin123!", 12);
-    await prisma.user.create({
-      data: {
-        email: "admin@kwikseller.com",
-        passwordHash: adminHash,
-        role: UserRole.ADMIN,
-        status: UserStatus.ACTIVE,
-        emailVerified: true,
-        profile: {
-          create: {
-            firstName: "Admin",
-            lastName: "User",
-          },
-        },
-        adminPermission: {
-          create: {
-            role: AdminRole.SUPER_ADMIN,
-            permissions: "*",
-            grantedBy: "system",
-            isActive: true,
-          },
-        },
-      },
-    });
-    console.log("   ✅ Admin user created (admin@kwikseller.com / Admin123!)\n");
-  } else {
-    console.log("   ⚠️  Admin user already exists\n");
-  }
-
-  // ── 12. Create Banners ───────────────────────────────────
-  console.log("🖼️  Creating banners...");
-  await prisma.banner.deleteMany();
-
-  const BANNERS = [
-    {
-      title: "Summer Electronics Sale",
-      subTitle: "Up to 30% off on top electronics brands",
-      image: bannerImageUrl("Summer Electronics Sale"),
-      url: "/categories/electronics",
-      bannerType: "MAIN_BANNER" as const,
-      backgroundColor: "#f97316",
-      buttonText: "Shop Now",
-      position: 1,
-      isActive: true,
-    },
-    {
-      title: "New Fashion Collection",
-      subTitle: "Discover the latest trends in Nigerian fashion",
-      image: bannerImageUrl("New Fashion Collection"),
-      url: "/categories/fashion",
-      bannerType: "MAIN_BANNER" as const,
-      backgroundColor: "#ec4899",
-      buttonText: "Explore",
-      position: 2,
-      isActive: true,
-    },
-    {
-      title: "Flash Deals This Week",
-      subTitle: "Limited time offers on phones and gadgets",
-      image: bannerImageUrl("Flash Deals This Week"),
-      url: "/deals",
-      bannerType: "PROMO_BANNER" as const,
-      resourceType: "category",
-      backgroundColor: "#10b981",
-      buttonText: "View Deals",
-      position: 3,
-      isActive: true,
-    },
-  ];
-
-  for (const banner of BANNERS) {
-    await prisma.banner.create({ data: banner });
-  }
-  console.log(`   ✅ ${BANNERS.length} banners created\n`);
-
-  // ── 13. Create Deals ─────────────────────────────────────
-  console.log("🏷️  Creating deals...");
-  await prisma.dealProduct.deleteMany();
-  await prisma.deal.deleteMany();
-
-  const now = new Date();
-  const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const monthLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-  const DEALS = [
-    {
-      title: "Flash Sale - 25% Off Electronics",
-      description: "Get 25% off on all electronics this week only",
-      dealType: "FLASH_DEAL" as const,
-      discountType: "PERCENTAGE" as const,
-      discountValue: 25,
-      startDate: now,
-      endDate: weekLater,
-      minOrderValue: 5000,
-      maxUses: 500,
-      isActive: true,
-    },
-    {
-      title: "Free Shipping on Orders Over ₦10,000",
-      description: "Enjoy free delivery on all orders above ₦10,000",
-      dealType: "FEATURED_DEAL" as const,
-      discountType: "FIXED_AMOUNT" as const,
-      discountValue: 500,
-      startDate: now,
-      endDate: monthLater,
-      minOrderValue: 10000,
-      isActive: true,
-    },
-  ];
-
-  for (const deal of DEALS) {
-    await prisma.deal.create({ data: deal });
-  }
-  console.log(`   ✅ ${DEALS.length} deals created\n`);
-
-  // ── 14. Create Coupons ───────────────────────────────────
-  console.log("🎫 Creating coupons...");
-  await prisma.coupon.deleteMany();
-
-  const COUPONS = [
-    {
-      code: "WELCOME10",
-      title: "10% Welcome Discount",
-      description: "Get 10% off your first order",
-      discountType: "PERCENTAGE" as const,
-      discountValue: 10,
-      minOrderValue: 2000,
-      maxDiscount: 5000,
-      maxUses: 1000,
-      startDate: now,
-      endDate: monthLater,
-      isActive: true,
-    },
-    {
-      code: "FLASH20",
-      title: "20% Flash Sale Coupon",
-      description: "Extra 20% off during flash sales",
-      discountType: "PERCENTAGE" as const,
-      discountValue: 20,
-      minOrderValue: 5000,
-      maxDiscount: 10000,
-      maxUses: 200,
-      startDate: now,
-      endDate: weekLater,
-      isActive: true,
-    },
-  ];
-
-  for (const coupon of COUPONS) {
-    await prisma.coupon.create({ data: coupon });
-  }
-  console.log(`   ✅ ${COUPONS.length} coupons created\n`);
-
-  console.log("✅ Kwikseller database seed completed successfully!");
-  console.log("══════════════════════════════════════════════════\n");
-
-  const stats = {
-    brands: await prisma.brand.count(),
+  // ── 19. SUMMARY ──
+  const counts = {
+    users: await prisma.user.count(),
+    customers: await prisma.user.count({ where: { role: "BUYER" } }),
+    vendors: await prisma.user.count({ where: { role: "VENDOR" } }),
+    admins: await prisma.user.count({ where: { role: { in: ["ADMIN", "SUPER_ADMIN"] } } }),
+    riders: await prisma.user.count({ where: { role: "RIDER" } }),
+    stores: await prisma.store.count(),
     categories: await prisma.category.count(),
+    brands: await prisma.brand.count(),
     products: await prisma.product.count(),
+    physicalProducts: await prisma.product.count({ where: { productType: "PHYSICAL" } }),
+    digitalProducts: await prisma.product.count({ where: { productType: "DIGITAL" } }),
+    activeProducts: await prisma.product.count({ where: { status: "ACTIVE" } }),
     productImages: await prisma.productMedia.count(),
-    featuredProducts: await prisma.product.count({ where: { isFeatured: true } }),
-    activeProducts: await prisma.product.count({ where: { status: ProductStatus.ACTIVE } }),
-    draftProducts: await prisma.product.count({ where: { status: ProductStatus.DRAFT } }),
-    inventoryItems: await db.inventoryItem?.count(),
-    digitalAssets: await db.digitalAsset?.count(),
-    poolProducts: await db.poolProduct?.count(),
-    poolOffers: await db.vendorPoolOffer?.count(),
-    poolCampaigns: await db.poolCampaign?.count(),
-    currencies: await prisma.currency.count(),
+    productVariants: await prisma.productVariant.count(),
+    inventoryItems: await prisma.inventoryItem.count(),
+    digitalAssets: await prisma.digitalAsset.count(),
+    orders: await prisma.order.count(),
+    orderItems: await prisma.orderItem.count(),
+    parentCheckouts: await prisma.parentCheckout.count(),
+    quotes: await prisma.quote.count(),
+    quoteRevisions: await prisma.quoteRevision.count(),
+    payments: await prisma.payment.count(),
+    escrows: await prisma.escrow.count(),
+    escrowHeld: await prisma.escrow.count({ where: { status: "HELD" } }),
+    escrowReleased: await prisma.escrow.count({ where: { status: "RELEASED" } }),
+    wallets: await prisma.wallet.count(),
+    walletTransactions: await prisma.walletTransaction.count(),
+    commissions: await prisma.commission.count(),
+    deliveries: await prisma.delivery.count(),
+    fulfillments: await prisma.fulfillment.count(),
+    reviews: await prisma.review.count(),
+    notifications: await prisma.notification.count(),
+    banners: await prisma.banner.count(),
+    deals: await prisma.deal.count(),
+    dealProducts: await prisma.dealProduct.count(),
+    coupons: await prisma.coupon.count(),
+    carts: await prisma.cart.count(),
+    wishlists: await prisma.wishlist.count(),
+    states: await prisma.state.count(),
+    lgas: await prisma.localGovernment.count(),
   };
 
-  console.log("📊 SEED SUMMARY:");
-  console.log(`   🏷️  Brands:           ${stats.brands}`);
-  console.log(`   📂 Categories:       ${stats.categories}`);
-  console.log(`   🛍️  Products:         ${stats.products}`);
-  console.log(`   🖼️  Product Images:   ${stats.productImages}`);
-  console.log(`   ⭐ Featured:         ${stats.featuredProducts}`);
-  console.log(`   ✅ Active:           ${stats.activeProducts}`);
-  console.log(`   📝 Draft:            ${stats.draftProducts}`);
-  console.log(`   📦 Inventory Items:  ${stats.inventoryItems ?? 0}`);
-  console.log(`   💾 Digital Assets:   ${stats.digitalAssets ?? 0}`);
-  console.log(`   🏊 Pool Products:    ${stats.poolProducts ?? 0}`);
-  console.log(`   🏪 Pool Offers:      ${stats.poolOffers ?? 0}`);
-  console.log(`   👥 Pool Campaigns:   ${stats.poolCampaigns ?? 0}`);
-  console.log(`   💱 Currencies:       ${stats.currencies}\n`);
-
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🔐 DEMO ACCOUNTS:");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("   Super Admin:");
-  console.log(`     Email:    ${SUPER_ADMIN_CONFIG.email}`);
-  console.log(`     Password: ${SUPER_ADMIN_CONFIG.password}`);
-  console.log("   Demo Vendor:");
-  console.log("     Email:    vendor@kwikseller.com");
-  console.log("     Password: DemoVendor@2024!");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  console.log("========================================");
+  console.log("KWIKSELLER DATABASE SEEDED");
+  console.log("========================================\n");
+  console.log(`Users:              ${counts.users}`);
+  console.log(`  - Super Admin:    1`);
+  console.log(`  - Admin:          1`);
+  console.log(`  - Customers:      ${counts.customers}`);
+  console.log(`  - Vendors:        ${counts.vendors}`);
+  console.log(`  - Riders:         ${counts.riders}`);
+  console.log(`Stores:             ${counts.stores}`);
+  console.log(`Categories:         ${counts.categories} (10 parents + ${counts.categories - 10} children)`);
+  console.log(`Brands:             ${counts.brands}`);
+  console.log(`Products:           ${counts.products}`);
+  console.log(`  - Physical:       ${counts.physicalProducts}`);
+  console.log(`  - Digital:        ${counts.digitalProducts}`);
+  console.log(`  - Active:         ${counts.activeProducts}`);
+  console.log(`Product Images:     ${counts.productImages}`);
+  console.log(`Product Variants:   ${counts.productVariants}`);
+  console.log(`Inventory Items:    ${counts.inventoryItems}`);
+  console.log(`Digital Assets:     ${counts.digitalAssets}`);
+  console.log(`Orders:             ${counts.orders}`);
+  console.log(`Order Items:        ${counts.orderItems}`);
+  console.log(`Parent Checkouts:   ${counts.parentCheckouts}`);
+  console.log(`Quotes:             ${counts.quotes}`);
+  console.log(`Quote Revisions:    ${counts.quoteRevisions}`);
+  console.log(`Payments:           ${counts.payments}`);
+  console.log(`Escrow Records:     ${counts.escrows}`);
+  console.log(`  - Held:           ${counts.escrowHeld}`);
+  console.log(`  - Released:       ${counts.escrowReleased}`);
+  console.log(`Wallets:            ${counts.wallets}`);
+  console.log(`Wallet Transactions:${counts.walletTransactions}`);
+  console.log(`Commissions:        ${counts.commissions}`);
+  console.log(`Deliveries:         ${counts.deliveries}`);
+  console.log(`Fulfillments:       ${counts.fulfillments}`);
+  console.log(`Reviews:            ${counts.reviews}`);
+  console.log(`Notifications:      ${counts.notifications}`);
+  console.log(`Banners:            ${counts.banners}`);
+  console.log(`Deals:              ${counts.deals}`);
+  console.log(`Deal Products:      ${counts.dealProducts}`);
+  console.log(`Coupons:            ${counts.coupons}`);
+  console.log(`Carts:              ${counts.carts}`);
+  console.log(`Wishlists:          ${counts.wishlists}`);
+  console.log(`States:             ${counts.states}`);
+  console.log(`LGAs:               ${counts.lgas}\n`);
+  console.log("========================================");
+  console.log("DEMO CREDENTIALS");
+  console.log("========================================");
+  console.log("Super Admin:  superadmin@example.com  /  SuperAdmin@2024!");
+  console.log("Admin:        admin@example.com       /  Admin@2024!");
+  console.log("Customer:     chidi.okeke@example.com /  Customer@2024!");
+  console.log("Vendor:       ade.okoye@example.com   /  Vendor@2024!");
+  console.log("Rider:        rider@kwikseller.com    /  Rider@2024!");
+  console.log("\n(All customers use Customer@2024!)");
+  console.log("(All vendors use Vendor@2024!)");
+  console.log("========================================\n");
+  console.log(`✅ Seed completed. Validation: ${passCount} passed, ${failCount} failed.`);
 }
 
-// ============================================================
-// RUN
-// ============================================================
 main()
   .catch((e) => {
     console.error("❌ Seed failed:", e);

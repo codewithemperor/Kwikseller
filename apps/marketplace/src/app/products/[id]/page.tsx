@@ -3,45 +3,86 @@
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useProduct, useProducts, useReviews, toMarketplaceProduct } from "@/lib/api-hooks";
+import {
+  useProduct,
+  useProducts,
+  toMarketplaceProduct,
+  useTopProducts,
+} from "@/lib/api-hooks";
 import { ProductDetailPage } from "@/components/product/product-detail-page";
-import { EmptyState } from "@/components/ui/empty-state";
-import { PageLoading } from "@/components/ui/loading-state";
-import type { MarketplaceProduct, MarketplaceReview } from "@/data/marketplace-home";
+import type { MarketplaceProduct } from "@/data/marketplace-home";
 import type { Product } from "@/lib/api";
 
 /**
- * Augment the shared `toMarketplaceProduct` output with the extra fields the
- * detail page component needs (features, specifications, reviews). These are
- * NOT part of the API `Product` shape today, so we derive sensible defaults
- * from the raw product when they're missing.
+ * Derive structured specifications from the real product data.
+ * No dummy data — only fields that actually exist on the product.
  */
 function toDetailMarketplaceProduct(p: Product): MarketplaceProduct {
   const base = toMarketplaceProduct(p);
-  const features =
-    (p as Product & { features?: string[] }).features ??
-    [
-      "Premium quality materials",
-      "Verified vendor",
-      "KwisCrow escrow protected",
-      "Fast nationwide delivery",
-    ];
-  const specifications = [
-    { label: "Category", value: p.category?.name ?? "" },
-    { label: "Vendor", value: p.store?.name ?? "Kwikseller vendor" },
-    { label: "Brand", value: p.brand?.name ?? "—" },
-    { label: "SKU", value: p.sku ?? "—" },
-    { label: "Stock", value: p.stock > 0 ? `${p.stock} available` : "Out of stock" },
-  ];
-  const reviews =
-    (p as Product & { reviews?: MarketplaceProduct["reviews"] }).reviews ?? [];
+  const specifications: Array<{ label: string; value: string }> = [];
+  if (p.category?.name) specifications.push({ label: "Category", value: p.category.name });
+  if (p.store?.name) specifications.push({ label: "Vendor", value: p.store.name });
+  if (p.brand?.name) specifications.push({ label: "Brand", value: p.brand.name });
+  if (p.sku) specifications.push({ label: "SKU", value: p.sku });
+  if (p.stock !== undefined) {
+    specifications.push({
+      label: "Availability",
+      value: p.stock > 0 ? `${p.stock} in stock` : "Out of stock",
+    });
+  }
   return {
     ...base,
-    features,
     specifications,
-    reviews,
-    dimensions: (p as Product & { dimensions?: string }).dimensions ?? "",
   };
+}
+
+/** Product page skeleton — spec #22 (proper loading state, not just a spinner). */
+function ProductSkeleton() {
+  return (
+    <div className="min-h-screen bg-background pb-4 pt-6">
+      <div className="container mx-auto space-y-6 px-4">
+        {/* Breadcrumb skeleton */}
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-16 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+          <div className="h-4 w-4 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+          <div className="h-4 w-24 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+          <div className="h-4 w-4 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+          <div className="h-4 w-32 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+        </div>
+
+        {/* Two-column skeleton */}
+        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          {/* Gallery skeleton */}
+          <div className="space-y-3">
+            <div className="aspect-[1.05/1] animate-pulse rounded-lg bg-kwik-bg-surface dark:bg-white/5" />
+            <div className="flex gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 w-16 animate-pulse rounded-lg bg-kwik-bg-surface dark:bg-white/5" />
+              ))}
+            </div>
+          </div>
+
+          {/* Info skeleton */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="h-3 w-20 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+              <div className="h-7 w-3/4 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+              <div className="h-4 w-32 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+            </div>
+            <div className="rounded-xl border border-border p-5 dark:border-white/10">
+              <div className="h-8 w-40 animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+              <div className="mt-4 h-10 w-full animate-pulse rounded bg-kwik-bg-surface dark:bg-white/5" />
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="h-12 animate-pulse rounded-xl bg-kwik-bg-surface dark:bg-white/5" />
+                <div className="h-12 animate-pulse rounded-xl bg-kwik-bg-surface dark:bg-white/5" />
+              </div>
+            </div>
+            <div className="h-32 animate-pulse rounded-xl bg-kwik-bg-surface dark:bg-white/5" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ProductPage() {
@@ -57,40 +98,15 @@ export default function ProductPage() {
   const productQuery = useProduct(isInvalidId ? undefined : id);
   const rawProduct = productQuery.data;
 
-  // Fetch reviews for this product (keyed on productId so it auto-refetches
-  // when the user navigates to a different product). The dummy / real API
-  // exposes `GET /reviews/:productId` returning objects with the exact fields
-  // `MarketplaceReview` expects (`id`, `rating`, `text`, `name`, `location`).
-  // The hook is called unconditionally (Hooks rule) and the query is enabled
-  // only when we have a real productId.
-  const reviewsQuery = useReviews(rawProduct?.id);
-  const productReviews = useMemo<MarketplaceReview[]>(
-    () =>
-      (reviewsQuery.data ?? []).map((r) => ({
-        id: r.id,
-        name: r.name,
-        location: r.location,
-        rating: r.rating,
-        text: r.text,
-        createdAt: r.createdAt,
-        title: r.title,
-        verified: r.verified,
-        helpful: r.helpful,
-        images: r.images,
-        vendorReply: r.vendorReply,
-      })),
-    [reviewsQuery.data],
-  );
+  // Reviews are fetched inside ProductDetailPage via useReviews(productId),
+  // so the route page no longer needs to pass them separately.
 
-  // Fetch related products via the shared hook using the category SLUG so
-  // the dummy API's `categoryId` filter matches.
+  // Related products (by category)
   const categorySlug = rawProduct?.category?.slug;
   const relatedQuery = useProducts({
     categoryId: categorySlug,
     limit: 6,
   });
-  // Memoize so the array reference is stable across renders (the
-  // ProductDetailPage useEffect depends on `relatedProductsProp`).
   const relatedProducts = useMemo<MarketplaceProduct[]>(
     () =>
       (relatedQuery.data?.products ?? [])
@@ -99,39 +115,63 @@ export default function ProductPage() {
     [relatedQuery.data, id],
   );
 
+  // More From This Vendor (same store)
+  const storeId = rawProduct?.storeId;
+  const vendorQuery = useProducts({
+    storeId,
+    limit: 6,
+  });
+  const vendorProducts = useMemo<MarketplaceProduct[]>(
+    () =>
+      (vendorQuery.data?.products ?? [])
+        .filter((p) => p.id !== id)
+        .slice(0, 5),
+    [vendorQuery.data, id],
+  );
+
+  // You May Also Like (top rated)
+  const recommendedQuery = useTopProducts(6);
+  const recommendedProducts = useMemo<MarketplaceProduct[]>(
+    () =>
+      (recommendedQuery.data ?? [])
+        .filter((p) => p.id !== id)
+        .slice(0, 5),
+    [recommendedQuery.data, id],
+  );
+
+  // ── Not found / invalid ──
   if (isInvalidId || (!productQuery.isLoading && !rawProduct)) {
     return (
-      <div className="min-h-screen bg-background px-4 py-10">
-        <div className="mx-auto max-w-6xl">
-          <EmptyState
-            title="Product not found"
-            description="The product you're looking for doesn't exist or has been removed."
-            className="min-h-[42vh]"
-          />
-          <div className="mt-6 text-center">
-            <Link
-              href="/products"
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
-            >
-              Back to all products
-            </Link>
-          </div>
+      <div className="flex min-h-[70vh] flex-col items-center justify-center bg-background px-4 py-10 text-center">
+        <div className="max-w-md">
+          <h1 className="text-2xl font-bold text-kwik-dark dark:text-white">Product not found</h1>
+          <p className="mt-2 text-sm text-kwik-muted dark:text-white/55">
+            The product you&apos;re looking for doesn&apos;t exist or has been removed.
+          </p>
+          <Link
+            href="/products"
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
+          >
+            Back to all products
+          </Link>
         </div>
       </div>
     );
   }
 
+  // ── Loading ──
   if (productQuery.isLoading || !rawProduct) {
-    return <PageLoading label="Loading product..." />;
+    return <ProductSkeleton />;
   }
 
   const product = toDetailMarketplaceProduct(rawProduct);
 
   return (
     <ProductDetailPage
-      product={{ ...product, reviews: productReviews }}
+      product={product}
       relatedProducts={relatedProducts}
+      vendorProducts={vendorProducts}
+      recommendedProducts={recommendedProducts}
     />
   );
 }
-

@@ -316,6 +316,7 @@ function ImageUploadField({
       {preview ? (
         <div className="relative">
           <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-kwik-border sm:h-28 sm:w-28">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}
               alt="Preview"
@@ -379,6 +380,7 @@ function BannerUploadField({
       {preview ? (
         <div className="relative">
           <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-lg border border-kwik-border sm:h-40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}
               alt="Banner preview"
@@ -812,6 +814,7 @@ function StepAppearance({
               style={{ backgroundColor: data.brandColor }}
             >
               {data.bannerPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={data.bannerPreview}
                   alt="Banner"

@@ -1,9 +1,9 @@
 /**
- * Browse-page product catalog (mock).
+ * Browse-page product catalog.
  *
- * A richer dataset than mock-home-feed.ts — used by the /products listing
- * page so users can search, filter by category, and sort. Mirrors the
- * MarketplaceProduct shape so the same cards/components work.
+ * Used by the /products listing page so users can search, filter by
+ * category, and sort. Mirrors the MarketplaceProduct shape so the same
+ * cards/components work.
  */
 import type { MarketplaceProduct } from "./marketplace-home";
 

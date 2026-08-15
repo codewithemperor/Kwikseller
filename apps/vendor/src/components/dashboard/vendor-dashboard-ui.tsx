@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   VendorPageHeader as SharedVendorPageHeader,
   VendorMetricCard as SharedVendorMetricCard,
+  type VendorMetricCardProps,
 } from "@kwikseller/ui";
 
 interface SummaryCardProps {
@@ -309,7 +310,7 @@ export function VendorMetricCard({
       title={label}
       value={value}
       description={note}
-      icon={Icon as React.ComponentType<React.SVGProps<SVGSVGElement>>}
+      icon={Icon as unknown as VendorMetricCardProps["icon"]}
       variant={variantMap[tone]}
     />
   );

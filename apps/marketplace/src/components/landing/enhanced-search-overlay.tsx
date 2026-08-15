@@ -25,7 +25,6 @@ import { getSimilarSuggestions } from '@/lib/search-similarity'
 import {
   POPULAR_SEARCH_CATEGORIES as POPULAR_CATEGORIES,
   SEARCH_PRODUCT_SUGGESTIONS as PRODUCT_SUGGESTIONS,
-  type ProductSuggestion,
 } from '@/constants/marketplace'
 import { useTrendingSearches, useSearchSuggestions } from '@/lib/api-hooks'
 import { useRecentSearches } from '@/hooks'

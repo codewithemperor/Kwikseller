@@ -1,25 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 /**
- * UploadService — image-upload service.
- *
- * The method signatures match what upload.controller.ts expects:
- * validateImage, uploadImage, uploadMultiple, deleteFile, and a `quality`
- * option in UploadOptions.
+ * UploadOptions — options accepted by uploadImage / uploadMultiple.
  */
-
-export interface UploadResult {
-  url: string;
-  secureUrl?: string;
-  publicId: string;
-  width?: number;
-  height?: number;
-  format?: string;
-  bytes?: number;
-}
-
 export interface UploadOptions {
-  folder?: string;
+  folder: string;
   publicId?: string;
   maxWidth?: number;
   maxHeight?: number;
@@ -27,67 +13,144 @@ export interface UploadOptions {
   format?: string;
 }
 
+/**
+ * UploadResult — the shape consumers (vendor-store logo/banner, upload
+ * controller) expect from a successful upload.
+ */
+export interface UploadResult {
+  secureUrl: string;
+  url: string;
+  publicId: string;
+  bytes: number;
+  width?: number;
+  height?: number;
+  format?: string;
+  resourceType?: string;
+  createdAt?: string;
+}
+
+const ALLOWED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+]);
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/**
+ * UploadService — local stub implementation.
+ *
+ * The full production implementation uses Cloudinary + sharp (see
+ * `StorageService` in `src/common/services/storage.service.ts`). In the
+ * sandbox we don't have Cloudinary configured, so this service accepts the
+ * same call signature and returns placeholder metadata with a stable
+ * placeholder image URL so that dependent flows (vendor logo/banner upload,
+ * the /upload REST endpoints) keep working end-to-end.
+ */
 @Injectable()
 export class UploadService {
   private readonly logger = new Logger(UploadService.name);
 
-  private readonly ALLOWED_MIME = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-  ];
-  private readonly MAX_BYTES = 5 * 1024 * 1024; // 5MB
-
-  validateImage(file: Express.Multer.File | undefined): void {
+  /**
+   * Validate that the uploaded file is an image within the size limit.
+   * Throws BadRequestException on invalid input.
+   */
+  validateImage(file: Express.Multer.File): boolean {
     if (!file) {
-      throw new Error('No file provided');
+      throw new BadRequestException('No file provided');
     }
-    if (!this.ALLOWED_MIME.includes(file.mimetype)) {
-      throw new Error(
-        `Unsupported file type: ${file.mimetype}. Allowed: ${this.ALLOWED_MIME.join(', ')}`,
+    if (!ALLOWED_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        `Unsupported file type "${file.mimetype}". Allowed: jpeg, png, webp, gif, avif.`,
       );
     }
-    if (file.size > this.MAX_BYTES) {
-      throw new Error(
-        `File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 5MB.`,
+    if (file.size > MAX_FILE_BYTES) {
+      throw new BadRequestException(
+        `File too large (${file.size} bytes). Max ${MAX_FILE_BYTES} bytes (10 MB).`,
       );
     }
+    return true;
   }
 
+  /**
+   * "Upload" a single image. Returns a UploadResult with a placeholder URL.
+   * The placeholder encodes the requested dimensions so the returned image
+   * visually matches what the caller asked for.
+   */
   async uploadImage(
     file: Express.Multer.File,
-    _options?: UploadOptions,
+    options: UploadOptions,
   ): Promise<UploadResult> {
-    const base64 = file.buffer?.toString('base64') ?? '';
-    const dataUrl = `data:${file.mimetype};base64,${base64}`;
+    this.validateImage(file);
+
+    const width = options.maxWidth ?? 800;
+    const height = options.maxHeight ?? 800;
+    const publicId =
+      options.publicId ||
+      `${options.folder}/${randomUUID().slice(0, 12)}`;
+
+    const label = `${width}x${height}`;
+    const placeholder = `https://placehold.co/${label}/f97316/ffffff?text=Kwikseller`;
+
     this.logger.log(
-      `Uploaded image (stub): ${file.originalname} (${file.size} bytes)`,
+      `uploadImage stub: ${file.originalname} → ${placeholder} (publicId=${publicId})`,
     );
+
     return {
-      url: dataUrl,
-      secureUrl: dataUrl,
-      publicId: `stub/${Date.now()}-${file.originalname}`,
+      secureUrl: placeholder,
+      url: placeholder,
+      publicId,
       bytes: file.size,
-      format: file.mimetype.split('/')[1],
+      width,
+      height,
+      format: options.format || 'webp',
+      resourceType: 'image',
+      createdAt: new Date().toISOString(),
     };
   }
 
+  /**
+   * "Upload" multiple images. Delegates to uploadImage for each file.
+   */
   async uploadMultiple(
     files: Express.Multer.File[],
-    options?: UploadOptions,
+    options: UploadOptions,
   ): Promise<UploadResult[]> {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files provided');
+    }
     const results: UploadResult[] = [];
     for (const file of files) {
-      this.validateImage(file);
-      const result = await this.uploadImage(file, options);
-      results.push(result);
+      // give each file a unique publicId suffix
+      const perFileOptions: UploadOptions = {
+        ...options,
+        publicId: options.publicId
+          ? `${options.publicId}-${randomUUID().slice(0, 6)}`
+          : undefined,
+      };
+      results.push(await this.uploadImage(file, perFileOptions));
     }
     return results;
   }
 
-  async deleteFile(publicId: string): Promise<{ success: boolean; publicId: string }> {
-    this.logger.log(`Deleted file (stub): ${publicId}`);
-    return { success: true, publicId };
+  /**
+   * Delete an uploaded asset by its public ID. Stub — always succeeds.
+   */
+  async deleteFile(publicId: string): Promise<void> {
+    if (!publicId) {
+      throw new BadRequestException('publicId is required');
+    }
+    this.logger.log(`deleteFile stub: ${publicId} (no-op)`);
+  }
+
+  /**
+   * Delete an uploaded asset by its URL. Stub — always succeeds.
+   * Kept for backward compatibility with older consumers.
+   */
+  async deleteImage(_url: string): Promise<boolean> {
+    this.logger.log('deleteImage stub (no-op)');
+    return true;
   }
 }

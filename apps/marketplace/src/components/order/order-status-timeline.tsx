@@ -8,8 +8,9 @@ import {
   PRE_PAYMENT_STEPS,
   FULFILMENT_STEPS,
   OrderStatus,
+  type OrderStatusValue,
 } from "@/constants/order-workflow";
-import type { OrderStatusValue, OrderWorkflowState } from "@/types/order-workflow";
+import type { OrderWorkflowState } from "@/types/order-workflow";
 
 function formatDate(value?: string | Date | null): string {
   if (!value) return "";

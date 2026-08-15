@@ -2,7 +2,7 @@
   "name": "kwikseller",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/marketplace",
     "packages/*"
   ],
   "scripts": {

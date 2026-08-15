@@ -266,7 +266,7 @@ function StockAdjustModal({
         {type === "remove" && (
           <div className="flex items-start gap-2 rounded-lg bg-warning/5 px-3 py-2 text-xs text-warning">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>Removing stock is irreversible. You'll be asked to confirm.</span>
+            <span>Removing stock is irreversible. You&apos;ll be asked to confirm.</span>
           </div>
         )}
 

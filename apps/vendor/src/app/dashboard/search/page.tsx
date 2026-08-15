@@ -59,7 +59,6 @@ export default function VendorSearchPage() {
       setQuery(initialQuery);
       runSearch(initialQuery);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const saveRecent = (value: string) => {
@@ -202,7 +201,10 @@ export default function VendorSearchPage() {
               {results.products.slice(0, 6).map((product) => (
                 <Link key={product.id} href="/dashboard/products" className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-lg bg-default-100 p-3 dark:bg-white/5">
                   <span className="h-[52px] w-[52px] overflow-hidden rounded-lg bg-surface dark:bg-white/8">
-                    {productImage(product) ? <img src={productImage(product)} alt="" className="h-full w-full object-cover" /> : null}
+                    {productImage(product) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={productImage(product)} alt="" className="h-full w-full object-cover" />
+                    ) : null}
                   </span>
                   <span className="min-w-0">
                     <span className="product-title-clamp text-sm font-normal text-foreground">{product.name}</span>

@@ -1,15 +1,17 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, ArrowRight, LayoutGrid } from 'lucide-react'
+import { ChevronDown, ArrowRight } from 'lucide-react'
 import { cn } from '@kwikseller/ui'
 import {
-  MEGA_MENU_CATEGORIES as categories,
-  MEGA_MENU_NAV_ITEMS as navItems,
+  PRIMARY_NAV_ITEMS,
   type DropdownLink,
   type NavItemConfig,
 } from '@/constants/navigation'
+import { useCategories } from '@/lib/api-hooks'
+import { AppImage } from '@/components/ui/app-image'
 
 // ─── Animation variants ───────────────────────────────────────
 
@@ -45,113 +47,162 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
 }
 
-// ─── Category Mega Menu Dropdown ──────────────────────────────
+// ─── Categories Mega Menu Dropdown ──────────────────────────────
+// Categories are fetched live from the backend so the menu always
+// reflects the real category tree (no hardcoded counts).
 
-function CategoriesDropdown() {
+function CategoriesDropdown({ onNavigate }: { onNavigate?: () => void }) {
+  const { data: categories, isLoading } = useCategories()
+
+  // Show up to 9 categories in the grid; the "View All" CTA covers the rest.
+  const visible = (categories ?? []).slice(0, 9)
+
   return (
     <div className="grid grid-cols-3 gap-1.5 w-[520px] p-3">
-      {categories.map((cat) => {
-        const Icon = cat.icon
-        return (
-          <motion.a
-            key={cat.name}
-            href={cat.href}
-            variants={itemVariants}
-            className={cn(
-              'group flex items-center gap-3 px-3 py-2.5 rounded-xl',
-              'bg-kwik-bg-surface/60 hover:bg-kwik-orange/10',
-              'border border-transparent hover:border-kwik-orange/20',
-              'transition-all duration-200 cursor-pointer'
-            )}
-          >
+      {isLoading
+        ? Array.from({ length: 6 }).map((_, i) => (
             <div
-              className={cn(
-                'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-                'bg-kwik-bg-light group-hover:bg-kwik-orange/20 transition-colors duration-200'
-              )}
+              key={i}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-kwik-bg-light/60 animate-pulse"
             >
-              <Icon
+              <div className="w-10 h-10 rounded-lg bg-kwik-bg-light" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 w-20 rounded bg-kwik-bg-light" />
+                <div className="h-2.5 w-14 rounded bg-kwik-bg-light/70" />
+              </div>
+            </div>
+          ))
+        : visible.map((cat) => (
+            <motion.div key={cat.id} variants={itemVariants}>
+              <Link
+                href={`/categories/${cat.slug || cat.id}`}
+                onClick={onNavigate}
                 className={cn(
-                  'w-5 h-5 transition-colors duration-200',
-                  'text-kwik-gray-light group-hover:text-kwik-orange'
+                  'group flex items-center gap-3 px-3 py-2.5 rounded-xl',
+                  'bg-kwik-bg-surface/60 hover:bg-kwik-orange/10',
+                  'border border-transparent hover:border-kwik-orange/20',
+                  'transition-all duration-200 cursor-pointer'
                 )}
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-kwik-dark group-hover:text-kwik-dark transition-colors truncate">
-                {cat.name}
-              </div>
-              <div className="text-[11px] text-kwik-gray-light group-hover:text-kwik-orange transition-colors">
-                {cat.count} products
-              </div>
-            </div>
-          </motion.a>
-        )
-      })}
-      {/* Featured CTA at bottom */}
-      <motion.div
-        variants={itemVariants}
-        className="col-span-3 mt-1"
-      >
-        <a
+              >
+                <div
+                  className={cn(
+                    'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden',
+                    'bg-kwik-bg-light group-hover:bg-kwik-orange/20 transition-colors duration-200'
+                  )}
+                >
+                  {cat.imageUrl ? (
+                    <AppImage
+                      src={cat.imageUrl}
+                      alt={cat.name}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm font-semibold text-kwik-gray-light group-hover:text-kwik-orange">
+                      {cat.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors truncate">
+                    {cat.name}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground group-hover:text-kwik-orange transition-colors">
+                    {cat._count?.products ?? 0} products
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+      {/* View All CTA — solid, NO gradient */}
+      <motion.div variants={itemVariants} className="col-span-3 mt-1">
+        <Link
           href="/categories"
+          onClick={onNavigate}
           className={cn(
             'flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl',
-            'kwik-gradient text-white text-sm font-medium',
-            'hover:opacity-90 transition-opacity'
+            'bg-kwik-orange text-white text-sm font-medium',
+            'hover:bg-kwik-orange/90 transition-colors'
           )}
         >
           <span>View All Categories</span>
           <ArrowRight className="w-4 h-4" />
-        </a>
+        </Link>
       </motion.div>
     </div>
   )
 }
 
-// ─── Standard Dropdown (Products / Vendors / Resources) ───────
+// ─── Standard Dropdown (Products / Vendors / Deals / Resources) ───────
 
-function StandardDropdown({ links }: { links: DropdownLink[] }) {
+function StandardDropdown({
+  links,
+  viewAllHref,
+  onNavigate,
+}: {
+  links: DropdownLink[]
+  viewAllHref: string
+  onNavigate?: () => void
+}) {
   return (
-    <div className="grid grid-cols-2 gap-1.5 w-[380px] p-3">
-      {links.map((link) => {
-        const Icon = link.icon
-        return (
-          <motion.a
-            key={link.label}
-            href={link.href}
-            variants={itemVariants}
-            className={cn(
-              'group flex items-start gap-3 px-3 py-3 rounded-xl',
-              'bg-kwik-bg-surface/60 hover:bg-kwik-orange/10',
-              'border border-transparent hover:border-kwik-orange/20',
-              'transition-all duration-200 cursor-pointer'
-            )}
-          >
-            <div
-              className={cn(
-                'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5',
-                'bg-kwik-bg-light group-hover:bg-kwik-orange/20 transition-colors duration-200'
-              )}
-            >
-              <Icon
+    <div className="p-3 w-[400px]">
+      <div className="grid grid-cols-2 gap-1.5">
+        {links.map((link) => {
+          const Icon = link.icon
+          return (
+            <motion.div key={link.label} variants={itemVariants}>
+              <Link
+                href={link.href}
+                onClick={onNavigate}
                 className={cn(
-                  'w-4 h-4 transition-colors duration-200',
-                  'text-kwik-gray-light group-hover:text-kwik-orange'
+                  'group flex items-start gap-3 px-3 py-3 rounded-xl',
+                  'bg-kwik-bg-surface/60 hover:bg-kwik-orange/10',
+                  'border border-transparent hover:border-kwik-orange/20',
+                  'transition-all duration-200 cursor-pointer'
                 )}
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-kwik-dark group-hover:text-kwik-dark transition-colors">
-                {link.label}
-              </div>
-              <div className="text-[11px] text-kwik-gray-light group-hover:text-kwik-muted transition-colors mt-0.5">
-                {link.description}
-              </div>
-            </div>
-          </motion.a>
-        )
-      })}
+              >
+                <div
+                  className={cn(
+                    'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5',
+                    'bg-kwik-bg-light group-hover:bg-kwik-orange/20 transition-colors duration-200'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'w-4 h-4 transition-colors duration-200',
+                      'text-muted-foreground group-hover:text-kwik-orange'
+                    )}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">
+                    {link.label}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground group-hover:text-kwik-orange transition-colors mt-0.5">
+                    {link.description}
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          )
+        })}
+      </div>
+      {/* View All CTA — solid, NO gradient */}
+      <motion.div variants={itemVariants} className="mt-2">
+        <Link
+          href={viewAllHref}
+          onClick={onNavigate}
+          className={cn(
+            'flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl',
+            'bg-kwik-orange text-white text-sm font-medium',
+            'hover:bg-kwik-orange/90 transition-colors'
+          )}
+        >
+          <span>Explore All</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </motion.div>
     </div>
   )
 }
@@ -161,32 +212,33 @@ function StandardDropdown({ links }: { links: DropdownLink[] }) {
 function NavItemButton({
   item,
   isHovered,
-  onMouseEnter,
-  onMouseLeave,
-  activeLabel,
+  onOpen,
+  onClose,
 }: {
   item: NavItemConfig
   isHovered: boolean
-  onMouseEnter: () => void
-  onMouseLeave: () => void
-  activeLabel: string | null
+  onOpen: () => void
+  onClose: () => void
+  onNavigate?: () => void
 }) {
+  const Icon = item.icon
   return (
     <div
       className="relative"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
     >
       {/* Trigger */}
       <button
         type="button"
         className={cn(
-          'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200',
-          isHovered ? 'text-kwik-dark' : 'text-kwik-gray hover:text-kwik-dark'
+          'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200',
+          isHovered ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}
         aria-expanded={isHovered}
         aria-haspopup="true"
       >
+        <Icon className="w-4 h-4" />
         <span>{item.label}</span>
         <motion.span
           animate={{ rotate: isHovered ? 180 : 0 }}
@@ -220,8 +272,8 @@ function NavItemButton({
                 'absolute top-full left-1/2 -translate-x-1/2 z-30 pt-2',
                 'pointer-events-auto'
               )}
-              onMouseEnter={onMouseEnter}
-              onMouseLeave={onMouseLeave}
+              onMouseEnter={onOpen}
+              onMouseLeave={onClose}
             >
               <div
                 className={cn(
@@ -229,87 +281,11 @@ function NavItemButton({
                   'bg-kwik-bg-surface/95 backdrop-blur-xl backdrop-saturate-150'
                 )}
               >
-                <StandardDropdown links={item.links} />
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-// ─── Categories Nav Item (special layout) ─────────────────────
-
-function CategoriesNavItem({
-  isHovered,
-  onMouseEnter,
-  onMouseLeave,
-}: {
-  isHovered: boolean
-  onMouseEnter: () => void
-  onMouseLeave: () => void
-}) {
-  return (
-    <div
-      className="relative"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {/* Trigger */}
-      <button
-        type="button"
-        className={cn(
-          'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200',
-          isHovered ? 'text-kwik-dark' : 'text-kwik-gray hover:text-kwik-dark'
-        )}
-        aria-expanded={isHovered}
-        aria-haspopup="true"
-      >
-        <LayoutGrid className="w-4 h-4 mr-0.5" />
-        <span>Categories</span>
-        <motion.span
-          animate={{ rotate: isHovered ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-        </motion.span>
-
-        {/* Active underline indicator */}
-        {isHovered && (
-          <motion.span
-            layoutId="mega-nav-indicator"
-            className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-kwik-orange"
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          />
-        )}
-      </button>
-
-      {/* Dropdown */}
-      <AnimatePresence>
-        {isHovered && (
-          <>
-            {/* Invisible gap filler */}
-            <div className="absolute top-full left-0 right-0 h-2" aria-hidden />
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={dropdownVariants}
-              className={cn(
-                'absolute top-full left-1/2 -translate-x-1/2 z-30 pt-2',
-                'pointer-events-auto'
-              )}
-              onMouseEnter={onMouseEnter}
-              onMouseLeave={onMouseLeave}
-            >
-              <div
-                className={cn(
-                  'rounded-2xl border border-kwik-border shadow-xl',
-                  'bg-kwik-bg-surface/95 backdrop-blur-xl backdrop-saturate-150'
+                {item.kind === 'categories' ? (
+                  <CategoriesDropdown />
+                ) : (
+                  <StandardDropdown links={item.links ?? []} viewAllHref={item.href} />
                 )}
-              >
-                <CategoriesDropdown />
               </div>
             </motion.div>
           </>
@@ -374,22 +350,13 @@ export function MegaNav() {
       className="hidden md:flex items-center gap-1"
       aria-label="Main navigation"
     >
-      {/* Categories (special mega menu) */}
-      <CategoriesNavItem
-        isHovered={hoveredItem === 'Categories'}
-        onMouseEnter={() => openItem('Categories')}
-        onMouseLeave={() => closeItem('Categories')}
-      />
-
-      {/* Standard nav items */}
-      {navItems.map((item) => (
+      {PRIMARY_NAV_ITEMS.map((item) => (
         <NavItemButton
           key={item.label}
           item={item}
           isHovered={hoveredItem === item.label}
-          onMouseEnter={() => openItem(item.label)}
-          onMouseLeave={() => closeItem(item.label)}
-          activeLabel={hoveredItem}
+          onOpen={() => openItem(item.label)}
+          onClose={() => closeItem(item.label)}
         />
       ))}
     </nav>

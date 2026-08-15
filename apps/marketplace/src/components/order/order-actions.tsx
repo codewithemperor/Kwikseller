@@ -16,8 +16,9 @@ import {
   OrderStatus,
   DisputeType,
   KwisCrow,
+  type DisputeTypeValue,
 } from "@/constants/order-workflow";
-import type { DisputeTypeValue, OrderWorkflowState } from "@/types/order-workflow";
+import type { OrderWorkflowState } from "@/types/order-workflow";
 
 interface OrderActionsProps {
   order: OrderWorkflowState;

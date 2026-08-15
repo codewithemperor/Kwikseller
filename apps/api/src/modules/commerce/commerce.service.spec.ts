@@ -4,7 +4,7 @@ describe('CommerceService split checkout helpers', () => {
   let service: CommerceService;
 
   beforeEach(() => {
-    service = new CommerceService({} as any, {} as any, {} as any);
+    service = new CommerceService({} as any, {} as any, {} as any, {} as any, {} as any, {} as any);
   });
 
   it('groups cart lines by vendor store and keeps fulfillment flags', () => {

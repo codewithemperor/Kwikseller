@@ -120,6 +120,7 @@ export interface Deal {
   id: string;
   title: string;
   description?: string;
+  imageUrl?: string;
   dealType: string;
   discountType: string;
   discountValue: number;
@@ -149,13 +150,85 @@ export const fetchProduct = async (
 ): Promise<{ success: boolean; data: Product }> =>
   api.get<Product>(`/products/${id}`) as Promise<{ success: boolean; data: Product }>;
 
+// ==================== Search ====================
+// Full-featured search params — sent to /products/search as query string.
+// The backend (NestJS or dummy gateway) applies server-side filters,
+// relevance ranking, and returns facets in `meta`.
+
+export interface SearchFilters {
+  q?: string;
+  category?: string; // slug or id
+  categoryId?: string;
+  brandId?: string;
+  storeId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  rating?: number; // minimum rating (e.g. 4 = "4 stars & above")
+  state?: string; // state name/code
+  sort?: "relevance" | "price-low" | "price-high" | "rating" | "newest" | "popular";
+  page?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface SearchFacet {
+  id: string;
+  slug: string;
+  name: string;
+  count: number;
+}
+
+export interface StateFacet {
+  id: string;
+  name: string;
+  code: string;
+  count: number;
+}
+
+export interface SearchMeta {
+  query: string;
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  categories: SearchFacet[];
+  brands: SearchFacet[];
+  stores: SearchFacet[];
+  states: StateFacet[];
+  priceRange: { min: number; max: number };
+  nextCursor: string | null;
+}
+
+export interface SearchResponse {
+  success: boolean;
+  data: Product[];
+  meta: SearchMeta;
+}
+
 export const searchProducts = async (
   query: string,
-  limit = 20
+  limit = 20,
 ): Promise<PaginatedResponse<Product>> =>
   api.get<Product[]>("/products/search", {
     params: { q: query, limit },
   }) as Promise<PaginatedResponse<Product>>;
+
+/**
+ * Full-featured search — accepts all filters + sort + pagination in one
+ * consolidated request. Returns products + facets in `meta`.
+ */
+export const searchProductsWithFilters = async (
+  filters: SearchFilters,
+): Promise<SearchResponse> => {
+  // Drop undefined values so axios doesn't serialize them as "undefined".
+  const params: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== "") {
+      params[k] = typeof v === "number" ? String(v) : v;
+    }
+  }
+  return api.get<Product[]>("/products/search", { params }) as Promise<SearchResponse>;
+};
 
 export const fetchTrendingProducts = async (
   limit = 10
@@ -175,6 +248,13 @@ export const fetchDealProducts = async (
   limit = 10
 ): Promise<PaginatedResponse<Product>> =>
   api.get<Product[]>("/products/deals", {
+    params: { limit },
+  }) as Promise<PaginatedResponse<Product>>;
+
+export const fetchNewArrivals = async (
+  limit = 10
+): Promise<PaginatedResponse<Product>> =>
+  api.get<Product[]>("/products/new", {
     params: { limit },
   }) as Promise<PaginatedResponse<Product>>;
 
@@ -224,6 +304,11 @@ export const fetchFeaturedDeals = async (): Promise<{
   data: Deal[];
 }> =>
   api.get<Deal[]>("/deals/featured") as Promise<{ success: boolean; data: Deal[] }>;
+
+export const fetchDeal = async (
+  id: string
+): Promise<{ success: boolean; data: Deal }> =>
+  api.get<Deal>(`/deals/${id}`) as Promise<{ success: boolean; data: Deal }>;
 
 export const fetchDashboardStats = async (): Promise<{
   success: boolean;

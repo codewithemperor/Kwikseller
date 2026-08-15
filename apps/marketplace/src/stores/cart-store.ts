@@ -5,6 +5,10 @@ export interface CartItem {
   id: string
   productId: string
   poolOfferId?: string
+  /** Optional product variant (e.g. size, color). Sent to the backend at
+   * checkout so the vendor ships the right SKU. */
+  variantId?: string
+  variantName?: string
   name: string
   price: number
   comparePrice?: number

@@ -223,6 +223,7 @@ export default function VendorPoolProductPage() {
         <div className="space-y-5">
           <div className="overflow-hidden bg-default-100">
             {image ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={image} alt={item.name} className="h-[48vh] min-h-[280px] w-full object-cover md:h-[420px]" />
             ) : (
               <div className="flex h-[48vh] min-h-[280px] items-center justify-center text-muted-foreground md:h-[420px]">

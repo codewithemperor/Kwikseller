@@ -134,6 +134,7 @@ export function SeasonalCollections() {
               >
                 {/* Image Container */}
                 <div className="relative h-48 sm:h-56 img-zoom">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={collection.image}
                     alt={collection.name}

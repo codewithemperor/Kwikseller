@@ -311,9 +311,7 @@ export function BrandInfoCard({
               if (typeof navigator !== "undefined" && navigator.clipboard) {
                 navigator.clipboard.writeText(window.location.href).catch(() => {});
               }
-              kwikToast.success("Brand link copied", {
-                description: "Share this brand with your friends.",
-              });
+              kwikToast.success("Brand link copied", "Share this brand with your friends.");
             }}
             className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-kwik-border-light bg-kwik-bg-page px-4 text-sm font-semibold text-foreground transition hover:bg-kwik-bg-surface"
           >

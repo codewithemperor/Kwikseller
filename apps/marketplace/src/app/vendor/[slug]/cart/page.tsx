@@ -67,6 +67,7 @@ export default function VendorCartPage() {
             <div className="divide-y divide-black/10 border border-black/10 dark:divide-white/10 dark:border-white/10">
               {items.map((item) => (
                 <article key={`${item.productId}-${item.poolOfferId ?? "product"}`} className="grid grid-cols-[84px_1fr] gap-3 p-3 sm:grid-cols-[104px_1fr_auto]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.image} alt={item.name} className="h-20 w-20 object-cover sm:h-24 sm:w-24" />
                   <div className="min-w-0">
                     <p className="line-clamp-1 font-semibold">{item.name}</p>

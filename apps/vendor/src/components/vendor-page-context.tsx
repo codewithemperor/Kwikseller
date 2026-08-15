@@ -49,15 +49,29 @@ export function useVendorPageSearch(
 ) {
   const { setSearchProvider, setSearchSubmit, setIdleSearchItems } = useVendorPageContext();
 
+  // Keep the latest callbacks in refs so registering them into the context
+  // happens only once — inline functions/arrays from callers would otherwise
+  // change identity every render and re-trigger the effect (infinite loop).
+  const providerRef = React.useRef(provider);
+  const onSearchRef = React.useRef(onSearch);
+  const idleItemsRef = React.useRef(idleItems);
+  providerRef.current = provider;
+  onSearchRef.current = onSearch;
+  idleItemsRef.current = idleItems;
+
   React.useEffect(() => {
-    setSearchProvider(() => provider);
-    if (onSearch) setSearchSubmit(() => onSearch);
-    setIdleSearchItems(idleItems);
+    const stableProvider: VendorPageSearchProvider = (query) => providerRef.current(query);
+    const stableSubmit: VendorPageSearchSubmit = (query) => onSearchRef.current?.(query);
+
+    setSearchProvider(() => stableProvider);
+    setSearchSubmit(() => stableSubmit);
+    setIdleSearchItems(idleItemsRef.current);
 
     return () => {
       setSearchProvider(undefined);
       setSearchSubmit(undefined);
       setIdleSearchItems([]);
     };
-  }, [idleItems, onSearch, provider, setIdleSearchItems, setSearchProvider, setSearchSubmit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setIdleSearchItems, setSearchProvider, setSearchSubmit]);
 }

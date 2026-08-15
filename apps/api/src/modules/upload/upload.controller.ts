@@ -63,9 +63,7 @@ export class UploadController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  async uploadImage(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -115,9 +113,7 @@ export class UploadController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  async uploadMultipleImages(
-    @UploadedFiles() files: Express.Multer.File[],
-  ) {
+  async uploadMultipleImages(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
@@ -162,9 +158,7 @@ export class UploadController {
   })
   @ApiOperation({ summary: 'Upload a product image (optimized for product display)' })
   @UseInterceptors(FileInterceptor('file'))
-  async uploadProductImage(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadProductImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -205,9 +199,7 @@ export class UploadController {
   })
   @ApiOperation({ summary: 'Upload a banner image (optimized for hero banners)' })
   @UseInterceptors(FileInterceptor('file'))
-  async uploadBannerImage(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadBannerImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -248,9 +240,7 @@ export class UploadController {
   })
   @ApiOperation({ summary: 'Upload a profile avatar (256x256, WebP)' })
   @UseInterceptors(FileInterceptor('file'))
-  async uploadAvatar(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadAvatar(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -275,7 +265,7 @@ export class UploadController {
   @ApiBearerAuth()
   @Roles(UserRole.ADMIN, UserRole.VENDOR)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Delete an uploaded Cloudinary asset by public ID' })
+  @ApiOperation({ summary: 'Delete an uploaded asset by public ID' })
   async deleteUpload(@Body('publicId') publicId?: string) {
     if (!publicId) {
       throw new BadRequestException('publicId is required');

@@ -4,7 +4,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OrderStatus } from "@/constants/order-workflow";
+import type { OrderStatus } from "@/types/order-workflow";
 
 /**
  * OrderProgressBar — a compact horizontal progress indicator showing the

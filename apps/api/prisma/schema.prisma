@@ -57,41 +57,41 @@ enum UserStatus {
 }
 
 model User {
-  id            String        @id @default(cuid())
+  id            String     @id @default(cuid())
   email         String
   phone         String?
   passwordHash  String
-  role          UserRole      @default(BUYER)
-  status        UserStatus    @default(PENDING)
-  emailVerified Boolean       @default(false)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  role          UserRole   @default(BUYER)
+  status        UserStatus @default(PENDING)
+  emailVerified Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  profile       UserProfile?
-  addresses     Address[]
-  kycDocuments  KycDocument[]
-  store         Store?
-  subscription  Subscription?
-  kwikCoins     KwikCoins?
-  coinTransactions CoinTransaction[]
-  vendorMilestones VendorMilestone[]
-  referralsAsReferrer Referral[]  @relation("Referrer")
-  referralsAsReferee  Referral[]  @relation("Referee")
-  ordersAsBuyer Order[]           @relation("BuyerOrders")
-  parentCheckouts ParentCheckout[] @relation("BuyerParentCheckouts")
-  carts         Cart[]
-  notifications Notification[]
-  pushSubscriptions PushSubscription[]
-  rider         Rider?
-  adCampaigns   AdCampaign[]
-  wallet        Wallet?
-  withdrawals   Withdrawal[]
-  adminPermission AdminPermission?
-  auditLogs     AuditLog[]
-  reviews       Review[]
-  productQuestions ProductQuestion[] @relation("ProductQuestionUser")
-  productAnswers   ProductQuestion[] @relation("ProductQuestionAnswerer")
-  riderDeliveries Delivery[]          @relation("RiderDeliveries")
+  profile             UserProfile?
+  addresses           Address[]
+  kycDocuments        KycDocument[]
+  store               Store?
+  subscription        Subscription?
+  kwikCoins           KwikCoins?
+  coinTransactions    CoinTransaction[]
+  vendorMilestones    VendorMilestone[]
+  referralsAsReferrer Referral[]         @relation("Referrer")
+  referralsAsReferee  Referral[]         @relation("Referee")
+  ordersAsBuyer       Order[]            @relation("BuyerOrders")
+  parentCheckouts     ParentCheckout[]   @relation("BuyerParentCheckouts")
+  carts               Cart[]
+  notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
+  rider               Rider?
+  adCampaigns         AdCampaign[]
+  wallet              Wallet?
+  withdrawals         Withdrawal[]
+  adminPermission     AdminPermission?
+  auditLogs           AuditLog[]
+  reviews             Review[]
+  productQuestions    ProductQuestion[]  @relation("ProductQuestionUser")
+  productAnswers      ProductQuestion[]  @relation("ProductQuestionAnswerer")
+  riderDeliveries     Delivery[]         @relation("RiderDeliveries")
 
   @@unique([email, role])
   @@index([email])
@@ -100,38 +100,38 @@ model User {
 }
 
 model UserProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String    @id @default(cuid())
+  userId      String    @unique
   firstName   String?
   lastName    String?
   avatarUrl   String?
   bio         String?
   dateOfBirth DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Address {
-  id          String   @id @default(cuid())
-  userId      String
-  line1       String
-  line2       String?
-  city        String
-  stateId     String?
-  lgaId       String?
+  id                   String   @id @default(cuid())
+  userId               String
+  line1                String
+  line2                String?
+  city                 String
+  stateId              String?
+  lgaId                String?
   deliveryInstructions String?
-  country     String   @default("Nigeria")
-  postalCode  String?
-  isDefault   Boolean  @default(false)
-  type        String   @default("SHIPPING")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  country              String   @default("Nigeria")
+  postalCode           String?
+  isDefault            Boolean  @default(false)
+  type                 String   @default("SHIPPING")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  state State? @relation(fields: [stateId], references: [id])
-  lga LocalGovernment? @relation(fields: [lgaId], references: [id])
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state  State?           @relation(fields: [stateId], references: [id])
+  lga    LocalGovernment? @relation(fields: [lgaId], references: [id])
   orders Order[]
 
   @@index([userId])
@@ -140,16 +140,16 @@ model Address {
 }
 
 model KycDocument {
-  id              String           @id @default(cuid())
+  id              String          @id @default(cuid())
   userId          String
   type            KycDocumentType
   documentUrl     String
-  status          KycStatus        @default(PENDING)
+  status          KycStatus       @default(PENDING)
   reviewedBy      String?
   reviewedAt      DateTime?
   rejectionReason String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -180,14 +180,14 @@ enum AdminRole {
 }
 
 model AdminPermission {
-  id          String     @id @default(cuid())
-  adminUserId String     @unique
-  role        AdminRole  @default(CONTENT)
+  id          String    @id @default(cuid())
+  adminUserId String    @unique
+  role        AdminRole @default(CONTENT)
   permissions String
   grantedBy   String
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 }
@@ -195,38 +195,38 @@ model AdminPermission {
 // ==================== STORE ====================
 
 model Store {
-  id                      String             @id @default(cuid())
-  vendorId                String             @unique
-  name                    String
-  slug                    String             @unique
-  description             String?
-  logoUrl                 String?
-  bannerUrl               String?
-  category                String?
-  isVerified              Boolean            @default(false)
-  onboardingComplete      Boolean            @default(false)
-  onboardingStep          OnboardingStep     @default(NOT_STARTED)
-  onboardingSubmittedAt   DateTime?
-  verificationStatus      VerificationStatus @default(NOT_SUBMITTED)
-  verificationReviewedAt  DateTime?
-  verificationReviewedBy  String?
-  rejectionReason         String?
-  bankCode                String?
-  bankName                String?
-  accountNumber           String?
-  accountName             String?
-  deliverySetupComplete   Boolean            @default(false)
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  vendorId               String             @unique
+  name                   String
+  slug                   String             @unique
+  description            String?
+  logoUrl                String?
+  bannerUrl              String?
+  category               String?
+  isVerified             Boolean            @default(false)
+  onboardingComplete     Boolean            @default(false)
+  onboardingStep         OnboardingStep     @default(NOT_STARTED)
+  onboardingSubmittedAt  DateTime?
+  verificationStatus     VerificationStatus @default(NOT_SUBMITTED)
+  verificationReviewedAt DateTime?
+  verificationReviewedBy String?
+  rejectionReason        String?
+  bankCode               String?
+  bankName               String?
+  accountNumber          String?
+  accountName            String?
+  deliverySetupComplete  Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
-  vendor      User          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-    products    Product[]
-    orders      Order[]       @relation("StoreOrders")
-    poolOffers  VendorPoolOffer[]
-    sourcedPoolOffers VendorPoolOffer[] @relation("PoolSourceStore")
-    storefrontDesign StorefrontDesign?
-    deliverySetting StoreDeliverySetting?
-    deliveryZones StoreDeliveryZone[]
+  vendor            User                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  products          Product[]
+  orders            Order[]               @relation("StoreOrders")
+  poolOffers        VendorPoolOffer[]
+  sourcedPoolOffers VendorPoolOffer[]     @relation("PoolSourceStore")
+  storefrontDesign  StorefrontDesign?
+  deliverySetting   StoreDeliverySetting?
+  deliveryZones     StoreDeliveryZone[]
 
   @@index([vendorId])
   @@index([slug])
@@ -234,26 +234,26 @@ model Store {
 }
 
 model StorefrontDesign {
-  id               String   @id @default(cuid())
-  storeId          String   @unique
-  themePreset      String   @default("CLASSIC")
-  navbarTemplate   String   @default("NAVBAR_CLASSIC")
-  bottomNavTemplate String  @default("BOTTOM_TABS_CLASSIC")
-  layoutTemplate   String   @default("GRID_COMMERCE")
-  cartTemplate     String   @default("CART_COMPACT")
-  typographyPreset String   @default("FIGTREE_QUESTRIAL")
-  primaryColor     String   @default("#071A2F")
-  accentColor      String   @default("#F97316")
-  fontPairing      String   @default("FIGTREE_QUESTRIAL")
-  headingFont      String   @default("SORA")
-  bodyFont         String   @default("FIGTREE")
-  heroLayout       String   @default("BANNER_LEFT")
-  productCardStyle String   @default("CLEAN_GRID")
-  sections         String   @default("[\"hero\",\"products\",\"pool\",\"policies\"]")
-  heroTitle        String?
-  heroSubtitle     String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default(cuid())
+  storeId           String   @unique
+  themePreset       String   @default("CLASSIC")
+  navbarTemplate    String   @default("NAVBAR_CLASSIC")
+  bottomNavTemplate String   @default("BOTTOM_TABS_CLASSIC")
+  layoutTemplate    String   @default("GRID_COMMERCE")
+  cartTemplate      String   @default("CART_COMPACT")
+  typographyPreset  String   @default("FIGTREE_QUESTRIAL")
+  primaryColor      String   @default("#071A2F")
+  accentColor       String   @default("#F97316")
+  fontPairing       String   @default("FIGTREE_QUESTRIAL")
+  headingFont       String   @default("SORA")
+  bodyFont          String   @default("FIGTREE")
+  heroLayout        String   @default("BANNER_LEFT")
+  productCardStyle  String   @default("CLEAN_GRID")
+  sections          String   @default("[\"hero\",\"products\",\"pool\",\"policies\"]")
+  heroTitle         String?
+  heroSubtitle      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
@@ -275,18 +275,18 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                  String             @id @default(cuid())
-  vendorId            String             @unique
-  plan                SubscriptionPlan   @default(STARTER)
-  status              SubscriptionStatus @default(PENDING)
-  startDate           DateTime?
-  endDate             DateTime?
-  productLimit        Int                @default(10)
-  adCreditsIncluded   Int                @default(0)
-  autoRenew           Boolean            @default(false)
-  paymentToken        String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  vendorId          String             @unique
+  plan              SubscriptionPlan   @default(STARTER)
+  status            SubscriptionStatus @default(PENDING)
+  startDate         DateTime?
+  endDate           DateTime?
+  productLimit      Int                @default(10)
+  adCreditsIncluded Int                @default(0)
+  autoRenew         Boolean            @default(false)
+  paymentToken      String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 }
@@ -294,14 +294,14 @@ model Subscription {
 // ==================== KWIKCOINS & CREDITS ====================
 
 model KwikCoins {
-  id              String   @id @default(cuid())
-  vendorId        String   @unique
-  balance         Int      @default(0)
-  totalEarned     Int      @default(0)
-  totalSpent      Int      @default(0)
-  totalPurchased  Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  vendorId       String   @unique
+  balance        Int      @default(0)
+  totalEarned    Int      @default(0)
+  totalSpent     Int      @default(0)
+  totalPurchased Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 }
@@ -315,13 +315,13 @@ enum CoinTransactionType {
 }
 
 model CoinTransaction {
-  id            String              @id @default(cuid())
-  vendorId      String
-  amount        Int
-  type          CoinTransactionType
-  source        String?
-  balanceAfter  Int
-  createdAt     DateTime            @default(now())
+  id           String              @id @default(cuid())
+  vendorId     String
+  amount       Int
+  type         CoinTransactionType
+  source       String?
+  balanceAfter Int
+  createdAt    DateTime            @default(now())
 
   vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -329,19 +329,19 @@ model CoinTransaction {
 }
 
 model Milestone {
-  id            String   @id @default(cuid())
-  key           String   @unique
-  name          String
-  description   String?
-  coinsAwarded  Int
-  isRepeatable  Boolean  @default(false)
+  id           String  @id @default(cuid())
+  key          String  @unique
+  name         String
+  description  String?
+  coinsAwarded Int
+  isRepeatable Boolean @default(false)
 }
 
 model VendorMilestone {
-  id            String   @id @default(cuid())
-  vendorId      String
-  milestoneKey  String
-  claimedAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  vendorId     String
+  milestoneKey String
+  claimedAt    DateTime @default(now())
 
   vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -349,12 +349,12 @@ model VendorMilestone {
 }
 
 model Referral {
-  id            String   @id @default(cuid())
-  referrerId    String
-  refereeId     String   @unique
-  status        String   @default("PENDING")
-  coinsAwarded  Int      @default(0)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  referrerId   String
+  refereeId    String   @unique
+  status       String   @default("PENDING")
+  coinsAwarded Int      @default(0)
+  createdAt    DateTime @default(now())
 
   referrer User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
   referee  User @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
@@ -363,13 +363,13 @@ model Referral {
 // ==================== BRANDS (from SQL) ====================
 
 model Brand {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  image       String?
-  status      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  image     String?
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   products Product[]
 
@@ -386,20 +386,20 @@ enum BannerType {
 }
 
 model Banner {
-  id              String      @id @default(cuid())
+  id              String     @id @default(cuid())
   title           String?
   subTitle        String?
   image           String
   url             String?
-  bannerType      BannerType  @default(MAIN_BANNER)
-  resourceType    String?     // "product", "category", "brand"
+  bannerType      BannerType @default(MAIN_BANNER)
+  resourceType    String? // "product", "category", "brand"
   resourceId      String?
   backgroundColor String?
   buttonText      String?
-  position        Int         @default(0)
-  isActive        Boolean     @default(true)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  position        Int        @default(0)
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   @@index([isActive])
   @@index([bannerType])
@@ -423,6 +423,7 @@ model Deal {
   id            String       @id @default(cuid())
   title         String
   description   String?
+  imageUrl      String?
   dealType      DealType     @default(FLASH_DEAL)
   discountType  DiscountType @default(PERCENTAGE)
   discountValue Float        @default(0)
@@ -443,11 +444,11 @@ model Deal {
 }
 
 model DealProduct {
-  id         String   @id @default(cuid())
-  dealId     String
-  productId  String
-  dealPrice  Float
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  dealId    String
+  productId String
+  dealPrice Float
+  createdAt DateTime @default(now())
 
   deal    Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -459,24 +460,24 @@ model DealProduct {
 // ==================== COUPONS (from SQL) ====================
 
 model Coupon {
-  id              String       @id @default(cuid())
-  code            String       @unique
-  title           String
-  description     String?
-  discountType    DiscountType @default(PERCENTAGE)
-  discountValue   Float        @default(0)
-  minOrderValue   Float        @default(0)
-  maxDiscount     Float?
-  maxUses         Int?
-  usedCount       Int          @default(0)
-  startDate       DateTime
-  endDate         DateTime?
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  code          String       @unique
+  title         String
+  description   String?
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float        @default(0)
+  minOrderValue Float        @default(0)
+  maxDiscount   Float?
+  maxUses       Int?
+  usedCount     Int          @default(0)
+  startDate     DateTime
+  endDate       DateTime?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  products        CouponProduct[]
-  categories      CouponCategory[]
+  products   CouponProduct[]
+  categories CouponCategory[]
 
   @@index([code])
   @@index([isActive])
@@ -505,15 +506,15 @@ model CouponCategory {
 }
 
 model DeliveryRate {
-  id                String   @id @default(cuid())
-  state             String
-  localGovernment   String
-  fee               Float    @default(0)
-  minDeliveryDays   Int      @default(3)
-  maxDeliveryDays   Int      @default(5)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(cuid())
+  state           String
+  localGovernment String
+  fee             Float    @default(0)
+  minDeliveryDays Int      @default(3)
+  maxDeliveryDays Int      @default(5)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([state, localGovernment])
   @@index([state])
@@ -540,7 +541,7 @@ model LocalGovernment {
   name     String
   isActive Boolean @default(true)
 
-  state        State @relation(fields: [stateId], references: [id])
+  state        State                 @relation(fields: [stateId], references: [id])
   addresses    Address[]
   storeZones   StoreDeliveryZone[]
   productZones ProductDeliveryZone[]
@@ -566,7 +567,7 @@ model StoreDeliverySetting {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
   areas StoreDeliveryArea[]
 
   @@index([storeId])
@@ -646,7 +647,7 @@ model Attribute {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  values AttributeValue[]
+  values            AttributeValue[]
   productAttributes ProductAttribute[]
 }
 
@@ -657,7 +658,7 @@ model AttributeValue {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  attribute         Attribute          @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   productAttributes ProductAttribute[]
 
   @@index([attributeId])
@@ -748,76 +749,76 @@ enum RelationType {
 }
 
 model Product {
-  id              String        @id @default(cuid())
-  storeId         String
-  poolProductId   String?
-  name            String
-  slug            String
-  shortDescription String?
-  description     String?
-  price           Float
-  comparePrice    Float?
-  sku             String?
-  barcode         String?
-  productType     ProductType    @default(PHYSICAL)
-  productSource   ProductSource  @default(VENDOR_STOCK)
-  inventoryPolicy InventoryPolicy @default(TRACKED)
-  requiresShipping Boolean       @default(true)
-  useStoreDeliveryZones Boolean  @default(true)
-  trackInventory  Boolean        @default(true)
-  stock           Int           @default(0)
-  lowStock        Int           @default(5)
-  minOrderQuantity Int           @default(1)
-  maxOrderQuantity Int?
-  condition       ProductCondition?
-  isPreorder      Boolean       @default(false)
-  preorderDate    DateTime?
-  weight          Float?
-  status          ProductStatus @default(DRAFT)
-  categoryId      String?
-  brandId         String?
-    isFeatured      Boolean       @default(false)
-    isPoolProduct   Boolean       @default(false)
-    poolEnabled     Boolean       @default(false)
-    poolBasePrice   Float?
-    poolMinSalePrice Float?
-    poolMaxSelectableQuantity Int?
-    poolSourceStoreId String?
-    poolSourceProductId String?
-    poolSourceBasePrice Float?
-    poolMargin      Float?
-    rating          Float         @default(0)
-  reviewCount     Int           @default(0)
-  totalSales      Int           @default(0)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                        String            @id @default(cuid())
+  storeId                   String
+  poolProductId             String?
+  name                      String
+  slug                      String
+  shortDescription          String?
+  description               String?
+  price                     Float
+  comparePrice              Float?
+  sku                       String?
+  barcode                   String?
+  productType               ProductType       @default(PHYSICAL)
+  productSource             ProductSource     @default(VENDOR_STOCK)
+  inventoryPolicy           InventoryPolicy   @default(TRACKED)
+  requiresShipping          Boolean           @default(true)
+  useStoreDeliveryZones     Boolean           @default(true)
+  trackInventory            Boolean           @default(true)
+  stock                     Int               @default(0)
+  lowStock                  Int               @default(5)
+  minOrderQuantity          Int               @default(1)
+  maxOrderQuantity          Int?
+  condition                 ProductCondition?
+  isPreorder                Boolean           @default(false)
+  preorderDate              DateTime?
+  weight                    Float?
+  status                    ProductStatus     @default(DRAFT)
+  categoryId                String?
+  brandId                   String?
+  isFeatured                Boolean           @default(false)
+  isPoolProduct             Boolean           @default(false)
+  poolEnabled               Boolean           @default(false)
+  poolBasePrice             Float?
+  poolMinSalePrice          Float?
+  poolMaxSelectableQuantity Int?
+  poolSourceStoreId         String?
+  poolSourceProductId       String?
+  poolSourceBasePrice       Float?
+  poolMargin                Float?
+  rating                    Float             @default(0)
+  reviewCount               Int               @default(0)
+  totalSales                Int               @default(0)
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
 
-  store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-    poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id])
-  variants    ProductVariant[]
-  variantTypes VariantType[]
-  images      ProductMedia[]
-  attributes  ProductAttribute[]
-  dimension   ProductDimension?
-  seo         ProductSeo?
-  deliveryZones ProductDeliveryZone[]
-  digitalAssets DigitalAsset[]
-  inventoryItems InventoryItem[]
-  deliveryOverride ProductDeliveryOverride?
-    vendorPoolOffers VendorPoolOffer[]
-    sourcePoolOffers VendorPoolOffer[] @relation("PoolSourceProduct")
-  category    Category?       @relation(fields: [categoryId], references: [id])
-  brand       Brand?          @relation(fields: [brandId], references: [id])
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
-  adCampaigns AdCampaign[]
-  tags        ProductTag[]
-  dealProducts DealProduct[]
-  couponProducts CouponProduct[]
-  reviews     Review[]
-  questions   ProductQuestion[]
-  relatedProducts RelatedProduct[] @relation("ProductRelations")
-  relatedByProducts RelatedProduct[] @relation("RelatedProductRelations")
+  store             Store                    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  poolProduct       PoolProduct?             @relation(fields: [poolProductId], references: [id])
+  variants          ProductVariant[]
+  variantTypes      VariantType[]
+  images            ProductMedia[]
+  attributes        ProductAttribute[]
+  dimension         ProductDimension?
+  seo               ProductSeo?
+  deliveryZones     ProductDeliveryZone[]
+  digitalAssets     DigitalAsset[]
+  inventoryItems    InventoryItem[]
+  deliveryOverride  ProductDeliveryOverride?
+  vendorPoolOffers  VendorPoolOffer[]
+  sourcePoolOffers  VendorPoolOffer[]        @relation("PoolSourceProduct")
+  category          Category?                @relation(fields: [categoryId], references: [id])
+  brand             Brand?                   @relation(fields: [brandId], references: [id])
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  adCampaigns       AdCampaign[]
+  tags              ProductTag[]
+  dealProducts      DealProduct[]
+  couponProducts    CouponProduct[]
+  reviews           Review[]
+  questions         ProductQuestion[]
+  relatedProducts   RelatedProduct[]         @relation("ProductRelations")
+  relatedByProducts RelatedProduct[]         @relation("RelatedProductRelations")
 
   @@unique([storeId, slug])
   @@index([storeId])
@@ -827,11 +828,11 @@ model Product {
   @@index([isFeatured])
   @@index([productType])
   @@index([productSource])
-    @@index([poolProductId])
-    @@index([poolEnabled])
-    @@index([poolSourceStoreId])
-    @@index([poolSourceProductId])
-  }
+  @@index([poolProductId])
+  @@index([poolEnabled])
+  @@index([poolSourceStoreId])
+  @@index([poolSourceProductId])
+}
 
 model ProductDeliveryOverride {
   id                String           @id @default(cuid())
@@ -849,20 +850,20 @@ model ProductDeliveryOverride {
 }
 
 model ProductVariant {
-  id          String   @id @default(cuid())
-  productId   String
-  name        String
-  price       Float
-  stock       Int      @default(0)
-  sku         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  price     Float
+  stock     Int      @default(0)
+  sku       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  values    VariantValue[] @relation("VariantValueMap")
-  cartItems CartItem[]
-  orderItems OrderItem[]
-  digitalAssets DigitalAsset[]
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values         VariantValue[]  @relation("VariantValueMap")
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+  digitalAssets  DigitalAsset[]
   inventoryItems InventoryItem[]
 
   @@index([productId])
@@ -930,8 +931,8 @@ model DigitalAsset {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
   fulfillments Fulfillment[]
 
   @@index([productId])
@@ -954,9 +955,9 @@ model InventoryItem {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  product     Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  poolProduct PoolProduct?    @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+  product      Product?               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant      ProductVariant?        @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  poolProduct  PoolProduct?           @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
   reservations InventoryReservation[]
 
   @@index([productId])
@@ -1017,8 +1018,8 @@ model RelatedProduct {
 }
 
 model ProductTag {
-  productId   String
-  tagId       String
+  productId String
+  tagId     String
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
@@ -1027,20 +1028,20 @@ model ProductTag {
 }
 
 model Category {
-  id          String     @id @default(cuid())
-  name        String
-  slug        String     @unique
-  parentId    String?
-  imageUrl    String?
-  icon        String?
-  isActive    Boolean    @default(true)
-  position    Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  parentId  String?
+  imageUrl  String?
+  icon      String?
+  isActive  Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryTree")
-  products Product[]
+  parent           Category?        @relation("CategoryTree", fields: [parentId], references: [id])
+  children         Category[]       @relation("CategoryTree")
+  products         Product[]
   couponCategories CouponCategory[]
 
   @@index([parentId])
@@ -1050,12 +1051,12 @@ model Category {
 // ==================== CART ====================
 
 model Cart {
-  id          String     @id @default(cuid())
-  userId      String?
-  sessionId   String?
-  expiresAt   DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        String    @id @default(cuid())
+  userId    String?
+  sessionId String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   items CartItem[]
@@ -1065,23 +1066,23 @@ model Cart {
 }
 
 model CartItem {
-  id          String   @id @default(cuid())
-  cartId      String
-  productId   String
-  variantId   String?
-  poolOfferId String?
-  quantity    Int
-  price       Float
-  productType ProductType   @default(PHYSICAL)
-  productSource ProductSource @default(VENDOR_STOCK)
-  requiresShipping Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String        @id @default(cuid())
+  cartId           String
+  productId        String
+  variantId        String?
+  poolOfferId      String?
+  quantity         Int
+  price            Float
+  productType      ProductType   @default(PHYSICAL)
+  productSource    ProductSource @default(VENDOR_STOCK)
+  requiresShipping Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  poolOffer VendorPoolOffer? @relation(fields: [poolOfferId], references: [id], onDelete: SetNull)
+  cart         Cart                   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product      Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant      ProductVariant?        @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  poolOffer    VendorPoolOffer?       @relation(fields: [poolOfferId], references: [id], onDelete: SetNull)
   reservations InventoryReservation[]
 
   @@index([cartId])
@@ -1135,54 +1136,120 @@ enum FulfillmentType {
   DIGITAL_ACCESS
 }
 
-model Order {
-  id            String        @id @default(cuid())
-  buyerId       String
-  storeId       String
-  parentCheckoutId String?
-  status        OrderStatus   @default(PENDING_PAYMENT)
-  subtotal      Float
-  shippingFee   Float         @default(0)
-  discount      Float         @default(0)
-  totalAmount   Float
-  paymentStatus PaymentStatus @default(PENDING)
-  addressId     String?
-  checkoutReference String?    @unique
-  idempotencyKey String?
-  poolOrderId   String?
-  couponId      String?
-  deliveryRateId String?
-  deliveryState String?
-  deliveryLocalGovernment String?
-  estimatedDeliveryStart DateTime?
-  estimatedDeliveryEnd DateTime?
-  deliveryRateSnapshot String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+// ==================== DELIVERY METHOD (checkout-level) ====================
 
-  buyer       User        @relation("BuyerOrders", fields: [buyerId], references: [id])
-  store       Store       @relation("StoreOrders", fields: [storeId], references: [id])
-  parentCheckout ParentCheckout? @relation(fields: [parentCheckoutId], references: [id], onDelete: Cascade)
-  address     Address?    @relation(fields: [addressId], references: [id])
-  items       OrderItem[]
-  payment     Payment?
-  escrow              Escrow?
-  delivery            Delivery?
-  commission          Commission?
-  fulfillments       Fulfillment[]
-  reviews            Review[]
-  disputeStatus      DisputeStatus  @default(NONE)
-  disputeReason      String?
-  disputeEvidence    String?
-  disputeResolvedAt  DateTime?
-  disputeResolvedBy  String?
-  disputeResolution  String?
+enum DeliveryMethod {
+  PICKUP
+  STANDARD_DELIVERY
+}
+
+// ==================== QUOTE SYSTEM ====================
+
+enum QuoteStatus {
+  PENDING_VENDOR_QUOTE // order placed, awaiting vendor's delivery quote
+  QUOTED // vendor submitted a quote
+  CUSTOMER_ACCEPTED // customer accepted the vendor's quote
+  CUSTOMER_REQUESTED_REDUCTION // customer asked for a lower amount
+  VENDOR_REVISED // vendor revised the quote after reduction request
+  AGREED // both parties reached agreement (payment unlocked)
+  REJECTED // vendor or customer rejected (terminal)
+  EXPIRED // quote expired without agreement (terminal)
+  CANCELLED // order cancelled before agreement (terminal)
+}
+
+enum QuoteRevisionType {
+  VENDOR_QUOTE
+  CUSTOMER_REQUEST_REDUCTION
+  VENDOR_REVISE
+  VENDOR_ACCEPT_REDUCTION
+  VENDOR_REJECT_REDUCTION
+  CUSTOMER_ACCEPT
+  CUSTOMER_REJECT
+  SYSTEM_EXPIRE
+  SYSTEM_CANCEL
+}
+
+// ==================== WALLET LEDGER ====================
+
+enum WalletTransactionType {
+  ESCROW_RELEASE // credit from escrow release
+  REFUND_REVERSAL // credit reversal on refund
+  WITHDRAWAL // debit for withdrawal
+  WITHDRAWAL_REVERSAL // credit when withdrawal fails
+  ADJUSTMENT // manual admin adjustment
+  OPENING_BALANCE // migration / opening balance
+}
+
+// ==================== PLATFORM CONFIG ====================
+
+model PlatformSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+}
+
+model Order {
+  id                      String        @id @default(cuid())
+  buyerId                 String
+  storeId                 String
+  parentCheckoutId        String?
+  status                  OrderStatus   @default(PENDING)
+  subtotal                Float
+  shippingFee             Float         @default(0)
+  discount                Float         @default(0)
+  totalAmount             Float
+  paymentStatus           PaymentStatus @default(PENDING)
+  addressId               String?
+  checkoutReference       String?       @unique
+  idempotencyKey          String?
+  poolOrderId             String?
+  couponId                String?
+  deliveryRateId          String?
+  deliveryState           String?
+  deliveryLocalGovernment String?
+  estimatedDeliveryStart  DateTime?
+  estimatedDeliveryEnd    DateTime?
+  deliveryRateSnapshot    String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  // === Quote / Delivery lifecycle (separate state dimensions) ===
+  deliveryMethod       DeliveryMethod?
+  quoteStatus          QuoteStatus     @default(PENDING_VENDOR_QUOTE)
+  quoteExpiresAt       DateTime?
+  processingFeePercent Float           @default(0)
+  processingFeeAmount  Float           @default(0)
+  agreedDeliveryFee    Float           @default(0)
+  agreedAt             DateTime?
+
+  buyer             User            @relation("BuyerOrders", fields: [buyerId], references: [id])
+  store             Store           @relation("StoreOrders", fields: [storeId], references: [id])
+  parentCheckout    ParentCheckout? @relation(fields: [parentCheckoutId], references: [id], onDelete: Cascade)
+  address           Address?        @relation(fields: [addressId], references: [id])
+  items             OrderItem[]
+  payment           Payment?
+  escrow            Escrow?
+  delivery          Delivery?
+  commission        Commission?
+  fulfillments      Fulfillment[]
+  reviews           Review[]
+  quote             Quote?
+  disputeStatus     DisputeStatus   @default(NONE)
+  disputeReason     String?
+  disputeEvidence   String?
+  disputeResolvedAt DateTime?
+  disputeResolvedBy String?
+  disputeResolution String?
 
   @@index([buyerId])
   @@index([storeId])
   @@index([parentCheckoutId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([quoteStatus])
   @@index([idempotencyKey])
 }
 
@@ -1196,12 +1263,12 @@ model ParentCheckout {
   totalAmount       Float
   paymentStatus     PaymentStatus        @default(PENDING)
   checkoutReference String               @unique
-  idempotencyKey    String?
+  idempotencyKey    String?              @unique
   couponId          String?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
-  buyer   User      @relation("BuyerParentCheckouts", fields: [buyerId], references: [id])
+  buyer   User     @relation("BuyerParentCheckouts", fields: [buyerId], references: [id])
   orders  Order[]
   payment Payment?
 
@@ -1212,30 +1279,39 @@ model ParentCheckout {
 }
 
 model OrderItem {
-  id          String   @id @default(cuid())
-  orderId     String
-  productId   String
-  variantId   String?
-  poolOfferId String?
-  quantity    Int
-  unitPrice   Float
-  totalPrice  Float
-  isPoolItem  Boolean  @default(false)
-  productType ProductType   @default(PHYSICAL)
-  productSource ProductSource @default(VENDOR_STOCK)
-  sellerStoreId String?
-  sourceStoreId String?
-  sourceProductId String?
-  sourceBasePrice Float?
-  resellerMargin Float?
+  id                String            @id @default(cuid())
+  orderId           String
+  productId         String
+  variantId         String?
+  poolOfferId       String?
+  quantity          Int
+  unitPrice         Float
+  totalPrice        Float
+  isPoolItem        Boolean           @default(false)
+  productType       ProductType       @default(PHYSICAL)
+  productSource     ProductSource     @default(VENDOR_STOCK)
+  sellerStoreId     String?
+  sourceStoreId     String?
+  sourceProductId   String?
+  sourceBasePrice   Float?
+  resellerMargin    Float?
   platformFeeAmount Float?
   fulfillmentStatus FulfillmentStatus @default(PENDING)
-  createdAt   DateTime @default(now())
+  createdAt         DateTime          @default(now())
 
-  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product        @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
-  poolOffer VendorPoolOffer? @relation(fields: [poolOfferId], references: [id], onDelete: SetNull)
+  // === Product snapshot (preserves order history if product is edited later) ===
+  productNameSnapshot   String?
+  productSkuSnapshot    String?
+  productSlugSnapshot   String?
+  productImageSnapshot  String?
+  variantNameSnapshot   String?
+  vendorNameSnapshot    String?
+  vendorStoreIdSnapshot String?
+
+  order        Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product                @relation(fields: [productId], references: [id])
+  variant      ProductVariant?        @relation(fields: [variantId], references: [id])
+  poolOffer    VendorPoolOffer?       @relation(fields: [poolOfferId], references: [id], onDelete: SetNull)
   reservations InventoryReservation[]
   fulfillments Fulfillment[]
 
@@ -1263,24 +1339,24 @@ enum PaymentType {
 }
 
 model Payment {
-  id            String         @id @default(cuid())
-  orderId       String?        @unique
-  parentCheckoutId String?     @unique
-  entityType    PaymentType
-  entityId      String
-  amount        Float
-  gateway       PaymentGateway
-  reference     String         @unique
-  status        PaymentStatus  @default(PENDING)
+  id               String         @id @default(cuid())
+  orderId          String?        @unique
+  parentCheckoutId String?        @unique
+  entityType       PaymentType
+  entityId         String
+  amount           Float
+  gateway          PaymentGateway
+  reference        String         @unique
+  status           PaymentStatus  @default(PENDING)
   authorizationUrl String?
-  metadata      String?
-  gatewayResponse String?
-  paidAt        DateTime?
-  verifiedAt    DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  metadata         String?
+  gatewayResponse  String?
+  paidAt           DateTime?
+  verifiedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  order Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order          Order?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   parentCheckout ParentCheckout? @relation(fields: [parentCheckoutId], references: [id], onDelete: Cascade)
 
   @@index([reference])
@@ -1288,17 +1364,17 @@ model Payment {
 }
 
 model PaymentWebhookEvent {
-  id             String    @id @default(cuid())
+  id             String         @id @default(cuid())
   gateway        PaymentGateway
   eventType      String
-  idempotencyKey String    @unique
+  idempotencyKey String         @unique
   reference      String?
-  status         String    @default("RECEIVED")
+  status         String         @default("RECEIVED")
   payload        String?
   error          String?
   processedAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([gateway])
   @@index([reference])
@@ -1355,54 +1431,54 @@ enum DisputeStatus {
 }
 
 model Delivery {
-  id                String          @id @default(cuid())
-  orderId           String          @unique
-  order             Order           @relation(fields: [orderId], references: [id])
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
 
-  status            DeliveryStatus  @default(PENDING)
+  status DeliveryStatus @default(PENDING)
 
   // Assignment
-  riderId           String?
-  rider             User?           @relation("RiderDeliveries", fields: [riderId], references: [id])
-  assignedAt        DateTime?
-  assignedBy        String?
-  acceptedAt        DateTime?
-  rejectedAt        DateTime?
-  rejectReason      String?
+  riderId      String?
+  rider        User?     @relation("RiderDeliveries", fields: [riderId], references: [id])
+  assignedAt   DateTime?
+  assignedBy   String?
+  acceptedAt   DateTime?
+  rejectedAt   DateTime?
+  rejectReason String?
 
   // Vendor Side
-  vendorPreparingAt     DateTime?
-  vendorReadyAt         DateTime?
-  pickupConfirmedAt      DateTime?
-  pickupConfirmedBy      String?
+  vendorPreparingAt DateTime?
+  vendorReadyAt     DateTime?
+  pickupConfirmedAt DateTime?
+  pickupConfirmedBy String?
 
   // Transit
-  pickedUpAt            DateTime?
-  inTransitAt           DateTime?
-  arrivedAt             DateTime?
+  pickedUpAt  DateTime?
+  inTransitAt DateTime?
+  arrivedAt   DateTime?
 
   // Completion
-  deliveredAt           DateTime?
-  deliveryPhoto         String?
-  deliveryNotes         String?
+  deliveredAt   DateTime?
+  deliveryPhoto String?
+  deliveryNotes String?
 
   // Customer Confirmation
-  customerConfirmed     Boolean    @default(false)
-  customerConfirmedAt   DateTime?
-  customerRejected      Boolean    @default(false)
-  customerRejectReason  String?
+  customerConfirmed    Boolean   @default(false)
+  customerConfirmedAt  DateTime?
+  customerRejected     Boolean   @default(false)
+  customerRejectReason String?
 
   // Locations
-  pickupAddress         String
-  deliveryAddress       String
-  deliveryContactName   String?
-  deliveryContactPhone  String?
-  currentLocation       String?
+  pickupAddress        String
+  deliveryAddress      String
+  deliveryContactName  String?
+  deliveryContactPhone String?
+  currentLocation      String?
 
   // Metadata
-  estimatedMinutes      Int?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  estimatedMinutes Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([orderId])
   @@index([riderId])
@@ -1421,16 +1497,19 @@ enum EscrowStatus {
 }
 
 model Escrow {
-  id             String        @id @default(cuid())
-  orderId        String        @unique
+  id             String       @id @default(cuid())
+  orderId        String       @unique
   vendorId       String
   amount         Float
-  status         EscrowStatus  @default(HELD)
+  status         EscrowStatus @default(HELD)
   releaseAt      DateTime?
   releasedAt     DateTime?
+  refundedAt     DateTime?
+  heldAt         DateTime?
+  transactionRef String?      @unique
   disputeReason  String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -1439,19 +1518,90 @@ model Escrow {
   @@index([status])
 }
 
+// ==================== QUOTE (delivery-fee negotiation per Order) ====================
+
+model Quote {
+  id            String      @id @default(cuid())
+  orderId       String      @unique
+  vendorId      String
+  buyerId       String
+  status        QuoteStatus @default(PENDING_VENDOR_QUOTE)
+  // The "current" quote amount the customer is reviewing / has agreed to.
+  currentAmount Float       @default(0)
+  // The final agreed amount (set when status = AGREED).
+  agreedAmount  Float?
+  expiresAt     DateTime?
+  agreedAt      DateTime?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectReason  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  revisions QuoteRevision[]
+
+  @@index([orderId])
+  @@index([vendorId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model QuoteRevision {
+  id        String            @id @default(cuid())
+  quoteId   String
+  type      QuoteRevisionType
+  amount    Float
+  actorId   String
+  note      String?
+  createdAt DateTime          @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@index([actorId])
+  @@index([type])
+}
+
 // ==================== WALLET ====================
 
 model Wallet {
-  id                String   @id @default(cuid())
-  vendorId          String   @unique
-  availableBalance  Float    @default(0)
-  pendingBalance    Float    @default(0)
-  totalEarned       Float    @default(0)
-  totalWithdrawn    Float    @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  vendorId         String   @unique
+  availableBalance Float    @default(0)
+  pendingBalance   Float    @default(0)
+  totalEarned      Float    @default(0)
+  totalWithdrawn   Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  vendor User @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor       User                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+}
+
+// Append-only ledger — single source of truth for all wallet balance changes.
+// The `reference` field is @unique and serves as the idempotency key.
+model WalletTransaction {
+  id           String                @id @default(cuid())
+  walletId     String
+  vendorId     String
+  type         WalletTransactionType
+  amount       Float // positive = credit, negative = debit
+  balanceAfter Float
+  reference    String                @unique
+  orderId      String?
+  escrowId     String?
+  reason       String?
+  createdBy    String?
+  createdAt    DateTime              @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([vendorId])
+  @@index([orderId])
+  @@index([type])
+  @@index([reference])
 }
 
 model Withdrawal {
@@ -1482,16 +1632,16 @@ enum WithdrawalStatus {
 // ==================== COMMISSION ====================
 
 model Commission {
-  id                  String   @id @default(cuid())
-  orderId             String   @unique
-  vendorId            String
-  saleAmount          Float
-  platformFeePercent  Float
-  platformFeeAmount   Float
-  vendorEarnings      Float
-  plan                String
-  settledAt           DateTime?
-  createdAt           DateTime @default(now())
+  id                 String    @id @default(cuid())
+  orderId            String    @unique
+  vendorId           String
+  saleAmount         Float
+  platformFeePercent Float
+  platformFeeAmount  Float
+  vendorEarnings     Float
+  plan               String
+  settledAt          DateTime?
+  createdAt          DateTime  @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -1501,26 +1651,26 @@ model Commission {
 // ==================== POOL ====================
 
 model PoolProduct {
-  id              String   @id @default(cuid())
-  name            String
-  description     String?
-  wholesalePrice  Float
+  id                   String            @id @default(cuid())
+  name                 String
+  description          String?
+  wholesalePrice       Float
   suggestedRetailPrice Float?
-  productType     ProductType @default(PHYSICAL)
-  status          PoolProductStatus @default(DRAFT)
-  categoryId      String?
-  category        String?
-  stock           Int      @default(0)
-  supplierId      String?
-  images          String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  productType          ProductType       @default(PHYSICAL)
+  status               PoolProductStatus @default(DRAFT)
+  categoryId           String?
+  category             String?
+  stock                Int               @default(0)
+  supplierId           String?
+  images               String?
+  isActive             Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
-  products Product[]
+  products       Product[]
   inventoryItems InventoryItem[]
-  vendorOffers VendorPoolOffer[]
-  campaigns PoolCampaign[]
+  vendorOffers   VendorPoolOffer[]
+  campaigns      PoolCampaign[]
 
   @@index([category])
   @@index([categoryId])
@@ -1542,74 +1692,74 @@ enum PoolOfferStatus {
 }
 
 model VendorPoolOffer {
-    id              String   @id @default(cuid())
-    storeId         String
-    poolProductId   String?
-    sourceType      PoolSourceType @default(ADMIN_POOL)
-    sourceStoreId   String?
-    sourceProductId String?
-    sourceBasePrice Float          @default(0)
-    productId       String?
-    retailPrice     Float
-    markup          Float    @default(0)
+  id              String          @id @default(cuid())
+  storeId         String
+  poolProductId   String?
+  sourceType      PoolSourceType  @default(ADMIN_POOL)
+  sourceStoreId   String?
+  sourceProductId String?
+  sourceBasePrice Float           @default(0)
+  productId       String?
+  retailPrice     Float
+  markup          Float           @default(0)
   status          PoolOfferStatus @default(DRAFT)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-    store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-    sourceStore Store?      @relation("PoolSourceStore", fields: [sourceStoreId], references: [id], onDelete: SetNull)
-    sourceProduct Product?  @relation("PoolSourceProduct", fields: [sourceProductId], references: [id], onDelete: SetNull)
-    poolProduct PoolProduct? @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
-    product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  store         Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sourceStore   Store?       @relation("PoolSourceStore", fields: [sourceStoreId], references: [id], onDelete: SetNull)
+  sourceProduct Product?     @relation("PoolSourceProduct", fields: [sourceProductId], references: [id], onDelete: SetNull)
+  poolProduct   PoolProduct? @relation(fields: [poolProductId], references: [id], onDelete: Cascade)
+  product       Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
 
-    @@unique([storeId, sourceType, poolProductId])
-    @@unique([storeId, sourceType, sourceProductId])
-    @@index([storeId])
-    @@index([sourceStoreId])
-    @@index([sourceProductId])
-    @@index([status])
-  }
+  @@unique([storeId, sourceType, poolProductId])
+  @@unique([storeId, sourceType, sourceProductId])
+  @@index([storeId])
+  @@index([sourceStoreId])
+  @@index([sourceProductId])
+  @@index([status])
+}
 
-  enum PoolSourceType {
-    ADMIN_POOL
-    VENDOR_PRODUCT
-  }
+enum PoolSourceType {
+  ADMIN_POOL
+  VENDOR_PRODUCT
+}
 
-  enum PoolSettlementStatus {
-    HELD
-    RELEASED
-    CANCELLED
-    DISPUTED
-  }
+enum PoolSettlementStatus {
+  HELD
+  RELEASED
+  CANCELLED
+  DISPUTED
+}
 
-  model PoolSettlement {
-    id                  String               @id @default(cuid())
-    orderId             String
-    orderItemId         String
-    buyerStoreId        String
-    sourceStoreId       String?
-    sourceProductId     String?
-    poolOfferId         String?
-    quantity            Int
-    saleAmount          Float
-    sourceAmount        Float
-    resellerMargin      Float
-    platformFeeAmount   Float               @default(0)
-    status              PoolSettlementStatus @default(HELD)
-    releasedAt          DateTime?
-    createdAt           DateTime             @default(now())
-    updatedAt           DateTime             @updatedAt
+model PoolSettlement {
+  id                String               @id @default(cuid())
+  orderId           String
+  orderItemId       String
+  buyerStoreId      String
+  sourceStoreId     String?
+  sourceProductId   String?
+  poolOfferId       String?
+  quantity          Int
+  saleAmount        Float
+  sourceAmount      Float
+  resellerMargin    Float
+  platformFeeAmount Float                @default(0)
+  status            PoolSettlementStatus @default(HELD)
+  releasedAt        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
-    @@index([orderId])
-    @@index([orderItemId])
-    @@index([buyerStoreId])
-    @@index([sourceStoreId])
-    @@index([poolOfferId])
-    @@index([status])
-  }
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([buyerStoreId])
+  @@index([sourceStoreId])
+  @@index([poolOfferId])
+  @@index([status])
+}
 
 enum PoolCampaignStatus {
   DRAFT
@@ -1659,21 +1809,21 @@ enum AdStatus {
 }
 
 model AdCampaign {
-  id            String    @id @default(cuid())
-  vendorId      String
-  productId     String?
-  name          String
-  type          AdType
-  budget        Int
-  spent         Int       @default(0)
-  startDate     DateTime
-  endDate       DateTime?
-  status        AdStatus  @default(PENDING)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  vendorId  String
+  productId String?
+  name      String
+  type      AdType
+  budget    Int
+  spent     Int       @default(0)
+  startDate DateTime
+  endDate   DateTime?
+  status    AdStatus  @default(PENDING)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  vendor      User            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  product     Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor      User           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  product     Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
   impressions AdImpression[]
 
   @@index([vendorId])
@@ -1681,12 +1831,12 @@ model AdCampaign {
 }
 
 model AdImpression {
-  id           String   @id @default(cuid())
-  campaignId   String
-  date         DateTime @default(now())
-  impressions  Int      @default(0)
-  clicks       Int      @default(0)
-  conversions  Int      @default(0)
+  id          String   @id @default(cuid())
+  campaignId  String
+  date        DateTime @default(now())
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
 
   campaign AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
@@ -1696,33 +1846,33 @@ model AdImpression {
 // ==================== RIDERS ====================
 
 model Rider {
-  id                      String             @id @default(cuid())
-  userId                  String             @unique
-  vehicleBrand            String?
-  vehicleModel            String?
-  vehicleYear             Int?
-  vehicleColor            String?
-  licenseNumber           String?
-  licenseExpiry           DateTime?
-  isAvailable             Boolean            @default(false)
-  onboardingComplete      Boolean            @default(false)
-  onboardingStep          OnboardingStep     @default(NOT_STARTED)
-  onboardingSubmittedAt   DateTime?
-  verificationStatus      VerificationStatus @default(NOT_SUBMITTED)
-  verificationReviewedAt  DateTime?
-  verificationReviewedBy  String?
-  rejectionReason         String?
-  bankCode                String?
-  bankName                String?
-  accountNumber           String?
-  accountName             String?
-  rating                  Float              @default(0)
-  totalDeliveries         Int                @default(0)
-  totalEarnings           Float              @default(0)
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  userId                 String             @unique
+  vehicleBrand           String?
+  vehicleModel           String?
+  vehicleYear            Int?
+  vehicleColor           String?
+  licenseNumber          String?
+  licenseExpiry          DateTime?
+  isAvailable            Boolean            @default(false)
+  onboardingComplete     Boolean            @default(false)
+  onboardingStep         OnboardingStep     @default(NOT_STARTED)
+  onboardingSubmittedAt  DateTime?
+  verificationStatus     VerificationStatus @default(NOT_SUBMITTED)
+  verificationReviewedAt DateTime?
+  verificationReviewedBy String?
+  rejectionReason        String?
+  bankCode               String?
+  bankName               String?
+  accountNumber          String?
+  accountName            String?
+  rating                 Float              @default(0)
+  totalDeliveries        Int                @default(0)
+  totalEarnings          Float              @default(0)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([isAvailable])
   @@index([verificationStatus])
@@ -1793,21 +1943,21 @@ model AuditLog {
 // ==================== REVIEWS ====================
 
 model Review {
-  id          String   @id @default(cuid())
-  productId   String
-  userId      String
-  orderId     String?
-  rating      Int
-  title       String?
-  comment     String?
-  images      String?
-  isApproved  Boolean  @default(false)
-  isVerifiedPurchase Boolean @default(false)
-  helpfulCount Int     @default(0)
-  vendorReply String?
-  vendorRepliedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  productId          String
+  userId             String
+  orderId            String?
+  rating             Int
+  title              String?
+  comment            String?
+  images             String?
+  isApproved         Boolean   @default(false)
+  isVerifiedPurchase Boolean   @default(false)
+  helpfulCount       Int       @default(0)
+  vendorReply        String?
+  vendorRepliedAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1819,16 +1969,16 @@ model Review {
 }
 
 model ProductQuestion {
-  id          String    @id @default(cuid())
-  productId   String
-  userId      String
-  question    String
-  answer      String?
-  answeredBy  String?
-  answeredAt  DateTime?
-  isApproved  Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  productId  String
+  userId     String
+  question   String
+  answer     String?
+  answeredBy String?
+  answeredAt DateTime?
+  isApproved Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   product  Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user     User    @relation("ProductQuestionUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -1864,15 +2014,15 @@ model SystemConfig {
 // ==================== CURRENCY (from SQL) ====================
 
 model Currency {
-  id        String   @id @default(cuid())
-  name      String
-  code      String   @unique
-  symbol    String
-  exchangeRate Float  @default(1)
-  isDefault  Boolean  @default(false)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  symbol       String
+  exchangeRate Float    @default(1)
+  isDefault    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([code])
   @@index([isActive])

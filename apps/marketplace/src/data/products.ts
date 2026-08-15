@@ -114,8 +114,8 @@ export async function getByCategory(categorySlug: string, limit = 20): Promise<P
  */
 export async function getById(id: string): Promise<Product | undefined> {
   try {
-    const result = await api.get(`/products/${id}`);
-    return result.data?.data;
+    const result = await api.get<Product>(`/products/${id}`);
+    return result.data;
   } catch {
     return undefined;
   }

@@ -168,7 +168,6 @@ export function ProductForm({
     handleSubmit,
     formState: { errors, isDirty },
     setValue,
-    watch,
   } = useForm<ProductFormValues>({
     // Cast around a type-level skew between @hookform/resolvers (resolves
     // zod@3.25's v4/core → _zod.version.minor = 0) and the app's zod@4.4
@@ -179,6 +178,8 @@ export function ProductForm({
     values: isEditMode && productQuery.data ? defaults : undefined,
     mode: "onTouched",
   });
+
+  const poolEnabled = useWatch({ control, name: "poolEnabled" });
 
   const handleUpload = React.useCallback(async (file: File): Promise<string> => {
     const response: unknown = await uploadApi.productImage(file);
@@ -444,14 +445,14 @@ export function ProductForm({
                 </div>
               )}
             />
-            {watch("poolEnabled") && (
+            {poolEnabled && (
               <>
                 <NumberInput control={control} name="poolBasePrice" label="Pool base/wholesale price (₦)" description="The price other vendors pay to source this product" placeholder="0" min={0} />
                 <NumberInput control={control} name="poolMinSalePrice" label="Minimum sale price (₦)" description="The lowest price a sourcing vendor can sell this for" placeholder="0" min={0} />
                 <NumberInput control={control} name="poolMaxSelectableQuantity" label="Max selectable quantity" description="How many units a sourcing vendor can list at once" placeholder="50" min={1} />
               </>
             )}
-            {!watch("poolEnabled") && (
+            {!poolEnabled && (
               <p className="rounded-xl border border-dashed border-kwik-border p-6 text-center text-sm text-muted-foreground">
                 Toggle on to make this product available in the Pool Marketplace.
               </p>

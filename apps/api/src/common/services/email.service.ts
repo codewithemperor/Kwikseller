@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import * as Handlebars from 'handlebars';
+import Handlebars from 'handlebars';
 
 export interface EmailOptions {
   to: string | string[];

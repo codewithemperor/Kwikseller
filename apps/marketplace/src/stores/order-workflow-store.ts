@@ -519,46 +519,19 @@ function seedOrders(): OrderWorkflowState[] {
   ];
 }
 
+// NOTE: The previous `seedNotifications()` function returned 3 hardcoded
+// mock notifications (ntf-001/002/003 with fake order refs KW-AUR-001/002).
+// The header notification bell now reads from the real backend API
+// (`GET /api/v1/notifications`) — see `apps/marketplace/src/lib/notification-api.ts`
+// and `apps/marketplace/src/components/layout/notification-bell.tsx`.
+//
+// The `notifications` slice + `emitNotification` helper are kept because
+// the order-detail page's side panel (`components/order/order-notifications.tsx`)
+// still consumes client-side workflow notifications emitted during demo
+// order actions (payOrder, advanceFulfilment, etc). The slice starts
+// EMPTY — no more dummy data.
 function seedNotifications(): WorkflowNotification[] {
-  return [
-    {
-      id: "ntf-001",
-      templateKey: "DISPUTE_WINDOW_OPENED",
-      title: NOTIFICATION_TEMPLATES.DISPUTE_WINDOW_OPENED.title,
-      body: interpolate(NOTIFICATION_TEMPLATES.DISPUTE_WINDOW_OPENED.body, {
-        orderRef: "KW-AUR-002",
-      }),
-      at: isoHoursAgo(8),
-      orderId: "order-aurora-002",
-      orderRef: "KW-AUR-002",
-      read: false,
-    },
-    {
-      id: "ntf-002",
-      templateKey: "ORDER_DELIVERED",
-      title: NOTIFICATION_TEMPLATES.ORDER_DELIVERED.title,
-      body: interpolate(NOTIFICATION_TEMPLATES.ORDER_DELIVERED.body, {
-        orderRef: "KW-AUR-002",
-      }),
-      at: isoHoursAgo(8),
-      orderId: "order-aurora-002",
-      orderRef: "KW-AUR-002",
-      read: false,
-    },
-    {
-      id: "ntf-003",
-      templateKey: "QUOTATION_RECEIVED",
-      title: NOTIFICATION_TEMPLATES.QUOTATION_RECEIVED.title,
-      body: interpolate(NOTIFICATION_TEMPLATES.QUOTATION_RECEIVED.body, {
-        orderRef: "KW-AUR-001",
-        vendorName: MOCK_VENDOR.name,
-      }),
-      at: isoHoursAgo(2),
-      orderId: "order-aurora-001",
-      orderRef: "KW-AUR-001",
-      read: false,
-    },
-  ];
+  return [];
 }
 
 // ─── Store implementation ──────────────────────────────────────────────────
@@ -646,7 +619,7 @@ export const useOrderWorkflowStore = create<OrderWorkflowStateStore>()(
 
       return {
         orders: seedOrders(),
-        notifications: seedNotifications(),
+        notifications: [],
         hydrated: false,
 
         // ── Selectors ──
@@ -1051,20 +1024,22 @@ export const useOrderWorkflowStore = create<OrderWorkflowStateStore>()(
 
         resetToSeed: () => {
           const orders = seedOrders();
-          const notifications = seedNotifications();
+          // Don't reseed notifications — the bell reads from the API now.
+          // Keep the existing in-memory notifications (if any) so an
+          // in-flight demo workflow isn't wiped on reset.
           // Re-hydrate escrow store.
           hydrateEscrowStore(
             orders
               .map((o) => o.escrow)
               .filter((e): e is EscrowRecord => Boolean(e)),
           );
-          set({ orders, notifications });
+          set({ orders });
         },
       };
     },
     {
       name: "kwikseller-order-workflow-store",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         orders: state.orders,
@@ -1073,15 +1048,21 @@ export const useOrderWorkflowStore = create<OrderWorkflowStateStore>()(
       // When the seed data changes (new mock orders, new statuses, etc.) we
       // bump `version` and the migrate function re-seeds from scratch. This
       // guarantees users always see the latest demo data after a deploy.
+      //
+      // v2 → v3: clear any persisted mock notifications (ntf-001/002/003)
+      // that were seeded by the previous `seedNotifications()` function.
+      // The header bell now reads from the real API (`/api/v1/notifications`);
+      // the in-store notifications list should start EMPTY.
       migrate: (_persisted, version) => {
-        if (version < 2) {
-          // Re-seed from scratch.
-          return {
-            orders: seedOrders(),
-            notifications: seedNotifications(),
-          };
-        }
-        return _persisted as { orders: OrderWorkflowState[]; notifications: WorkflowNotification[] };
+        const persisted = (_persisted ?? {}) as {
+          orders?: OrderWorkflowState[];
+          notifications?: WorkflowNotification[];
+        };
+        const orders =
+          version < 2 || !Array.isArray(persisted.orders)
+            ? seedOrders()
+            : persisted.orders;
+        return { orders, notifications: [] };
       },
       onRehydrateStorage: () => (state) => {
         // After rehydration, hydrate the escrow in-memory store too.

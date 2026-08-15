@@ -3,52 +3,34 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, BadgeCheck, Search, Tags } from "lucide-react";
+import { ArrowRight, BadgeCheck, Tags } from "lucide-react";
 import { useBrands } from "@/lib/api-hooks";
 import { AppImage } from "@/components/ui/app-image";
 import { ProductGridSkeleton } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 
 export default function BrandsPage() {
-  const [query, setQuery] = React.useState("");
   const brandsQuery = useBrands();
 
   const isLoading = brandsQuery.isLoading;
   const brands = brandsQuery.data ?? [];
 
-  const filteredBrands = useMemo(
-    () =>
-      brands.filter((brand) =>
-        brand.name.toLowerCase().includes(query.trim().toLowerCase()),
-      ),
-    [brands, query],
-  );
+  const filteredBrands = useMemo(() => brands, [brands]);
 
   return (
     <main className="min-h-screen bg-background">
       <section className="border-b border-border bg-background">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-            <div>
-              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
-                <Tags className="h-6 w-6" />
-              </div>
-              <h1 className="font-heading text-4xl font-semibold tracking-tight text-kwik-dark dark:text-white">
-                Popular brands
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-kwik-muted dark:text-white/60">
-                Browse trusted brands across vendor stock, Pool resale, and digital product categories.
-              </p>
+          <div>
+            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
+              <Tags className="h-6 w-6" />
             </div>
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search brands"
-                className="h-12 w-full rounded-md border border-kwik-border bg-white pl-10 pr-3 text-sm text-kwik-dark outline-none focus:border-kwik-orange dark:border-white/10 dark:bg-white/5 dark:text-white"
-              />
-            </label>
+            <h1 className="font-heading text-4xl font-semibold tracking-tight text-kwik-dark dark:text-white">
+              Popular brands
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-kwik-muted dark:text-white/60">
+              Browse trusted brands across vendor stock, Pool resale, and digital product categories.
+            </p>
           </div>
         </div>
       </section>
@@ -110,12 +92,8 @@ export default function BrandsPage() {
           <EmptyState
             variant="search"
             icon={<BadgeCheck className="h-12 w-12" />}
-            title={query ? "No brands match your search" : "No brands yet"}
-            description={
-              query
-                ? `No brands match "${query}". Try a different search term or explore the full marketplace catalog.`
-                : "Brands will appear here once sellers start publishing products."
-            }
+            title="No brands yet"
+            description="Brands will appear here once sellers start publishing products."
             action={
               <Link
                 href="/products"

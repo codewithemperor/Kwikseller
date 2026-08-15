@@ -6,9 +6,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { PaystackService } from './paystack.service';
+import { PlatformSettingService } from '../../common/services/platform-setting.service';
+import { EscrowService } from '../../payments/escrow.service';
 import {
   AddCartItemDto,
   CheckoutDto,
@@ -97,6 +100,9 @@ export class CommerceService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly paystack: PaystackService,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly platformSetting: PlatformSettingService,
+    private readonly escrowService: EscrowService,
   ) {}
 
   private db() {
@@ -554,8 +560,8 @@ export class CommerceService {
 
     const rate = await (this.db() as any).deliveryRate?.findFirst({
       where: {
-        state: { equals: normalizedState, mode: 'insensitive' },
-        localGovernment: { equals: normalizedLga, mode: 'insensitive' },
+        state: { equals: normalizedState },
+        localGovernment: { equals: normalizedLga },
         isActive: true,
       },
     });
@@ -575,6 +581,358 @@ export class CommerceService {
     this.getUserId(user);
     const cart = await this.getCart(user);
     return this.resolveCouponDiscount(this.db(), dto.code, cart.subtotal);
+  }
+
+  // ─── NEW CHECKOUT (items[] payload, quote-gated lifecycle) ─────────────────
+  //
+  // Accepts items[] directly from the frontend (no DB cart required).
+  // Validates price/quantity/vendor SERVER-SIDE.
+  // Creates ParentCheckout → one Order per vendor.
+  // Sets: status=PENDING, paymentStatus=PENDING, quoteStatus=PENDING_VENDOR_QUOTE.
+  // Reserves inventory. Does NOT initialize Paystack (payment happens after quote agreement).
+  // Emits 'order.created' event.
+  //
+  async checkoutWithItems(user: AuthContext, dto: CheckoutDto) {
+    const userId = this.getUserId(user);
+    const db = this.db();
+
+    if (!dto.items?.length) {
+      throw new BadRequestException('No items provided for checkout');
+    }
+    const items = dto.items;
+    if (!dto.deliveryMethod) {
+      throw new BadRequestException('Delivery method is required (PICKUP or STANDARD_DELIVERY)');
+    }
+    const deliveryMethod = dto.deliveryMethod as 'PICKUP' | 'STANDARD_DELIVERY';
+
+    return db.$transaction(
+      async (tx: any) => {
+        // Idempotency check
+        if (dto.idempotencyKey) {
+          const existing = await tx.parentCheckout.findUnique({
+            where: { idempotencyKey: dto.idempotencyKey },
+            include: { orders: { include: { items: true, store: true } }, payment: true },
+          });
+          if (existing) {
+            return {
+              parentCheckout: existing,
+              orders: existing.orders,
+              payment: existing.payment,
+              idempotent: true,
+            };
+          }
+        }
+
+        // ─── SERVER-SIDE VALIDATION ───────────────────────────────────────────
+        // Fetch authoritative Product records (with variant, inventory, store, images).
+        const productIds = [...new Set(items.map((i) => i.productId))];
+        const products = await tx.product.findMany({
+          where: { id: { in: productIds } },
+          include: {
+            store: { include: { vendor: { select: { id: true, profile: true } } } },
+            images: { take: 1, orderBy: { position: 'asc' } },
+            inventoryItems: { take: 1 },
+            digitalAssets: { where: { isActive: true }, take: 1 },
+            category: true,
+          },
+        });
+        const productMap = new Map<string, any>(products.map((p: any) => [p.id, p] as [string, any]));
+
+        // Validate every item
+        const validatedItems: any[] = [];
+        for (const item of items) {
+          const product = productMap.get(item.productId);
+          if (!product) {
+            throw new BadRequestException(`Product ${item.productId} not found`);
+          }
+          if (product.status !== 'ACTIVE') {
+            throw new BadRequestException(`Product "${product.name}" is not available`);
+          }
+
+          // Resolve variant
+          let variant: any = null;
+          if (item.variantId) {
+            variant = await tx.productVariant.findUnique({ where: { id: item.variantId } });
+            if (!variant || variant.productId !== product.id) {
+              throw new BadRequestException(`Variant ${item.variantId} not found for product ${product.name}`);
+            }
+          }
+
+          // Authoritative unit price (server-side, never trust frontend)
+          const unitPrice = Number(variant?.price ?? product.price ?? 0);
+          if (unitPrice <= 0) {
+            throw new BadRequestException(`Product "${product.name}" has no valid price`);
+          }
+
+          // Quantity validation against inventory (for physical products)
+          const productType = product.productType ?? 'PHYSICAL';
+          if (productType === 'PHYSICAL') {
+            const inv = product.inventoryItems?.[0];
+            const available = Number(inv?.available ?? 0);
+            if (product.inventoryPolicy !== 'UNLIMITED' && item.quantity > available) {
+              throw new BadRequestException(
+                `Insufficient stock for "${product.name}". Available: ${available}, requested: ${item.quantity}`,
+              );
+            }
+          }
+
+          validatedItems.push({
+            productId: product.id,
+            variantId: variant?.id ?? null,
+            poolOfferId: item.poolOfferId ?? null,
+            quantity: item.quantity,
+            unitPrice,
+            totalPrice: Math.round(unitPrice * item.quantity * 100) / 100,
+            productType: productType as any,
+            productSource: (product.productSource ?? 'VENDOR_STOCK') as any,
+            product,
+            variant,
+          });
+        }
+
+        // ─── GROUP BY VENDOR (STORE) ──────────────────────────────────────────
+        const groupsMap = new Map<string, any[]>();
+        for (const item of validatedItems) {
+          const storeId = item.product.storeId;
+          if (!groupsMap.has(storeId)) groupsMap.set(storeId, []);
+          groupsMap.get(storeId)!.push(item);
+        }
+        const groups = [...groupsMap.entries()].map(([storeId, items]) => ({
+          storeId,
+          items,
+          subtotal: items.reduce((sum, i) => sum + i.totalPrice, 0),
+        }));
+
+        // ─── SHIPPING ADDRESS (only required for STANDARD_DELIVERY) ───────────
+        let address: any = null;
+        if (deliveryMethod === 'STANDARD_DELIVERY' && dto.shippingAddress) {
+          address = await tx.address.create({
+            data: {
+              userId,
+              line1: dto.shippingAddress.addressLine1,
+              line2: dto.shippingAddress.addressLine2,
+              city: dto.shippingAddress.city,
+              stateId: dto.shippingAddress.stateId ?? null,
+              lgaId: dto.shippingAddress.lgaId ?? null,
+              deliveryInstructions: dto.shippingAddress.deliveryInstructions,
+              country: dto.shippingAddress.country ?? 'Nigeria',
+              type: 'SHIPPING',
+            },
+          });
+        }
+
+        // ─── PROCESSING FEE (server-side, configurable) ───────────────────────
+        const parentSubtotal = groups.reduce((sum, g) => sum + g.subtotal, 0);
+        const { percent: feePercent, feeAmount: parentFeeAmount } =
+          await this.platformSetting.computeProcessingFee(parentSubtotal);
+
+        // ─── CREATE PARENT CHECKOUT ───────────────────────────────────────────
+        const reference = this.checkoutReference();
+        const parentCheckout = await tx.parentCheckout.create({
+          data: {
+            buyerId: userId,
+            subtotal: parentSubtotal,
+            shippingFee: 0, // TBD by vendor quote
+            discount: 0,
+            totalAmount: parentSubtotal + parentFeeAmount, // subtotal + fee (no delivery yet)
+            status: 'PENDING_PAYMENT',
+            paymentStatus: 'PENDING',
+            checkoutReference: reference,
+            idempotencyKey: dto.idempotencyKey,
+          },
+        });
+
+        // ─── CREATE ONE ORDER PER VENDOR ──────────────────────────────────────
+        const orders: any[] = [];
+        for (const [index, group] of groups.entries()) {
+          const { percent: groupFeePercent, feeAmount: groupFeeAmount } =
+            await this.platformSetting.computeProcessingFee(group.subtotal);
+          const groupTotal = group.subtotal + groupFeeAmount; // no delivery fee yet (vendor quotes later)
+
+          const order = await tx.order.create({
+            data: {
+              buyerId: userId,
+              storeId: group.storeId,
+              parentCheckoutId: parentCheckout.id,
+              addressId: address?.id ?? null,
+              subtotal: group.subtotal,
+              shippingFee: 0, // TBD — set when quote is agreed
+              totalAmount: groupTotal, // subtotal + processing fee (delivery added at agreement)
+              discount: 0,
+              status: 'PENDING', // NEW lifecycle: order exists, awaiting quote
+              paymentStatus: 'PENDING',
+              quoteStatus: deliveryMethod === 'PICKUP' ? 'AGREED' : 'PENDING_VENDOR_QUOTE', // pickup has no delivery fee to quote
+              deliveryMethod,
+              processingFeePercent: groupFeePercent,
+              processingFeeAmount: groupFeeAmount,
+              agreedDeliveryFee: deliveryMethod === 'PICKUP' ? 0 : 0, // 0 for pickup; TBD for standard
+              agreedAt: deliveryMethod === 'PICKUP' ? new Date() : null, // pickup is auto-agreed (no delivery fee)
+              checkoutReference: `${reference}-${index + 1}`,
+              idempotencyKey: dto.idempotencyKey ? `${dto.idempotencyKey}:${group.storeId}` : undefined,
+              items: {
+                create: group.items.map((item: any) => {
+                  const product = item.product;
+                  const variant = item.variant;
+                  const store = product.store;
+                  const vendorName = store
+                    ? `${store.vendor?.profile?.firstName ?? ''} ${store.vendor?.profile?.lastName ?? ''}`.trim() ||
+                      store.name
+                    : '';
+                  return {
+                    productId: item.productId,
+                    variantId: item.variantId,
+                    poolOfferId: item.poolOfferId,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    totalPrice: item.totalPrice,
+                    isPoolItem: Boolean(item.poolOfferId),
+                    productType: item.productType,
+                    productSource: item.productSource,
+                    sellerStoreId: product.storeId,
+                    platformFeeAmount: 0,
+                    fulfillmentStatus: 'PENDING',
+                    // === Product snapshot ===
+                    productNameSnapshot: product.name,
+                    productSkuSnapshot: product.sku ?? null,
+                    productSlugSnapshot: product.slug ?? null,
+                    productImageSnapshot: product.images?.[0]?.url ?? null,
+                    variantNameSnapshot: variant ? `${variant.name ?? ''}`.trim() : null,
+                    vendorNameSnapshot: store?.name ?? vendorName,
+                    vendorStoreIdSnapshot: product.storeId,
+                  };
+                }),
+              },
+            },
+            include: {
+              items: { include: { product: { include: { images: true } } } },
+              store: { include: { vendor: { select: { id: true, profile: true } } } },
+            },
+          });
+
+          // Reserve inventory for each item
+          for (const orderItem of order.items) {
+            const validatedItem = group.items.find((i: any) => i.productId === orderItem.productId);
+            if (validatedItem) {
+              await this.reserveInventoryForCheckoutItem(tx, orderItem, validatedItem);
+            }
+          }
+
+          // Create the Quote record (for STANDARD_DELIVERY, awaiting vendor quote; for PICKUP, already AGREED)
+          await tx.quote.create({
+            data: {
+              orderId: order.id,
+              vendorId: order.store.vendorId ?? order.storeId,
+              buyerId: userId,
+              status: deliveryMethod === 'PICKUP' ? 'AGREED' : 'PENDING_VENDOR_QUOTE',
+              currentAmount: 0,
+              agreedAmount: deliveryMethod === 'PICKUP' ? 0 : null,
+              agreedAt: deliveryMethod === 'PICKUP' ? new Date() : null,
+              expiresAt: deliveryMethod === 'STANDARD_DELIVERY' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null, // 7 days to quote
+            },
+          });
+
+          // Create Delivery record (placeholder; vendor fills in details)
+          await tx.delivery.create({
+            data: {
+              orderId: order.id,
+              status: 'PENDING',
+              pickupAddress: order.store?.name ?? '',
+              deliveryAddress: address
+                ? `${dto.shippingAddress!.addressLine1}, ${dto.shippingAddress!.city}, ${dto.shippingAddress!.state}`
+                : '',
+              deliveryContactName: dto.shippingAddress?.fullName ?? '',
+              deliveryContactPhone: dto.shippingAddress?.phone ?? '',
+            },
+          });
+
+          orders.push(order);
+        }
+
+        await this.writeAudit(tx, {
+          userId,
+          action: 'checkout.created',
+          entity: 'ParentCheckout',
+          entityId: parentCheckout.id,
+          changes: {
+            reference,
+            parentSubtotal,
+            processingFee: parentFeeAmount,
+            deliveryMethod,
+            vendorOrders: orders.map((o: any) => o.id),
+          },
+        });
+
+        return {
+          parentCheckout,
+          orders,
+          payment: null, // no payment yet — created after quote agreement
+          deliveryMethod,
+          requiresShipping: deliveryMethod === 'STANDARD_DELIVERY',
+        };
+      },
+      { maxWait: 15_000, timeout: 30_000 },
+    );
+  }
+
+  // Emit order.created domain event (triggers notifications + emails via @OnEvent handlers)
+  async emitOrderCreated(order: any, buyerId: string) {
+    this.eventEmitter.emit('order.created', {
+      orderId: order.id,
+      buyerId,
+      storeId: order.storeId,
+      vendorId: order.store?.vendorId ?? order.storeId,
+      totalAmount: order.totalAmount,
+      deliveryMethod: order.deliveryMethod,
+      quoteStatus: order.quoteStatus,
+      items: order.items,
+    });
+  }
+
+  // Reserve inventory for a checkout item (built from items[] payload, not a DB cart item)
+  private async reserveInventoryForCheckoutItem(tx: any, orderItem: any, validatedItem: any) {
+    const product = validatedItem.product;
+    const productType = orderItem.productType ?? product.productType;
+    if (productType === 'DIGITAL' || product.inventoryPolicy === 'UNLIMITED') {
+      return;
+    }
+
+    const inventory = await tx.inventoryItem.findFirst({
+      where: {
+        productId: product.id,
+        variantId: orderItem.variantId ?? null,
+        available: { gte: orderItem.quantity },
+      },
+      orderBy: { updatedAt: 'asc' },
+    });
+
+    if (!inventory) {
+      throw new BadRequestException(
+        `Insufficient stock for "${product.name}". Could not reserve ${orderItem.quantity} unit(s).`,
+      );
+    }
+
+    // Decrement available, increment reserved
+    await tx.inventoryItem.update({
+      where: { id: inventory.id },
+      data: {
+        available: { decrement: orderItem.quantity },
+        reserved: { increment: orderItem.quantity },
+      },
+    });
+
+    // Create reservation record
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15); // 15-minute TTL
+
+    await tx.inventoryReservation.create({
+      data: {
+        inventoryItemId: inventory.id,
+        orderItemId: orderItem.id,
+        quantity: orderItem.quantity,
+        status: 'ACTIVE',
+        expiresAt,
+      },
+    });
   }
 
   async checkout(user: AuthContext, dto: CheckoutDto) {
@@ -945,10 +1303,21 @@ export class CommerceService {
       const gatewayStatus = verification?.data?.status;
 
       if (gatewayStatus === 'success') {
-        await this.processSuccessfulPayment(reference, {
+        const result = await this.processSuccessfulPayment(reference, {
           source: 'payment.verify',
           payload: verification.data,
         });
+        // Hold escrow (Kwikscrow) for each paid order — AFTER the tx commits.
+        if (result?.escrowOrderIds?.length) {
+          for (const oid of result.escrowOrderIds) {
+            try {
+              await this.escrowService.holdPayment(oid);
+              this.eventEmitter.emit('escrow.held', { orderId: oid });
+            } catch (err) {
+              console.warn(`holdPayment failed for order ${oid}:`, err);
+            }
+          }
+        }
       } else if (['failed', 'abandoned'].includes(gatewayStatus)) {
         await this.failPaymentReference(reference, verification.data);
       }
@@ -1007,6 +1376,17 @@ export class CommerceService {
         source: 'payment.webhook.paystack.charge_success',
         payload: event.data ?? {},
       });
+      // Hold escrow (Kwikscrow) for each paid order — AFTER the tx commits.
+      if (result?.escrowOrderIds?.length) {
+        for (const oid of result.escrowOrderIds) {
+          try {
+            await this.escrowService.holdPayment(oid);
+            this.eventEmitter.emit('escrow.held', { orderId: oid });
+          } catch (err) {
+            console.warn(`holdPayment failed for order ${oid}:`, err);
+          }
+        }
+      }
       await this.markWebhookEventProcessed(webhookEvent.id);
       return { received: true, reference, idempotent: result.idempotent };
     } catch (error) {
@@ -1020,6 +1400,7 @@ export class CommerceService {
     return this.db().order?.findMany({
       where: { buyerId: userId },
       include: {
+        store: { select: { id: true, name: true, slug: true } },
         items: { include: { product: true, variant: true } },
         payment: true,
         fulfillments: true,
@@ -1033,9 +1414,13 @@ export class CommerceService {
     const order = await this.db().order?.findFirst({
       where: { id: orderId, buyerId: userId },
       include: {
+        store: { select: { id: true, name: true, slug: true } },
         items: { include: { product: true, variant: true } },
         payment: true,
         fulfillments: true,
+        address: true,
+        delivery: true,
+        escrow: true,
       },
     });
 
@@ -1312,6 +1697,86 @@ export class CommerceService {
       include: { variants: true, inventoryItems: true, digitalAssets: true, images: true, category: true, brand: true },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Public paginated list of vendors (Store rows that are verified + onboarded).
+   * Used by the Marketplace /vendors page.
+   */
+  async listPublicVendors(options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    category?: string;
+  } = {}) {
+    const page = Math.max(Number(options.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(options.limit) || 12, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      isVerified: true,
+      onboardingComplete: true,
+    };
+    if (options.search) {
+      where.OR = [
+        { name: { contains: options.search } },
+        { description: { contains: options.search } },
+      ];
+    }
+    if (options.category) {
+      where.category = options.category;
+    }
+
+    const [stores, total] = await Promise.all([
+      this.db().store.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              profile: {
+                select: { firstName: true, lastName: true, avatarUrl: true },
+              },
+            },
+          },
+          _count: { select: { products: true } },
+        },
+      }),
+      this.db().store.count({ where }),
+    ]);
+
+    const data = stores.map((s) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      description: s.description,
+      logo: s.logoUrl,
+      banner: s.bannerUrl,
+      category: s.category,
+      isVerified: s.isVerified,
+      productCount: s._count.products,
+      vendor: s.vendor
+        ? {
+            name: `${s.vendor.profile?.firstName ?? ''} ${s.vendor.profile?.lastName ?? ''}`.trim(),
+            avatar: s.vendor.profile?.avatarUrl,
+          }
+        : null,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async getPublicStore(slug: string) {
@@ -1853,6 +2318,46 @@ export class CommerceService {
     };
   }
 
+  /**
+   * Counts of orders where the vendor needs to act — drives the header bell
+   * and sidebar Orders badge:
+   *  - pendingQuotes: STANDARD_DELIVERY orders awaiting the vendor's fee
+   *  - reductionRequests: buyer countered, vendor must accept/reject/revise
+   *  - readyToAccept: quote agreed + buyer paid, vendor should accept the order
+   */
+  async getVendorOrderAttentionCounts(user: AuthContext) {
+    const storeId = await this.resolveStoreId(user);
+    const base = {
+      ...this.vendorOrderWhere(storeId),
+      status: { notIn: ['CANCELLED', 'REFUNDED', 'DELIVERED'] },
+    };
+    const db = this.db();
+
+    const [pendingQuotes, reductionRequests, readyToAccept] = await Promise.all([
+      db.order?.count({ where: { ...base, quoteStatus: 'PENDING_VENDOR_QUOTE' } }),
+      db.order?.count({ where: { ...base, quoteStatus: 'CUSTOMER_REQUESTED_REDUCTION' } }),
+      db.order?.count({
+        where: {
+          ...base,
+          quoteStatus: 'AGREED',
+          paymentStatus: 'PAID',
+          status: { in: ['PENDING', 'PAID'] },
+        },
+      }),
+    ]);
+
+    const counts = {
+      pendingQuotes: pendingQuotes ?? 0,
+      reductionRequests: reductionRequests ?? 0,
+      readyToAccept: readyToAccept ?? 0,
+    };
+
+    return {
+      ...counts,
+      total: counts.pendingQuotes + counts.reductionRequests + counts.readyToAccept,
+    };
+  }
+
   async getVendorOrder(user: AuthContext, orderId: string) {
     const storeId = await this.resolveStoreId(user);
     const order = await this.db().order?.findFirst({
@@ -1931,9 +2436,9 @@ export class CommerceService {
         ...(search
           ? {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
-                { category: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search } },
+                { description: { contains: search } },
+                { category: { contains: search } },
               ],
             }
           : {}),
@@ -1955,10 +2460,10 @@ export class CommerceService {
         ...(search
           ? {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
-                { store: { name: { contains: search, mode: 'insensitive' } } },
-                { category: { name: { contains: search, mode: 'insensitive' } } },
+                { name: { contains: search } },
+                { description: { contains: search } },
+                { store: { name: { contains: search } } },
+                { category: { name: { contains: search } } },
               ],
             }
           : {}),
@@ -2430,7 +2935,7 @@ export class CommerceService {
     this.assertRole(user, ['ADMIN', 'SUPER_ADMIN']);
     const where: Record<string, unknown> = {};
     if (filters.state) {
-      where.state = { equals: this.normalizeLocationPart(filters.state), mode: 'insensitive' };
+      where.state = { equals: this.normalizeLocationPart(filters.state) };
     }
     if (filters.isActive !== undefined) {
       where.isActive = filters.isActive === 'true';
@@ -2766,6 +3271,7 @@ export class CommerceService {
           data: { status: 'PAID', paymentStatus: 'PAID' },
         });
 
+        const orderIdsForEscrow: string[] = [];
         for (const order of payment.parentCheckout.orders ?? []) {
           await tx.order.update({
             where: { id: order.id },
@@ -2773,6 +3279,7 @@ export class CommerceService {
           });
           await this.commitReservations(tx, order.items);
           await this.createFulfillmentsForPaidOrder(tx, order);
+          orderIdsForEscrow.push(order.id);
         }
 
         if (payment.parentCheckout.couponId) {
@@ -2794,7 +3301,10 @@ export class CommerceService {
           },
         });
 
-        return { payment, idempotent: false };
+        // Commit the transaction, THEN hold escrow (outside the tx, since holdPayment
+        // runs its own transaction and needs the order rows to be committed first).
+        // We stash the orderIds on the return value so the caller can trigger escrow.
+        return { payment, idempotent: false, escrowOrderIds: orderIdsForEscrow };
       }
 
       if (!payment.order) {
@@ -3175,8 +3685,8 @@ export class CommerceService {
 
     const legacyRate = await db.deliveryRate.findFirst({
       where: {
-        state: { equals: location.stateName, mode: 'insensitive' },
-        localGovernment: { equals: location.lgaName, mode: 'insensitive' },
+        state: { equals: location.stateName },
+        localGovernment: { equals: location.lgaName },
         isActive: true,
       },
     });
@@ -3219,9 +3729,9 @@ export class CommerceService {
         ? await db.state.findFirst({
             where: {
               OR: [
-                { name: { equals: normalizedState, mode: 'insensitive' } },
-                { name: { equals: `${normalizedState} State`, mode: 'insensitive' } },
-                { code: { equals: normalizedState, mode: 'insensitive' } },
+                { name: { equals: normalizedState } },
+                { name: { equals: `${normalizedState} State` } },
+                { code: { equals: normalizedState } },
               ],
               isActive: true,
             },
@@ -3234,7 +3744,7 @@ export class CommerceService {
         ? await db.localGovernment.findFirst({
             where: {
               stateId: state.id,
-              name: { equals: normalizedLga, mode: 'insensitive' },
+              name: { equals: normalizedLga },
               isActive: true,
             },
           })
@@ -3292,7 +3802,7 @@ export class CommerceService {
     const now = new Date();
     const coupon = await db.coupon.findFirst({
       where: {
-        code: { equals: normalizedCode, mode: 'insensitive' },
+        code: { equals: normalizedCode },
         isActive: true,
       },
     });

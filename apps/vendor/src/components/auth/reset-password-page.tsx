@@ -142,7 +142,6 @@ export function ResetPasswordPage({
   const { pendingResetEmail, clearPendingResetEmail } = usePendingResetEmail();
 
   const [isSuccess, setIsSuccess] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const {
     control,
@@ -156,13 +155,11 @@ export function ResetPasswordPage({
   });
 
   useEffect(() => {
-    if (pendingResetEmail) {
-      setUserEmail(pendingResetEmail);
-    } else {
+    if (!pendingResetEmail && !isSuccess) {
       kwikToast.error("Please start the password reset process from the beginning.");
       router.replace(forgotPasswordPath);
     }
-  }, [pendingResetEmail, router, forgotPasswordPath]);
+  }, [pendingResetEmail, isSuccess, router, forgotPasswordPath]);
 
   const handleOtpChange = (value: string) => {
     setValue("otp", value, { shouldValidate: true });
@@ -180,7 +177,7 @@ export function ResetPasswordPage({
   });
 
   const onSubmit = async (data: ResetPasswordFormData) => {
-    if (!userEmail) {
+    if (!pendingResetEmail) {
       kwikToast.error("Email is missing - please restart the flow.");
       router.push(forgotPasswordPath);
       return;
@@ -188,7 +185,7 @@ export function ResetPasswordPage({
 
     try {
       const result = await resetPassword({
-        email: userEmail,
+        email: pendingResetEmail,
         otp: data.otp,
         newPassword: data.password,
         role: "VENDOR",
@@ -213,7 +210,7 @@ export function ResetPasswordPage({
   const busy = isSubmitting || isLoading;
   const canSubmit = isValid && !busy;
 
-  if (!userEmail && !isSuccess) {
+  if (!pendingResetEmail && !isSuccess) {
     return (
       <div className="flex w-full flex-col items-center gap-4 py-8 text-card-foreground">
         <div className="h-14 w-14 animate-pulse rounded-2xl bg-muted" />
@@ -261,8 +258,8 @@ export function ResetPasswordPage({
           </h1>
           <p className="text-sm text-muted-foreground">
             Enter the code we sent to{" "}
-            {userEmail ? (
-              <span className="font-medium text-foreground">{userEmail}</span>
+            {pendingResetEmail ? (
+              <span className="font-medium text-foreground">{pendingResetEmail}</span>
             ) : (
               "your email"
             )}

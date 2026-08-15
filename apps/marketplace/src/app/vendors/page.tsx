@@ -752,7 +752,7 @@ export default function VendorsPage() {
           affordance. Keeping the layout compact for a focused browse flow. */}
 
       {/* ─── 2. Vendor Categories Filter ─────────────────────── */}
-      <section className="sticky top-[112px] z-[90] border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95 md:top-16">
+      <section className="sticky top-[var(--header-height)] z-30 border-b border-divider bg-white/95 backdrop-blur dark:bg-background/95">
         <div className="container mx-auto px-0 md:px-4">
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-2 py-1.5 md:px-0">
             {categories.map((cat) => (

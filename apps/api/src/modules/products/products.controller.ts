@@ -17,7 +17,7 @@ import {
 } from '@nestjs/swagger';
 
 import { ProductsService } from './products.service';
-import { SearchProductsDto, LimitQueryDto } from './dto';
+import { SearchProductsDto, LimitQueryDto, HomeFeedMoreDto } from './dto';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -61,6 +61,14 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Top products returned' })
   async getTop(@Query() dto: LimitQueryDto) {
     return this.productsService.getTop(dto.limit);
+  }
+
+  @Public()
+  @Get('new')
+  @ApiOperation({ summary: 'Get newest products (new arrivals)' })
+  @ApiResponse({ status: 200, description: 'New arrivals returned' })
+  async getNewArrivals(@Query() dto: LimitQueryDto) {
+    return this.productsService.getNewArrivals(dto.limit);
   }
 
   @Public()
@@ -131,6 +139,14 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Homepage feed returned' })
   async getHomeFeed() {
     return this.productsService.getHomeFeed();
+  }
+
+  @Public()
+  @Get('home-feed/more')
+  @ApiOperation({ summary: 'Paginated product feed for homepage infinite scroll' })
+  @ApiResponse({ status: 200, description: 'Paginated products returned' })
+  async getHomeFeedMore(@Query() dto: HomeFeedMoreDto) {
+    return this.productsService.getHomeFeedMore(dto);
   }
 
   @Public()

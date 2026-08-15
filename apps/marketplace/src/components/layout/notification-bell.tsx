@@ -3,21 +3,40 @@
 import React, { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, CheckCheck, ChevronRight, X } from "lucide-react";
+import { Bell, CheckCheck, ChevronRight, X, AlertCircle } from "lucide-react";
+import { useAuth } from "@kwikseller/utils";
 import { cn } from "@/lib/utils";
-import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
-import type { WorkflowNotification } from "@/stores/order-workflow-store";
+import {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkNotificationAsRead,
+  useMarkAllNotificationsAsRead,
+  timeAgo,
+  type Notification,
+} from "@/lib/notification-api";
 
 /**
- * NotificationBell — global header dropdown showing all order workflow
- * notifications (quotation received, payment confirmed, shipped, delivered,
- * dispute window, etc).
+ * NotificationBell — global header dropdown showing the authenticated user's
+ * real notifications from the backend (`GET /api/v1/notifications`).
  *
- * Unread count badge on the bell; click to open a dropdown panel with the
- * list; "Mark all read" action; click a notification → navigate to its order.
+ * Behaviour:
+ *   - When unauthenticated → renders nothing (the bell only makes sense for
+ *     logged-in users; a guaranteed 401 would just spam the console).
+ *   - When authenticated → shows the live unread count badge; clicking opens
+ *     a dropdown with the most recent 12 notifications.
+ *   - Loading → skeleton rows.
+ *   - Error → friendly retry message.
+ *   - Empty → "No notifications yet".
+ *   - Click a notification → mark as read + navigate to its order (when the
+ *     notification's `data.orderId` is present).
+ *   - "Mark all read" → bulk PATCH.
+ *
+ * Polls every 30s (see `notification-api.ts`) so the badge stays fresh
+ * without a WebSocket.
  */
 export function NotificationBell({ className }: { className?: string }) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   // useSyncExternalStore avoids a setState-in-effect lint violation while
   // still giving us a server-safe `mounted` flag (false on SSR, true on
@@ -29,9 +48,14 @@ export function NotificationBell({ className }: { className?: string }) {
   );
   const ref = useRef<HTMLDivElement>(null);
 
-  const notifications = useOrderWorkflowStore((s) => s.notifications);
-  const markNotificationRead = useOrderWorkflowStore((s) => s.markNotificationRead);
-  const clearNotifications = useOrderWorkflowStore((s) => s.clearNotifications);
+  const { data, isLoading, isError } = useNotifications({
+    isAuthenticated,
+    page: 1,
+    limit: 12,
+  });
+  const unreadQuery = useUnreadNotificationCount({ isAuthenticated });
+  const markAsRead = useMarkNotificationAsRead();
+  const markAllAsRead = useMarkAllNotificationsAsRead();
 
   // Close on outside click / Escape.
   useEffect(() => {
@@ -52,13 +76,20 @@ export function NotificationBell({ className }: { className?: string }) {
     };
   }, [open]);
 
-  const unreadCount = mounted ? notifications.filter((n) => !n.read).length : 0;
-  const displayNotifications = notifications.slice(0, 12);
+  // Unauthenticated users see no bell — saves an empty UI element and a
+  // guaranteed 401 from the unread-count query.
+  if (!isAuthenticated) return null;
 
-  function handleNotificationClick(n: WorkflowNotification) {
-    if (!n.read) markNotificationRead(n.id);
+  const unreadCount = mounted ? (unreadQuery.data ?? 0) : 0;
+  const notifications = data?.data ?? [];
+
+  function handleNotificationClick(n: Notification) {
+    if (!n.isRead) markAsRead.mutate(n.id);
     setOpen(false);
-    if (n.orderId) router.push(`/orders/${n.orderId}`);
+    const orderId =
+      (n.data?.orderId as string | undefined) ??
+      (n.data?.orderRef as string | undefined);
+    if (orderId) router.push(`/orders/${orderId}`);
   }
 
   return (
@@ -124,31 +155,25 @@ export function NotificationBell({ className }: { className?: string }) {
 
               {/* List */}
               <div className="max-h-96 overflow-y-auto">
-                {displayNotifications.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                      <Bell className="h-6 w-6 text-gray-400" />
-                    </div>
-                    <p className="mt-3 text-sm font-medium text-foreground">
-                      You&rsquo;re all caught up
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Order updates will appear here.
-                    </p>
-                  </div>
+                {isLoading ? (
+                  <NotificationListSkeleton />
+                ) : isError ? (
+                  <NotificationListError />
+                ) : notifications.length === 0 ? (
+                  <EmptyState />
                 ) : (
                   <ul className="divide-y divide-border">
-                    {displayNotifications.map((n) => (
+                    {notifications.map((n) => (
                       <li key={n.id}>
                         <button
                           type="button"
                           onClick={() => handleNotificationClick(n)}
                           className={cn(
                             "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-gray-50",
-                            !n.read && "bg-primary-50/50",
+                            !n.isRead && "bg-primary-50/50",
                           )}
                         >
-                          {!n.read ? (
+                          {!n.isRead ? (
                             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-secondary-500" />
                           ) : (
                             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gray-300" />
@@ -158,10 +183,15 @@ export function NotificationBell({ className }: { className?: string }) {
                               {n.title}
                             </p>
                             <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-gray-500">
-                              {n.body}
+                              {n.message}
                             </p>
                             <p className="mt-1 text-[11px] text-gray-400">
-                              {formatRelative(n.at)} • Order {n.orderRef}
+                              {timeAgo(n.createdAt)}
+                              {n.data?.orderRef
+                                ? ` • ${n.data.orderRef}`
+                                : n.type
+                                  ? ` • ${n.type}`
+                                  : ""}
                             </p>
                           </div>
                           <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-gray-300" />
@@ -173,13 +203,14 @@ export function NotificationBell({ className }: { className?: string }) {
               </div>
 
               {/* Footer */}
-              {displayNotifications.length > 0 ? (
+              {notifications.length > 0 ? (
                 <div className="flex items-center justify-between border-t border-border bg-surface px-4 py-2.5">
                   {unreadCount > 0 ? (
                     <button
                       type="button"
-                      onClick={() => notifications.forEach((n) => !n.read && markNotificationRead(n.id))}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
+                      disabled={markAllAsRead.isPending}
+                      onClick={() => markAllAsRead.mutate()}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50"
                     >
                       <CheckCheck className="h-3.5 w-3.5" /> Mark all read
                     </button>
@@ -188,12 +219,10 @@ export function NotificationBell({ className }: { className?: string }) {
                   )}
                   <button
                     type="button"
-                    onClick={() => {
-                      clearNotifications();
-                    }}
-                    className="text-xs font-medium text-gray-500 hover:text-danger"
+                    onClick={() => router.push("/profile/notifications")}
+                    className="text-xs font-medium text-gray-500 hover:text-primary-600"
                   >
-                    Clear all
+                    View all
                   </button>
                 </div>
               ) : null}
@@ -205,18 +234,59 @@ export function NotificationBell({ className }: { className?: string }) {
   );
 }
 
-function formatRelative(iso: string): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, now - then);
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(
-    new Date(iso),
+// ─── Internal sub-components ────────────────────────────────────────────────
+
+function NotificationListSkeleton() {
+  // 4 shimmering placeholder rows so the dropdown doesn't pop empty during
+  // the initial fetch.
+  return (
+    <ul className="divide-y divide-border">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <li
+          key={i}
+          className="flex items-start gap-3 px-4 py-3"
+          aria-hidden="true"
+        >
+          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gray-200" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 w-2/3 rounded bg-gray-200" />
+            <div className="h-2.5 w-full rounded bg-gray-100" />
+            <div className="h-2.5 w-1/3 rounded bg-gray-100" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function NotificationListError() {
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-50">
+        <AlertCircle className="h-6 w-6 text-rose-500" />
+      </div>
+      <p className="mt-3 text-sm font-medium text-foreground">
+        Couldn&rsquo;t load notifications
+      </p>
+      <p className="mt-1 text-xs text-gray-500">
+        Please check your connection and try again.
+      </p>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+        <Bell className="h-6 w-6 text-gray-400" />
+      </div>
+      <p className="mt-3 text-sm font-medium text-foreground">
+        No notifications yet
+      </p>
+      <p className="mt-1 text-xs text-gray-500">
+        Order updates and alerts will appear here.
+      </p>
+    </div>
   );
 }

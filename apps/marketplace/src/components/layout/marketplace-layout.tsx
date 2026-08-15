@@ -2,15 +2,12 @@
 
 import React from "react";
 import Image from "next/image";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowRight,
   Heart,
-  LogOut,
   Menu,
   Search,
   ShoppingCart,
@@ -19,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Button, Separator } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { OfflineBanner } from "@kwikseller/ui";
 import { kwikToast, useAuth } from "@kwikseller/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -41,142 +38,12 @@ import { MobileBottomNav } from "@/components/landing/mobile-bottom-nav";
 import { SearchAutoSuggest } from "@/components/landing/search-auto-suggest";
 import { ScrollProgress } from "@/components/landing/scroll-progress";
 import { MarketplaceShellProvider } from "@/components/layout/marketplace-shell-context";
+import { ProfileDropdown } from "@/components/layout/profile-dropdown";
 import { useCartStore, useWishlistStore } from "@/stores";
 import { AppImage } from "@/components/ui/app-image";
-import { MOBILE_DRAWER_LINKS as pageLinks } from "@/constants/navigation";
 
-function MobileDrawerContent({
-  onClose,
-  isAuthenticated,
-  user,
-  isAuthLoading,
-  handleLogout,
-  router,
-  onNavigateStart,
-}: {
-  onClose: () => void;
-  isAuthenticated: boolean;
-  user: any;
-  isAuthLoading: boolean;
-  handleLogout: () => void;
-  router: ReturnType<typeof useRouter>;
-  onNavigateStart?: () => void;
-}) {
-  const pathname = usePathname();
-
-  const handleNavClick = (href: string) => {
-    onClose();
-    onNavigateStart?.();
-    router.push(href);
-  };
-
-  return (
-    <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Image
-            src="/icon.png"
-            alt="KWIKSELLER"
-            width={32}
-            height={32}
-            className="rounded-lg"
-          />
-          <span className="text-xl font-bold">KWIKSELLER</span>
-        </div>
-        <Button
-          isIconOnly
-          variant="ghost"
-          onPress={onClose}
-          aria-label="Close menu"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-      </div>
-
-      <nav className="mb-4 flex flex-col gap-1">
-        {pageLinks.map((link) => {
-          const Icon = link.icon;
-          const isActive = pathname === link.href;
-
-          return (
-            <button
-              key={link.href}
-              type="button"
-              onClick={() => handleNavClick(link.href)}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-medium transition-colors ${
-                isActive
-                  ? "bg-kwik-orange-tint text-kwik-orange"
-                  : "text-kwik-gray hover:bg-kwik-bg-surface hover:text-kwik-dark"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {link.label}
-            </button>
-          );
-        })}
-      </nav>
-
-      <Separator className="mb-4" />
-
-      <div className="mt-auto flex flex-col gap-3">
-        {isAuthLoading ? null : isAuthenticated && user ? (
-          <>
-            <div className="flex items-center gap-3 rounded-xl bg-kwik-bg-surface px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-kwik-orange font-semibold text-white">
-                {(user.profile?.firstName || user.email.split("@")[0])
-                  .charAt(0)
-                  .toUpperCase()}
-              </div>
-              <div>
-                <div className="text-sm font-medium">
-                  {user.profile?.firstName || user.email.split("@")[0]}
-                </div>
-                <div className="text-xs text-kwik-gray-light">{user.email}</div>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onPress={() => {
-                handleLogout();
-                onClose();
-              }}
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onPress={() => {
-                onNavigateStart?.();
-                router.push("/login");
-                onClose();
-              }}
-            >
-              Sign In
-            </Button>
-            <Button
-              variant="primary"
-              className="w-full bg-kwik-orange text-white"
-              onPress={() => {
-                onNavigateStart?.();
-                router.push("/register");
-                onClose();
-              }}
-            >
-              Get Started
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+// Mobile drawer is lazy-loaded (ssr:false) to keep the header bundle lean.
+const MobileDrawer = dynamic(() => import("@/components/landing/mobile-drawer").then(m => ({ default: m.MobileDrawer })), { ssr: false });
 
 /* ─── Inline Search Bar (shown in header on /search page) ──── */
 
@@ -310,6 +177,7 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const isPageLoadingRef = useRef(true);
+  const headerRef = useRef<HTMLElement>(null);
   // useSyncExternalStore avoids a setState-in-effect lint violation while
   // still giving us a server-safe `isClientMounted` flag (false on SSR,
   // true on client). Used to gate client-only chrome like the cart badge.
@@ -360,6 +228,23 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Measure the real header height and expose it as --header-height on the
+  // document root. This lets sticky offsets (PDP gallery, search toolbar,
+  // vendor toolbar) always sit exactly below the header regardless of which
+  // rows the header currently shows (search page adds an extra row).
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const sync = () => {
+      const h = el.offsetHeight;
+      if (h > 0) document.documentElement.style.setProperty("--header-height", `${h}px`);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isSearchPage, hideTopNav]);
 
   // Page-loading bar: shows on every pathname change, auto-hides after 420ms.
   // The `setIsPageLoading(true)` is deferred via `queueMicrotask` so it's no
@@ -474,9 +359,9 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
         )}
 
         {!hideTopNav && (
-          <>
             <header
-              className={`fixed inset-x-0 top-0 z-80 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
+              ref={headerRef}
+              className={`sticky top-0 z-40 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
                 isScrolled
                   ? "shadow-md border-b border-kwik-orange/10"
                   : "border-b border-kwik-border"
@@ -496,25 +381,23 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                       <Menu className="h-5 w-5" />
                     </Button>
 
-                    {/* Logo */}
+                    {/* Logo — spec #22: /icon.png + KWIKSELLER, routes to / */}
                     <button
                       type="button"
                       onClick={() => {
                         startNavigationLoading();
                         router.push("/");
                       }}
-                      className="flex min-w-0 items-center gap-1.5 transition-opacity hover:opacity-80 md:gap-2"
+                      className="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-80"
                     >
-                      <div className="y-2">
-                        <Image
-                          src="/icon.png"
-                          alt="KWIKSELLER"
-                          width={20}
-                          height={20}
-                          className="rounded-md md:rounded-lg md:h-8! md:w-8!"
-                        />
-                      </div>
-                      <span className="truncate text-lg font-bold text-kwik-dark md:text-xl">
+                      <Image
+                        src="/icon.png"
+                        alt="KWIKSELLER"
+                        width={20}
+                        height={20}
+                        className="h-7 w-7 shrink-0 rounded-md object-cover md:h-8 md:w-8 md:rounded-lg"
+                      />
+                      <span className="truncate text-lg font-bold text-kwik-dark dark:text-white md:text-xl">
                         KWIKSELLER
                       </span>
                     </button>
@@ -584,55 +467,28 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
 
                     <ThemeToggle />
 
-                    <div className="hidden items-center gap-3 md:flex">
+                    {/* Account: single icon button — opens profile dropdown when logged in, goes to login when not */}
+                    <div className="hidden items-center md:flex">
                       {!isClientMounted || isAuthLoading ? null : isAuthenticated && user ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              startNavigationLoading();
-                              router.push("/profile");
-                            }}
-                            className="hidden items-center gap-2 rounded-full px-2 py-1 text-sm text-kwik-gray transition hover:bg-default hover:text-foreground lg:inline-flex"
-                            aria-label="Go to profile"
-                          >
-                            <User className="h-4 w-4" />
-                            {user.profile?.firstName || user.email.split("@")[0]}
-                          </button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onPress={handleLogout}
-                            className="text-kwik-gray"
-                          >
-                            <LogOut className="h-4 w-4" />
-                            <span className="hidden sm:inline">Logout</span>
-                          </Button>
-                        </>
+                        <ProfileDropdown
+                          user={user}
+                          onNavigateStart={startNavigationLoading}
+                          onLogout={handleLogout}
+                        />
                       ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onPress={() => {
-                              startNavigationLoading();
-                              router.push("/login");
-                            }}
-                          >
-                            Sign In
-                          </Button>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onPress={() => {
-                              startNavigationLoading();
-                              router.push("/register");
-                            }}
-                            className="bg-kwik-orange text-white"
-                          >
-                            Get Started
-                          </Button>
-                        </>
+                        <Button
+                          isIconOnly
+                          variant="ghost"
+                          size="sm"
+                          onPress={() => {
+                            startNavigationLoading();
+                            router.push("/login");
+                          }}
+                          aria-label="Sign in"
+                          className="text-kwik-gray-light dark:text-white/70"
+                        >
+                          <User className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -670,8 +526,6 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             </header>
-            <div aria-hidden className="h-[112px] shrink-0 md:h-16" />
-          </>
         )}
 
         <AnimatePresence>
@@ -692,14 +546,14 @@ export function MarketplaceLayout({ children }: { children: React.ReactNode }) {
                 transition={{ type: "spring", damping: 30, stiffness: 320 }}
                 className="fixed bottom-0 left-0 top-0 z-[120] w-[300px] max-w-[85vw] overflow-hidden border-r border-kwik-border bg-background shadow-2xl md:hidden"
               >
-                <MobileDrawerContent
+                <MobileDrawer
+                  isOpen={true}
                   onClose={closeDrawer}
+                  onNavigateStart={startNavigationLoading}
                   isAuthenticated={isAuthenticated}
                   user={user}
                   isAuthLoading={isAuthLoading}
-                  handleLogout={handleLogout}
-                  router={router}
-                  onNavigateStart={startNavigationLoading}
+                  onLogout={handleLogout}
                 />
               </motion.div>
             </>

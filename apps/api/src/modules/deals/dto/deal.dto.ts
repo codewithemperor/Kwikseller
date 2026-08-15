@@ -35,6 +35,11 @@ export class CreateDealDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ description: 'Deal card image URL (shown on deal cards & detail page)' })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
   @ApiPropertyOptional({ description: 'Deal type', enum: DealTypeEnum, default: DealTypeEnum.FLASH_DEAL })
   @IsOptional()
   @IsEnum(DealTypeEnum)
@@ -84,6 +89,11 @@ export class UpdateDealDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Deal card image URL' })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 
   @ApiPropertyOptional({ description: 'Deal type', enum: DealTypeEnum })
   @IsOptional()

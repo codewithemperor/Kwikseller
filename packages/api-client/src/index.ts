@@ -518,6 +518,9 @@ export const productsApi = {
 export const marketplaceApi = {
   getHomeFeed: () => api.get('/products/home-feed'),
 
+  getHomeFeedMore: (params?: { page?: number; limit?: number }) =>
+    api.get('/products/home-feed/more', { params }),
+
   // Banners
   getBanners: (params?: { type?: string }) =>
     api.get('/banners', { params }),
@@ -712,6 +715,30 @@ export const vendorCommerceApi = {
 
   updateOrderStatus: (orderId: string, status: string) =>
     api.patch(`/vendor/orders/${orderId}/status`, { status }),
+
+  submitDeliveryQuote: (orderId: string, data: { amount: number; note?: string }) =>
+    api.post(`/orders/${orderId}/quote`, data),
+
+  reviseDeliveryQuote: (orderId: string, data: { amount: number; note?: string }) =>
+    api.patch(`/orders/${orderId}/quote/revise`, data),
+
+  getOrderQuote: (orderId: string) =>
+    api.get(`/orders/${orderId}/quote`),
+
+  acceptQuoteReduction: (orderId: string, data?: { note?: string }) =>
+    api.post(`/orders/${orderId}/quote/accept-reduction`, data),
+
+  rejectQuoteReduction: (orderId: string, data?: { note?: string }) =>
+    api.post(`/orders/${orderId}/quote/reject-reduction`, data),
+
+  dispatchOrder: (orderId: string, data?: { trackingNumber?: string; carrier?: string }) =>
+    api.post(`/orders/${orderId}/dispatch`, data),
+
+  markDelivered: (orderId: string) =>
+    api.post(`/orders/${orderId}/mark-delivered`),
+
+  getOrderAttentionCounts: () =>
+    api.get<{ pendingQuotes: number; reductionRequests: number; readyToAccept: number; total: number }>('/vendor/orders/attention-counts'),
 
   listPoolCatalog: (params?: { categoryId?: string; vendorId?: string; search?: string; page?: number; limit?: number }) =>
     api.get<PoolProduct[]>('/vendor/pool/catalog', { params }),

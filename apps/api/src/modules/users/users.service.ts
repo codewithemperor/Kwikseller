@@ -208,7 +208,7 @@ export class UsersService {
     if (!stateName) return { stateId: undefined, lgaId: undefined };
 
     const state = await this.prisma.state.findFirst({
-      where: { name: { equals: stateName, mode: 'insensitive' } },
+      where: { name: { equals: stateName } },
     });
 
     if (!state) return { stateId: undefined, lgaId: undefined };
@@ -217,7 +217,7 @@ export class UsersService {
       ? await this.prisma.localGovernment.findFirst({
           where: {
             stateId: state.id,
-            name: { equals: localGovernmentName, mode: 'insensitive' },
+            name: { equals: localGovernmentName },
           },
         })
       : null;

@@ -1,13 +1,25 @@
 /**
  * navigation.ts
  * ────────────────────────────────────────────────────────────────────────────
- * Single source of truth for marketplace navigation data: mega-menu categories,
- * top-nav dropdown items, mobile drawer links, mobile bottom-nav items, and the
- * enhanced-footer link columns + social + legal links. Components import these
- * arrays directly — no inline nav data should live in component files.
+ * Single source of truth for marketplace navigation.
+ *
+ * The Marketplace header has FIVE primary navigation items:
+ *
+ *   Categories | Products | Vendors | Deals | Resources
+ *
+ * Each item carries a consistent icon (design-system reason: visual scanning
+ * aid on desktop + icon-led mobile accordion). Categories is special — its
+ * children are fetched from the backend (`useCategories()`) at render time,
+ * so no hardcoded category list lives here. The other four items define
+ * their dropdown links inline.
+ *
+ * Routing principles enforced here:
+ *   - Collections use semantic collection routes  (/products/trending, /deals, …)
+ *   - Individual entities use dynamic [id] routes  (/products/[id], /deals/[id])
+ *   - Resources point to real informational pages (/about, /pricing, /pool, /help)
  *
  * NOTE: color classes referenced here (e.g. "bg-kwik-orange-tint") are Tailwind
- * tokens that map to the unified OKLCH design system. No hex values.
+ * tokens. No hex values, no gradients.
  */
 
 import type { LucideIcon } from "lucide-react";
@@ -17,58 +29,26 @@ import {
   CreditCard,
   Droplets,
   Facebook,
+  Flame,
   Grid3X3,
-  Heart,
   HelpCircle,
-  Home,
   Info,
   Instagram,
   LayoutGrid,
   Linkedin,
-  Monitor,
   Package,
-  Smartphone,
   Sparkles,
   Star,
   Store,
+  Tag,
   TrendingUp,
   Twitter,
   UserPlus,
   Users,
-  UtensilsCrossed,
-  Wrench,
   Zap,
-  BookOpen,
-  Car,
 } from "lucide-react";
 
-// ─── Mega-menu: category dropdown ──────────────────────────────────────────
-
-export interface CategoryItem {
-  icon: LucideIcon;
-  name: string;
-  slug: string;
-  count: string;
-  href: string;
-}
-
-/**
- * Categories shown inside the mega-menu's "Categories" dropdown.
- * Order = display order in the dropdown grid.
- */
-export const MEGA_MENU_CATEGORIES: CategoryItem[] = [
-  { icon: Sparkles, name: "Fashion", slug: "fashion", count: "12K+", href: "/categories?fashion" },
-  { icon: Monitor, name: "Electronics", slug: "electronics", count: "8K+", href: "/categories?electronics" },
-  { icon: Heart, name: "Beauty", slug: "beauty", count: "6K+", href: "/categories?beauty" },
-  { icon: UtensilsCrossed, name: "Food", slug: "food", count: "15K+", href: "/categories?food" },
-  { icon: Home, name: "Home", slug: "home", count: "9K+", href: "/categories?home" },
-  { icon: Smartphone, name: "Phones", slug: "phones", count: "11K+", href: "/categories?phones" },
-  { icon: Car, name: "Automobiles", slug: "auto", count: "4K+", href: "/categories?auto" },
-  { icon: BookOpen, name: "Books", slug: "books", count: "3K+", href: "/categories?books" },
-  { icon: Wrench, name: "Services", slug: "services", count: "7K+", href: "/categories?services" },
-];
-
-// ─── Mega-menu: standard dropdowns (Products / Vendors / Resources) ────────
+// ─── Primary navigation items ──────────────────────────────────────────────
 
 export interface DropdownLink {
   icon: LucideIcon;
@@ -78,62 +58,81 @@ export interface DropdownLink {
 }
 
 export interface NavItemConfig {
+  /** Visible label in the header bar. */
   label: string;
-  links: DropdownLink[];
+  /** Icon shown beside the label (consistent across all five items). */
+  icon: LucideIcon;
+  /** Top-level destination when the label itself is clicked. */
+  href: string;
+  /**
+   * `"categories"` → the dropdown is populated from the backend
+   * (`useCategories()`). `"standard"` → uses the static `links` array.
+   */
+  kind: "categories" | "standard";
+  /** Static dropdown links (used when `kind === "standard"`). */
+  links?: DropdownLink[];
 }
 
 /**
- * The three top-level dropdown menus (Products / Vendors / Resources) shown in
- * the desktop mega-nav next to the Categories mega-menu.
+ * The five primary navigation items, in display order.
+ *
+ * Categories is special: its dropdown children are fetched live from the
+ * API so the menu always reflects the real category tree. The other four
+ * items ship static, curated link sets that point at semantic routes.
  */
-export const MEGA_MENU_NAV_ITEMS: NavItemConfig[] = [
+export const PRIMARY_NAV_ITEMS: NavItemConfig[] = [
+  {
+    label: "Categories",
+    icon: LayoutGrid,
+    href: "/categories",
+    kind: "categories",
+  },
   {
     label: "Products",
+    icon: Package,
+    href: "/products",
+    kind: "standard",
     links: [
-      { icon: TrendingUp, label: "Trending", description: "Hot products right now", href: "/search?q=trending" },
-      { icon: Package, label: "New Arrivals", description: "Just listed items", href: "/search?q=new+arrivals" },
-      { icon: Star, label: "Top Rated", description: "Highest rated products", href: "/search?q=top+rated" },
-      { icon: Zap, label: "Deals of the Day", description: "Limited-time offers", href: "/search?q=deals" },
+      { icon: TrendingUp, label: "Trending", description: "Hot products right now", href: "/products/trending" },
+      { icon: Sparkles, label: "New Arrivals", description: "Recently listed items", href: "/products/new-arrivals" },
+      { icon: Star, label: "Top Rated", description: "Highest rated products", href: "/products/top-rated" },
     ],
   },
   {
     label: "Vendors",
+    icon: Store,
+    href: "/vendors",
+    kind: "standard",
     links: [
       { icon: Grid3X3, label: "Browse Vendors", description: "Explore all stores", href: "/vendors" },
-      { icon: UserPlus, label: "Become a Vendor", description: "Start selling today", href: "/vendors" },
-      { icon: Award, label: "Top Rated", description: "Best performing sellers", href: "/vendors" },
-      { icon: LayoutGrid, label: "Vendor Categories", description: "Stores by category", href: "/vendors" },
+      { icon: Award, label: "Top Rated Vendors", description: "Best performing sellers", href: "/vendors?sort=top-rated" },
+      { icon: UserPlus, label: "Become a Vendor", description: "Start selling today", href: "/register?role=VENDOR" },
+    ],
+  },
+  {
+    label: "Deals",
+    icon: Tag,
+    href: "/deals",
+    kind: "standard",
+    links: [
+      { icon: Zap, label: "All Deals", description: "Every active promotion", href: "/deals" },
+      { icon: Flame, label: "Flash Deals", description: "Limited-time price drops", href: "/deals?dealType=FLASH_DEAL" },
+      { icon: Sparkles, label: "Deals of the Day", description: "Daily handpicked offers", href: "/deals?dealType=DEAL_OF_THE_DAY" },
+      { icon: Users, label: "Group Buy", description: "Buy together, save together", href: "/group-buy" },
     ],
   },
   {
     label: "Resources",
+    icon: Info,
+    href: "/about",
+    kind: "standard",
     links: [
       { icon: Info, label: "About Us", description: "Our story & mission", href: "/about" },
       { icon: CreditCard, label: "Pricing", description: "Simple, fair plans", href: "/pricing" },
       { icon: Droplets, label: "Pool Selling", description: "Sell without inventory", href: "/pool" },
-      { icon: HelpCircle, label: "Help Center", description: "FAQs and support", href: "#" },
+      { icon: HelpCircle, label: "Help Center", description: "FAQs and support", href: "/help" },
     ],
   },
-];
-
-// ─── Mobile drawer (hamburger) links ───────────────────────────────────────
-
-export interface DrawerLink {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-}
-
-/**
- * Top-level page links shown in the mobile hamburger drawer.
- */
-export const MOBILE_DRAWER_LINKS: DrawerLink[] = [
-  { label: "Marketplace", href: "/", icon: Store },
-  { label: "Categories", href: "/categories", icon: Grid3X3 },
-  { label: "About", href: "/about", icon: Info },
-  { label: "Pricing", href: "/pricing", icon: CreditCard },
-  { label: "Vendors", href: "/vendors", icon: Users },
-  { label: "Pool Selling", href: "/pool", icon: Droplets },
 ];
 
 // ─── Mobile bottom-nav (sticky tab bar) ────────────────────────────────────
@@ -145,13 +144,15 @@ export interface MobileNavItem {
 }
 
 /**
- * Items in the sticky mobile bottom-nav bar (Home / Categories / Vendors / Profile).
+ * Items in the sticky mobile bottom-nav bar.
+ * Home / Categories / Deals / Vendors / Profile.
  */
 export const MOBILE_BOTTOM_NAV_ITEMS: MobileNavItem[] = [
   { label: "Home", icon: LayoutGrid, href: "/" },
   { label: "Categories", icon: Grid3X3, href: "/categories" },
+  { label: "Deals", icon: Tag, href: "/deals" },
   { label: "Vendors", icon: Store, href: "/vendors" },
-  { label: "Profile", icon: UserPlus, href: "/profile" },
+  { label: "Profile", icon: Users, href: "/profile" },
 ];
 
 // ─── Enhanced footer ───────────────────────────────────────────────────────
@@ -173,37 +174,37 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     title: "Marketplace",
     links: [
-      { label: "Vendor Stock", href: "/search?source=vendor-stock" },
-      { label: "Pool Resale", href: "/pool" },
+      { label: "All Products", href: "/products" },
+      { label: "Trending", href: "/products/trending" },
+      { label: "New Arrivals", href: "/products/new-arrivals" },
+      { label: "Top Rated", href: "/products/top-rated" },
+    ],
+  },
+  {
+    title: "Deals",
+    links: [
+      { label: "All Deals", href: "/deals" },
+      { label: "Flash Deals", href: "/deals?dealType=FLASH_DEAL" },
+      { label: "Deals of the Day", href: "/deals?dealType=DEAL_OF_THE_DAY" },
       { label: "Group Buy", href: "/group-buy" },
-      { label: "Digital Products", href: "/search?type=digital" },
     ],
   },
   {
     title: "Sellers",
     links: [
+      { label: "Browse Vendors", href: "/vendors" },
+      { label: "Become a Vendor", href: "/register?role=VENDOR" },
+      { label: "Pool Selling", href: "/pool" },
       { label: "Vendor Dashboard", href: "/register?role=VENDOR" },
-      { label: "Inventory", href: "/register?role=VENDOR" },
-      { label: "Pool Catalog", href: "/pool" },
-      { label: "Order Handling", href: "/vendors" },
     ],
   },
   {
-    title: "Support",
+    title: "Resources",
     links: [
-      { label: "Help Center", href: "/about" },
-      { label: "Buyer Protection", href: "/terms" },
-      { label: "Payments", href: "/pricing" },
-      { label: "Contact", href: "/about" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About", href: "/about" },
-      { label: "Blog", href: "/about" },
-      { label: "Careers", href: "/about" },
-      { label: "Status", href: "/about" },
+      { label: "About Us", href: "/about" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Help Center", href: "/help" },
+      { label: "Terms", href: "/terms" },
     ],
   },
 ];

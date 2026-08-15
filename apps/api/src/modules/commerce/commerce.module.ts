@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CommerceService } from './commerce.service';
 import { PaystackService } from './paystack.service';
+import { PaymentsModule } from '../../payments/payments.module';
 import {
   AdminCommerceController,
   CartController,
@@ -10,11 +11,12 @@ import {
   OrdersController,
   PaymentsController,
   PoolController,
-  PublicStoresController,
+  PublicVendorsController,
   VendorCommerceController,
 } from './commerce.controller';
 
 @Module({
+  imports: [PaymentsModule],
   controllers: [
     CartController,
     CheckoutController,
@@ -22,7 +24,7 @@ import {
     PaymentsController,
     OrdersController,
     PoolController,
-    PublicStoresController,
+    PublicVendorsController,
     VendorCommerceController,
     AdminCommerceController,
   ],

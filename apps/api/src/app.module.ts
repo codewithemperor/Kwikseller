@@ -2,6 +2,7 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -24,7 +25,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { CommerceModule } from './modules/commerce/commerce.module';
-import { StoreModule } from './modules/store/store.module';
+import { VendorStoreModule } from './modules/vendor-store/vendor-store.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { KycModule } from './modules/kyc/kyc.module';
@@ -33,6 +34,9 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { VendorProfileModule } from './modules/vendor-profile/vendor-profile.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { OrderOperationsModule } from './modules/order-operations/order-operations.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { SearchModule } from './modules/search/search.module';
+import { QuoteModule } from './modules/quote/quote.module';
 import { PaymentsModule } from './payments/payments.module';
 
 @Module({
@@ -97,22 +101,26 @@ import { PaymentsModule } from './payments/payments.module';
       ignoreErrors: false,
     }),
 
-    // Rate limiting - Global 100 req/15min
+    // Cron scheduler — powers InventoryCronService (*/5 min reservation expiry)
+    // and any other @Cron/@Interval/@Timeout decorators.
+    ScheduleModule.forRoot(),
+
+    // Rate limiting — respects ENABLE_RATE_LIMIT env var
     ThrottlerModule.forRoot([
       {
         name: 'short',
         ttl: 1000,      // 1 second
-        limit: 3,       // 3 requests per second for auth
+        limit: process.env.ENABLE_RATE_LIMIT === 'false' ? 10000 : 3,
       },
       {
         name: 'medium',
         ttl: 60000,     // 1 minute
-        limit: 100,     // 100 requests per minute
+        limit: process.env.ENABLE_RATE_LIMIT === 'false' ? 100000 : 100,
       },
       {
         name: 'long',
         ttl: 900000,    // 15 minutes
-        limit: 1000,    // 1000 requests per 15 minutes
+        limit: process.env.ENABLE_RATE_LIMIT === 'false' ? 1000000 : 1000,
       },
     ]),
 
@@ -155,8 +163,8 @@ import { PaymentsModule } from './payments/payments.module';
     // Sellers module (public seller listings)
     SellersModule,
 
-    // Vendor store profile module
-    StoreModule,
+    // Vendor store profile module (route: /vendor/store)
+    VendorStoreModule,
 
     // Commerce module (cart, checkout, orders, payments, pool, vendor/admin ops)
     CommerceModule,
@@ -187,6 +195,15 @@ import { PaymentsModule } from './payments/payments.module';
 
     // Order operations module (vendor order notes + operations)
     OrderOperationsModule,
+
+    // Reviews module (public review listing, summary, eligibility, helpful votes)
+    ReviewsModule,
+
+    // Search module (trending searches + autocomplete suggestions)
+    SearchModule,
+
+    // Quote module (delivery-fee negotiation between vendor and customer)
+    QuoteModule,
   ],
   controllers: [AppController],
   providers: [
@@ -234,5 +251,8 @@ export class AppModule implements OnModuleInit {
     console.log('👤 VendorProfileModule loaded');
     console.log('🚚 DeliveryModule loaded');
     console.log('📋 OrderOperationsModule loaded');
+    console.log('⭐ ReviewsModule loaded');
+    console.log('🔍 SearchModule loaded');
+    console.log('💬 QuoteModule loaded');
   }
 }

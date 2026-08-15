@@ -38,31 +38,7 @@ export function CsvImportModal({ isOpen, onOpenChange, onSuccess }: CsvImportMod
   const [fileName, setFileName] = React.useState("");
   const [progress, setProgress] = React.useState(0);
 
-  const onDrop = React.useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
-  }, []);
-
-  const handleFile = (file: File) => {
-    if (!file.name.endsWith(".csv")) {
-      kwikToast.error("Please upload a CSV file");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      kwikToast.error("File too large (max 5MB)");
-      return;
-    }
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      parseCsv(text);
-    };
-    reader.readAsText(file);
-  };
-
-  const parseCsv = (text: string) => {
+  const parseCsv = React.useCallback((text: string) => {
     const lines = text.split("\n").filter((l) => l.trim());
     if (lines.length < 2) {
       kwikToast.error("CSV must have a header row + at least one data row");
@@ -89,7 +65,31 @@ export function CsvImportModal({ isOpen, onOpenChange, onSuccess }: CsvImportMod
       parsed.push(row);
     }
     setRows(parsed);
-  };
+  }, []);
+
+  const handleFile = React.useCallback((file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      kwikToast.error("Please upload a CSV file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      kwikToast.error("File too large (max 5MB)");
+      return;
+    }
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      parseCsv(text);
+    };
+    reader.readAsText(file);
+  }, [parseCsv]);
+
+  const onDrop = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
 
   const validRows = rows.filter((r) => (r._errors?.length ?? 0) === 0);
   const errorRows = rows.filter((r) => (r._errors?.length ?? 0) > 0);

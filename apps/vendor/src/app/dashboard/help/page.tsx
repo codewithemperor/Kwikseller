@@ -36,6 +36,7 @@ import {
   Image,
   Download,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { AppButton, Skeleton, VendorPageHeader } from "@kwikseller/ui";
 import { motion } from "framer-motion";
@@ -1348,24 +1349,15 @@ function saveExpanded(ids: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
 }
 
-function getCategoryIcon(category: CategoryId) {
-  switch (category) {
-    case "getting-started":
-      return Rocket;
-    case "selling":
-      return Package;
-    case "orders-shipping":
-      return Truck;
-    case "payments":
-      return Wallet;
-    case "account":
-      return User;
-    case "store-settings":
-      return Settings;
-    case "troubleshooting":
-      return AlertTriangle;
-  }
-}
+const CATEGORY_ICONS: Record<CategoryId, LucideIcon> = {
+  "getting-started": Rocket,
+  selling: Package,
+  "orders-shipping": Truck,
+  payments: Wallet,
+  account: User,
+  "store-settings": Settings,
+  troubleshooting: AlertTriangle,
+};
 
 function getCategoryColor(category: CategoryId) {
   switch (category) {
@@ -1575,7 +1567,7 @@ export default function HelpPage() {
               All
             </button>
             {CATEGORIES.map((cat) => {
-              const CatIcon = getCategoryIcon(cat.id);
+              const CatIcon = CATEGORY_ICONS[cat.id];
               const isActive = activeCategory === cat.id;
               return (
                 <button
@@ -1720,7 +1712,7 @@ export default function HelpPage() {
 // ==================== Sub-components ====================
 
 function CatIconComponent({ catId }: { catId: CategoryId }) {
-  const Icon = getCategoryIcon(catId);
+  const Icon = CATEGORY_ICONS[catId];
   const colorClass = getCategoryColor(catId);
   return (
     <div className={`flex h-6 w-6 items-center justify-center rounded-md ${colorClass}`}>

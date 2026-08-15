@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search,
   SlidersHorizontal,
   X,
   LayoutGrid,
@@ -93,14 +92,6 @@ function ProductsBrowseContent() {
       },
     [],
   );
-  const updateQuery = useCallback(
-    (v: string) => {
-      setQuery(v);
-      setPage(1);
-    },
-    [],
-  );
-
   // Sync filters to URL (shallow) so the page is shareable/bookmarkable.
   useEffect(() => {
     const params = new URLSearchParams();
@@ -231,31 +222,25 @@ function ProductsBrowseContent() {
         </div>
       </section>
 
-      {/* ── Search + sort bar ── */}
-      <section className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
+      {/* ── Sort + filter bar ── (no in-page search — header search is the
+          universal entry point, spec #15. Text filtering still works via
+          ?q= URL param; page controls are for sorting & filtering.) */}
+      <section className="sticky top-[var(--header-height)] z-30 border-b border-border bg-background/95 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl px-4 py-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => updateQuery(e.target.value)}
-                placeholder="Search products, vendors, categories..."
-                aria-label="Search products"
-                className="h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-9 text-sm text-foreground placeholder:text-kwik-muted focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-kwik-muted hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
+            {/* Result count */}
+            <div className="flex-1">
+              <p className="text-sm text-kwik-gray-light dark:text-white/70">
+                {productsQuery.isLoading ? (
+                  <span className="text-kwik-muted">Loading…</span>
+                ) : (
+                  <>
+                    <span className="font-semibold text-kwik-dark dark:text-white">{totalCount}</span>{" "}
+                    product{totalCount !== 1 ? "s" : ""}
+                    {query ? <> · filtering by &ldquo;<span className="font-semibold text-kwik-orange">{query}</span>&rdquo;</> : null}
+                  </>
+                )}
+              </p>
             </div>
 
             {/* Sort */}
@@ -525,7 +510,7 @@ function ProductsBrowseContent() {
                 }
               />
             ) : view === "grid" ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
                 {filtered.map((product, idx) => (
                   <motion.div
                     key={product.id}

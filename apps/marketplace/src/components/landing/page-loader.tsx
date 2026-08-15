@@ -155,6 +155,7 @@ export function PageLoader({ isLoading, vendorSlug }: PageLoaderProps) {
               >
                 {isVendorLoading ? (
                   vendorBrand?.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={vendorBrand.logoUrl} alt="" className="h-14 w-14 object-cover" />
                   ) : (
                     <Store className="h-10 w-10" style={{ color: vendorPrimary }} />

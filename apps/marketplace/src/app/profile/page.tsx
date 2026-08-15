@@ -360,7 +360,7 @@ function ProfilePageInner() {
                       Order {order.ref}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {order.vendor.name} • {order.items.length} item{order.items.length !== 1 ? "s" : ""}
+                      {order.vendor} • {order.items} item{order.items !== 1 ? "s" : ""}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />

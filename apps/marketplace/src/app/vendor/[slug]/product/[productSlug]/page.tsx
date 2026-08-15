@@ -108,6 +108,7 @@ export default function VendorProductPage() {
         <>
           <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[1fr_0.9fr] lg:px-6">
             <div className="overflow-hidden bg-neutral-100 dark:bg-white/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={marketplaceProduct.image} alt={marketplaceProduct.name} className="aspect-square h-full w-full object-cover" />
             </div>
             <div className="flex flex-col justify-center">

@@ -3,14 +3,17 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { PrismaService } from '../database/prisma.service';
-import { 
-  EmailService, 
-  PushService, 
-  CacheService, 
-  StorageService, 
-  AuditService, 
-  NotificationService, 
-  PaymentService 
+import {
+  EmailService,
+  PushService,
+  CacheService,
+  StorageService,
+  AuditService,
+  NotificationService,
+  PaymentService,
+  PlatformSettingService,
+  OrderEventListener,
+  InventoryCronService,
 } from './services';
 
 @Global()
@@ -36,6 +39,11 @@ import {
     AuditService,
     NotificationService,
     PaymentService,
+    PlatformSettingService,
+    // Event listeners + cron — registered here so they are instantiated at
+    // bootstrap, which is what wires up their @OnEvent / @Cron decorators.
+    OrderEventListener,
+    InventoryCronService,
   ],
   exports: [
     PrismaService,
@@ -46,6 +54,7 @@ import {
     AuditService,
     NotificationService,
     PaymentService,
+    PlatformSettingService,
     ConfigModule,
     EventEmitterModule,
   ],

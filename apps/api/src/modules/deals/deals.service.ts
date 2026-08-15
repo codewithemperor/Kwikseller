@@ -146,6 +146,7 @@ export class DealsService {
       data: {
         title: dto.title,
         description: dto.description,
+        imageUrl: dto.imageUrl,
         dealType: dto.dealType || 'FLASH_DEAL',
         discountType: dto.discountType || 'PERCENTAGE',
         discountValue: dto.discountValue ?? 0,
@@ -163,6 +164,7 @@ export class DealsService {
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.imageUrl !== undefined) data.imageUrl = dto.imageUrl;
     if (dto.dealType !== undefined) data.dealType = dto.dealType;
     if (dto.discountType !== undefined) data.discountType = dto.discountType;
     if (dto.discountValue !== undefined) data.discountValue = dto.discountValue;

@@ -7,8 +7,9 @@ import {
 import { PrismaService } from "../database/prisma.service";
 import { NotificationService } from "../common/services/notification.service";
 import { AuditService } from "../common/services/audit.service";
+import { PlatformSettingService } from "../common/services/platform-setting.service";
+import { WalletService } from "./wallet.service";
 
-const DEFAULT_COMMISSION_RATE = 0.05; // 5%
 const DEFAULT_HOLD_HOURS = 24;
 
 type DbClient = Record<string, any>;
@@ -21,6 +22,8 @@ export class EscrowService {
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly auditService: AuditService,
+    private readonly platformSetting: PlatformSettingService,
+    private readonly walletService: WalletService,
   ) {}
 
   private db(): DbClient {
@@ -28,7 +31,11 @@ export class EscrowService {
   }
 
   // ─── Hold Payment (called when customer pays successfully) ─────────────────
-
+  //
+  // Creates an Escrow row (status=HELD) and a Commission row capturing the
+  // platform fee at the CURRENT configurable rate. The vendor wallet is NOT
+  // credited here — that happens only at releaseFunds().
+  //
   async holdPayment(orderId: string): Promise<void> {
     const db = this.db();
     const order = await db.order?.findUnique({
@@ -45,30 +52,39 @@ export class EscrowService {
       return;
     }
 
+    const vendorId = order.store?.vendorId ?? order.storeId;
+
     // Default release time = 24h from now (no auto-release until delivery confirmed)
     const releaseAt = new Date();
     releaseAt.setHours(releaseAt.getHours() + DEFAULT_HOLD_HOURS);
 
+    const transactionRef = `ESC-${orderId.slice(-8).toUpperCase()}-${Date.now()}`;
+
     const escrow = await db.escrow?.create({
       data: {
         orderId: order.id,
-        vendorId: order.store?.vendorId ?? order.storeId,
+        vendorId,
         amount: order.totalAmount,
         status: "HELD",
         releaseAt,
+        heldAt: new Date(),
+        transactionRef,
       },
     });
 
-    // Create commission record
+    // Create commission record using the configurable platform fee percent.
+    // saleAmount here = order.totalAmount (subtotal + agreedDeliveryFee + processingFee).
+    // The processing fee was already added to totalAmount at checkout/agreement time;
+    // the commission.platformFeeAmount is the platform's cut from the vendor's proceeds.
     const saleAmount = order.totalAmount;
-    const feePercent = DEFAULT_COMMISSION_RATE;
-    const feeAmount = Math.round(saleAmount * feePercent * 100) / 100;
+    const feePercent = await this.platformSetting.getProcessingFeePercent();
+    const feeAmount = Math.round(saleAmount * (feePercent / 100) * 100) / 100;
     const vendorEarnings = Math.round((saleAmount - feeAmount) * 100) / 100;
 
     await db.commission?.create({
       data: {
         orderId: order.id,
-        vendorId: order.store?.vendorId ?? order.storeId,
+        vendorId,
         saleAmount,
         platformFeePercent: feePercent,
         platformFeeAmount: feeAmount,
@@ -77,20 +93,20 @@ export class EscrowService {
       },
     });
 
-    // Notify vendor
+    // Notify vendor (in-app)
     try {
       await this.notificationService.create({
-        userId: order.store?.vendorId ?? order.storeId,
+        userId: vendorId,
         type: "PAYMENT_HELD",
-        title: "Payment Received — Held in Escrow",
-        message: `₦${saleAmount.toLocaleString()} from order #${orderId.slice(-8)} is now held in escrow. Funds will be released after delivery confirmation.`,
+        title: "Payment Received — Held in Kwikscrow",
+        message: `₦${saleAmount.toLocaleString()} from order #${orderId.slice(-8)} is now held in Kwikscrow. Funds will be released after delivery confirmation.`,
         data: { orderId, escrowId: escrow?.id, amount: saleAmount },
       });
     } catch (err) {
       this.logger.warn("Failed to send payment-held notification", err);
     }
 
-    this.logger.log(`Escrow created for order ${orderId}: ₦${saleAmount}`);
+    this.logger.log(`Escrow (Kwikscrow) created for order ${orderId}: ₦${saleAmount} held for vendor ${vendorId}`);
   }
 
   // ─── Initiate Release (called when customer confirms delivery receipt) ──────
@@ -165,55 +181,46 @@ export class EscrowService {
 
     const commission = delivery.order?.commission;
     const vendorEarnings = commission?.vendorEarnings ?? escrow.amount;
+    const orderId = delivery.order?.id;
 
     const vendorId = escrow.vendorId;
 
-    await this.db().$transaction(async (tx: any) => {
-      // Update escrow to RELEASED
-      await tx.escrow?.update({
-        where: { id: escrow.id },
-        data: { status: "RELEASED", releasedAt: new Date() },
-      });
-
-      // Credit vendor wallet
-      const wallet = await tx.wallet?.findUnique({ where: { vendorId } });
-      if (wallet) {
-        await tx.wallet?.update({
-          where: { vendorId },
-          data: {
-            availableBalance: { increment: vendorEarnings },
-            pendingBalance: {
-              decrement: Math.min(wallet.pendingBalance ?? 0, vendorEarnings),
-            },
-            totalEarned: { increment: vendorEarnings },
-          },
-        });
-      } else {
-        await tx.wallet?.create({
-          data: {
-            vendorId,
-            availableBalance: vendorEarnings,
-            totalEarned: vendorEarnings,
-          },
-        });
-      }
-
-      // Mark commission as settled
-      if (commission) {
-        await tx.commission?.update({
-          where: { id: commission.id },
-          data: { settledAt: new Date() },
-        });
-      }
+    // Mark escrow RELEASED first (idempotent: if already RELEASED we returned above)
+    await db.escrow?.update({
+      where: { id: escrow.id },
+      data: { status: "RELEASED", releasedAt: new Date() },
     });
+
+    // Credit vendor wallet — IDEMPOTENT. The reference is derived from the
+    // escrow id, so a second call with the same escrow is a no-op.
+    const creditReference = `ESCROW-RELEASE-${escrow.id}`;
+    const result = await this.walletService.creditWallet(
+      vendorId,
+      vendorEarnings,
+      "ESCROW_RELEASE",
+      creditReference,
+      {
+        orderId,
+        escrowId: escrow.id,
+        reason: `Kwikscrow release for order #${orderId?.slice(-8)}`,
+      },
+    );
+
+    // Mark commission as settled (only if the credit actually happened)
+    if (result.credited && commission) {
+      await db.commission?.update({
+        where: { id: commission.id },
+        data: { settledAt: new Date() },
+      });
+    }
 
     // Notify vendor
     try {
       await this.notificationService.create({
         userId: vendorId,
         type: "FUNDS_RELEASED",
-        title: "Escrow Funds Released",
-        message: `₦${vendorEarnings.toLocaleString()} has been credited to your wallet from order #${delivery.order?.id?.slice(-8)}.`,
+        title: "Kwikscrow Funds Released",
+        message: `₦${vendorEarnings.toLocaleString()} has been credited to your wallet from order #${orderId?.slice(-8)}.`,
         data: {
           escrowId: escrow.id,
           amount: vendorEarnings,
@@ -241,6 +248,23 @@ export class EscrowService {
     this.logger.log(
       `Escrow ${escrow.id} RELEASED: ₦${vendorEarnings} to vendor ${vendorId}`,
     );
+  }
+
+  // ─── Release by Order ID (used by customer confirm-receipt endpoint) ──────
+  //
+  // Resolves the Delivery row for the given orderId and delegates to releaseFunds.
+  // For PICKUP orders, the Delivery row's `pickupConfirmed` path triggers this.
+  // For STANDARD_DELIVERY, `customerConfirmed` triggers this.
+  //
+  async releaseByOrderId(orderId: string): Promise<void> {
+    const db = this.db();
+    const delivery = await db.delivery?.findUnique({
+      where: { orderId },
+    });
+    if (!delivery) {
+      throw new NotFoundException(`No delivery record for order ${orderId}`);
+    }
+    await this.releaseFunds(delivery.id);
   }
 
   // ─── Freeze for Dispute (called when customer opens dispute) ───────────────

@@ -233,55 +233,138 @@ export class WalletService {
     };
   }
 
-  // ─── Credit Wallet (internal, called by escrow release) ───────────────────
-
+  // ─── Credit Wallet (IDEMPOTENT — uses WalletTransaction ledger) ──────────
+  //
+  // This is the canonical wallet-credit method. It is idempotent: if called
+  // twice with the same `reference`, the second call is a no-op.
+  // The WalletTransaction row is the single source of truth for balance changes.
+  //
   async creditWallet(
     vendorId: string,
     amount: number,
     type: string,
     reference: string,
-  ): Promise<void> {
+    metadata?: { orderId?: string; escrowId?: string; reason?: string; createdBy?: string },
+  ): Promise<{ credited: boolean; balanceAfter: number }> {
     const db = this.db();
-    await db.$transaction(async (tx: any) => {
-      const wallet = await tx.wallet?.findUnique({ where: { vendorId } });
-      if (wallet) {
-        await tx.wallet?.update({
-          where: { vendorId },
-          data: {
-            availableBalance: { increment: amount },
-            pendingBalance: { decrement: Math.min(wallet.pendingBalance ?? 0, amount) },
-            totalEarned: { increment: amount },
-          },
-        });
-      } else {
-        await tx.wallet?.create({
-          data: { vendorId, availableBalance: amount, totalEarned: amount },
+    return db.$transaction(async (tx: any) => {
+      // Idempotency check — if a transaction with this reference exists, no-op.
+      const existing = await tx.walletTransaction?.findUnique({ where: { reference } });
+      if (existing) {
+        this.logger.warn(`Wallet credit already applied for reference ${reference} — skipping (idempotent)`);
+        return { credited: false, balanceAfter: Number(existing.balanceAfter ?? 0) };
+      }
+
+      // Get or create wallet inside the transaction (lock via vendorId unique)
+      let wallet = await tx.wallet?.findUnique({ where: { vendorId } });
+      if (!wallet) {
+        wallet = await tx.wallet?.create({
+          data: { vendorId, availableBalance: 0, pendingBalance: 0, totalEarned: 0, totalWithdrawn: 0 },
         });
       }
-    });
 
-    this.logger.log(`Wallet credited: ₦${amount} to vendor ${vendorId} (${type}, ref: ${reference})`);
+      const balanceAfter = Number(wallet.availableBalance ?? 0) + amount;
+
+      // Create the ledger entry (atomic with the balance update)
+      await tx.walletTransaction?.create({
+        data: {
+          walletId: wallet.id,
+          vendorId,
+          type: type as any,
+          amount,
+          balanceAfter,
+          reference,
+          orderId: metadata?.orderId,
+          escrowId: metadata?.escrowId,
+          reason: metadata?.reason ?? type,
+          createdBy: metadata?.createdBy,
+        },
+      });
+
+      // Update wallet balances
+      await tx.wallet?.update({
+        where: { vendorId },
+        data: {
+          availableBalance: { increment: amount },
+          totalEarned: { increment: amount },
+        },
+      });
+
+      this.logger.log(`Wallet credited: ₦${amount} to vendor ${vendorId} (${type}, ref: ${reference}) — balance now ₦${balanceAfter}`);
+      return { credited: true, balanceAfter };
+    });
   }
 
-  // ─── Debit Wallet (for withdrawals) ───────────────────────────────────────
+  // ─── Debit Wallet (IDEMPOTENT — for withdrawals) ─────────────────────────
 
-  async debitWallet(vendorId: string, amount: number, reference: string): Promise<void> {
+  async debitWallet(
+    vendorId: string,
+    amount: number,
+    reference: string,
+    metadata?: { reason?: string; createdBy?: string },
+  ): Promise<{ debited: boolean; balanceAfter: number }> {
     const db = this.db();
-    const wallet = await db.wallet?.findUnique({ where: { vendorId } });
+    return db.$transaction(async (tx: any) => {
+      const existing = await tx.walletTransaction?.findUnique({ where: { reference } });
+      if (existing) {
+        this.logger.warn(`Wallet debit already applied for reference ${reference} — skipping (idempotent)`);
+        return { debited: false, balanceAfter: Number(existing.balanceAfter ?? 0) };
+      }
 
-    if (!wallet || Number(wallet.availableBalance ?? 0) < amount) {
-      throw new BadRequestException('Insufficient wallet balance for debit');
-    }
+      const wallet = await tx.wallet?.findUnique({ where: { vendorId } });
+      if (!wallet || Number(wallet.availableBalance ?? 0) < amount) {
+        throw new BadRequestException('Insufficient wallet balance for debit');
+      }
 
-    await db.wallet?.update({
-      where: { vendorId },
-      data: {
-        availableBalance: { decrement: amount },
-        totalWithdrawn: { increment: amount },
-      },
+      const balanceAfter = Number(wallet.availableBalance ?? 0) - amount;
+
+      await tx.walletTransaction?.create({
+        data: {
+          walletId: wallet.id,
+          vendorId,
+          type: 'WITHDRAWAL',
+          amount: -amount, // negative for debit
+          balanceAfter,
+          reference,
+          reason: metadata?.reason ?? 'WITHDRAWAL',
+          createdBy: metadata?.createdBy,
+        },
+      });
+
+      await tx.wallet?.update({
+        where: { vendorId },
+        data: {
+          availableBalance: { decrement: amount },
+          totalWithdrawn: { increment: amount },
+        },
+      });
+
+      this.logger.log(`Wallet debited: ₦${amount} from vendor ${vendorId} (ref: ${reference}) — balance now ₦${balanceAfter}`);
+      return { debited: true, balanceAfter };
     });
+  }
 
-    this.logger.log(`Wallet debited: ₦${amount} from vendor ${vendorId} (ref: ${reference})`);
+  // ─── Get wallet transaction history (ledger) ──────────────────────────────
+
+  async getTransactions(vendorId: string, params: { page?: number; limit?: number } = {}) {
+    const page = Math.max(params.page ?? 1, 1);
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.walletTransaction.findMany({
+        where: { vendorId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.walletTransaction.count({ where: { vendorId } }),
+    ]);
+
+    return {
+      data,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   // ─── Get or Create Wallet ──────────────────────────────────────────────────

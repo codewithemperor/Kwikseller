@@ -8,6 +8,6 @@ import { PaymentsController } from './payments.controller';
   imports: [SharedModule],
   controllers: [PaymentsController],
   providers: [EscrowService, WalletService],
-  exports: [EscrowService], // Exported so CommerceModule can call holdPayment on checkout
+  exports: [EscrowService, WalletService], // Exported so CommerceModule can call holdPayment/releaseFunds
 })
 export class PaymentsModule {}

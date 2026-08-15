@@ -248,11 +248,9 @@ export default function BrandDetailPage() {
                 setIsFollowing((v) => !v);
                 kwikToast.success(
                   isFollowing ? `Unfollowed ${brand.name}` : `Following ${brand.name}`,
-                  {
-                    description: isFollowing
-                      ? "You'll no longer see new drops in your feed."
-                      : "You'll see new drops in your feed.",
-                  },
+                  isFollowing
+                    ? "You'll no longer see new drops in your feed."
+                    : "You'll see new drops in your feed.",
                 );
               }}
               className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-kwik-gradient px-5 text-sm font-semibold text-white transition hover:opacity-90 sm:self-auto"
@@ -371,7 +369,7 @@ export default function BrandDetailPage() {
                   hidden: {},
                   visible: { transition: { staggerChildren: 0.05 } },
                 }}
-                className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4"
+                className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
               >
                 {sortedProducts.map((product) => (
                   <motion.div

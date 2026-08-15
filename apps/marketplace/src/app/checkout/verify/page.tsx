@@ -208,23 +208,51 @@ export default function CheckoutVerifyPage() {
   }, [reference, queryStatus, providerKey, orderId, workflowOrder, markToPay, payOrder]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 px-4 py-12 dark:from-gray-950 dark:to-gray-900">
-      <div className="w-full max-w-xl">
-        {/* Brand strip */}
-        <div className="mb-6 flex items-center justify-center">
-          <div className="flex items-center gap-2 rounded-full bg-surface px-4 py-1.5 shadow-sm ring-1 ring-gray-200">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full kwik-gradient text-white">
-              <ShieldCheck className="h-3.5 w-3.5" />
+    <div className="bg-background min-h-screen">
+      {/* ── Hero header (matches checkout page design) ── */}
+      <section className="bg-secondary-500 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+        <div className="container relative mx-auto max-w-4xl px-4 py-8">
+          {/* KwisCrow brand strip */}
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 backdrop-blur">
+              <ShieldCheck className="h-4 w-4 text-white" />
             </span>
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-foreground">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-white">
               {KwisCrow.NAME}
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70 sm:inline">
               {KwisCrow.TAGLINE}
             </span>
           </div>
-        </div>
 
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
+            <div className="flex items-start gap-4">
+              <div className="hidden shrink-0 sm:block">
+                <VerifyHeroIcon state={state} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+                  Payment verification
+                </p>
+                <h1 className="mt-1 font-heading text-2xl font-bold text-white sm:text-3xl">
+                  {headline}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">
+                  {message}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Content ── */}
+      <section className="container mx-auto max-w-4xl px-4 py-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={state}
@@ -232,42 +260,33 @@ export default function CheckoutVerifyPage() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.3 }}
-            className="overflow-hidden rounded-2xl border border-gray-200 bg-surface shadow-lg"
+            className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
           >
-            {/* Hero banner */}
-            <div className="kwik-gradient px-6 py-5 text-center">
-              <VerifyHeroIcon state={state} />
-              <h1 className="mt-3 font-heading text-2xl font-bold text-white sm:text-3xl">
-                {headline}
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-white/85">{message}</p>
-            </div>
-
             {/* Reference + provider strip */}
             {reference && (
-              <div className="grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2">
-                <div className="bg-surface px-5 py-3">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">
+              <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
+                <div className="bg-card px-5 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                     Reference
                   </p>
                   <p className="mt-1 break-all font-mono text-sm font-semibold text-foreground">
                     {reference}
                   </p>
                 </div>
-                <div className="bg-surface px-5 py-3">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">
+                <div className="bg-card px-5 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                     Provider
                   </p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {provider.label}
                   </p>
-                  <p className="text-[11px] text-gray-500">{provider.blurb}</p>
+                  <p className="text-[11px] text-muted-foreground">{provider.blurb}</p>
                 </div>
               </div>
             )}
 
             {/* State-specific body */}
-            <div className="px-6 py-5">
+            <div className="p-5 md:p-6">
               {state === "loading" && <LoadingBody />}
               {state === "pending" && <PendingBody reference={reference} />}
               {state === "success" && (
@@ -299,8 +318,8 @@ export default function CheckoutVerifyPage() {
             </div>
           </motion.div>
         </AnimatePresence>
-      </div>
-    </main>
+      </section>
+    </div>
   );
 }
 

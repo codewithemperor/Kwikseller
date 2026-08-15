@@ -447,7 +447,11 @@ export default function VendorOrdersPage() {
                 ))
               ) : table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="transition hover:bg-default/50">
+                  <tr
+                    key={row.id}
+                    className="cursor-pointer transition hover:bg-default/50"
+                    onClick={() => window.location.href = `/dashboard/orders/${row.original.id}`}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="border-b border-border px-4 py-5 align-middle">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

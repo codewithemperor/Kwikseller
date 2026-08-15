@@ -257,9 +257,7 @@ function WalletContent() {
   // wallet.balance exactly.
   function handleExportCSV() {
     if (txs.length === 0) {
-      kwikToast.error("No transactions to export", {
-        description: "Adjust your filters and try again.",
-      });
+      kwikToast.error("No transactions to export", "Adjust your filters and try again.");
       return;
     }
     const currentBalance = wallet?.balance ?? 0;
@@ -290,9 +288,7 @@ function WalletContent() {
     const date = new Date().toISOString().slice(0, 10);
     const suffix = hasActiveFilters ? "-filtered" : "";
     downloadCSV(`kwikseller-wallet${suffix}-${date}`, csv);
-    kwikToast.success("CSV downloaded", {
-      description: `${txs.length} transaction${txs.length === 1 ? "" : "s"} exported.`,
-    });
+    kwikToast.success("CSV downloaded", `${txs.length} transaction${txs.length === 1 ? "" : "s"} exported.`);
   }
 
   if (isLoading) return <PageLoading label="Loading wallet…" />;

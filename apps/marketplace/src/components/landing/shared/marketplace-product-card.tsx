@@ -112,7 +112,7 @@ export function MarketplaceProductCard({
 
         <div className="absolute left-2 top-2 flex max-w-[calc(100%-56px)] flex-wrap gap-1.5">
           {discount > 0 && (
-            <span className="rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-foreground shadow-sm">
+            <span className="rounded-full bg-kwik-orange px-2 py-1 text-[11px] font-semibold text-white shadow-sm">
               -{discount}%
             </span>
           )}
@@ -137,7 +137,10 @@ export function MarketplaceProductCard({
 
       <div className="mt-3 flex flex-1 flex-col space-y-3">
         <div>
-          <p className="line-clamp-2 text-sm font-semibold leading-snug text-kwik-dark dark:text-white">{product.name}</p>
+          {/* Reserve space for 2 title lines so cards with 1-line and 2-line
+              titles keep a consistent height (spec #12). leading-snug at
+              text-sm ≈ 1.2rem per line → min-h reserves exactly 2 lines. */}
+          <p className="line-clamp-2 min-h-[2.4rem] text-sm font-semibold leading-snug text-kwik-dark dark:text-white">{product.name}</p>
           <div className="mt-1 flex items-center gap-2 text-xs text-kwik-muted dark:text-white/55">
             <span className="line-clamp-1">{product.store ?? "Verified vendor"}</span>
             <span className="inline-flex items-center gap-1">

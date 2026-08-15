@@ -781,9 +781,7 @@ function RateDeliveryCard({ orderId, agentName }: { orderId: string; agentName?:
 
   async function handleSubmit() {
     if (rating === 0) {
-      kwikToast.error("Please select a star rating", {
-        description: "Tap a star to rate your delivery experience.",
-      });
+      kwikToast.error("Please select a star rating", "Tap a star to rate your delivery experience.");
       return;
     }
     try {
@@ -793,9 +791,7 @@ function RateDeliveryCard({ orderId, agentName }: { orderId: string; agentName?:
         comment,
         tags: selectedTags,
       });
-      kwikToast.success("Thanks for your feedback!", {
-        description: `You rated ${agentName ?? "your delivery"} ${rating} star${rating === 1 ? "" : "s"}.`,
-      });
+      kwikToast.success("Thanks for your feedback!", `You rated ${agentName ?? "your delivery"} ${rating} star${rating === 1 ? "" : "s"}.`);
     } catch (e) {
       kwikToast.error("Failed to submit rating", e instanceof Error ? e.message : "Try again.");
     }

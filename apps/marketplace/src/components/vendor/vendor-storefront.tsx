@@ -193,6 +193,7 @@ export function formatStoreCurrency(amount: number) {
 
 function StoreLogo({ store }: { store: PublicStoreView }) {
   return store.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
     <img src={store.logoUrl} alt="" className="h-10 w-10 object-cover" />
   ) : (
     <div className="flex h-10 w-10 items-center justify-center bg-[var(--store-primary)] text-white">
@@ -405,6 +406,7 @@ export function StorefrontLoading({ storeName, logoUrl, slug }: { storeName?: st
           <div className="absolute inset-[-10px] rounded-full border-2 border-[var(--loader-accent,var(--kwik-orange))]/20" />
           <div className="absolute inset-[-10px] animate-spin rounded-full border-2 border-transparent border-t-[var(--loader-accent,var(--kwik-orange))]" />
           {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-1 ring-border" />
           ) : (
             <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--loader-primary,var(--foreground))] text-background ring-1 ring-border">

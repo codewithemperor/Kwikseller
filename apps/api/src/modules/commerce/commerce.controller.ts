@@ -37,13 +37,29 @@ import {
   ValidateCartCouponDto,
 } from './commerce.dto';
 
-@Controller('stores')
-export class PublicStoresController {
+@Controller('vendors')
+export class PublicVendorsController {
   constructor(private readonly commerce: CommerceService) {}
 
   @Public()
+  @Get()
+  listVendors(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.commerce.listPublicVendors({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      search,
+      category,
+    });
+  }
+
+  @Public()
   @Get(':slug')
-  getStore(@Param('slug') slug: string) {
+  getVendor(@Param('slug') slug: string) {
     return this.commerce.getPublicStore(slug);
   }
 
@@ -119,9 +135,9 @@ export class CartController {
     return this.commerce.removeCartItem(user, itemId);
   }
 
-  @Delete('stores/:storeSlug')
-  clearStoreCart(@CurrentUser() user: any, @Param('storeSlug') storeSlug: string) {
-    return this.commerce.clearStoreCart(user, storeSlug);
+  @Delete('vendors/:vendorSlug')
+  clearVendorCart(@CurrentUser() user: any, @Param('vendorSlug') vendorSlug: string) {
+    return this.commerce.clearStoreCart(user, vendorSlug);
   }
 
   @Delete()
@@ -146,7 +162,20 @@ export class CheckoutController {
   constructor(private readonly commerce: CommerceService) {}
 
   @Post()
-  checkout(@CurrentUser() user: any, @Body() dto: CheckoutDto) {
+  async checkout(@CurrentUser() user: any, @Body() dto: CheckoutDto) {
+    // New quote-gated checkout: when items[] are provided, use the new flow
+    // (server-side validation, no immediate Paystack, quote lifecycle).
+    if (dto.items?.length) {
+      const result = await this.commerce.checkoutWithItems(user, dto);
+      // Emit order.created events for each vendor order (for notifications/emails)
+      if (result?.orders) {
+        for (const order of result.orders) {
+          await this.commerce.emitOrderCreated(order, result.parentCheckout?.buyerId ?? user?.id);
+        }
+      }
+      return result;
+    }
+    // Legacy DB-cart checkout (kept for backward compatibility)
     return this.commerce.checkout(user, dto);
   }
 
@@ -278,6 +307,13 @@ export class VendorCommerceController {
     @Query('dateRange') dateRange?: string,
   ) {
     return this.commerce.listVendorOrders(user, { page, limit, status, search, dateRange });
+  }
+
+  // Must be registered before the parameterized 'orders/:orderId' route so
+  // 'attention-counts' is not captured as an orderId.
+  @Get('orders/attention-counts')
+  getOrderAttentionCounts(@CurrentUser() user: any) {
+    return this.commerce.getVendorOrderAttentionCounts(user);
   }
 
   @Get('orders/:orderId')

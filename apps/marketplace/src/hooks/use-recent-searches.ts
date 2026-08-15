@@ -79,7 +79,7 @@ function getSnapshot(): RecentSearch[] {
 }
 
 function getServerSnapshot(): RecentSearch[] {
-  return [];
+  return EMPTY;
 }
 
 // Cache the parsed snapshot to keep referential stability across renders

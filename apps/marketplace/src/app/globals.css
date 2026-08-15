@@ -18,6 +18,27 @@
 }
 
 /* ============================================================
+   LAYOUT TOKENS  —  header height + z-index scale
+   ============================================================ */
+:root {
+  /* Marketplace header height. Refined at runtime by a ResizeObserver
+     in MarketplaceLayout so sticky offsets always match the real header. */
+  --header-height: 116px; /* mobile: logo row + mobile search row */
+}
+@media (min-width: 768px) {
+  :root {
+    --header-height: 64px; /* desktop: single header row */
+  }
+}
+
+/* Toast notifications must always render above the sticky header.
+   HeroUI's toast region defaults to z-50; bump it to the top of the
+   stacking order so toasts are never hidden behind the header. */
+[data-slot="toast-region"] {
+  z-index: 200 !important;
+}
+
+/* ============================================================
    KWIKSELLER THEME  —  Unified Color System
    ───────────────────────────────────────────────────────────
    PRIMARY    = Blue   (brand, links, headers, active states)
@@ -445,9 +466,15 @@
     line-height: 1.6;
   }
 
-  /* ── Prevent horizontal overflow ── */
-  html,
-  body {
+  /* ── Prevent horizontal overflow ──
+     Apply overflow-x: hidden to `html` ONLY (it propagates to the viewport,
+     which is the intended scroll container). Do NOT set overflow on `body`:
+     any non-visible overflow on body makes body a scroll container, which
+     intercepts `position: sticky` descendants (the sticky PDP gallery would
+     stick to body instead of the viewport, and since body's height is auto
+     it never scrolls — so sticky never engages). Keeping body at the default
+     overflow: visible means sticky elements stick to the viewport. */
+  html {
     max-width: 100vw;
     overflow-x: hidden;
   }

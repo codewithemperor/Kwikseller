@@ -12,14 +12,16 @@
 
 "use client";
 
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, keepPreviousData, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchProducts,
   fetchProduct,
   searchProducts,
+  searchProductsWithFilters,
   fetchTrendingProducts,
   fetchTopProducts,
   fetchDealProducts,
+  fetchNewArrivals,
   fetchCategories,
   fetchCategoryBySlug,
   fetchBrands,
@@ -27,12 +29,16 @@ import {
   fetchDeals,
   fetchFlashDeals,
   fetchFeaturedDeals,
+  fetchDeal,
   type Product,
   type Category,
   type Brand,
   type Banner,
   type Deal,
   type PaginatedResponse,
+  type SearchFilters,
+  type SearchMeta,
+  type SearchResponse,
 } from "@/lib/api";
 import { api } from "@kwikseller/api-client";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
@@ -62,6 +68,8 @@ export function toMarketplaceProduct(p: Product): MarketplaceProduct {
     storeId: p.storeId,
     storeSlug: p.store?.slug,
     category: p.category?.name || "",
+    categoryId: p.categoryId,
+    brandId: p.brandId,
     productType: "PHYSICAL",
     productSource: "VENDOR_STOCK",
     requiresShipping: true,
@@ -179,6 +187,16 @@ export function useDealProducts(limit = 10) {
   });
 }
 
+export function useNewArrivals(limit = 10) {
+  return useQuery({
+    queryKey: ["products", "new", limit],
+    queryFn: async () => {
+      const res = await fetchNewArrivals(limit);
+      return (res.data || []).map(toMarketplaceProduct);
+    },
+  });
+}
+
 export function useSearch(query: string, limit = 20, enabled = true) {
   return useQuery({
     queryKey: ["products", "search", query, limit],
@@ -189,6 +207,141 @@ export function useSearch(query: string, limit = 20, enabled = true) {
     },
     enabled: enabled && query.trim().length > 0,
   });
+}
+
+// ─── Full-featured search (filters + sort + pagination + facets) ──────────
+
+export interface SearchResultsState {
+  products: MarketplaceProduct[];
+  meta: SearchMeta | null;
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+/**
+ * Full-featured search hook — sends one consolidated request with query,
+ * filters, sort, and pagination. Returns products + facets in `meta`.
+ *
+ * Uses `keepPreviousData` so the UI doesn't flash empty when filters change.
+ */
+export function useSearchResults(filters: SearchFilters, enabled = true) {
+  const query = useQuery({
+    queryKey: ["search", "results", filters],
+    queryFn: async (): Promise<SearchResponse> => {
+      const res = await searchProductsWithFilters(filters);
+      // The api-client may return either the raw `{success, data, meta}`
+      // shape OR unwrap it. Handle both defensively.
+      if (Array.isArray((res as unknown as { data?: unknown }).data)) {
+        return res;
+      }
+      // Defensive: if the api-client unwrapped to just an array, wrap it.
+      return {
+        success: true,
+        data: (res as unknown as Product[]) ?? [],
+        meta: {
+          query: filters.q ?? "",
+          total: 0,
+          page: filters.page ?? 1,
+          limit: filters.limit ?? 20,
+          pages: 0,
+          categories: [],
+          brands: [],
+          stores: [],
+          states: [],
+          priceRange: { min: 0, max: 0 },
+          nextCursor: null,
+        },
+      };
+    },
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30 * 1000, // 30s — keeps facets stable during rapid filter changes
+  });
+
+  const raw = query.data;
+  const products: MarketplaceProduct[] = raw?.data
+    ? raw.data.map(toMarketplaceProduct)
+    : [];
+  const meta: SearchMeta | null = raw?.meta ?? null;
+
+  return {
+    products,
+    meta,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/**
+ * Infinite search hook — uses `useInfiniteQuery` for the "Load More" pattern.
+ * Each page fetches `filters.limit` results; `fetchNextPage` loads the next
+ * page. Facets come from the LAST fetched page (most accurate for current
+ * position in the result set).
+ *
+ * NOTE: When filters/sort/query change, the query key changes and react-query
+ * automatically resets to page 1 — no manual state reset needed.
+ */
+export function useSearchInfinite(filters: SearchFilters, enabled = true) {
+  const query = useInfiniteQuery({
+    queryKey: ["search", "infinite", filters],
+    queryFn: async ({ pageParam }: { pageParam: number }): Promise<SearchResponse> => {
+      const res = await searchProductsWithFilters({ ...filters, page: pageParam });
+      if (Array.isArray((res as unknown as { data?: unknown }).data)) {
+        return res;
+      }
+      return {
+        success: true,
+        data: (res as unknown as Product[]) ?? [],
+        meta: {
+          query: filters.q ?? "",
+          total: 0,
+          page: pageParam,
+          limit: filters.limit ?? 20,
+          pages: 0,
+          categories: [],
+          brands: [],
+          stores: [],
+          states: [],
+          priceRange: { min: 0, max: 0 },
+          nextCursor: null,
+        },
+      };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: SearchResponse): number | null => {
+      const { page, pages } = lastPage.meta ?? { page: 1, pages: 1 };
+      return page < pages ? page + 1 : null;
+    },
+    enabled,
+    staleTime: 30 * 1000,
+  });
+
+  // Flatten all pages' products into a single array.
+  const pages = query.data?.pages ?? [];
+  const products: MarketplaceProduct[] = pages.flatMap((p) =>
+    (p.data ?? []).map(toMarketplaceProduct),
+  );
+  // Use the last page's meta (most accurate for current position).
+  const meta: SearchMeta | null = pages[pages.length - 1]?.meta ?? null;
+
+  return {
+    products,
+    meta,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isFetching: query.isFetching,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: query.hasNextPage,
+    error: query.error,
+    refetch: query.refetch,
+    fetchNextPage: query.fetchNextPage,
+  };
 }
 
 export interface TrendingSearch {
@@ -300,31 +453,30 @@ export function useFeaturedDeals() {
   });
 }
 
-export function useHomeFeed() {
+export function useDeal(id: string | undefined) {
   return useQuery({
-    queryKey: ["home-feed"],
+    queryKey: ["deal", id],
     queryFn: async () => {
-      const res = await api.get<{
-        heroBanners: Banner[];
-        promoBanners: Banner[];
-        categories: Array<{ id: string; name: string; slug: string; image: string; itemCount: number }>;
-        trendingProducts: Product[];
-        topProducts: Product[];
-        flashDeals: Deal[];
-        featuredDeals: Deal[];
-        topSellers: unknown[];
-      }>("products/home-feed");
+      if (!id) return null;
+      const res = await fetchDeal(id);
       return res.data;
     },
+    enabled: !!id,
   });
 }
 
-export function useStores() {
+export function useStores(params?: { page?: number; limit?: number; search?: string; category?: string }) {
   return useQuery({
-    queryKey: ["stores"],
+    queryKey: ["stores", params],
     queryFn: async () => {
-      const res = await api.get<unknown[]>("stores");
-      return res.data || [];
+      const query = new URLSearchParams();
+      if (params?.page) query.set("page", String(params.page));
+      if (params?.limit) query.set("limit", String(params.limit));
+      if (params?.search) query.set("search", params.search);
+      if (params?.category) query.set("category", params.category);
+      const qs = query.toString();
+      const res = await api.get<{ data: unknown[]; meta: unknown }>(`vendors${qs ? `?${qs}` : ""}`);
+      return res.data;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -335,7 +487,7 @@ export function useStore(slug: string | undefined) {
     queryKey: ["store", slug],
     queryFn: async () => {
       if (!slug) return null;
-      const res = await api.get<unknown>(`stores/${encodeURIComponent(slug)}`);
+      const res = await api.get<unknown>(`vendors/${encodeURIComponent(slug)}`);
       return res.data;
     },
     enabled: !!slug,
@@ -347,7 +499,7 @@ export function useStoreProducts(slug: string | undefined) {
     queryKey: ["store-products", slug],
     queryFn: async () => {
       if (!slug) return [];
-      const res = await api.get<Product[]>(`stores/${encodeURIComponent(slug)}/products`);
+      const res = await api.get<Product[]>(`vendors/${encodeURIComponent(slug)}/products`);
       return (res.data || []).map(toMarketplaceProduct);
     },
     enabled: !!slug,
@@ -387,6 +539,77 @@ export function useReviews(productId: string | undefined) {
     },
     enabled: !!productId,
     staleTime: 60_000,
+  });
+}
+
+export interface ReviewSummary {
+  average: number;
+  total: number;
+  distribution: Record<number, number>;
+}
+
+/** Rating summary (average + 5-star distribution) for a product. */
+export function useReviewSummary(productId: string | undefined) {
+  return useQuery({
+    queryKey: ["reviews", "summary", productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const res = await api.get<ReviewSummary>(`reviews/summary/${productId}`);
+      return res.data || null;
+    },
+    enabled: !!productId,
+    staleTime: 60_000,
+  });
+}
+
+export interface ReviewEligibility {
+  canReview: boolean;
+  hasPurchased: boolean;
+  hasReviewed: boolean;
+  reason: string | null;
+}
+
+/**
+ * Whether the current user is eligible to review this product.
+ * Pass `enabled` = false when the user is not authenticated to skip the
+ * request entirely (avoids a guaranteed 401).
+ */
+export function useReviewEligibility(productId: string | undefined, isAuthenticated: boolean) {
+  return useQuery({
+    queryKey: ["reviews", "eligibility", productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const res = await api.get<ReviewEligibility>(`reviews/eligibility/${productId}`);
+      return res.data || null;
+    },
+    enabled: !!productId && isAuthenticated,
+    staleTime: 30_000,
+  });
+}
+
+export interface CreateReviewPayload {
+  productId: string;
+  rating: number;
+  title?: string;
+  comment: string;
+  images?: string[];
+}
+
+/** Submit a product review (purchase-verified on the backend). */
+export function useSubmitReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateReviewPayload) => {
+      const res = await api.post<ProductReview>("reviews", payload);
+      return res.data;
+    },
+    onSuccess: (_data, variables) => {
+      // Invalidate reviews + summary + eligibility for this product so the
+      // UI refetches and shows the new review immediately.
+      queryClient.invalidateQueries({ queryKey: ["reviews", variables.productId] });
+      queryClient.invalidateQueries({ queryKey: ["reviews", "summary", variables.productId] });
+      queryClient.invalidateQueries({ queryKey: ["reviews", "eligibility", variables.productId] });
+    },
   });
 }
 

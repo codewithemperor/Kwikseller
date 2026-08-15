@@ -3,12 +3,14 @@
 import { usePathname, useRouter } from "next/navigation";
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { ProtectedRoute } from "@/components/auth";
 import { VendorHeader } from "@/components/layout/vendor-header";
 import { VendorDrawer } from "@/components/layout/vendor-drawer";
 import { VendorMobileNav } from "@/components/layout/vendor-mobile-nav";
 import { OfflineBanner } from "@kwikseller/ui";
 import { useAuthStore } from "@kwikseller/utils";
+import { vendorCommerceApi } from "@kwikseller/api-client";
 import { cn } from "@/lib/utils";
 
 export function VendorWorkspaceShell({ children }: { children: React.ReactNode }) {
@@ -21,6 +23,17 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
   const vendorName = user?.store?.name || user?.profile?.firstName || user?.email || "Vendor";
   const storeSlug = user?.store?.slug || "";
   const storeLogoUrl = (user?.store as { logoUrl?: string } | undefined)?.logoUrl;
+
+  // ── Pending-order attention counts ──
+  const { data: attentionCounts } = useQuery({
+    queryKey: ["vendor-attention-counts"],
+    queryFn: async () => {
+      const res = await vendorCommerceApi.getOrderAttentionCounts();
+      return res.data;
+    },
+    refetchInterval: 30_000, // refresh every 30 seconds
+  });
+  const orderBadgeCount = attentionCounts?.total ?? 0;
 
   const handleLogout = async () => {
     await logout();
@@ -55,6 +68,7 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
             onLogout={handleLogout}
             collapsed={sidebarCollapsed}
             onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            badgeCounts={{ orders: orderBadgeCount }}
           />
         </aside>
 
@@ -70,6 +84,7 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
             vendorName={vendorName}
             storeLogoUrl={storeLogoUrl}
             onSearchSubmit={handleSearch}
+            notificationCount={orderBadgeCount}
           />
         </div>
 
@@ -101,6 +116,7 @@ export function VendorWorkspaceShell({ children }: { children: React.ReactNode }
                   storeSlug={storeSlug}
                   storeLogoUrl={storeLogoUrl}
                   onLogout={handleLogout}
+                  badgeCounts={{ orders: orderBadgeCount }}
                 />
               </motion.aside>
             </>
