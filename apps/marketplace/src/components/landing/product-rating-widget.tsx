@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { Star, ThumbsUp, Truck, Coins, MousePointer, Palette, ShieldCheck } from 'lucide-react'
 import { Card, Chip } from '@heroui/react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 
 /* ── Data ──────────────────────────────────────────────────── */
 

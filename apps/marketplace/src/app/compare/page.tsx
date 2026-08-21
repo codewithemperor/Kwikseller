@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useCompareStore } from "@/stores";
 import { useCartStore, useWishlistStore } from "@/stores";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { AddToCompareModal } from "@/components/compare/add-to-compare-modal";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +95,7 @@ export default function ComparePage() {
     <div className="bg-background min-h-screen">
       <section className="kwik-gradient relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
-        <div className="container mx-auto max-w-7xl px-4 py-8 relative">
+        <div className="container mx-auto max-w-7xl px-4 py-5 relative">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -104,7 +104,7 @@ export default function ComparePage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">
               Side-by-side comparison
             </p>
-            <h1 className="mt-1 font-heading text-2xl font-bold text-white md:text-3xl">
+            <h1 className="mt-1 font-heading text-xl font-bold text-white md:text-2xl">
               Compare Products
             </h1>
             <p className="mt-1 text-sm text-white/85">

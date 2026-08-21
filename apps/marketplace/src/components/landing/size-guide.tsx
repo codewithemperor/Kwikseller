@@ -12,7 +12,7 @@ import {
   Watch,
 } from "lucide-react";
 import { Chip, Button } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Data ────────────────────────────────────────────────────
 
@@ -464,7 +464,7 @@ export function SizeGuide() {
           className="text-center mt-12"
         >
           <Button
-            variant="soft"
+            variant="outline"
             className="bg-accent text-white font-semibold px-6"
           >
             <MessageCircle className="w-4 h-4 mr-2" />

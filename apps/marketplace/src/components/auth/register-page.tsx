@@ -18,15 +18,13 @@ import {
   Store,
 } from "lucide-react";
 import { Chip, Checkbox } from "@heroui/react";
-import {
-  AppButton,
-  cn,
-  TextInput,
-  PasswordInput,
-  OTPVerification,
-} from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
-import { registerSchema, type RegisterFormData } from "@kwikseller/types";
+import { AppButton } from "@/components/ui/app-button";
+import { cn } from "@/lib/utils";
+import { TextInput, PasswordInput } from "@/components/ui/form-inputs";
+import { OTPVerification } from "@/components/ui/otp-verification";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
+import { registerSchema, type RegisterFormData } from "@/types";
 import {
   PASSWORD_RULES,
   REGISTER_ROLE_OPTIONS as REGISTER_ROLES,
@@ -422,12 +420,9 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
         {/* Terms & conditions */}
         <div className="flex items-start gap-2.5">
           <Checkbox
-            size="sm"
             isSelected={agreedToTerms}
-            onValueChange={setAgreedToTerms}
-            classNames={{
-              wrapper: "rounded-md border-kwik-border mt-0.5",
-            }}
+            onChange={setAgreedToTerms}
+            className="rounded-md border-kwik-border mt-0.5"
           />
           <span className="text-xs leading-relaxed text-kwik-gray">
             I agree to the{" "}

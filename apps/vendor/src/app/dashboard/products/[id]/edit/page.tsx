@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { VendorSecondaryTabs } from "@/components/vendor-secondary-tabs";
-import { vendorCommerceApi, uploadApi } from "@kwikseller/api-client";
-import type { ProductType, ProductStatus } from "@kwikseller/types";
+import { vendorCommerceApi, uploadApi } from "@/lib/api-client";
+import type { ProductType, ProductStatus } from "@/lib/types";
 import {
   AppButton,
   AppImage,
@@ -27,8 +27,8 @@ import {
   Skeleton,
   SkeletonText,
   VendorPageHeader,
-} from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use } from "react";

@@ -8,7 +8,7 @@ import {
   AppImage,
   PriceDisplay,
   VendorStatusBadge,
-} from "@kwikseller/ui";
+} from "@/lib/ui";
 
 export type VendorProductCardProps = {
   name: string;

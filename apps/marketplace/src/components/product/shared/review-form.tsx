@@ -5,8 +5,8 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, X, LogIn, ShoppingBag, CheckCircle2, PenLine } from "lucide-react";
 import { useReviewEligibility, useSubmitReview } from "@/lib/api-hooks";
-import { useUser } from "@kwikseller/utils";
-import { kwikToast } from "@kwikseller/utils";
+import { useUser } from "@/stores/auth-store";
+import { kwikToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 interface ReviewFormProps {

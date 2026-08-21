@@ -12,7 +12,7 @@ import {
   Check,
 } from 'lucide-react'
 import { Button, Switch, Separator } from '@heroui/react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 import { useUserPreferencesStore, type CurrencyCode, type LanguageCode } from '@/stores'
 
 // --- Config ---

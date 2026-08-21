@@ -4,7 +4,7 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
 import { BadgeCheck, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Chip, Button } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Vendor Data ─────────────────────────────────────────────
 

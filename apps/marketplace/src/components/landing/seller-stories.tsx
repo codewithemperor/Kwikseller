@@ -12,7 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
   SELLER_STORIES as stories,

@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Truck } from "lucide-react";
 import { Card, Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   HOW_IT_WORKS_STEPS as steps,
   type HowItWorksStep as StepItem,

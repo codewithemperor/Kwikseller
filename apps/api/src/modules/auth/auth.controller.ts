@@ -23,8 +23,8 @@ import * as bcrypt from 'bcryptjs';
 
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../database/prisma.service';
-import { EmailService } from '../../common/services/email.service';
 import { CacheService } from '../../common/services/cache.service';
+import { JobQueueService } from '../../common/services/job-queue.service';
 import {
   RegisterDto,
   LoginDto,
@@ -45,7 +45,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-    private readonly emailService: EmailService,
+    private readonly jobQueueService: JobQueueService,
     private readonly cacheService: CacheService,
   ) {}
 
@@ -284,15 +284,15 @@ export class AuthController {
     );
 
     // Send verification OTP to new email
-    await this.emailService.sendEmail(
-      dto.newEmail,
-      'Verify Your New Email - KWIKSELLER',
-      'email-verify',
-      {
+    await this.jobQueueService.enqueueEmail({
+      to: dto.newEmail,
+      subject: 'Verify Your New Email - KWIKSELLER',
+      template: 'email-verify',
+      variables: {
         name: user.profile?.firstName || 'User',
         otp,
       },
-    );
+    });
 
     return {
       success: true,

@@ -1,44 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import {
-  DM_Sans,
-  Figtree,
-  Inter,
-  Lato,
-  Merriweather,
-  Montserrat,
-  Playfair_Display,
-  Poppins,
-  Sora,
-} from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "next-themes";
-import { AuthProvider, HeroUIProviderWrapper } from "@kwikseller/utils";
+import { AuthProvider } from "@/lib/auth-context";
+import { HeroUIProviderWrapper } from "@/lib/heroui-provider";
 import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { ToastProvider } from "@/components/layout/toast-provider";
 import { NotificationToastStack } from "@/components/landing/notification-toast";
-
-const figtree = Figtree({
-  subsets: ["latin"],
-  variable: "--font-text",
-  display: "swap",
-});
-
-const sora = Sora({
-  subsets: ["latin"],
-  variable: "--font-heading",
-  display: "swap",
-});
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-store-inter", display: "swap" });
-const poppins = Poppins({ subsets: ["latin"], variable: "--font-store-poppins", weight: ["400", "500", "600", "700"], display: "swap" });
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-store-dm-sans", display: "swap" });
-const lato = Lato({ subsets: ["latin"], variable: "--font-store-lato", weight: ["400", "700"], display: "swap" });
-const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-store-montserrat", display: "swap" });
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-store-playfair", display: "swap" });
-const merriweather = Merriweather({ subsets: ["latin"], variable: "--font-store-merriweather", weight: ["400", "700"], display: "swap" });
+import {
+  fontHeading,
+  fontText,
+  fontInter,
+  fontPoppins,
+  fontDmSans,
+  fontLato,
+  fontMontserrat,
+  fontPlayfairDisplay,
+  fontMerriweather,
+} from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: {
@@ -131,7 +112,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body className={`${figtree.variable} ${sora.variable} ${inter.variable} ${poppins.variable} ${dmSans.variable} ${lato.variable} ${montserrat.variable} ${playfair.variable} ${merriweather.variable} font-sans antialiased bg-background text-foreground`}>
+      <body className={`${fontText.variable} ${fontHeading.variable} ${fontInter.variable} ${fontPoppins.variable} ${fontDmSans.variable} ${fontLato.variable} ${fontMontserrat.variable} ${fontPlayfairDisplay.variable} ${fontMerriweather.variable} font-sans antialiased bg-background text-foreground`}>
         <HeroUIProviderWrapper>
           <QueryProvider>
             <AuthProvider>

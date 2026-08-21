@@ -15,8 +15,8 @@ import {
   ConfirmDialog,
 } from "@/components/ui";
 import { adminProductsApi } from "@/lib/api";
-import type { Product } from "@kwikseller/types";
-import { formatCurrency, formatRelativeTime } from "@kwikseller/utils";
+import type { Product } from "@/lib/types";
+import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 const statusColorMap: Record<string, "success" | "warning" | "default" | "danger" | "accent"> = {
   ACTIVE: "success",
@@ -204,3 +204,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

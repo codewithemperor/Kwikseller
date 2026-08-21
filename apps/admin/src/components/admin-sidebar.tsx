@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { Chip } from "@heroui/react";
 import { cn } from "@/lib/utils";
-import { useAuth, useAuthStore } from "@kwikseller/utils";
+import { useAuth, useAuthStore } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { ADMIN_ROLE_LABELS, canAccessPermission, SECTION_PERMISSION, type AdminSection } from "@/lib/admin-permissions";
@@ -251,3 +251,4 @@ export function AdminHeader() {
     </header>
   );
 }
+

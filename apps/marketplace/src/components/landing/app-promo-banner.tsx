@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Package,
 } from "lucide-react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 
 const DISMISS_KEY = "kwikseller-app-banner-dismissed";
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days

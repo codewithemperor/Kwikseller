@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import React from "react";
-import { ArrowLeft, Check, Home, Loader2, MapPin, Pencil, Plus, Star, Trash2, X } from "lucide-react";
-import { AppButton, FieldAutocomplete, FieldInput } from "@kwikseller/ui";
-import { usersApi } from "@kwikseller/api-client";
-import { getLgasForState, kwikToast, NIGERIA_STATES, useAuth } from "@kwikseller/utils";
+import { ArrowLeft, Check, Home, Loader2, MapPin, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { AppButton } from "@/components/ui/app-button";
+import { usersApi } from "@/services/api-client";
+import { AddressFormModal } from "@/components/modals/address-form-modal";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
 import { AccountLayout } from "@/components/layout/account-layout";
 
 type Address = {
@@ -284,55 +286,15 @@ function DeliveryAddressesPageInner() {
         )}
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[140] flex items-end bg-black/45 p-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto bg-background p-5 shadow-2xl">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-kwik-dark dark:text-white">
-                  {editingAddressId ? "Edit delivery address" : "Add delivery address"}
-                </h2>
-                <p className="text-sm text-kwik-muted dark:text-white/55">
-                  {editingAddressId ? "Update this saved delivery location." : "Name it Home, Office, Shop, or anything useful."}
-                </p>
-              </div>
-              <button type="button" onClick={closeModal} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-white/10" aria-label="Close modal">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <FieldInput label="Address name" value={form.label} onChange={(event) => updateForm("label", event.target.value)} />
-              <FieldInput label="City" value={form.city} onChange={(event) => updateForm("city", event.target.value)} />
-              <FieldAutocomplete
-                label="State"
-                value={form.state}
-                options={NIGERIA_STATES.map((state) => ({ value: state, label: state }))}
-                onValueChange={(nextValue) => updateForm("state", nextValue)}
-                placeholder="Type or select state"
-              />
-              <FieldAutocomplete
-                label="Local government"
-                value={form.localGovernment}
-                options={getLgasForState(form.state).map((lga) => ({ value: lga, label: lga }))}
-                onValueChange={(nextValue) => updateForm("localGovernment", nextValue)}
-                placeholder="Type or select local government"
-              />
-              <FieldInput wrapperClassName="sm:col-span-2" label="Street address" value={form.line1} onChange={(event) => updateForm("line1", event.target.value)} />
-              <FieldInput wrapperClassName="sm:col-span-2" label="Landmark or nearest bus stop" value={form.landmark} onChange={(event) => updateForm("landmark", event.target.value)} />
-              <FieldInput label="Country" value={form.country} onChange={(event) => updateForm("country", event.target.value)} />
-              <FieldInput label="Postal code" value={form.postalCode} onChange={(event) => updateForm("postalCode", event.target.value)} />
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <AppButton type="button" variant="secondary" onClick={closeModal} fullWidth>Cancel</AppButton>
-              <AppButton type="button" onClick={saveAddress} isLoading={isSaving} loadingLabel="Saving" fullWidth>
-                {editingAddressId ? "Update address" : "Save address"}
-              </AppButton>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddressFormModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        form={form}
+        onUpdateForm={updateForm}
+        onSave={saveAddress}
+        isSaving={isSaving}
+        isEditing={!!editingAddressId}
+      />
     </main>
   );
 }

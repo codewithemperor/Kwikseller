@@ -7,6 +7,7 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../../database/prisma.service';
@@ -41,7 +42,7 @@ const VALID_TRANSITIONS: Record<string, OrderStatus> = {
 const REQUIRED_CURRENT_STATUS: Record<string, OrderStatus[]> = {
   accept: ['PENDING', 'PAID'],
   reject: ['PENDING', 'PAID'],
-  prepare: ['CONFIRMED'],
+  prepare: ['CONFIRMED', 'PAID'],
   ready: ['PROCESSING'],
   cancel: ['PENDING', 'CONFIRMED', 'PROCESSING'],
 };
@@ -54,6 +55,14 @@ const REQUIRED_CURRENT_STATUS: Record<string, OrderStatus[]> = {
 @UseGuards(JwtAuthGuard)
 export class VendorOrdersController {
   constructor(private readonly prisma: PrismaService) {}
+
+  private getUserId(user: any): string {
+    const userId = user?.id ?? user?.sub ?? user?.userId;
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user id missing');
+    }
+    return userId;
+  }
 
   /**
    * Helper: find order and verify it belongs to vendor's store
@@ -177,7 +186,7 @@ export class VendorOrdersController {
     @CurrentUser() user: any,
     @Param('id') orderId: string,
   ) {
-    const { order } = await this.findAndVerifyOrder(orderId, user.sub);
+    const { order } = await this.findAndVerifyOrder(orderId, this.getUserId(user));
     return order;
   }
 
@@ -188,7 +197,7 @@ export class VendorOrdersController {
     @Param('id') orderId: string,
     @Body() dto?: AcceptOrderDto,
   ) {
-    return this.transitionStatus(orderId, 'accept', user.sub, dto?.note);
+    return this.transitionStatus(orderId, 'accept', this.getUserId(user), dto?.note);
   }
 
   @Patch(':id/reject')
@@ -201,7 +210,7 @@ export class VendorOrdersController {
     if (!dto.reason) {
       throw new BadRequestException('Rejection reason is required.');
     }
-    return this.transitionStatus(orderId, 'reject', user.sub, undefined, dto.reason);
+    return this.transitionStatus(orderId, 'reject', this.getUserId(user), undefined, dto.reason);
   }
 
   @Patch(':id/prepare')
@@ -210,7 +219,7 @@ export class VendorOrdersController {
     @CurrentUser() user: any,
     @Param('id') orderId: string,
   ) {
-    return this.transitionStatus(orderId, 'prepare', user.sub);
+    return this.transitionStatus(orderId, 'prepare', this.getUserId(user));
   }
 
   @Patch(':id/ready')
@@ -219,7 +228,7 @@ export class VendorOrdersController {
     @CurrentUser() user: any,
     @Param('id') orderId: string,
   ) {
-    return this.transitionStatus(orderId, 'ready', user.sub);
+    return this.transitionStatus(orderId, 'ready', this.getUserId(user));
   }
 
   @Patch(':id/cancel')
@@ -232,6 +241,6 @@ export class VendorOrdersController {
     if (!dto.reason) {
       throw new BadRequestException('Cancellation reason is required.');
     }
-    return this.transitionStatus(orderId, 'cancel', user.sub, undefined, dto.reason);
+    return this.transitionStatus(orderId, 'cancel', this.getUserId(user), undefined, dto.reason);
   }
 }

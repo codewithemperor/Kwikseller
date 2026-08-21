@@ -21,8 +21,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { marketplaceApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { marketplaceApi } from "@/services/api-client";
+import { kwikToast } from "@/lib/toast";
 import { AppImage } from "@/components/ui/app-image";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QuickViewModal } from "@/components/landing/quick-view-modal";

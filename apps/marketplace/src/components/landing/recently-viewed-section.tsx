@@ -6,7 +6,7 @@ import { motion, useInView } from "framer-motion";
 import { ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 import { Button } from "@heroui/react";
 import { useRecentlyViewedStore } from "@/stores";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { AppImage } from "@/components/ui/app-image";
 
 /* ─────────────────────────────────────────────

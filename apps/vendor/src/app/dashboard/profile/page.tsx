@@ -33,10 +33,10 @@ import {
   FieldTextarea,
   Skeleton,
   VendorPageHeader,
-} from "@kwikseller/ui";
+} from "@/lib/ui";
 import { motion } from "framer-motion";
-import { usersApi, storeApi, authApi } from "@kwikseller/api-client";
-import { useAuthStore, kwikToast } from "@kwikseller/utils";
+import { usersApi, storeApi, authApi } from "@/lib/api-client";
+import { useAuthStore, kwikToast } from "@/lib/utils";
 import { unwrapApiData } from "@/lib/vendor-format";
 
 // ==================== Constants ====================

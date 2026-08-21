@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { Button, Chip } from '@heroui/react'
 import { useCompareStore, type CompareProduct } from '@/stores'
-import { kwikToast } from '@kwikseller/utils'
+import { kwikToast } from '@/lib/toast'
 
 // ─── Helpers ───────────────────────────────────────────────────────
 

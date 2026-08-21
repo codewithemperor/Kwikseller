@@ -1,8 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { PoolSourceType } from "@kwikseller/types";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { PoolSourceType } from "@/lib/types";
 import type { PoolCatalogItem } from "@/lib/pool";
 import { matchesPoolRouteKey } from "@/lib/pool";
 import { unwrapApiData } from "@/lib/vendor-format";

@@ -24,13 +24,13 @@ import {
   Users,
   Package,
 } from "lucide-react";
-import { storeApi, vendorCommerceApi } from "@kwikseller/api-client";
+import { storeApi, vendorCommerceApi } from "@/lib/api-client";
 import type {
   Store as StoreType,
   StorefrontDesignConfig,
   StorefrontFontKey,
-} from "@kwikseller/types";
-import { kwikToast } from "@kwikseller/utils";
+} from "@/lib/types";
+import { kwikToast } from "@/lib/utils";
 import {
   AppButton,
   AppSwitch,
@@ -40,7 +40,7 @@ import {
   FieldTextarea,
   Skeleton,
   VendorPageHeader,
-} from "@kwikseller/ui";
+} from "@/lib/ui";
 import { unwrapApiData } from "@/lib/vendor-format";
 import { motion } from "framer-motion";
 

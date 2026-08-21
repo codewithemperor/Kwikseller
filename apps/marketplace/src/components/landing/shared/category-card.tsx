@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import { AppImage } from "@/components/ui/app-image";
 import {
   CATEGORY_CARD_ACCENT_COLORS,

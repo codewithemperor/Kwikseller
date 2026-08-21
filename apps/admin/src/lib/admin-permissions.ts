@@ -1,4 +1,4 @@
-import type { AdminRole } from "@kwikseller/types";
+import type { AdminRole } from "@/lib/types";
 
 export type AdminSection =
   | "dashboard"
@@ -74,3 +74,4 @@ export function canAccessPermission(permissions: string[] | undefined, permissio
   const [resource] = permission.split(":");
   return permissions.includes(`${resource}:*`);
 }
+

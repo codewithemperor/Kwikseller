@@ -20,7 +20,7 @@ import {
 import { AccountLayout } from "@/components/layout/account-layout";
 import { PageLoading } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,

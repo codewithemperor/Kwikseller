@@ -1,0 +1,720 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+     4→     4→import { useSearchParams, useRouter } from "next/navigation";
+     5→     5→import dynamic from "next/dynamic";
+     6→     6→import { SlidersHorizontal, Search as SearchIcon, TrendingUp, History, Clock, Flame, Sparkles, Trash2, X } from "lucide-react";
+     7→     7→import { motion, AnimatePresence } from "framer-motion";
+     8→     8→import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+     9→     9→import { ProductGridSkeleton } from "@/components/ui/loading-state";
+    10→    10→import {
+    11→    11→  useSearchInfinite,
+    12→    12→  useTrending,
+    13→    13→  useTrendingSearches,
+    14→    14→} from "@/lib/api-hooks";
+    15→    15→import { useRecentSearches } from "@/hooks";
+    16→    16→import type { MarketplaceProduct } from "@/data/marketplace-home";
+    17→    17→import type { SearchFilters as ApiSearchFilters } from "@/lib/api";
+    18→    18→import {
+    19→    19→  SearchFilters as SearchFiltersPanel,
+    20→    20→  SearchFilterDrawer,
+    21→    21→  SortDropdown,
+    22→    22→  ActiveFilters,
+    23→    23→  NoResultsState,
+    24→    24→  SearchErrorState,
+    25→    25→  type SearchFiltersState,
+    26→    26→  type SortValue,
+    27→    27→} from "@/components/search";
+    28→    28→
+    29→    29→// Dynamic import for QuickViewModal to reduce initial bundle
+    30→    30→const QuickViewModal = dynamic(
+    31→    31→  () => import("@/components/landing/quick-view-modal").then((mod) => mod.QuickViewModal),
+    32→    32→  { ssr: false },
+    33→    33→);
+    34→    34→
+    35→    35→// ─── Helpers ────────────────────────────────────────────────────────────
+    36→    36→
+    37→    37→function formatCount(n: number): string {
+    38→    38→  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+    39→    39→  return String(n);
+    40→    40→}
+    41→    41→
+    42→    42→function timeAgo(ts: number): string {
+    43→    43→  const diff = Date.now() - ts;
+    44→    44→  const mins = Math.floor(diff / 60000);
+    45→    45→  if (mins < 1) return "just now";
+    46→    46→  if (mins < 60) return `${mins}m ago`;
+    47→    47→  const hours = Math.floor(mins / 60);
+    48→    48→  if (hours < 24) return `${hours}h ago`;
+    49→    49→  const days = Math.floor(hours / 24);
+    50→    50→  if (days < 7) return `${days}d ago`;
+    51→    51→  return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(new Date(ts));
+    52→    52→}
+    53→    53→
+    54→    54→// ─── URL state helpers ──────────────────────────────────────────────────
+    55→    55→// All filters live in the URL search params so the page is shareable,
+    56→    56→// bookmarkable, and survives refresh + browser back/forward.
+    57→    57→
+    58→    58→const PAGE_SIZE = 20;
+    59→    59→
+    60→    60→function isFiltersEmpty(f: SearchFiltersState): boolean {
+    61→    61→  return (
+    62→    62→    f.minPrice === undefined &&
+    63→    63→    f.maxPrice === undefined &&
+    64→    64→    f.rating === undefined &&
+    65→    65→    !f.category &&
+    66→    66→    !f.brandId &&
+    67→    67→    !f.storeId &&
+    68→    68→    !f.state
+    69→    69→  );
+    70→    70→}
+    71→    71→
+    72→    72→function parseFiltersFromParams(
+    73→    73→  params: URLSearchParams,
+    74→    74→): { query: string; filters: SearchFiltersState; sort: SortValue } {
+    75→    75→  const query = (params.get("q") ?? "").trim();
+    76→    76→  const filters: SearchFiltersState = {
+    77→    77→    minPrice: params.get("minPrice") ? Number(params.get("minPrice")) : undefined,
+    78→    78→    maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
+    79→    79→    rating: params.get("rating") ? Number(params.get("rating")) : undefined,
+    80→    80→    category: params.get("category") ?? undefined,
+    81→    81→    brandId: params.get("brandId") ?? undefined,
+    82→    82→    storeId: params.get("storeId") ?? undefined,
+    83→    83→    state: params.get("state") ?? undefined,
+    84→    84→  };
+    85→    85→  // Strip NaN / undefined
+    86→    86→  for (const k of Object.keys(filters) as (keyof SearchFiltersState)[]) {
+    87→    87→    const v = filters[k];
+    88→    88→    if (v === undefined || v === null || (typeof v === "number" && Number.isNaN(v))) {
+    89→    89→      delete filters[k];
+    90→    90→    }
+    91→    91→  }
+    92→    92→  const sort = (params.get("sort") as SortValue) || "relevance";
+    93→    93→  return { query, filters, sort };
+    94→    94→}
+    95→    95→
+    96→    96→function buildSearchParams(
+    97→    97→  query: string,
+    98→    98→  filters: SearchFiltersState,
+    99→    99→  sort: SortValue,
+   100→   100→): URLSearchParams {
+   101→   101→  const params = new URLSearchParams();
+   102→   102→  if (query) params.set("q", query);
+   103→   103→  if (filters.minPrice !== undefined && !Number.isNaN(filters.minPrice)) {
+   104→   104→    params.set("minPrice", String(filters.minPrice));
+   105→   105→  }
+   106→   106→  if (filters.maxPrice !== undefined && !Number.isNaN(filters.maxPrice)) {
+   107→   107→    params.set("maxPrice", String(filters.maxPrice));
+   108→   108→  }
+   109→   109→  if (filters.rating !== undefined && !Number.isNaN(filters.rating)) {
+   110→   110→    params.set("rating", String(filters.rating));
+   111→   111→  }
+   112→   112→  if (filters.category) params.set("category", filters.category);
+   113→   113→  if (filters.brandId) params.set("brandId", filters.brandId);
+   114→   114→  if (filters.storeId) params.set("storeId", filters.storeId);
+   115→   115→  if (filters.state) params.set("state", filters.state);
+   116→   116→  if (sort !== "relevance") params.set("sort", sort);
+   117→   117→  return params;
+   118→   118→}
+   119→   119→
+   120→   120→// ─── Search Page Content ────────────────────────────────────────────────
+   121→   121→
+   122→   122→function SearchPageContent() {
+   123→   123→  const searchParams = useSearchParams();
+   124→   124→  const router = useRouter();
+   125→   125→
+   126→   126→  // Read state from URL — single source of truth.
+   127→   127→  const { query, filters: urlFilters, sort: urlSort } = useMemo(
+   128→   128→    () => parseFiltersFromParams(searchParams),
+   129→   129→    [searchParams],
+   130→   130→  );
+   131→   131→
+   132→   132→  const [drawerOpen, setDrawerOpen] = useState(false);
+   133→   133→  const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
+   134→   134→
+   135→   135→  // Build the API filters object. react-query's queryKey includes this
+   136→   136→  // object, so any change automatically resets to page 1.
+   137→   137→  const apiFilters: ApiSearchFilters = useMemo(
+   138→   138→    () => ({
+   139→   139→      q: query,
+   140→   140→      ...urlFilters,
+   141→   141→      sort: urlSort,
+   142→   142→      limit: PAGE_SIZE,
+   143→   143→    }),
+   144→   144→    [query, urlFilters, urlSort],
+   145→   145→  );
+   146→   146→
+   147→   147→  const hasQuery = query.length > 0 || !isFiltersEmpty(urlFilters);
+   148→   148→  const {
+   149→   149→    products,
+   150→   150→    meta,
+   151→   151→    isLoading,
+   152→   152→    isError,
+   153→   153→    isFetching,
+   154→   154→    isFetchingNextPage,
+   155→   155→    hasNextPage,
+   156→   156→    refetch,
+   157→   157→    fetchNextPage,
+   158→   158→  } = useSearchInfinite(apiFilters, hasQuery);
+   159→   159→
+   160→   160→  // Update URL when filters/sort change.
+   161→   161→  const pushUrl = useCallback(
+   162→   162→    (next: { query?: string; filters?: SearchFiltersState; sort?: SortValue }) => {
+   163→   163→      const nextQuery = next.query ?? query;
+   164→   164→      const nextFilters = next.filters ?? urlFilters;
+   165→   165→      const nextSort = next.sort ?? urlSort;
+   166→   166→      const params = buildSearchParams(nextQuery, nextFilters, nextSort);
+   167→   167→      const search = params.toString();
+   168→   168→      router.push(search ? `/search?${search}` : "/search", { scroll: false });
+   169→   169→    },
+   170→   170→    [query, urlFilters, urlSort, router],
+   171→   171→  );
+   172→   172→
+   173→   173→  const handleFilterChange = useCallback(
+   174→   174→    (next: Partial<SearchFiltersState>) => {
+   175→   175→      const merged = { ...urlFilters, ...next };
+   176→   176→      // Remove undefined values.
+   177→   177→      for (const k of Object.keys(merged) as (keyof SearchFiltersState)[]) {
+   178→   178→        if (merged[k] === undefined || merged[k] === null || Number.isNaN(merged[k] as number)) {
+   179→   179→          delete merged[k];
+   180→   180→        }
+   181→   181→      }
+   182→   182→      pushUrl({ filters: merged });
+   183→   183→    },
+   184→   184→    [urlFilters, pushUrl],
+   185→   185→  );
+   186→   186→
+   187→   187→  const handleSortChange = useCallback(
+   188→   188→    (next: SortValue) => {
+   189→   189→      pushUrl({ sort: next });
+   190→   190→    },
+   191→   191→    [pushUrl],
+   192→   192→  );
+   193→   193→
+   194→   194→  const handleResetFilters = useCallback(() => {
+   195→   195→    pushUrl({ filters: {} });
+   196→   196→  }, [pushUrl]);
+   197→   197→
+   198→   198→  const handleLoadMore = useCallback(() => {
+   199→   199→    fetchNextPage();
+   200→   200→  }, [fetchNextPage]);
+   201→   201→
+   202→   202→  const handleQuickView = useCallback((p: MarketplaceProduct) => {
+   203→   203→    setQuickViewProduct(p);
+   204→   204→  }, []);
+   205→   205→
+   206→   206→  // Run a search from a recent/trending term.
+   207→   207→  const runSearch = useCallback(
+   208→   208→    (term: string) => {
+   209→   209→      const params = new URLSearchParams({ q: term });
+   210→   210→      router.push(`/search?${params.toString()}`);
+   211→   211→    },
+   212→   212→    [router],
+   213→   213→  );
+   214→   214→
+   215→   215→  // Active filter chips — derived from URL state.
+   216→   216→  const activeChips = useMemo(() => {
+   217→   217→    const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+   218→   218→    if (urlFilters.minPrice !== undefined && urlFilters.minPrice > 0) {
+   219→   219→      chips.push({
+   220→   220→        key: "minPrice",
+   221→   221→        label: `Min ₦${urlFilters.minPrice.toLocaleString()}`,
+   222→   222→        onRemove: () => handleFilterChange({ minPrice: undefined }),
+   223→   223→      });
+   224→   224→    }
+   225→   225→    if (urlFilters.maxPrice !== undefined && urlFilters.maxPrice > 0) {
+   226→   226→      chips.push({
+   227→   227→        key: "maxPrice",
+   228→   228→        label: `Max ₦${urlFilters.maxPrice.toLocaleString()}`,
+   229→   229→        onRemove: () => handleFilterChange({ maxPrice: undefined }),
+   230→   230→      });
+   231→   231→    }
+   232→   232→    if (urlFilters.rating !== undefined) {
+   233→   233→      chips.push({
+   234→   234→        key: "rating",
+   235→   235→        label: `${urlFilters.rating}★ & above`,
+   236→   236→        onRemove: () => handleFilterChange({ rating: undefined }),
+   237→   237→      });
+   238→   238→    }
+   239→   239→    if (urlFilters.category) {
+   240→   240→      const cat = meta?.categories?.find((c) => c.slug === urlFilters.category || c.id === urlFilters.category);
+   241→   241→      chips.push({
+   242→   242→        key: "category",
+   243→   243→        label: cat?.name ?? urlFilters.category,
+   244→   244→        onRemove: () => handleFilterChange({ category: undefined }),
+   245→   245→      });
+   246→   246→    }
+   247→   247→    if (urlFilters.storeId) {
+   248→   248→      const store = meta?.stores?.find((s) => s.id === urlFilters.storeId || s.slug === urlFilters.storeId);
+   249→   249→      chips.push({
+   250→   250→        key: "storeId",
+   251→   251→        label: store?.name ?? urlFilters.storeId,
+   252→   252→        onRemove: () => handleFilterChange({ storeId: undefined }),
+   253→   253→      });
+   254→   254→    }
+   255→   255→    if (urlFilters.brandId) {
+   256→   256→      const brand = meta?.brands?.find((b) => b.id === urlFilters.brandId || b.slug === urlFilters.brandId);
+   257→   257→      chips.push({
+   258→   258→        key: "brandId",
+   259→   259→        label: brand?.name ?? urlFilters.brandId,
+   260→   260→        onRemove: () => handleFilterChange({ brandId: undefined }),
+   261→   261→      });
+   262→   262→    }
+   263→   263→    if (urlFilters.state) {
+   264→   264→      const st = meta?.states?.find((s) => s.name === urlFilters.state || s.code === urlFilters.state);
+   265→   265→      chips.push({
+   266→   266→        key: "state",
+   267→   267→        label: st?.name ?? urlFilters.state,
+   268→   268→        onRemove: () => handleFilterChange({ state: undefined }),
+   269→   269→      });
+   270→   270→    }
+   271→   271→    return chips;
+   272→   272→  }, [urlFilters, meta, handleFilterChange]);
+   273→   273→
+   274→   274→  const trendingQuery = useTrending(5);
+   275→   275→  const trendingSearchesQuery = useTrendingSearches(12);
+   276→   276→  const { items: recentSearches, addSearch, removeSearch, clearSearches } = useRecentSearches();
+   277→   277→
+   278→   278→  // Persist every successful query into recent searches (max once per query change).
+   279→   279→  useEffect(() => {
+   280→   280→    if (query && !isFetching && !isLoading) {
+   281→   281→      addSearch(query);
+   282→   282→    }
+   283→   283→  }, [query, isFetching, isLoading, addSearch]);
+   284→   284→
+   285→   285→  const popularSearches = useMemo(
+   286→   286→    () => (trendingQuery.data ?? []).slice(0, 5),
+   287→   287→    [trendingQuery.data],
+   288→   288→  );
+   289→   289→  const trendingSearches = useMemo(
+   290→   290→    () => trendingSearchesQuery.data ?? [],
+   291→   291→    [trendingSearchesQuery.data],
+   292→   292→  );
+   293→   293→
+   294→   294→  // Suggested alternative queries when no results are returned.
+   295→   295→  const noResultSuggestions = useMemo(() => {
+   296→   296→    if (!query || (meta?.total ?? 0) > 0) return [];
+   297→   297→    const q = query.toLowerCase();
+   298→   298→    return trendingSearches
+   299→   299→      .filter((t) => !t.query.toLowerCase().includes(q) && !q.includes(t.query.toLowerCase()))
+   300→   300→      .slice(0, 4);
+   301→   301→  }, [query, meta?.total, trendingSearches]);
+   302→   302→
+   303→   303→  const totalResults = meta?.total ?? 0;
+   304→   304→  const hasResults = products.length > 0;
+   305→   305→
+   306→   306→  // ─── Render ──────────────────────────────────────────────────────────
+   307→   307→
+   308→   308→  return (
+   309→   309→    <div className="min-h-screen bg-background">
+   310→   310→      {/* Sticky results toolbar */}
+   311→   311→      {hasQuery ? (
+   312→   312→        <div className="sticky top-[var(--header-height)] z-20 border-b border-kwik-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10">
+   313→   313→          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   314→   314→            <div className="flex items-center gap-3 py-3">
+   315→   315→              {/* Result count */}
+   316→   316→              <div className="flex-1 min-w-0">
+   317→   317→                {isLoading ? (
+   318→   318→                  <span className="text-sm text-kwik-muted">Searching…</span>
+   319→   319→                ) : (
+   320→   320→                  <p className="text-sm text-kwik-gray-light dark:text-white/70">
+   321→   321→                    <span className="font-semibold text-kwik-dark dark:text-white">{totalResults}</span>{" "}
+   322→   322→                    result{totalResults !== 1 ? "s" : ""}
+   323→   323→                    {query ? (
+   324→   324→                      <>
+   325→   325→                        {" "}for <span className="font-semibold text-kwik-orange">&ldquo;{query}&rdquo;</span>
+   326→   326→                      </>
+   327→   327→                    ) : null}
+   328→   328→                  </p>
+   329→   329→                )}
+   330→   330→              </div>
+   331→   331→
+   332→   332→              {/* Mobile: Filter button */}
+   333→   333→              <button
+   334→   334→                type="button"
+   335→   335→                onClick={() => setDrawerOpen(true)}
+   336→   336→                className="flex h-9 items-center gap-1.5 rounded-lg border border-kwik-border bg-background px-3 text-sm font-medium text-kwik-dark transition hover:border-kwik-orange/50 hover:bg-kwik-bg-light lg:hidden dark:bg-white/5 dark:text-white dark:border-white/10 dark:hover:bg-white/10"
+   337→   337→              >
+   338→   338→                <SlidersHorizontal className="h-3.5 w-3.5" />
+   339→   339→                Filters
+   340→   340→                {activeChips.length > 0 ? (
+   341→   341→                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-kwik-orange px-1 text-[10px] font-bold text-white">
+   342→   342→                    {activeChips.length}
+   343→   343→                  </span>
+   344→   344→                ) : null}
+   345→   345→              </button>
+   346→   346→
+   347→   347→              <SortDropdown value={urlSort} onChange={handleSortChange} />
+   348→   348→            </div>
+   349→   349→
+   350→   350→            {/* Active filter chips */}
+   351→   351→            {activeChips.length > 0 ? (
+   352→   352→              <ActiveFilters
+   353→   353→                chips={activeChips}
+   354→   354→                onClearAll={handleResetFilters}
+   355→   355→                className="pb-3"
+   356→   356→              />
+   357→   357→            ) : null}
+   358→   358→          </div>
+   359→   359→        </div>
+   360→   360→      ) : null}
+   361→   361→
+   362→   362→      {/* Results area */}
+   363→   363→      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+   364→   364→        {/* No query state — show recent + trending searches & popular products */}
+   365→   365→        {!hasQuery ? (
+   366→   366→          <NoQueryState
+   367→   367→            recentSearches={recentSearches}
+   368→   368→            trendingSearches={trendingSearches}
+   369→   369→            trendingSearchesLoading={trendingSearchesQuery.isLoading}
+   370→   370→            onPickSearch={runSearch}
+   371→   371→            onRemoveSearch={removeSearch}
+   372→   372→            onClearSearches={clearSearches}
+   373→   373→            popularSearches={popularSearches}
+   374→   374→            onQuickView={handleQuickView}
+   375→   375→          />
+   376→   376→        ) : (
+   377→   377→          <div className="flex gap-6">
+   378→   378→            {/* Desktop filter sidebar */}
+   379→   379→            <aside className="hidden lg:block w-64 shrink-0">
+   380→   380→              <div className="sticky top-[calc(var(--header-height)+1rem)] rounded-2xl border border-kwik-border bg-background p-4 dark:bg-white/[0.02] dark:border-white/10">
+   381→   381→                <SearchFiltersPanel
+   382→   382→                  state={urlFilters}
+   383→   383→                  meta={meta}
+   384→   384→                  onChange={handleFilterChange}
+   385→   385→                  onReset={handleResetFilters}
+   386→   386→                />
+   387→   387→              </div>
+   388→   388→            </aside>
+   389→   389→
+   390→   390→            {/* Product results */}
+   391→   391→            <div className="flex-1 min-w-0">
+   392→   392→              {/* Loading — first page */}
+   393→   393→              {isLoading && !hasResults ? (
+   394→   394→                <ProductGridSkeleton count={10} columns={5} />
+   395→   395→              ) : isError ? (
+   396→   396→                <SearchErrorState onRetry={() => refetch()} />
+   397→   397→              ) : !hasResults && !isFetching ? (
+   398→   398→                <div className="space-y-8">
+   399→   399→                  <NoResultsState
+   400→   400→                    query={query}
+   401→   401→                    onClearFilters={handleResetFilters}
+   402→   402→                    onBrowseAll={() => router.push("/products")}
+   403→   403→                  />
+   404→   404→                  {noResultSuggestions.length > 0 ? (
+   405→   405→                    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5 dark:bg-white/[0.02] dark:border-white/10">
+   406→   406→                      <div className="mb-3 flex items-center gap-2">
+   407→   407→                        <Sparkles className="h-4 w-4 text-kwik-orange" />
+   408→   408→                        <h3 className="text-sm font-semibold text-kwik-dark dark:text-white">
+   409→   409→                          Try one of these trending searches
+   410→   410→                        </h3>
+   411→   411→                      </div>
+   412→   412→                      <div className="flex flex-wrap gap-2">
+   413→   413→                        {noResultSuggestions.map((t) => (
+   414→   414→                          <button
+   415→   415→                            key={t.id}
+   416→   416→                            type="button"
+   417→   417→                            onClick={() => runSearch(t.query)}
+   418→   418→                            className="group inline-flex items-center gap-2 rounded-full border border-kwik-border bg-background px-4 py-2 text-xs font-medium text-kwik-dark transition-all hover:border-kwik-orange/50 hover:bg-kwik-orange-tint hover:text-kwik-orange dark:bg-white/5 dark:text-white/80 dark:border-white/10 dark:hover:bg-white/10"
+   419→   419→                          >
+   420→   420→                            <Flame className="h-3 w-3 text-kwik-orange" />
+   421→   421→                            {t.label}
+   422→   422→                            <span className="text-[10px] text-kwik-muted group-hover:text-kwik-orange/70">
+   423→   423→                              {formatCount(t.count)}
+   424→   424→                            </span>
+   425→   425→                          </button>
+   426→   426→                        ))}
+   427→   427→                      </div>
+   428→   428→                    </section>
+   429→   429→                  ) : null}
+   430→   430→                </div>
+   431→   431→              ) : (
+   432→   432→                <>
+   433→   433→                  {/* Product grid */}
+   434→   434→                  <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+   435→   435→                    {products.map((product) => (
+   436→   436→                      <MarketplaceProductCard
+   437→   437→                        key={product.id}
+   438→   438→                        product={product}
+   439→   439→                        onQuickView={() => handleQuickView(product)}
+   440→   440→                      />
+   441→   441→                    ))}
+   442→   442→                    {/* Loading skeletons when fetching next page */}
+   443→   443→                    {isFetchingNextPage
+   444→   444→                      ? Array.from({ length: 5 }).map((_, i) => (
+   445→   445→                          <div
+   446→   446→                            key={`skeleton-${i}`}
+   447→   447→                            className="aspect-[3/4] animate-pulse rounded-xl bg-kwik-bg-light dark:bg-white/5"
+   448→   448→                          />
+   449→   449→                        ))
+   450→   450→                      : null}
+   451→   451→                  </div>
+   452→   452→
+   453→   453→                  {/* Load More */}
+   454→   454→                  {hasNextPage ? (
+   455→   455→                    <div className="mt-8 flex justify-center">
+   456→   456→                      <button
+   457→   457→                        type="button"
+   458→   458→                        onClick={handleLoadMore}
+   459→   459→                        disabled={isFetchingNextPage}
+   460→   460→                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-kwik-border bg-background px-6 text-sm font-semibold text-kwik-dark transition hover:border-kwik-orange/50 hover:bg-kwik-bg-light disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white/5 dark:text-white dark:border-white/10 dark:hover:bg-white/10"
+   461→   461→                      >
+   462→   462→                        {isFetchingNextPage ? (
+   463→   463→                          <>
+   464→   464→                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+   465→   465→                            Loading…
+   466→   466→                          </>
+   467→   467→                        ) : (
+   468→   468→                          <>
+   469→   469→                            Load more
+   470→   470→                            <span className="text-xs text-kwik-muted">
+   471→   471→                              ({totalResults - products.length} left)
+   472→   472→                            </span>
+   473→   473→                          </>
+   474→   474→                        )}
+   475→   475→                      </button>
+   476→   476→                    </div>
+   477→   477→                  ) : hasResults ? (
+   478→   478→                    <p className="mt-8 text-center text-xs text-kwik-muted">
+   479→   479→                      You&rsquo;ve reached the end — showing all {products.length} of {totalResults} results
+   480→   480→                    </p>
+   481→   481→                  ) : null}
+   482→   482→                </>
+   483→   483→              )}
+   484→   484→            </div>
+   485→   485→          </div>
+   486→   486→        )}
+   487→   487→      </div>
+   488→   488→
+   489→   489→      {/* Mobile filter drawer */}
+   490→   490→      <SearchFilterDrawer
+   491→   491→        open={drawerOpen}
+   492→   492→        onClose={() => setDrawerOpen(false)}
+   493→   493→        state={urlFilters}
+   494→   494→        meta={meta}
+   495→   495→        onChange={(next) => handleFilterChange(next)}
+   496→   496→        onReset={handleResetFilters}
+   497→   497→      />
+   498→   498→
+   499→   499→      {/* Quick View Modal */}
+   500→   500→      <QuickViewModal
+   501→   501→        product={quickViewProduct}
+   502→   502→        isOpen={!!quickViewProduct}
+   503→   503→        onClose={() => setQuickViewProduct(null)}
+   504→   504→      />
+   505→   505→    </div>
+   506→   506→  );
+   507→   507→}
+   508→   508→
+   509→   509→// ─── No-query state: recent + trending + popular products ───────────────
+   510→   510→
+   511→   511→function NoQueryState({
+   512→   512→  recentSearches,
+   513→   513→  trendingSearches,
+   514→   514→  trendingSearchesLoading,
+   515→   515→  onPickSearch,
+   516→   516→  onRemoveSearch,
+   517→   517→  onClearSearches,
+   518→   518→  popularSearches,
+   519→   519→  onQuickView,
+   520→   520→}: {
+   521→   521→  recentSearches: { query: string; timestamp: number }[];
+   522→   522→  trendingSearches: { id: string; label: string; query: string; category: string; count: number }[];
+   523→   523→  trendingSearchesLoading: boolean;
+   524→   524→  onPickSearch: (q: string) => void;
+   525→   525→  onRemoveSearch: (q: string) => void;
+   526→   526→  onClearSearches: () => void;
+   527→   527→  popularSearches: MarketplaceProduct[];
+   528→   528→  onQuickView: (p: MarketplaceProduct) => void;
+   529→   529→}) {
+   530→   530→  const router = useRouter();
+   531→   531→  return (
+   532→   532→    <div className="space-y-10">
+   533→   533→      <div className="flex flex-col items-center justify-center py-10 px-4">
+   534→   534→        <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-kwik-orange-tint ring-1 ring-kwik-orange/20">
+   535→   535→          <SearchIcon className="h-10 w-10 text-kwik-orange" />
+   536→   536→        </div>
+   537→   537→        <h3 className="text-xl font-semibold text-kwik-dark dark:text-white">Search Kwikseller</h3>
+   538→   538→        <p className="mt-2 max-w-sm text-center text-sm text-kwik-gray-light dark:text-white/60">
+   539→   539→          Find products, stores, brands, and categories. Start typing to see live results.
+   540→   540→        </p>
+   541→   541→      </div>
+   542→   542→
+   543→   543→      <div className="grid gap-6 lg:grid-cols-2">
+   544→   544→        {/* Recent searches */}
+   545→   545→        <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5 dark:bg-white/[0.02] dark:border-white/10">
+   546→   546→          <div className="mb-4 flex items-center justify-between gap-3">
+   547→   547→            <div className="flex items-center gap-2">
+   548→   548→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-kwik-orange-tint text-kwik-orange">
+   549→   549→                <History className="h-4 w-4" />
+   550→   550→              </div>
+   551→   551→              <div>
+   552→   552→                <h2 className="text-sm font-semibold text-kwik-dark dark:text-white">Recent searches</h2>
+   553→   553→                <p className="text-[11px] text-kwik-muted">Pick up where you left off</p>
+   554→   554→              </div>
+   555→   555→            </div>
+   556→   556→            {recentSearches.length > 0 ? (
+   557→   557→              <button
+   558→   558→                type="button"
+   559→   559→                onClick={onClearSearches}
+   560→   560→                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-kwik-muted transition hover:bg-kwik-red/5 hover:text-kwik-red"
+   561→   561→              >
+   562→   562→                <Trash2 className="h-3 w-3" /> Clear all
+   563→   563→              </button>
+   564→   564→            ) : null}
+   565→   565→          </div>
+   566→   566→
+   567→   567→          {recentSearches.length === 0 ? (
+   568→   568→            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-kwik-border-light py-8 text-center dark:border-white/10">
+   569→   569→              <Clock className="h-7 w-7 text-kwik-muted/60" />
+   570→   570→              <p className="mt-2 text-xs font-medium text-kwik-muted">No recent searches yet</p>
+   571→   571→              <p className="text-[11px] text-kwik-muted/70">Your search history will appear here.</p>
+   572→   572→            </div>
+   573→   573→          ) : (
+   574→   574→            <ul className="space-y-1.5">
+   575→   575→              <AnimatePresence initial={false}>
+   576→   576→                {recentSearches.map((s) => (
+   577→   577→                  <motion.li
+   578→   578→                    key={`${s.query}-${s.timestamp}`}
+   579→   579→                    layout
+   580→   580→                    initial={{ opacity: 0, x: -8 }}
+   581→   581→                    animate={{ opacity: 1, x: 0 }}
+   582→   582→                    exit={{ opacity: 0, x: 8, height: 0 }}
+   583→   583→                    className="group flex items-center gap-2 rounded-xl border border-transparent bg-background px-3 py-2 transition-colors hover:border-kwik-border-light hover:bg-kwik-bg-surface dark:hover:border-white/10 dark:hover:bg-white/5"
+   584→   584→                  >
+   585→   585→                    <button
+   586→   586→                      type="button"
+   587→   587→                      onClick={() => onPickSearch(s.query)}
+   588→   588→                      className="flex flex-1 items-center gap-2.5 text-left"
+   589→   589→                    >
+   590→   590→                      <Clock className="h-3.5 w-3.5 text-kwik-muted transition group-hover:text-kwik-orange" />
+   591→   591→                      <span className="truncate text-sm font-medium text-kwik-dark dark:text-white">{s.query}</span>
+   592→   592→                      <span className="ml-auto shrink-0 text-[10px] text-kwik-muted">
+   593→   593→                        {timeAgo(s.timestamp)}
+   594→   594→                      </span>
+   595→   595→                    </button>
+   596→   596→                    <button
+   597→   597→                      type="button"
+   598→   598→                      aria-label={`Remove ${s.query}`}
+   599→   599→                      onClick={() => onRemoveSearch(s.query)}
+   600→   600→                      className="flex h-6 w-6 items-center justify-center rounded-full text-kwik-muted opacity-0 transition hover:bg-kwik-red/10 hover:text-kwik-red group-hover:opacity-100"
+   601→   601→                    >
+   602→   602→                      <X className="h-3.5 w-3.5" />
+   603→   603→                    </button>
+   604→   604→                  </motion.li>
+   605→   605→                ))}
+   606→   606→              </AnimatePresence>
+   607→   607→            </ul>
+   608→   608→          )}
+   609→   609→        </section>
+   610→   610→
+   611→   611→        {/* Trending searches */}
+   612→   612→        <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5 dark:bg-white/[0.02] dark:border-white/10">
+   613→   613→          <div className="mb-4 flex items-center gap-2">
+   614→   614→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-kwik-orange-tint text-kwik-orange">
+   615→   615→              <Flame className="h-4 w-4" />
+   616→   616→            </div>
+   617→   617→            <div>
+   618→   618→              <h2 className="text-sm font-semibold text-kwik-dark dark:text-white">Trending searches</h2>
+   619→   619→              <p className="text-[11px] text-kwik-muted">What other buyers are looking for</p>
+   620→   620→            </div>
+   621→   621→          </div>
+   622→   622→
+   623→   623→          {trendingSearchesLoading ? (
+   624→   624→            <div className="flex flex-wrap gap-2">
+   625→   625→              {Array.from({ length: 8 }).map((_, i) => (
+   626→   626→                <div
+   627→   627→                  key={i}
+   628→   628→                  className="h-8 animate-pulse rounded-full bg-kwik-orange/10"
+   629→   629→                  style={{ width: `${60 + (i % 4) * 22}px` }}
+   630→   630→                />
+   631→   631→              ))}
+   632→   632→            </div>
+   633→   633→          ) : (
+   634→   634→            <div className="flex flex-wrap gap-2">
+   635→   635→              {trendingSearches.map((t, i) => (
+   636→   636→                <motion.button
+   637→   637→                  key={t.id}
+   638→   638→                  type="button"
+   639→   639→                  initial={{ opacity: 0, y: 6 }}
+   640→   640→                  animate={{ opacity: 1, y: 0 }}
+   641→   641→                  transition={{ delay: Math.min(i * 0.04, 0.3) }}
+   642→   642→                  whileTap={{ scale: 0.96 }}
+   643→   643→                  onClick={() => onPickSearch(t.query)}
+   644→   644→                  className="group inline-flex items-center gap-1.5 rounded-full border border-kwik-border bg-background px-3 py-1.5 text-xs font-medium text-kwik-dark shadow-sm transition-all hover:border-kwik-orange/50 hover:bg-kwik-orange-tint hover:text-kwik-orange dark:bg-white/5 dark:text-white/80 dark:border-white/10 dark:hover:bg-white/10"
+   645→   645→                >
+   646→   646→                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-kwik-orange-tint text-[9px] font-bold text-kwik-orange">
+   647→   647→                    {i + 1}
+   648→   648→                  </span>
+   649→   649→                  {t.label}
+   650→   650→                  <span className="text-[10px] text-kwik-muted group-hover:text-kwik-orange/70">
+   651→   651→                    {formatCount(t.count)}
+   652→   652→                  </span>
+   653→   653→                </motion.button>
+   654→   654→              ))}
+   655→   655→            </div>
+   656→   656→          )}
+   657→   657→        </section>
+   658→   658→      </div>
+   659→   659→
+   660→   660→      {/* Quick picks */}
+   661→   661→      <section>
+   662→   662→        <div className="mb-3 flex items-center gap-2">
+   663→   663→          <Sparkles className="h-4 w-4 text-kwik-orange" />
+   664→   664→          <h2 className="text-sm font-semibold text-kwik-dark dark:text-white">Quick picks</h2>
+   665→   665→        </div>
+   666→   666→        <div className="flex flex-wrap gap-2">
+   667→   667→          {["Electronics", "Fashion", "Phones", "Beauty", "Food", "Home"].map((term) => (
+   668→   668→            <button
+   669→   669→              key={term}
+   670→   670→              type="button"
+   671→   671→              onClick={() => {
+   672→   672→                const params = new URLSearchParams({ q: term });
+   673→   673→                router.push(`/search?${params.toString()}`);
+   674→   674→              }}
+   675→   675→              className="rounded-full border border-kwik-border bg-kwik-bg-surface px-4 py-2 text-xs font-medium text-kwik-gray transition-all hover:border-kwik-orange/50 hover:bg-kwik-orange-tint hover:text-kwik-orange dark:bg-white/5 dark:text-white/80 dark:border-white/10 dark:hover:bg-white/10"
+   676→   676→            >
+   677→   677→              {term}
+   678→   678→            </button>
+   679→   679→          ))}
+   680→   680→        </div>
+   681→   681→      </section>
+   682→   682→
+   683→   683→      {/* Popular products */}
+   684→   684→      {popularSearches.length > 0 ? (
+   685→   685→        <section>
+   686→   686→          <div className="mb-4 flex items-center gap-2">
+   687→   687→            <TrendingUp className="h-5 w-5 text-kwik-orange" />
+   688→   688→            <h2 className="text-base font-semibold text-kwik-dark dark:text-white">Popular right now</h2>
+   689→   689→          </div>
+   690→   690→          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
+   691→   691→            {popularSearches.map((product) => (
+   692→   692→              <MarketplaceProductCard
+   693→   693→                key={product.id}
+   694→   694→                product={product}
+   695→   695→                onQuickView={() => onQuickView(product)}
+   696→   696→              />
+   697→   697→            ))}
+   698→   698→          </div>
+   699→   699→        </section>
+   700→   700→      ) : null}
+   701→   701→    </div>
+   702→   702→  );
+   703→   703→}
+   704→   704→
+   705→   705→// ─── Default export with Suspense ────────────────────────────────────────
+   706→   706→
+   707→   707→export default function SearchPage() {
+   708→   708→  return (
+   709→   709→    <Suspense
+   710→   710→      fallback={
+   711→   711→        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+   712→   712→          <ProductGridSkeleton count={10} columns={5} />
+   713→   713→        </div>
+   714→   714→      }
+   715→   715→    >
+   716→   716→      <SearchPageContent />
+   717→   717→    </Suspense>
+   718→   718→  );
+   719→   719→}
+   720→   720→

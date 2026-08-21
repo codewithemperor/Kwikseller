@@ -1,0 +1,1102 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useMemo, useState } from "react";
+     4→import { useRouter } from "next/navigation";
+     5→import { motion } from "framer-motion";
+     6→import {
+     7→  ShieldCheck,
+     8→  ChevronRight,
+     9→  Minus,
+    10→  Plus,
+    11→  Trash2,
+    12→  ShoppingBag,
+    13→  Check,
+    14→  Loader2,
+    15→  Truck,
+    16→  Store,
+    17→  MapPin,
+    18→  X,
+    19→  AlertCircle,
+    20→  Lock,
+    21→} from "lucide-react";
+    22→import { useCartStore } from "@/stores";
+    23→import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
+    24→import { kwikToast } from "@/lib/toast";
+    25→import { useAuth } from "@/lib/auth-context";
+    26→import { KwisCrow } from "@/constants/order-workflow";
+    27→import { cn } from "@/lib/utils";
+    28→import { useCheckout } from "@/lib/order-api";
+    29→import { api } from "@/services/api-client";
+    30→
+    31→// ─── Helpers ───────────────────────────────────────────────────────────────
+    32→
+    33→function formatNGN(n: number) {
+    34→  return new Intl.NumberFormat("en-NG", {
+    35→    style: "currency",
+    36→    currency: "NGN",
+    37→    maximumFractionDigits: 0,
+    38→  }).format(n);
+    39→}
+    40→
+    41→/**
+    42→ * Generates a reasonably-unique idempotency key per checkout attempt.
+    43→ * The backend uses it to dedupe a ParentCheckout (and its per-vendor
+    44→ * Orders) so a network retry returns the original result instead of
+    45→ * double-creating orders. We regenerate it whenever the user starts a
+    46→ * new checkout submission (not on every render).
+    47→ */
+    48→function newIdempotencyKey(): string {
+    49→  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    50→    return `chk_${crypto.randomUUID()}`;
+    51→  }
+    52→  return `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    53→}
+    54→
+    55→// ─── Delivery options (NEW spec: Pickup + Standard Delivery ONLY) ──────────
+    56→//
+    57→// The old STANDARD / EXPRESS / PICKUP trio plus state-based price grid has
+    58→// been removed. The backend is authoritative for every price/fee — at
+    59→// checkout time we only tell it which delivery method the buyer chose.
+    60→//   • PICKUP          → quoteStatus starts as AGREED (no fee to quote),
+    61→//                       buyer can initialize payment immediately.
+    62→//   • STANDARD_DELIVERY → quoteStatus starts as PENDING_VENDOR_QUOTE,
+    63→//                       vendor must quote → customer accepts/requests
+    64→//                       reduction → agreement → then payment.
+    65→
+    66→type DeliveryMethod = "PICKUP" | "STANDARD_DELIVERY";
+    67→
+    68→interface DeliveryOption {
+    69→  method: DeliveryMethod;
+    70→  label: string;
+    71→  Icon: typeof Truck;
+    72→  description: string;
+    73→  feeLabel: string;
+    74→}
+    75→
+    76→const DELIVERY_OPTIONS: DeliveryOption[] = [
+    77→  {
+    78→    method: "PICKUP",
+    79→    label: "Pickup",
+    80→    Icon: Store,
+    81→    description: "Pick up from the vendor's store. No delivery fee.",
+    82→    feeLabel: "₦0",
+    83→  },
+    84→  {
+    85→    method: "STANDARD_DELIVERY",
+    86→    label: "Standard Delivery",
+    87→    Icon: Truck,
+    88→    description:
+    89→      "Doorstep delivery. The vendor will quote a delivery fee after you place the order.",
+    90→    feeLabel: "To be determined by vendor",
+    91→  },
+    92→];
+    93→
+    94→// ─── Address form ──────────────────────────────────────────────────────────
+    95→
+    96→interface AddressForm {
+    97→  fullName: string;
+    98→  phone: string;
+    99→  addressLine: string;
+   100→  city: string;
+   101→  state: string;
+   102→  landmark?: string;
+   103→}
+   104→
+   105→const NIGERIAN_STATES = [
+   106→  "Lagos",
+   107→  "Abuja FCT",
+   108→  "Rivers",
+   109→  "Kano",
+   110→  "Oyo",
+   111→  "Kaduna",
+   112→  "Enugu",
+   113→  "Delta",
+   114→  "Ogun",
+   115→  "Anambra",
+   116→  "Edo",
+   117→  "Plateau",
+   118→  "Imo",
+   119→  "Ondo",
+   120→  "Akwa Ibom",
+   121→  "Cross River",
+   122→];
+   123→
+   124→interface UserProfileResponse {
+   125→  id?: string;
+   126→  email?: string;
+   127→  phone?: string;
+   128→  firstName?: string;
+   129→  lastName?: string;
+   130→  profile?: {
+   131→    firstName?: string;
+   132→    lastName?: string;
+   133→    phone?: string;
+   134→  };
+   135→}
+   136→
+   137→// ─── Page ──────────────────────────────────────────────────────────────────
+   138→
+   139→export default function CheckoutPage() {
+   140→  const router = useRouter();
+   141→  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+   142→
+   143→  // ─── Cart store ───
+   144→  const items = useCartStore((s) => s.items);
+   145→  const updateQuantity = useCartStore((s) => s.updateQuantity);
+   146→  const removeItem = useCartStore((s) => s.removeItem);
+   147→  const clearCart = useCartStore((s) => s.clearCart);
+   148→
+   149→  // ─── Local workflow store (kept as a soft mirror so /orders/[id] keeps ──
+   150→  // its rich quotation UI working until the API detail page is migrated).
+   151→  const placeOrder = useOrderWorkflowStore((s) => s.placeOrder);
+   152→
+   153→  // ─── API ───
+   154→  const checkout = useCheckout();
+   155→
+   156→  // ─── UI state ───
+   157→  const [deliveryMethod, setDeliveryMethod] =
+   158→    useState<DeliveryMethod>("PICKUP");
+   159→  const [address, setAddress] = useState<AddressForm>({
+   160→    fullName: "",
+   161→    phone: "",
+   162→    addressLine: "",
+   163→    city: "",
+   164→    state: "Lagos",
+   165→    landmark: "",
+   166→  });
+   167→  const [addressConfirmed, setAddressConfirmed] = useState(false);
+   168→  const [addressModalOpen, setAddressModalOpen] = useState(false);
+   169→  const [profileLoading, setProfileLoading] = useState(false);
+   170→  const [errors, setErrors] = useState<Partial<Record<keyof AddressForm, string>>>(
+   171→    {},
+   172→  );
+   173→
+   174→  // ─── Auth guard ───
+   175→  // The checkout endpoint is JWT-guarded on the backend. If the buyer is
+   176→  // not signed in, send them to /login with a return URL so they land back
+   177→  // here after authenticating.
+   178→  useEffect(() => {
+   179→    if (isAuthLoading) return;
+   180→    if (!isAuthenticated) {
+   181→      const returnUrl = encodeURIComponent("/checkout");
+   182→      router.replace(`/login?redirect=${returnUrl}`);
+   183→    }
+   184→  }, [isAuthLoading, isAuthenticated, router]);
+   185→
+   186→  // ─── Pre-fill name + phone from the user profile API (best-effort) ──
+   187→  // Falls back to the auth store's cached user. Both name and phone are
+   188→  // shown as disabled fields inside the modal — the buyer cannot change
+   189→  // their identity here, only the delivery coordinates.
+   190→  useEffect(() => {
+   191→    if (!isAuthenticated) return;
+   192→    let cancelled = false;
+   193→
+   194→    async function loadProfile() {
+   195→      setProfileLoading(true);
+   196→      try {
+   197→        const res = await api.get<UserProfileResponse>("users/me");
+   198→        if (cancelled) return;
+   199→        const data = res.data;
+   200→        const firstName =
+   201→          data?.profile?.firstName ?? data?.firstName ?? user?.profile?.firstName ?? "";
+   202→        const lastName =
+   203→          data?.profile?.lastName ?? data?.lastName ?? user?.profile?.lastName ?? "";
+   204→        const phone =
+   205→          data?.profile?.phone ?? data?.phone ?? user?.phone ?? "";
+   206→        const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+   207→        setAddress((prev) => ({
+   208→          ...prev,
+   209→          fullName: prev.fullName || fullName,
+   210→          phone: prev.phone || phone,
+   211→        }));
+   212→      } catch {
+   213→        // Best-effort: fall back to whatever the auth store has cached.
+   214→        if (!cancelled && user) {
+   215→          const firstName = user.profile?.firstName ?? "";
+   216→          const lastName = user.profile?.lastName ?? "";
+   217→          const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+   218→          setAddress((prev) => ({
+   219→            ...prev,
+   220→            fullName: prev.fullName || fullName,
+   221→            phone: prev.phone || (user.phone ?? ""),
+   222→          }));
+   223→        }
+   224→      } finally {
+   225→        if (!cancelled) setProfileLoading(false);
+   226→      }
+   227→    }
+   228→
+   229→    void loadProfile();
+   230→    return () => {
+   231→      cancelled = true;
+   232→    };
+   233→  }, [isAuthenticated, user]);
+   234→
+   235→  // ─── Derived cart data ───
+   236→  const itemsByStore = useMemo(() => {
+   237→    const groups: Record<
+   238→      string,
+   239→      { storeName: string; items: typeof items; subtotal: number }
+   240→    > = {};
+   241→    for (const item of items) {
+   242→      const key = item.storeSlug ?? item.store ?? "unknown";
+   243→      if (!groups[key]) {
+   244→        groups[key] = {
+   245→          storeName: item.store ?? item.storeName ?? "Vendor",
+   246→          items: [],
+   247→          subtotal: 0,
+   248→        };
+   249→      }
+   250→      groups[key].items.push(item);
+   251→      groups[key].subtotal += item.price * item.quantity;
+   252→    }
+   253→    return groups;
+   254→  }, [items]);
+   255→
+   256→  const subtotal = useMemo(
+   257→    () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+   258→    [items],
+   259→  );
+   260→  const storeCount = Object.keys(itemsByStore).length;
+   261→
+   262→  // The backend computes the real 1% processing fee (it's authoritative).
+   263→  // For the PICKUP summary only we display a *clearly-labelled* estimate so
+   264→  // the buyer has a ballpark figure; the final amount is shown on the order
+   265→  // detail page after the backend response lands.
+   266→  const estimatedProcessingFee = Math.round(subtotal * 0.01);
+   267→
+   268→  // ─── Validate address (only when Standard Delivery is selected) ───
+   269→  function validateAddress(): boolean {
+   270→    const next: Partial<Record<keyof AddressForm, string>> = {};
+   271→    if (!address.fullName.trim()) next.fullName = "Full name is required";
+   272→    if (!address.phone.trim()) next.phone = "Phone number is required";
+   273→    else if (!/^[0-9+\s-]{7,}$/.test(address.phone.trim()))
+   274→      next.phone = "Enter a valid phone number";
+   275→    if (!address.addressLine.trim())
+   276→      next.addressLine = "Street address is required";
+   277→    if (!address.city.trim()) next.city = "City is required";
+   278→    if (!address.state.trim()) next.state = "State is required";
+   279→    setErrors(next);
+   280→    return Object.keys(next).length === 0;
+   281→  }
+   282→
+   283→  function openAddressModal() {
+   284→    setErrors({});
+   285→    setAddressModalOpen(true);
+   286→  }
+   287→
+   288→  function saveAddressFromModal() {
+   289→    if (!validateAddress()) return;
+   290→    setAddressConfirmed(true);
+   291→    setAddressModalOpen(false);
+   292→    // Confirming the address IS the checkout trigger for Standard Delivery —
+   293→    // place the order straight away instead of bouncing back to the form.
+   294→    handlePlaceOrder();
+   295→  }
+   296→
+   297→  // ─── Place order ───
+   298→  async function handlePlaceOrder() {
+   299→    if (items.length === 0) {
+   300→      kwikToast.error("Your cart is empty", "Add products before checking out.");
+   301→      return;
+   302→    }
+   303→
+   304→    // Standard Delivery requires a valid shipping address. Pickup does not.
+   305→    if (deliveryMethod === "STANDARD_DELIVERY") {
+   306→      if (!validateAddress()) {
+   307→        kwikToast.error(
+   308→          "Confirm your delivery address",
+   309→          "Add or confirm a delivery address before placing your order.",
+   310→        );
+   311→        openAddressModal();
+   312→        return;
+   313→      }
+   314→    }
+   315→
+   316→    checkout.reset();
+   317→    const idempotencyKey = newIdempotencyKey();
+   318→
+   319→    try {
+   320→      const result = await checkout.mutateAsync({
+   321→        items: items.map((i) => ({
+   322→          productId: i.productId,
+   323→          variantId: i.variantId,
+   324→          quantity: i.quantity,
+   325→        })),
+   326→        deliveryMethod,
+   327→        // Pickup needs no shipping address. Standard Delivery requires one.
+   328→        shippingAddress:
+   329→          deliveryMethod === "STANDARD_DELIVERY"
+   330→            ? {
+   331→                fullName: address.fullName,
+   332→                phone: address.phone,
+   333→                addressLine1: address.addressLine,
+   334→                addressLine2: address.landmark,
+   335→                city: address.city,
+   336→                state: address.state,
+   337→                country: "Nigeria",
+   338→              }
+   339→            : undefined,
+   340→        idempotencyKey,
+   341→      });
+   342→
+   343→      const apiOrders = result?.orders ?? [];
+   344→
+   345→      // Soft mirror into the local workflow store so the /orders/[id]
+   346→      // quotation UI keeps working for these orders (PENDING → vendor
+   347→      // quotes → CONFIRMED → buyer pays). This is a UX fallback, not the
+   348→      // source of truth — the API is.
+   349→      for (const group of Object.values(itemsByStore)) {
+   350→        placeOrder({
+   351→          items: group.items.map((i) => ({
+   352→            productId: i.productId,
+   353→            name: i.name,
+   354→            unitPrice: i.price,
+   355→            quantity: i.quantity,
+   356→            image: i.image,
+   357→          })),
+   358→          vendorId: group.storeName,
+   359→          vendorName: group.storeName,
+   360→          deliveryAddress:
+   361→            deliveryMethod === "STANDARD_DELIVERY"
+   362→              ? `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state}. Phone: ${address.phone}${address.landmark ? `. Landmark: ${address.landmark}` : ""}`
+   363→              : "PICKUP — buyer collects from vendor's store",
+   364→        });
+   365→      }
+   366→
+   367→      clearCart();
+   368→
+   369→      const orderCount = apiOrders.length || storeCount;
+   370→      const isPickup = deliveryMethod === "PICKUP";
+   371→      kwikToast.success(
+   372→        "Order placed!",
+   373→        isPickup
+   374→          ? `${orderCount} order${orderCount > 1 ? "s" : ""} placed. You can initialize payment now.`
+   375→          : `${orderCount} order${orderCount > 1 ? "s" : ""} sent to the vendor${orderCount > 1 ? "s" : ""} for a delivery quote. You'll be notified once they respond.`,
+   376→      );
+   377→
+   378→      // PICKUP: the quote auto-agrees at checkout, so skip the order detail
+   379→      // page and send the buyer straight to the payment gateway.
+   380→      if (isPickup) {
+   381→        const firstOrderId = apiOrders[0]?.id;
+   382→        if (firstOrderId) {
+   383→          try {
+   384→            const payRes = await api.post<{ authorizationUrl?: string }>(
+   385→              `orders/${firstOrderId}/initialize-payment`,
+   386→            );
+   387→            const authorizationUrl = payRes.data?.authorizationUrl;
+   388→            if (authorizationUrl) {
+   389→              kwikToast.info(
+   390→                "Redirecting to payment",
+   391→                "Complete your payment to confirm the order.",
+   392→              );
+   393→              window.location.href = authorizationUrl;
+   394→              return;
+   395→            }
+   396→          } catch (err) {
+   397→            const message =
+   398→              err instanceof Error ? err.message : "Failed to initialize payment.";
+   399→            kwikToast.error(
+   400→              "Payment initialization failed",
+   401→              `${message} You can retry from the order page.`,
+   402→            );
+   403→          }
+   404→          router.push(`/orders/${firstOrderId}`);
+   405→        } else {
+   406→          router.push("/orders");
+   407→        }
+   408→        return;
+   409→      }
+   410→
+   411→      // STANDARD_DELIVERY: redirect to the first API order's detail page if
+   412→      // available (quote negotiation happens there), otherwise the orders list.
+   413→      if (apiOrders.length > 0 && apiOrders[0]?.id) {
+   414→        router.push(`/orders/${apiOrders[0].id}`);
+   415→      } else {
+   416→        router.push("/orders");
+   417→      }
+   418→    } catch (err) {
+   419→      const message =
+   420→        err instanceof Error
+   421→          ? err.message
+   422→          : "Something went wrong. Please try again.";
+   423→      kwikToast.error("Checkout failed", message);
+   424→    }
+   425→  }
+   426→
+   427→  // ─── Loading state (auth still resolving) ───
+   428→  if (isAuthLoading) {
+   429→    return (
+   430→      <div className="bg-background flex min-h-screen items-center justify-center">
+   431→        <div className="flex flex-col items-center gap-3 text-center">
+   432→          <Loader2 className="text-secondary-500 h-7 w-7 animate-spin" />
+   433→          <p className="text-muted-foreground text-sm">Loading checkout…</p>
+   434→        </div>
+   435→      </div>
+   436→    );
+   437→  }
+   438→
+   439→  // ─── Not authenticated (redirect in flight) ───
+   440→  if (!isAuthenticated) {
+   441→    return (
+   442→      <div className="bg-background flex min-h-screen items-center justify-center">
+   443→        <div className="flex flex-col items-center gap-3 text-center">
+   444→          <Lock className="text-muted-foreground h-7 w-7" />
+   445→          <p className="text-muted-foreground text-sm">
+   446→            Redirecting to sign in…
+   447→          </p>
+   448→        </div>
+   449→      </div>
+   450→    );
+   451→  }
+   452→
+   453→  // ─── Empty cart ───
+   454→  if (items.length === 0) {
+   455→    return (
+   456→      <div className="bg-background min-h-screen">
+   457→        <div className="container mx-auto max-w-2xl px-4 py-20 text-center">
+   458→          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+   459→            <ShoppingBag className="text-muted-foreground h-10 w-10" />
+   460→          </div>
+   461→          <h1 className="mt-6 text-foreground text-2xl font-bold">
+   462→            Your cart is empty
+   463→          </h1>
+   464→          <p className="text-muted-foreground mt-2 text-sm">
+   465→            Add products to your cart before checking out.
+   466→          </p>
+   467→          <button
+   468→            type="button"
+   469→            onClick={() => router.push("/products")}
+   470→            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-secondary-500 px-6 text-sm font-semibold text-white hover:bg-secondary-600"
+   471→          >
+   472→            Browse products
+   473→          </button>
+   474→        </div>
+   475→      </div>
+   476→    );
+   477→  }
+   478→
+   479→  return (
+   480→    <div className="bg-background min-h-screen">
+   481→      {/* ── Hero header ── */}
+   482→      <section className="bg-secondary-500 relative overflow-hidden">
+   483→        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+   484→        <div className="container relative mx-auto max-w-7xl px-4 py-8">
+   485→          <motion.div
+   486→            initial={{ opacity: 0, y: 12 }}
+   487→            animate={{ opacity: 1, y: 0 }}
+   488→            transition={{ duration: 0.35 }}
+   489→          >
+   490→            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+   491→              Secure checkout
+   492→            </p>
+   493→            <h1 className="mt-1 text-2xl font-bold text-white md:text-4xl">
+   494→              Review &amp; place your order
+   495→            </h1>
+   496→            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">
+   497→              No payment now — the vendor will send a delivery quote (for
+   498→              Standard Delivery) and you pay once it&rsquo;s agreed. Your funds
+   499→              stay protected by {KwisCrow.NAME} escrow until you confirm receipt.
+   500→            </p>
+   501→          </motion.div>
+   502→        </div>
+   503→      </section>
+   504→
+   505→      <section className="container mx-auto max-w-7xl px-4 py-8">
+   506→        <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+   507→          {/* ── Left column: Products → Delivery Option ── */}
+   508→          <div className="space-y-6">
+   509→            {/* ── 1. PRODUCTS ── */}
+   510→            <section
+   511→              aria-labelledby="checkout-products-heading"
+   512→              className="rounded-2xl border border-border bg-card p-5 md:p-6"
+   513→            >
+   514→              <div className="mb-4 flex items-center gap-2">
+   515→                <div className="bg-secondary-50 text-secondary-700 flex h-9 w-9 items-center justify-center rounded-lg">
+   516→                  <ShoppingBag className="h-5 w-5" />
+   517→                </div>
+   518→                <div>
+   519→                  <h2
+   520→                    id="checkout-products-heading"
+   521→                    className="text-foreground text-base font-semibold"
+   522→                  >
+   523→                    Your items
+   524→                  </h2>
+   525→                  <p className="text-muted-foreground text-xs">
+   526→                    {items.length} item{items.length > 1 ? "s" : ""} from{" "}
+   527→                    {storeCount} vendor{storeCount > 1 ? "s" : ""} — each
+   528→                    vendor receives a separate order.
+   529→                  </p>
+   530→                </div>
+   531→              </div>
+   532→
+   533→              <div className="space-y-5">
+   534→                {Object.entries(itemsByStore).map(([key, group]) => (
+   535→                  <div
+   536→                    key={key}
+   537→                    className="rounded-xl border border-border bg-background p-4"
+   538→                  >
+   539→                    {/* Vendor sub-header (multi-vendor grouping) */}
+   540→                    <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+   541→                      <Store className="text-secondary-600 h-4 w-4" />
+   542→                      <span className="text-foreground text-sm font-semibold">
+   543→                        {group.storeName}
+   544→                      </span>
+   545→                      <span className="text-muted-foreground ml-auto text-xs">
+   546→                        Subtotal: {formatNGN(group.subtotal)}
+   547→                      </span>
+   548→                    </div>
+   549→
+   550→                    <div className="space-y-3">
+   551→                      {group.items.map((item) => (
+   552→                        <div key={item.id} className="flex gap-3">
+   553→                          <div className="bg-muted h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border">
+   554→                            {/* eslint-disable-next-line @next/next/no-img-element */}
+   555→                            <img
+   556→                              src={item.image}
+   557→                              alt={item.name}
+   558→                              className="h-full w-full object-cover"
+   559→                              loading="lazy"
+   560→                            />
+   561→                          </div>
+   562→
+   563→                          <div className="min-w-0 flex-1">
+   564→                            <p className="text-foreground line-clamp-2 text-sm font-medium">
+   565→                              {item.name}
+   566→                            </p>
+   567→                            {item.variantName || item.variantId ? (
+   568→                              <p className="text-muted-foreground mt-0.5 text-xs">
+   569→                                Variant: {item.variantName ?? item.variantId}
+   570→                              </p>
+   571→                            ) : null}
+   572→                            <p className="text-foreground mt-0.5 text-sm font-semibold">
+   573→                              {formatNGN(item.price)}
+   574→                            </p>
+   575→                            {item.comparePrice ? (
+   576→                              <p className="text-muted-foreground text-xs line-through">
+   577→                                {formatNGN(item.comparePrice)}
+   578→                              </p>
+   579→                            ) : null}
+   580→                          </div>
+   581→
+   582→                          <div className="flex flex-col items-end gap-2">
+   583→                            {/* Quantity stepper */}
+   584→                            <div className="flex items-center rounded-lg border border-border">
+   585→                              <button
+   586→                                type="button"
+   587→                                aria-label="Decrease quantity"
+   588→                                onClick={() =>
+   589→                                  updateQuantity(
+   590→                                    item.productId,
+   591→                                    item.quantity - 1,
+   592→                                    item.storeSlug,
+   593→                                  )
+   594→                                }
+   595→                                className="text-muted-foreground hover:text-foreground flex h-8 w-8 items-center justify-center"
+   596→                              >
+   597→                                <Minus className="h-3.5 w-3.5" />
+   598→                              </button>
+   599→                              <span className="text-foreground w-8 text-center text-sm font-medium">
+   600→                                {item.quantity}
+   601→                              </span>
+   602→                              <button
+   603→                                type="button"
+   604→                                aria-label="Increase quantity"
+   605→                                onClick={() =>
+   606→                                  updateQuantity(
+   607→                                    item.productId,
+   608→                                    item.quantity + 1,
+   609→                                    item.storeSlug,
+   610→                                  )
+   611→                                }
+   612→                                className="text-muted-foreground hover:text-foreground flex h-8 w-8 items-center justify-center"
+   613→                              >
+   614→                                <Plus className="h-3.5 w-3.5" />
+   615→                              </button>
+   616→                            </div>
+   617→                            <button
+   618→                              type="button"
+   619→                              aria-label={`Remove ${item.name}`}
+   620→                              onClick={() =>
+   621→                                removeItem(item.productId, item.storeSlug)
+   622→                              }
+   623→                              className="text-muted-foreground hover:text-danger"
+   624→                            >
+   625→                              <Trash2 className="h-4 w-4" />
+   626→                            </button>
+   627→                            {/* Line subtotal */}
+   628→                            <p className="text-foreground text-xs font-semibold">
+   629→                              {formatNGN(item.price * item.quantity)}
+   630→                            </p>
+   631→                          </div>
+   632→                        </div>
+   633→                      ))}
+   634→                    </div>
+   635→                  </div>
+   636→                ))}
+   637→              </div>
+   638→            </section>
+   639→
+   640→            {/* ── 2. DELIVERY OPTION (Pickup / Standard Delivery ONLY) ── */}
+   641→            <section
+   642→              aria-labelledby="checkout-delivery-heading"
+   643→              className="rounded-2xl border border-border bg-card p-5 md:p-6"
+   644→            >
+   645→              <div className="mb-4 flex items-center gap-2">
+   646→                <div className="bg-secondary-50 text-secondary-700 flex h-9 w-9 items-center justify-center rounded-lg">
+   647→                  <Truck className="h-5 w-5" />
+   648→                </div>
+   649→                <div>
+   650→                  <h2
+   651→                    id="checkout-delivery-heading"
+   652→                    className="text-foreground text-base font-semibold"
+   653→                  >
+   654→                    Delivery option
+   655→                  </h2>
+   656→                  <p className="text-muted-foreground text-xs">
+   657→                    Choose how you want to receive your order. The vendor
+   658→                    confirms the final delivery fee during quotation.
+   659→                  </p>
+   660→                </div>
+   661→              </div>
+   662→
+   663→              <div
+   664→                role="radiogroup"
+   665→                aria-label="Delivery method"
+   666→                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+   667→              >
+   668→                {DELIVERY_OPTIONS.map((opt) => {
+   669→                  const selected = deliveryMethod === opt.method;
+   670→                  const Icon = opt.Icon;
+   671→                  return (
+   672→                    <button
+   673→                      key={opt.method}
+   674→                      type="button"
+   675→                      role="radio"
+   676→                      aria-checked={selected}
+   677→                      onClick={() => setDeliveryMethod(opt.method)}
+   678→                      className={cn(
+   679→                        "relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500/40",
+   680→                        selected
+   681→                          ? "border-secondary-500 bg-secondary-50 ring-1 ring-secondary-500/30"
+   682→                          : "border-border bg-background hover:border-secondary-500/40",
+   683→                      )}
+   684→                    >
+   685→                      <div className="flex w-full items-center justify-between">
+   686→                        <div
+   687→                          className={cn(
+   688→                            "flex h-9 w-9 items-center justify-center rounded-lg",
+   689→                            selected
+   690→                              ? "bg-secondary-500/15 text-secondary-700"
+   691→                              : "bg-muted text-muted-foreground",
+   692→                          )}
+   693→                        >
+   694→                          <Icon className="h-5 w-5" />
+   695→                        </div>
+   696→                        {selected ? (
+   697→                          <span className="bg-secondary-500 flex h-5 w-5 items-center justify-center rounded-full text-white">
+   698→                            <Check className="h-3 w-3" strokeWidth={3} />
+   699→                          </span>
+   700→                        ) : null}
+   701→                      </div>
+   702→                      <div>
+   703→                        <p className="text-foreground text-sm font-semibold">
+   704→                          {opt.label}
+   705→                        </p>
+   706→                        <p className="text-muted-foreground text-xs">
+   707→                          {opt.description}
+   708→                        </p>
+   709→                      </div>
+   710→                      <div className="mt-1 w-full border-t border-border pt-2 text-xs">
+   711→                        <p className="flex items-center justify-between">
+   712→                          <span className="text-muted-foreground">
+   713→                            Delivery fee
+   714→                          </span>
+   715→                          <span className="text-foreground font-semibold">
+   716→                            {opt.feeLabel}
+   717→                          </span>
+   718→                        </p>
+   719→                      </div>
+   720→                    </button>
+   721→                  );
+   722→                })}
+   723→              </div>
+   724→
+   725→              {/* Pickup → no address needed. Standard Delivery → address CTA. */}
+   726→              {deliveryMethod === "PICKUP" ? (
+   727→                <div className="mt-4 flex items-start gap-2 rounded-xl bg-muted/60 p-3 text-xs">
+   728→                  <Store className="text-secondary-600 mt-0.5 h-4 w-4 shrink-0" />
+   729→                  <p className="text-muted-foreground">
+   730→                    <span className="text-foreground font-semibold">
+   731→                      Pickup selected.
+   732→                    </span>{" "}
+   733→                    No delivery address needed. The vendor will share pickup
+   734→                    instructions once they accept your order. You can
+   735→                    initialize payment immediately after placing the order.
+   736→                  </p>
+   737→                </div>
+   738→              ) : (
+   739→                <div className="mt-4 space-y-3">
+   740→                  <button
+   741→                    type="button"
+   742→                    onClick={openAddressModal}
+   743→                    className={cn(
+   744→                      "flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition",
+   745→                      addressConfirmed
+   746→                        ? "border-secondary-500 bg-secondary-50"
+   747→                        : "border-border bg-background hover:border-secondary-500/40",
+   748→                    )}
+   749→                  >
+   750→                    <span className="flex items-center gap-3">
+   751→                      <span
+   752→                        className={cn(
+   753→                          "flex h-9 w-9 items-center justify-center rounded-lg",
+   754→                          addressConfirmed
+   755→                            ? "bg-secondary-500/15 text-secondary-700"
+   756→                            : "bg-muted text-muted-foreground",
+   757→                        )}
+   758→                      >
+   759→                        <MapPin className="h-5 w-5" />
+   760→                      </span>
+   761→                      <span>
+   762→                        <span className="text-foreground block text-sm font-semibold">
+   763→                          {addressConfirmed
+   764→                            ? "Delivery address confirmed"
+   765→                            : "Confirm delivery address"}
+   766→                        </span>
+   767→                        <span className="text-muted-foreground block text-xs">
+   768→                          {addressConfirmed
+   769→                            ? `${address.fullName} · ${address.addressLine}, ${address.city}, ${address.state}`
+   770→                            : "Add the address where the vendor should ship your order."}
+   771→                        </span>
+   772→                      </span>
+   773→                    </span>
+   774→                    <ChevronRight className="text-muted-foreground h-4 w-4" />
+   775→                  </button>
+   776→                  {!addressConfirmed && (
+   777→                    <p className="flex items-start gap-1.5 text-xs text-amber-600">
+   778→                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+   779→                      Standard Delivery requires a confirmed shipping address
+   780→                      before you can place your order.
+   781→                    </p>
+   782→                  )}
+   783→                </div>
+   784→              )}
+   785→            </section>
+   786→          </div>
+   787→
+   788→          {/* ── Right column: Order summary + Place order ── */}
+   789→          <aside className="lg:sticky lg:top-4 lg:h-fit">
+   790→            <section
+   791→              aria-labelledby="checkout-summary-heading"
+   792→              className="rounded-2xl border border-border bg-card p-5 md:p-6"
+   793→            >
+   794→              <h2
+   795→                id="checkout-summary-heading"
+   796→                className="text-foreground mb-4 text-base font-semibold"
+   797→              >
+   798→                Order summary
+   799→              </h2>
+   800→
+   801→              <dl className="space-y-2.5 text-sm">
+   802→                {/* Subtotal */}
+   803→                <div className="flex justify-between">
+   804→                  <dt className="text-muted-foreground">Subtotal</dt>
+   805→                  <dd className="text-foreground font-medium">
+   806→                    {formatNGN(subtotal)}
+   807→                  </dd>
+   808→                </div>
+   809→
+   810→                {/* Delivery fee */}
+   811→                <div className="flex items-start justify-between">
+   812→                  <dt className="text-muted-foreground">
+   813→                    Delivery fee
+   814→                    {deliveryMethod === "STANDARD_DELIVERY" ? (
+   815→                      <span className="block text-xs text-muted-foreground/80">
+   816→                        Vendor will quote
+   817→                      </span>
+   818→                    ) : null}
+   819→                  </dt>
+   820→                  <dd className="text-foreground font-medium">
+   821→                    {deliveryMethod === "PICKUP"
+   822→                      ? "₦0"
+   823→                      : "To be quoted by vendor"}
+   824→                  </dd>
+   825→                </div>
+   826→
+   827→                {/* Processing fee — backend computes the real amount. */}
+   828→                <div className="flex items-start justify-between">
+   829→                  <dt className="text-muted-foreground">
+   830→                    Processing fee
+   831→                    <span className="block text-xs text-muted-foreground/80">
+   832→                      1% (calculated at checkout)
+   833→                    </span>
+   834→                  </dt>
+   835→                  <dd className="text-foreground font-medium">
+   836→                    {deliveryMethod === "PICKUP"
+   837→                      ? `≈ ${formatNGN(estimatedProcessingFee)}`
+   838→                      : "Calculated at checkout"}
+   839→                  </dd>
+   840→                </div>
+   841→              </dl>
+   842→
+   843→              <div className="my-4 border-t border-border" />
+   844→
+   845→              {/* Total */}
+   846→              <div className="flex items-baseline justify-between gap-3">
+   847→                <span className="text-foreground text-sm font-medium">
+   848→                  Total
+   849→                </span>
+   850→                <span className="text-foreground text-right text-base font-bold">
+   851→                  {deliveryMethod === "PICKUP" ? (
+   852→                    <>
+   853→                      ≈ {formatNGN(subtotal + estimatedProcessingFee)}
+   854→                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+   855→                        Subtotal + 1% processing fee (final amount confirmed by
+   856→                        backend)
+   857→                      </span>
+   858→                    </>
+   859→                  ) : (
+   860→                    <>
+   861→                      Subtotal + processing fee + delivery fee (TBD)
+   862→                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+   863→                        Final total shown once the vendor&rsquo;s delivery quote
+   864→                        is agreed.
+   865→                      </span>
+   866→                    </>
+   867→                  )}
+   868→                </span>
+   869→              </div>
+   870→
+   871→              <button
+   872→                type="button"
+   873→                onClick={handlePlaceOrder}
+   874→                disabled={checkout.isPending}
+   875→                className="bg-secondary-500 hover:bg-secondary-600 mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
+   876→              >
+   877→                {checkout.isPending ? (
+   878→                  <>
+   879→                    <Loader2 className="h-4 w-4 animate-spin" /> Placing order…
+   880→                  </>
+   881→                ) : (
+   882→                  <>
+   883→                    Place order <ChevronRight className="h-4 w-4" />
+   884→                  </>
+   885→                )}
+   886→              </button>
+   887→
+   888→              <p className="text-muted-foreground mt-3 text-center text-xs">
+   889→                {deliveryMethod === "PICKUP"
+   890→                  ? "You can initialize payment immediately after placing the order."
+   891→                  : "The vendor will send a delivery quote after you place the order. You pay once the quote is agreed."}
+   892→              </p>
+   893→
+   894→              {/* KwisCrow protection */}
+   895→              <div className="bg-secondary-50 mt-4 flex items-start gap-2 rounded-xl p-3">
+   896→                <ShieldCheck className="text-secondary-600 mt-0.5 h-5 w-5 shrink-0" />
+   897→                <div className="text-muted-foreground text-xs leading-5">
+   898→                  <span className="text-foreground font-semibold">
+   899→                    {KwisCrow.NAME} Buyer Protection.
+   900→                  </span>{" "}
+   901→                  Your payment stays in escrow until you confirm receipt (or
+   902→                  the {KwisCrow.DISPUTE_WINDOW_HOURS}-hour dispute window
+   903→                  closes).
+   904→                </div>
+   905→              </div>
+   906→            </section>
+   907→          </aside>
+   908→        </div>
+   909→      </section>
+   910→
+   911→      {/* ── Address modal ── */}
+   912→      {addressModalOpen ? (
+   913→        <div
+   914→          className="fixed inset-0 z-[140] flex items-end bg-black/45 p-4 sm:items-center sm:justify-center"
+   915→          role="dialog"
+   916→          aria-modal="true"
+   917→          aria-labelledby="address-modal-title"
+   918→        >
+   919→          <div className="bg-background max-h-[90vh] w-full max-w-lg overflow-y-auto p-5 shadow-2xl">
+   920→            <div className="flex items-center justify-between gap-3">
+   921→              <div>
+   922→                <h2
+   923→                  id="address-modal-title"
+   924→                  className="text-foreground text-lg font-semibold"
+   925→                >
+   926→                  Confirm delivery address
+   927→                </h2>
+   928→                <p className="text-muted-foreground text-sm">
+   929→                  The vendor will ship your order to this address.
+   930→                </p>
+   931→              </div>
+   932→              <button
+   933→                type="button"
+   934→                onClick={() => setAddressModalOpen(false)}
+   935→                className="hover:bg-muted flex h-9 w-9 items-center justify-center rounded-lg"
+   936→                aria-label="Close modal"
+   937→              >
+   938→                <X className="h-4 w-4" />
+   939→              </button>
+   940→            </div>
+   941→
+   942→            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+   943→              {/* Full name — disabled (from profile) */}
+   944→              <div>
+   945→                <label className="text-muted-foreground mb-1.5 block text-xs font-semibold uppercase tracking-wide">
+   946→                  Full name
+   947→                </label>
+   948→                <input
+   949→                  type="text"
+   950→                  value={address.fullName}
+   951→                  disabled
+   952→                  placeholder={profileLoading ? "Loading…" : "—"}
+   953→                  className="bg-muted text-muted-foreground h-11 w-full cursor-not-allowed rounded-xl border border-border px-3 text-sm"
+   954→                />
+   955→              </div>
+   956→              {/* Phone — disabled (from profile) */}
+   957→              <div>
+   958→                <label className="text-muted-foreground mb-1.5 block text-xs font-semibold uppercase tracking-wide">
+   959→                  Phone number
+   960→                </label>
+   961→                <input
+   962→                  type="text"
+   963→                  value={address.phone}
+   964→                  disabled
+   965→                  placeholder={profileLoading ? "Loading…" : "—"}
+   966→                  className="bg-muted text-muted-foreground h-11 w-full cursor-not-allowed rounded-xl border border-border px-3 text-sm"
+   967→                />
+   968→              </div>
+   969→
+   970→              {/* Editable: street address */}
+   971→              <div className="sm:col-span-2">
+   972→                <Field
+   973→                  label="Street address"
+   974→                  required
+   975→                  error={errors.addressLine}
+   976→                  value={address.addressLine}
+   977→                  onChange={(v) =>
+   978→                    setAddress((a) => ({ ...a, addressLine: v }))
+   979→                  }
+   980→                  placeholder="House 12, Allen Avenue, Ikeja"
+   981→                />
+   982→              </div>
+   983→              {/* Editable: city */}
+   984→              <Field
+   985→                label="City"
+   986→                required
+   987→                error={errors.city}
+   988→                value={address.city}
+   989→                onChange={(v) => setAddress((a) => ({ ...a, city: v }))}
+   990→                placeholder="Ikeja"
+   991→              />
+   992→              {/* Editable: state */}
+   993→              <div>
+   994→                <label className="text-muted-foreground mb-1.5 block text-xs font-semibold uppercase tracking-wide">
+   995→                  State <span className="text-danger">*</span>
+   996→                </label>
+   997→                <select
+   998→                  value={address.state}
+   999→                  onChange={(e) =>
+  1000→                    setAddress((a) => ({ ...a, state: e.target.value }))
+  1001→                  }
+  1002→                  className={cn(
+  1003→                    "bg-background text-foreground focus:ring-secondary-500/20 h-11 w-full rounded-xl border px-3 text-sm focus:border-secondary-500 focus:outline-none focus:ring-2",
+  1004→                    errors.state ? "border-danger" : "border-border",
+  1005→                  )}
+  1006→                >
+  1007→                  {NIGERIAN_STATES.map((s) => (
+  1008→                    <option key={s} value={s}>
+  1009→                      {s}
+  1010→                    </option>
+  1011→                  ))}
+  1012→                </select>
+  1013→                {errors.state ? (
+  1014→                  <p className="text-danger mt-1 text-xs">{errors.state}</p>
+  1015→                ) : null}
+  1016→              </div>
+  1017→              {/* Editable: landmark */}
+  1018→              <div className="sm:col-span-2">
+  1019→                <Field
+  1020→                  label="Landmark (optional)"
+  1021→                  value={address.landmark ?? ""}
+  1022→                  onChange={(v) => setAddress((a) => ({ ...a, landmark: v }))}
+  1023→                  placeholder="Opposite the petrol station"
+  1024→                />
+  1025→              </div>
+  1026→            </div>
+  1027→
+  1028→            <p className="text-muted-foreground mt-4 text-xs">
+  1029→              Name and phone are pulled from your profile and cannot be edited
+  1030→              here. Update them on your{" "}
+  1031→              <button
+  1032→                type="button"
+  1033→                onClick={() => router.push("/profile")}
+  1034→                className="text-secondary-700 hover:text-secondary-800 underline-offset-2 hover:underline"
+  1035→              >
+  1036→                profile page
+  1037→              </button>
+  1038→              .
+  1039→            </p>
+  1040→
+  1041→            <div className="mt-5 grid grid-cols-2 gap-3">
+  1042→              <button
+  1043→                type="button"
+  1044→                onClick={() => setAddressModalOpen(false)}
+  1045→                className="border-border text-foreground hover:bg-muted inline-flex h-11 items-center justify-center rounded-xl border text-sm font-semibold transition"
+  1046→              >
+  1047→                Cancel
+  1048→              </button>
+  1049→              <button
+  1050→                type="button"
+  1051→                onClick={saveAddressFromModal}
+  1052→                className="bg-secondary-500 hover:bg-secondary-600 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold text-white transition"
+  1053→              >
+  1054→                Confirm &amp; place order
+  1055→              </button>
+  1056→            </div>
+  1057→          </div>
+  1058→        </div>
+  1059→      ) : null}
+  1060→    </div>
+  1061→  );
+  1062→}
+  1063→
+  1064→// ── Reusable text field ────────────────────────────────────────────────────
+  1065→
+  1066→function Field({
+  1067→  label,
+  1068→  value,
+  1069→  onChange,
+  1070→  placeholder,
+  1071→  required,
+  1072→  error,
+  1073→}: {
+  1074→  label: string;
+  1075→  value: string;
+  1076→  onChange: (v: string) => void;
+  1077→  placeholder?: string;
+  1078→  required?: boolean;
+  1079→  error?: string;
+  1080→}) {
+  1081→  return (
+  1082→    <div>
+  1083→      <label className="text-muted-foreground mb-1.5 block text-xs font-semibold uppercase tracking-wide">
+  1084→        {label} {required ? <span className="text-danger">*</span> : null}
+  1085→      </label>
+  1086→      <input
+  1087→        type="text"
+  1088→        value={value}
+  1089→        onChange={(e) => onChange(e.target.value)}
+  1090→        placeholder={placeholder}
+  1091→        className={cn(
+  1092→          "bg-background text-foreground placeholder:text-muted-foreground focus:ring-secondary-500/20 h-11 w-full rounded-xl border px-3 text-sm focus:outline-none focus:ring-2",
+  1093→          error
+  1094→            ? "border-danger focus:ring-danger/20"
+  1095→            : "border-border focus:border-secondary-500",
+  1096→        )}
+  1097→      />
+  1098→      {error ? <p className="text-danger mt-1 text-xs">{error}</p> : null}
+  1099→    </div>
+  1100→  );
+  1101→}
+  1102→

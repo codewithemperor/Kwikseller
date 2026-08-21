@@ -3,7 +3,7 @@
 import React from "react";
 import { Card, CardContent, Spinner } from "@heroui/react";
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@kwikseller/utils";
+import { formatCurrency } from "@/lib/utils";
 
 export interface StatsCardProps {
   title: string;
@@ -80,3 +80,4 @@ export function StatsCard({
     </Card>
   );
 }
+

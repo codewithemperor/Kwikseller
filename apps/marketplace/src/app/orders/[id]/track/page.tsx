@@ -30,11 +30,11 @@ import {
   Send,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@kwikseller/api-client";
+import { api } from "@/services/api-client";
 import { AppImage } from "@/components/ui/app-image";
 import { PageLoading } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { useDeliveryRating, useRateDelivery } from "@/lib/order-api";
 import { cn } from "@/lib/utils";
 
@@ -178,7 +178,7 @@ export default function OrderTrackingPage() {
 
   return (
     <main className="min-h-screen bg-kwik-bg-page">
-      <div className="container mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -193,172 +193,137 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
-        {/* Tracking number card */}
-        {trackingNumber && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 flex items-center justify-between rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kwik-orange/10">
-                <Navigation className="h-5 w-5 text-kwik-orange" />
-              </div>
-              <div>
-                <p className="text-xs text-kwik-muted">Tracking number</p>
-                <p className="font-mono font-semibold text-foreground">{trackingNumber}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={copyTracking}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-kwik-border-light px-3 text-sm font-medium text-kwik-muted transition hover:bg-kwik-bg-page"
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+          {/* Left: Tracking workspace */}
+          <div className="space-y-4">
+            {/* Status banner */}
+            <div
+              className={cn(
+                "rounded-2xl p-5 text-center",
+                isCancelled
+                  ? "bg-kwik-red/5 text-kwik-red"
+                  : currentIndex >= 4
+                    ? "bg-kwik-green/5 text-kwik-green"
+                    : "bg-kwik-orange/5 text-kwik-orange",
+              )}
             >
-              {copied ? <Check className="h-4 w-4 text-kwik-green" /> : <Copy className="h-4 w-4" />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </motion.div>
-        )}
-
-        {/* Status banner */}
-        <div
-          className={cn(
-            "mt-4 rounded-2xl p-5 text-center",
-            isCancelled
-              ? "bg-kwik-red/5 text-kwik-red"
-              : currentIndex >= 4
-                ? "bg-kwik-green/5 text-kwik-green"
-                : "bg-kwik-orange/5 text-kwik-orange",
-          )}
-        >
-          {isCancelled ? (
-            <p className="text-lg font-bold">Order cancelled</p>
-          ) : currentIndex >= 4 ? (
-            <>
-              <CheckCircle2 className="mx-auto h-10 w-10" />
-              <p className="mt-2 text-lg font-bold">Delivered!</p>
-              <p className="text-sm opacity-80">Your order has arrived. Enjoy!</p>
-            </>
-          ) : (
-            <>
-              <Loader2 className="mx-auto h-8 w-8 animate-spin" />
-              <p className="mt-2 text-lg font-bold">
-                {STEPS[Math.max(0, currentIndex)].label}
-              </p>
-              <p className="text-sm opacity-80">
-                {STEPS[Math.max(0, currentIndex)].description}
-                {order?.estimatedDeliveryDays && currentIndex < 4 && (
-                  <> · Est. {order.estimatedDeliveryDays} day{order.estimatedDeliveryDays === 1 ? "" : "s"}</>
-                )}
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Live ETA countdown (cycle 7) — shown when en route and not yet arrived */}
-        {isEnRoute && !isCancelled && map && map.progressPercent < 100 && (
-          <LiveEtaCountdown etaMinutes={map.etaMinutes} distanceKm={map.distanceKm} />
-        )}
-
-        {/* Rate delivery prompt (cycle 7 + cycle 9 persistence) — shown when delivered */}
-        {currentIndex >= 4 && !isCancelled && (
-          <RateDeliveryCard orderId={orderId} agentName={agent?.name} />
-        )}
-
-        {/* Step timeline (horizontal on desktop) */}
-        {!isCancelled && (
-          <div className="mt-6 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
-            <div className="hidden sm:flex sm:items-center sm:justify-between">
-              {STEPS.map((step, i) => {
-                const Icon = step.icon;
-                const reached = i <= currentIndex;
-                const isCurrent = i === currentIndex;
-                return (
-                  <div key={step.key} className="flex flex-1 flex-col items-center text-center">
-                    <div className="flex w-full items-center">
-                      {i > 0 && (
-                        <div className={cn("h-0.5 flex-1", i <= currentIndex ? "bg-kwik-orange" : "bg-kwik-border-light")} />
-                      )}
-                      <motion.div
-                        initial={{ scale: 0.9 }}
-                        animate={{ scale: isCurrent ? 1.1 : 1 }}
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-2 transition",
-                          reached
-                            ? "bg-kwik-orange text-white ring-kwik-orange"
-                            : "bg-kwik-bg-page text-kwik-muted ring-kwik-border-light",
-                          isCurrent && "ring-offset-2 ring-offset-kwik-bg-surface",
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </motion.div>
-                      {i < STEPS.length - 1 && (
-                        <div className={cn("h-0.5 flex-1", i < currentIndex ? "bg-kwik-orange" : "bg-kwik-border-light")} />
-                      )}
-                    </div>
-                    <p className={cn("mt-2 text-xs font-semibold", reached ? "text-foreground" : "text-kwik-muted")}>
-                      {step.label}
-                    </p>
-                  </div>
-                );
-              })}
+              {isCancelled ? (
+                <p className="text-lg font-bold">Order cancelled</p>
+              ) : currentIndex >= 4 ? (
+                <>
+                  <CheckCircle2 className="mx-auto h-10 w-10" />
+                  <p className="mt-2 text-lg font-bold">Delivered!</p>
+                  <p className="text-sm opacity-80">Your order has arrived. Enjoy!</p>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin" />
+                  <p className="mt-2 text-lg font-bold">
+                    {STEPS[Math.max(0, currentIndex)].label}
+                  </p>
+                  <p className="text-sm opacity-80">
+                    {STEPS[Math.max(0, currentIndex)].description}
+                    {order?.estimatedDeliveryDays && currentIndex < 4 && (
+                      <> · Est. {order.estimatedDeliveryDays} day{order.estimatedDeliveryDays === 1 ? "" : "s"}</>
+                    )}
+                  </p>
+                </>
+              )}
             </div>
 
-            {/* Vertical timeline (mobile) */}
-            <div className="space-y-4 sm:hidden">
-              {STEPS.map((step, i) => {
-                const Icon = step.icon;
-                const reached = i <= currentIndex;
-                const isCurrent = i === currentIndex;
-                return (
-                  <div key={step.key} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <motion.div
-                        initial={{ scale: 0.9 }}
-                        animate={{ scale: isCurrent ? 1.1 : 1 }}
-                        className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-full ring-2",
-                          reached
-                            ? "bg-kwik-orange text-white ring-kwik-orange"
-                            : "bg-kwik-bg-page text-kwik-muted ring-kwik-border-light",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </motion.div>
-                      {i < STEPS.length - 1 && (
-                        <div className={cn("my-1 h-6 w-0.5", i < currentIndex ? "bg-kwik-orange" : "bg-kwik-border-light")} />
-                      )}
-                    </div>
-                    <div className="pt-1">
-                      <p className={cn("text-sm font-semibold", reached ? "text-foreground" : "text-kwik-muted")}>
-                        {step.label}
-                      </p>
-                      <p className="text-xs text-kwik-muted">{step.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Live map placeholder + delivery agent — shown once the order is en route */}
-        {isEnRoute && !isCancelled && (
-          <div className="mt-6 grid gap-4 lg:grid-cols-5">
-            {/* Map placeholder (3/5 width on lg) */}
-            {map && (
+            {/* Live route map — shown once the order is en route */}
+            {isEnRoute && !isCancelled && map && (
               <LiveRouteMap map={map} isDelivered={currentIndex >= 5} />
             )}
 
-            {/* Delivery agent card (2/5 width on lg) */}
-            {agent && (
+            {/* Step timeline (horizontal on desktop) */}
+            {!isCancelled && (
+              <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
+                <div className="hidden sm:flex sm:items-center sm:justify-between">
+                  {STEPS.map((step, i) => {
+                    const Icon = step.icon;
+                    const reached = i <= currentIndex;
+                    const isCurrent = i === currentIndex;
+                    return (
+                      <div key={step.key} className="flex flex-1 flex-col items-center text-center">
+                        <div className="flex w-full items-center">
+                          {i > 0 && (
+                            <div className={cn("h-0.5 flex-1", i <= currentIndex ? "bg-kwik-orange" : "bg-kwik-border-light")} />
+                          )}
+                          <motion.div
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: isCurrent ? 1.1 : 1 }}
+                            className={cn(
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-2 transition",
+                              reached
+                                ? "bg-kwik-orange text-white ring-kwik-orange"
+                                : "bg-kwik-bg-page text-kwik-muted ring-kwik-border-light",
+                              isCurrent && "ring-offset-2 ring-offset-kwik-bg-surface",
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </motion.div>
+                          {i < STEPS.length - 1 && (
+                            <div className={cn("h-0.5 flex-1", i < currentIndex ? "bg-kwik-orange" : "bg-kwik-border-light")} />
+                          )}
+                        </div>
+                        <p className={cn("mt-2 text-xs font-semibold", reached ? "text-foreground" : "text-kwik-muted")}>
+                          {step.label}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Vertical timeline (mobile) */}
+                <div className="space-y-4 sm:hidden">
+                  {STEPS.map((step, i) => {
+                    const Icon = step.icon;
+                    const reached = i <= currentIndex;
+                    const isCurrent = i === currentIndex;
+                    return (
+                      <div key={step.key} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <motion.div
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: isCurrent ? 1.1 : 1 }}
+                            className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-full ring-2",
+                              reached
+                                ? "bg-kwik-orange text-white ring-kwik-orange"
+                                : "bg-kwik-bg-page text-kwik-muted ring-kwik-border-light",
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </motion.div>
+                          {i < STEPS.length - 1 && (
+                            <div className={cn("my-1 h-6 w-0.5", i < currentIndex ? "bg-kwik-orange" : "bg-kwik-border-light")} />
+                          )}
+                        </div>
+                        <div className="pt-1">
+                          <p className={cn("text-sm font-semibold", reached ? "text-foreground" : "text-kwik-muted")}>
+                            {step.label}
+                          </p>
+                          <p className="text-xs text-kwik-muted">{step.description}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Live ETA countdown — shown when en route and not yet arrived */}
+            {isEnRoute && !isCancelled && map && map.progressPercent < 100 && (
+              <LiveEtaCountdown etaMinutes={map.etaMinutes} distanceKm={map.distanceKm} />
+            )}
+
+            {/* Delivery agent card — shown once the order is en route */}
+            {isEnRoute && !isCancelled && agent && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  "rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5",
-                  !map && "lg:col-span-5",
-                )}
+                className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5"
               >
                 <div className="flex items-center gap-2">
                   <UserIcon className="h-5 w-5 text-kwik-orange" />
@@ -418,81 +383,116 @@ export default function OrderTrackingPage() {
                 </div>
               </motion.div>
             )}
-          </div>
-        )}
 
-        {/* Full history timeline */}
-        {data.timeline.length > 0 && (
-          <div className="mt-6 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
-            <h2 className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-              <Clock className="h-5 w-5 text-kwik-orange" /> History
-            </h2>
-            <ol className="mt-4 space-y-3">
-              {data.timeline.map((t, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm">
-                  <span
-                    className={cn(
-                      "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
-                      i === data.timeline.length - 1 ? "bg-kwik-orange ring-4 ring-kwik-orange/20" : "bg-kwik-muted",
-                    )}
-                  />
-                  <div>
-                    <p className="font-medium text-foreground">{t.status.replace(/_/g, " ")}</p>
-                    <p className="text-xs text-kwik-muted">
-                      {formatDateTime(t.at)}
-                      {t.note ? ` · ${t.note}` : ""}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            {/* Rate delivery prompt — shown when delivered */}
+            {currentIndex >= 4 && !isCancelled && (
+              <RateDeliveryCard orderId={orderId} agentName={agent?.name} />
+            )}
           </div>
-        )}
 
-        {/* Delivery address + items */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {address && (
-            <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-kwik-orange" />
-                <h2 className="font-semibold text-foreground">Delivery address</h2>
-              </div>
-              <p className="mt-3 text-sm text-kwik-muted">
-                <span className="font-medium text-foreground">{address.fullName}</span>
-                <br />
-                {address.addressLine1}
-                <br />
-                {address.city}, {address.state}
-              </p>
-              <a
-                href={`tel:${address.phone}`}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-kwik-orange hover:underline"
+          {/* Right: Delivery information */}
+          <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+            {/* Tracking number card */}
+            {trackingNumber && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-between rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4"
               >
-                <Phone className="h-3.5 w-3.5" /> {address.phone}
-              </a>
-            </div>
-          )}
-          {order?.items && order.items.length > 0 && (
-            <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-kwik-orange" />
-                <h2 className="font-semibold text-foreground">Items ({order.items.length})</h2>
-              </div>
-              <div className="mt-3 space-y-2">
-                {order.items.slice(0, 4).map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.product.image} alt={item.product.name} className="h-9 w-9 rounded-md object-cover" />
-                    <span className="line-clamp-1 flex-1 font-medium text-foreground">{item.product.name}</span>
-                    <span className="text-kwik-muted">×{item.quantity}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kwik-orange/10">
+                    <Navigation className="h-5 w-5 text-kwik-orange" />
                   </div>
-                ))}
-                {order.items.length > 4 && (
-                  <p className="text-xs text-kwik-muted">+{order.items.length - 4} more</p>
-                )}
+                  <div>
+                    <p className="text-xs text-kwik-muted">Tracking number</p>
+                    <p className="font-mono font-semibold text-foreground">{trackingNumber}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyTracking}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-kwik-border-light px-3 text-sm font-medium text-kwik-muted transition hover:bg-kwik-bg-page"
+                >
+                  {copied ? <Check className="h-4 w-4 text-kwik-green" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </motion.div>
+            )}
+
+            {/* Delivery address */}
+            {address && (
+              <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-kwik-orange" />
+                  <h2 className="font-semibold text-foreground">Delivery address</h2>
+                </div>
+                <p className="mt-3 text-sm text-kwik-muted">
+                  <span className="font-medium text-foreground">{address.fullName}</span>
+                  <br />
+                  {address.addressLine1}
+                  <br />
+                  {address.city}, {address.state}
+                </p>
+                <a
+                  href={`tel:${address.phone}`}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-kwik-orange hover:underline"
+                >
+                  <Phone className="h-3.5 w-3.5" /> {address.phone}
+                </a>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Items */}
+            {order?.items && order.items.length > 0 && (
+              <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+                <div className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-kwik-orange" />
+                  <h2 className="font-semibold text-foreground">Items ({order.items.length})</h2>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {order.items.slice(0, 4).map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.product.image} alt={item.product.name} className="h-9 w-9 rounded-md object-cover" />
+                      <span className="line-clamp-1 flex-1 font-medium text-foreground">{item.product.name}</span>
+                      <span className="text-kwik-muted">×{item.quantity}</span>
+                    </div>
+                  ))}
+                  {order.items.length > 4 && (
+                    <p className="text-xs text-kwik-muted">+{order.items.length - 4} more</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Full history timeline */}
+            {data.timeline.length > 0 && (
+              <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
+                <h2 className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
+                  <Clock className="h-5 w-5 text-kwik-orange" /> History
+                </h2>
+                <ol className="mt-4 space-y-3">
+                  {data.timeline.map((t, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm">
+                      <span
+                        className={cn(
+                          "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                          i === data.timeline.length - 1 ? "bg-kwik-orange ring-4 ring-kwik-orange/20" : "bg-kwik-muted",
+                        )}
+                      />
+                      <div>
+                        <p className="font-medium text-foreground">{t.status.replace(/_/g, " ")}</p>
+                        <p className="text-xs text-kwik-muted">
+                          {formatDateTime(t.at)}
+                          {t.note ? ` · ${t.note}` : ""}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </aside>
         </div>
       </div>
     </main>
@@ -539,7 +539,7 @@ function LiveEtaCountdown({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 overflow-hidden rounded-2xl border border-kwik-orange/30 bg-gradient-to-br from-kwik-orange/5 to-kwik-amber/5 p-4 sm:p-5"
+      className="overflow-hidden rounded-2xl border border-kwik-orange/30 bg-gradient-to-br from-kwik-orange/5 to-kwik-amber/5 p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -631,7 +631,7 @@ function LiveRouteMap({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="lg:col-span-3 overflow-hidden rounded-2xl border border-kwik-border-light bg-kwik-bg-surface"
+      className="overflow-hidden rounded-2xl border border-kwik-border-light bg-kwik-bg-surface"
     >
       <div className="flex items-center justify-between gap-2 border-b border-kwik-border-light px-4 py-3">
         <div className="flex items-center gap-2">
@@ -804,7 +804,7 @@ function RateDeliveryCard({ orderId, agentName }: { orderId: string; agentName?:
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="mt-4 rounded-2xl border border-kwik-green/30 bg-kwik-green/5 p-5"
+        className="rounded-2xl border border-kwik-green/30 bg-kwik-green/5 p-5"
       >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kwik-green/15 text-kwik-green">
@@ -862,7 +862,7 @@ function RateDeliveryCard({ orderId, agentName }: { orderId: string; agentName?:
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 overflow-hidden rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5"
+      className="overflow-hidden rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5"
     >
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kwik-amber/10 text-kwik-amber">

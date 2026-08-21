@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { Button, Chip, Card } from "@heroui/react";
 import { useCartStore } from "@/stores";
-import { kwikToast } from "@kwikseller/utils";
-import { cn } from "@kwikseller/ui";
+import { kwikToast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
 // ─── Data ────────────────────────────────────────────────────────
 

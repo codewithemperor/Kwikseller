@@ -3,8 +3,8 @@
 import React from "react";
 import { useParams } from "next/navigation";
 import { Filter, Search, SlidersHorizontal } from "lucide-react";
-import { marketplaceStoresApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { marketplaceStoresApi } from "@/services/api-client";
+import { kwikToast } from "@/lib/toast";
 import {
   StorefrontLoading,
   VendorEmptyProducts,

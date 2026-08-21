@@ -21,7 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 /**

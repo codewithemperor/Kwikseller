@@ -38,7 +38,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { AppButton, Skeleton, VendorPageHeader } from "@kwikseller/ui";
+import { AppButton, Skeleton, VendorPageHeader } from "@/lib/ui";
 import { motion } from "framer-motion";
 
 // ==================== Types ====================

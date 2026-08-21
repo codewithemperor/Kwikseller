@@ -1,0 +1,1315 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import Link from "next/link";
+     5→import { motion, AnimatePresence } from "framer-motion";
+     6→import {
+     7→  Coins,
+     8→  TrendingUp,
+     9→  TrendingDown,
+    10→  ArrowUpRight,
+    11→  ArrowDownLeft,
+    12→  Gift,
+    13→  Star,
+    14→  Crown,
+    15→  Award,
+    16→  Sparkles,
+    17→  ArrowLeft,
+    18→  Wallet as WalletIcon,
+    19→  Trophy,
+    20→  Zap,
+    21→  Megaphone,
+    22→  Send,
+    23→  Check,
+    24→  Loader2,
+    25→  X,
+    26→  AlertTriangle,
+    27→  Clock,
+    28→  Copy,
+    29→  Share2,
+    30→  UserPlus,
+    31→  Users,
+    32→  Target,
+    33→  Flame,
+    34→  Search,
+    35→  Filter,
+    36→  Calendar,
+    37→  SlidersHorizontal,
+    38→  Download,
+    39→} from "lucide-react";
+    40→import { useQuery } from "@tanstack/react-query";
+    41→import { api } from "@/services/api-client";
+    42→import { AccountLayout } from "@/components/layout/account-layout";
+    43→import { PageLoading } from "@/components/ui/loading-state";
+    44→import { EmptyState } from "@/components/ui/empty-state";
+    45→import { kwikToast } from "@/lib/toast";
+    46→import { useRedeemWallet, type WalletRedemptionType } from "@/lib/order-api";
+    47→import { toCSV, downloadCSV } from "@/lib/csv";
+    48→import { cn } from "@/lib/utils";
+    49→
+    50→interface WalletTransaction {
+    51→  id: string;
+    52→  type: "CREDIT" | "DEBIT";
+    53→  amount: number;
+    54→  description: string;
+    55→  category: "ORDER_REWARD" | "SIGNUP_BONUS" | "REFERRAL" | "REDEMPTION" | "PURCHASE" | "AD_CREDIT" | "TIER_BONUS";
+    56→  createdAt: string;
+    57→}
+    58→
+    59→interface ExpiringCoins {
+    60→  amount: number;
+    61→  expiresAt: string;
+    62→  reason?: string;
+    63→}
+    64→
+    65→interface ReferralData {
+    66→  code: string;
+    67→  referralUrl: string;
+    68→  totalReferrals: number;
+    69→  successfulReferrals: number;
+    70→  pendingReferrals: number;
+    71→  coinsEarned: number;
+    72→  rewardPerReferral: number;
+    73→  friendReward: number;
+    74→  nextMilestone: number;
+    75→  milestoneBonus: number;
+    76→}
+    77→
+    78→interface WalletData {
+    79→  balance: number;
+    80→  nairaEquivalent: number;
+    81→  tier: "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+    82→  tierProgress: number;
+    83→  nextTier: "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+    84→  nextTierThreshold: number;
+    85→  lifetimeEarned: number;
+    86→  lifetimeSpent: number;
+    87→  earningRate: number;
+    88→  transactions: WalletTransaction[];
+    89→  expiringCoins?: ExpiringCoins;
+    90→  referral?: ReferralData;
+    91→}
+    92→
+    93→interface Tier {
+    94→  name: "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+    95→  minCoins: number;
+    96→  earningRate: number;
+    97→  color: string;
+    98→  perks: string[];
+    99→}
+   100→
+   101→function formatDateTime(value?: string) {
+   102→  if (!value) return "—";
+   103→  return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+   104→}
+   105→
+   106→function formatNGN(n: number) {
+   107→  return new Intl.NumberFormat("en-NG", {
+   108→    style: "currency",
+   109→    currency: "NGN",
+   110→    maximumFractionDigits: 0,
+   111→  }).format(n);
+   112→}
+   113→
+   114→const TIER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+   115→  BRONZE: Award,
+   116→  SILVER: Star,
+   117→  GOLD: Coins,
+   118→  PLATINUM: Crown,
+   119→};
+   120→
+   121→const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+   122→  ORDER_REWARD: Coins,
+   123→  SIGNUP_BONUS: Gift,
+   124→  REFERRAL: Sparkles,
+   125→  REDEMPTION: ArrowDownLeft,
+   126→  PURCHASE: ArrowDownLeft,
+   127→  AD_CREDIT: Zap,
+   128→  TIER_BONUS: Trophy,
+   129→};
+   130→
+   131→// ── Redemption type config ────────────────────────────────────────────────
+   132→const REDEMPTION_OPTIONS: Array<{
+   133→  type: WalletRedemptionType;
+   134→  label: string;
+   135→  description: string;
+   136→  Icon: React.ComponentType<{ className?: string }>;
+   137→}> = [
+   138→  {
+   139→    type: "CASH",
+   140→    label: "Cash to Wallet",
+   141→    description: "Convert to ₦ in your wallet balance.",
+   142→    Icon: Coins,
+   143→  },
+   144→  {
+   145→    type: "AD_CREDIT",
+   146→    label: "Ad Credit",
+   147→    description: "Fund vendor ad campaigns on Kwikseller.",
+   148→    Icon: Megaphone,
+   149→  },
+   150→  {
+   151→    type: "TRANSFER",
+   152→    label: "Transfer",
+   153→    description: "Send to another Kwikseller member.",
+   154→    Icon: Send,
+   155→  },
+   156→];
+   157→
+   158→const QUICK_AMOUNTS = [100, 500, 1000];
+   159→
+   160→function WalletContent() {
+   161→  const { data: wallet, isLoading } = useQuery<WalletData>({
+   162→    queryKey: ["wallet"],
+   163→    queryFn: async () => {
+   164→      const res = await api.get<WalletData>("wallet");
+   165→      return res.data;
+   166→    },
+   167→  });
+   168→
+   169→  const { data: tiersData = [] } = useQuery<Tier[]>({
+   170→    queryKey: ["wallet", "tiers"],
+   171→    queryFn: async () => {
+   172→      const res = await api.get<Tier[]>("wallet/tiers");
+   173→      return res.data || [];
+   174→    },
+   175→    staleTime: 5 * 60 * 1000,
+   176→  });
+   177→
+   178→  const [filter, setFilter] = React.useState<"ALL" | "CREDIT" | "DEBIT">("ALL");
+   179→  const [dateRange, setDateRange] = React.useState<"7d" | "30d" | "90d" | "all">("all");
+   180→  const [categoryFilter, setCategoryFilter] = React.useState<string>("ALL");
+   181→  const [searchTerm, setSearchTerm] = React.useState("");
+   182→  const [showAdvanced, setShowAdvanced] = React.useState(false);
+   183→
+   184→  // ── Redemption modal state ──
+   185→  const [redeemOpen, setRedeemOpen] = React.useState(false);
+   186→  const [redeemType, setRedeemType] = React.useState<WalletRedemptionType>("CASH");
+   187→
+   188→  function openRedeemModal(type: WalletRedemptionType) {
+   189→    setRedeemType(type);
+   190→    setRedeemOpen(true);
+   191→  }
+   192→
+   193→  // ── Derived state (declared BEFORE any early return so the Rules of
+   194→  // Hooks aren't violated). All hooks gracefully handle `wallet` being
+   195→  // undefined by returning empty defaults.
+   196→  const transactions = wallet?.transactions ?? [];
+   197→
+   198→  const txs = React.useMemo(() => {
+   199→    let list = transactions.slice();
+   200→    // Type filter
+   201→    if (filter !== "ALL") list = list.filter((t) => t.type === filter);
+   202→    // Category filter
+   203→    if (categoryFilter !== "ALL") list = list.filter((t) => t.category === categoryFilter);
+   204→    // Date range filter
+   205→    if (dateRange !== "all") {
+   206→      const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : 90;
+   207→      const cutoff = Date.now() - days * 86400000;
+   208→      list = list.filter((t) => new Date(t.createdAt).getTime() >= cutoff);
+   209→    }
+   210→    // Search filter (case-insensitive on description)
+   211→    const term = searchTerm.trim().toLowerCase();
+   212→    if (term) {
+   213→      list = list.filter(
+   214→        (t) =>
+   215→          t.description.toLowerCase().includes(term) ||
+   216→          t.category.replace(/_/g, " ").toLowerCase().includes(term),
+   217→      );
+   218→    }
+   219→    return list;
+   220→  }, [transactions, filter, categoryFilter, dateRange, searchTerm]);
+   221→
+   222→  // Available categories derived from the wallet's own transactions
+   223→  const availableCategories = React.useMemo(() => {
+   224→    const seen = new Set<string>();
+   225→    for (const t of transactions) seen.add(t.category);
+   226→    return Array.from(seen);
+   227→  }, [transactions]);
+   228→
+   229→  const hasActiveFilters =
+   230→    filter !== "ALL" || categoryFilter !== "ALL" || dateRange !== "all" || searchTerm.trim().length > 0;
+   231→
+   232→  function clearAllFilters() {
+   233→    setFilter("ALL");
+   234→    setCategoryFilter("ALL");
+   235→    setDateRange("all");
+   236→    setSearchTerm("");
+   237→  }
+   238→
+   239→  // Export the currently-filtered transactions to CSV. Respects all active
+   240→  // filters (type, category, date range, search) so the buyer gets exactly
+   241→  // what they see on screen. Reuses the shared toCSV/downloadCSV utilities
+   242→  // (same as the orders page CSV export).
+   243→  //
+   244→  // The dummy wallet API doesn't return per-transaction running balances,
+   245→  // so we derive them locally from the FILTERED list (using only the
+   246→  // transactions the buyer is exporting — otherwise the numbers wouldn't
+   247→  // reconcile to `wallet.balance`). Algorithm:
+   248→  //   1. Sort the filtered txs oldest-first by `createdAt`.
+   249→  //   2. Compute totalDelta = sum(credits) - sum(debits).
+   250→  //   3. startingBalance = wallet.balance - totalDelta (the balance before
+   251→  //      the oldest filtered tx).
+   252→  //   4. Walk forward, applying each tx's delta to a running balance and
+   253→  //      recording it in a Map<txId, coinsAfter>.
+   254→  //   5. Emit CSV rows in the original `txs` order (matches what's on
+   255→  //      screen), looking up each row's "Coins After" from the Map.
+   256→  // After the most-recent filtered tx, the running balance equals
+   257→  // wallet.balance exactly.
+   258→  function handleExportCSV() {
+   259→    if (txs.length === 0) {
+   260→      kwikToast.error("No transactions to export", "Adjust your filters and try again.");
+   261→      return;
+   262→    }
+   263→    const currentBalance = wallet?.balance ?? 0;
+   264→    const totalDelta = txs.reduce(
+   265→      (sum, t) => sum + (t.type === "CREDIT" ? t.amount : -t.amount),
+   266→      0,
+   267→    );
+   268→    const coinsAfterById = new Map<string, number>();
+   269→    let running = currentBalance - totalDelta;
+   270→    // Walk oldest → newest by `createdAt` (the API list order isn't
+   271→    // guaranteed to be strictly chronological in dummy mode).
+   272→    const chronological = [...txs].sort(
+   273→      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+   274→    );
+   275→    for (const t of chronological) {
+   276→      running += t.type === "CREDIT" ? t.amount : -t.amount;
+   277→      coinsAfterById.set(t.id, running);
+   278→    }
+   279→    const rows = txs.map((t) => ({
+   280→      Date: new Date(t.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }),
+   281→      Type: t.type === "CREDIT" ? "Earned" : "Spent",
+   282→      Category: t.category.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+   283→      Description: t.description,
+   284→      Amount: t.type === "CREDIT" ? `+${t.amount}` : `-${t.amount}`,
+   285→      "Coins After": coinsAfterById.get(t.id) ?? "",
+   286→    }));
+   287→    const csv = toCSV(rows);
+   288→    const date = new Date().toISOString().slice(0, 10);
+   289→    const suffix = hasActiveFilters ? "-filtered" : "";
+   290→    downloadCSV(`kwikseller-wallet${suffix}-${date}`, csv);
+   291→    kwikToast.success("CSV downloaded", `${txs.length} transaction${txs.length === 1 ? "" : "s"} exported.`);
+   292→  }
+   293→
+   294→  if (isLoading) return <PageLoading label="Loading wallet…" />;
+   295→
+   296→  if (!wallet) {
+   297→    return (
+   298→      <EmptyState
+   299→        variant="default"
+   300→        icon={<WalletIcon className="h-12 w-12" />}
+   301→        title="Wallet unavailable"
+   302→        description="We couldn't load your KwikCoins wallet right now."
+   303→      />
+   304→    );
+   305→  }
+   306→
+   307→  const CurrentTierIcon = TIER_ICONS[wallet.tier] ?? Coins;
+   308→
+   309→  return (
+   310→    <div className="mx-auto max-w-4xl">
+   311→      <Link
+   312→        href="/profile"
+   313→        className="inline-flex items-center gap-2 text-sm font-semibold text-kwik-muted transition hover:text-foreground"
+   314→      >
+   315→        <ArrowLeft className="h-4 w-4" /> Profile
+   316→      </Link>
+   317→
+   318→      <h1 className="mt-3 font-heading text-2xl font-bold text-foreground">KwikCoins Wallet</h1>
+   319→      <p className="mt-1 text-sm text-kwik-muted">
+   320→        Earn coins on every order and redeem them for discounts, ad credit, and rewards.
+   321→      </p>
+   322→
+   323→      {/* Balance card */}
+   324→      <motion.div
+   325→        initial={{ opacity: 0, y: 12 }}
+   326→        animate={{ opacity: 1, y: 0 }}
+   327→        className="mt-6 overflow-hidden rounded-3xl bg-kwik-gradient p-6 text-white shadow-lg sm:p-8"
+   328→      >
+   329→        <div className="flex flex-wrap items-start justify-between gap-4">
+   330→          <div>
+   331→            <div className="flex items-center gap-2 text-white/80">
+   332→              <Coins className="h-5 w-5" />
+   333→              <span className="text-sm font-medium uppercase tracking-wider">Current balance</span>
+   334→            </div>
+   335→            <p className="mt-2 font-heading text-4xl font-bold sm:text-5xl">
+   336→              {wallet.balance.toLocaleString()}{" "}
+   337→              <span className="text-lg font-medium text-white/80">KwikCoins</span>
+   338→            </p>
+   339→            <p className="mt-2 text-sm text-white/70">
+   340→              ≈ ₦{wallet.nairaEquivalent.toLocaleString()} value · {wallet.earningRate}× earning rate
+   341→            </p>
+   342→          </div>
+   343→          <div className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 backdrop-blur-sm">
+   344→            <CurrentTierIcon className="h-4 w-4" />
+   345→            <span className="text-sm font-semibold">{wallet.tier} Tier</span>
+   346→          </div>
+   347→        </div>
+   348→
+   349→        {/* Tier progress */}
+   350→        <div className="mt-6">
+   351→          <div className="flex items-center justify-between text-xs text-white/80">
+   352→            <span>Progress to {wallet.nextTier}</span>
+   353→            <span>{wallet.balance} / {wallet.nextTierThreshold}</span>
+   354→          </div>
+   355→          <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-white/20">
+   356→            <motion.div
+   357→              initial={{ width: 0 }}
+   358→              animate={{ width: `${wallet.tierProgress}%` }}
+   359→              transition={{ duration: 0.8, ease: "easeOut" }}
+   360→              className="h-full rounded-full bg-white"
+   361→            />
+   362→          </div>
+   363→        </div>
+   364→
+   365→        {/* Quick actions — wired to open the redemption modal */}
+   366→        <div className="mt-6 grid grid-cols-3 gap-2">
+   367→          <button
+   368→            type="button"
+   369→            onClick={() => openRedeemModal("CASH")}
+   370→            className="flex flex-col items-center gap-1 rounded-xl bg-white/10 px-2 py-3 text-center backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+   371→          >
+   372→            <Gift className="h-5 w-5" />
+   373→            <span className="text-xs font-semibold">Redeem</span>
+   374→          </button>
+   375→          <button
+   376→            type="button"
+   377→            onClick={() => openRedeemModal("AD_CREDIT")}
+   378→            className="flex flex-col items-center gap-1 rounded-xl bg-white/10 px-2 py-3 text-center backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+   379→          >
+   380→            <Zap className="h-5 w-5" />
+   381→            <span className="text-xs font-semibold">Ad Credit</span>
+   382→          </button>
+   383→          <button
+   384→            type="button"
+   385→            onClick={() => openRedeemModal("TRANSFER")}
+   386→            className="flex flex-col items-center gap-1 rounded-xl bg-white/10 px-2 py-3 text-center backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+   387→          >
+   388→            <Sparkles className="h-5 w-5" />
+   389→            <span className="text-xs font-semibold">Transfer</span>
+   390→          </button>
+   391→        </div>
+   392→      </motion.div>
+   393→
+   394→      {/* Expiring coins warning (cycle 7) */}
+   395→      {wallet.expiringCoins && wallet.expiringCoins.amount > 0 && (
+   396→        <ExpiringCoinsBanner expiring={wallet.expiringCoins} onRedeem={() => openRedeemModal("CASH")} />
+   397→      )}
+   398→
+   399→      {/* Lifetime stats */}
+   400→      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+   401→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+   402→          <div className="flex items-center gap-2 text-kwik-green">
+   403→            <TrendingUp className="h-4 w-4" />
+   404→            <span className="text-xs font-semibold uppercase tracking-wide">Lifetime earned</span>
+   405→          </div>
+   406→          <p className="mt-2 font-heading text-xl font-bold text-foreground">
+   407→            {wallet.lifetimeEarned.toLocaleString()}
+   408→          </p>
+   409→          <p className="text-xs text-kwik-muted">KwikCoins</p>
+   410→        </div>
+   411→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+   412→          <div className="flex items-center gap-2 text-kwik-red">
+   413→            <TrendingDown className="h-4 w-4" />
+   414→            <span className="text-xs font-semibold uppercase tracking-wide">Lifetime spent</span>
+   415→          </div>
+   416→          <p className="mt-2 font-heading text-xl font-bold text-foreground">
+   417→            {wallet.lifetimeSpent.toLocaleString()}
+   418→          </p>
+   419→          <p className="text-xs text-kwik-muted">KwikCoins</p>
+   420→        </div>
+   421→        <div className="col-span-2 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4 sm:col-span-1">
+   422→          <div className="flex items-center gap-2 text-kwik-orange">
+   423→            <Zap className="h-4 w-4" />
+   424→            <span className="text-xs font-semibold uppercase tracking-wide">Earning rate</span>
+   425→          </div>
+   426→          <p className="mt-2 font-heading text-xl font-bold text-foreground">
+   427→            {wallet.earningRate}× <span className="text-sm font-normal text-kwik-muted">per ₦1,000</span>
+   428→          </p>
+   429→          <p className="text-xs text-kwik-muted">{wallet.tier} tier benefit</p>
+   430→        </div>
+   431→      </div>
+   432→
+   433→      {/* Tiers */}
+   434→      {tiersData.length > 0 && (
+   435→        <div className="mt-6">
+   436→          <h2 className="font-heading text-lg font-bold text-foreground">Membership Tiers</h2>
+   437→          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   438→            {tiersData.map((tier) => {
+   439→              const Icon = TIER_ICONS[tier.name] ?? Coins;
+   440→              const isCurrent = tier.name === wallet.tier;
+   441→              return (
+   442→                <motion.div
+   443→                  key={tier.name}
+   444→                  initial={{ opacity: 0, y: 8 }}
+   445→                  animate={{ opacity: 1, y: 0 }}
+   446→                  className={cn(
+   447→                    "rounded-2xl border p-4",
+   448→                    isCurrent
+   449→                      ? "border-kwik-orange bg-kwik-orange/5 ring-2 ring-kwik-orange/20"
+   450→                      : "border-kwik-border-light bg-kwik-bg-surface",
+   451→                  )}
+   452→                >
+   453→                  <div className="flex items-center justify-between">
+   454→                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", `bg-${tier.color}/10`)}>
+   455→                      <Icon className={cn("h-5 w-5", `text-${tier.color}`)} />
+   456→                    </div>
+   457→                    {isCurrent && (
+   458→                      <span className="rounded-full bg-kwik-orange px-2 py-0.5 text-[10px] font-bold text-white">
+   459→                        CURRENT
+   460→                      </span>
+   461→                    )}
+   462→                  </div>
+   463→                  <p className="mt-3 font-heading text-sm font-bold text-foreground">{tier.name}</p>
+   464→                  <p className="text-xs text-kwik-muted">{tier.minCoins.toLocaleString()}+ coins · {tier.earningRate}× earning</p>
+   465→                  <ul className="mt-3 space-y-1">
+   466→                    {tier.perks.map((perk) => (
+   467→                      <li key={perk} className="flex items-start gap-1.5 text-xs text-kwik-muted">
+   468→                        <span className="mt-0.5 text-kwik-orange">•</span>
+   469→                        <span>{perk}</span>
+   470→                      </li>
+   471→                    ))}
+   472→                  </ul>
+   473→                </motion.div>
+   474→              );
+   475→            })}
+   476→          </div>
+   477→        </div>
+   478→      )}
+   479→
+   480→      {/* Referral program (cycle 7) */}
+   481→      {wallet.referral && (
+   482→        <ReferralProgramCard referral={wallet.referral} />
+   483→      )}
+   484→
+   485→      {/* Transactions */}
+   486→      <div className="mt-6">
+   487→        <div className="flex flex-wrap items-center justify-between gap-3">
+   488→          <div className="flex items-center gap-2">
+   489→            <h2 className="font-heading text-lg font-bold text-foreground">Transaction History</h2>
+   490→            <span className="rounded-full bg-kwik-orange-tint px-2 py-0.5 text-[11px] font-bold text-kwik-orange">
+   491→              {txs.length}
+   492→            </span>
+   493→          </div>
+   494→          <div className="flex flex-wrap items-center gap-2">
+   495→            <div className="flex items-center gap-1.5">
+   496→              <button
+   497→                type="button"
+   498→                onClick={handleExportCSV}
+   499→                disabled={txs.length === 0}
+   500→                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-kwik-border-light bg-kwik-bg-surface px-3 text-xs font-semibold text-foreground transition hover:border-kwik-orange hover:text-kwik-orange focus:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+   501→                aria-label="Export transactions to CSV"
+   502→                title="Export filtered transactions to CSV"
+   503→              >
+   504→                <Download className="h-3.5 w-3.5" />
+   505→                Export CSV
+   506→              </button>
+   507→              <span className="text-[10px] text-kwik-muted">with running balance</span>
+   508→            </div>
+   509→            <button
+   510→              type="button"
+   511→              onClick={() => setShowAdvanced((v) => !v)}
+   512→              className={cn(
+   513→                "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition",
+   514→                showAdvanced
+   515→                  ? "bg-kwik-orange text-white"
+   516→                  : "border border-kwik-border-light text-kwik-muted hover:bg-kwik-bg-surface",
+   517→              )}
+   518→              aria-expanded={showAdvanced}
+   519→            >
+   520→              <SlidersHorizontal className="h-3.5 w-3.5" />
+   521→              {showAdvanced ? "Hide filters" : "Filters"}
+   522→            </button>
+   523→          </div>
+   524→        </div>
+   525→
+   526→        {/* Type filter chips — always visible */}
+   527→        <div className="mt-3 flex flex-wrap items-center gap-2">
+   528→          {(["ALL", "CREDIT", "DEBIT"] as const).map((f) => (
+   529→            <button
+   530→              key={f}
+   531→              type="button"
+   532→              onClick={() => setFilter(f)}
+   533→              className={cn(
+   534→                "inline-flex h-8 items-center rounded-full px-3 text-xs font-medium transition",
+   535→                filter === f
+   536→                  ? "bg-kwik-orange text-white shadow-sm shadow-kwik-orange/20"
+   537→                  : "border border-kwik-border-light text-kwik-muted hover:bg-kwik-bg-surface",
+   538→              )}
+   539→            >
+   540→              {f === "ALL" ? "All" : f === "CREDIT" ? "Earned" : "Spent"}
+   541→            </button>
+   542→          ))}
+   543→          {hasActiveFilters && (
+   544→            <button
+   545→              type="button"
+   546→              onClick={clearAllFilters}
+   547→              className="inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-medium text-kwik-muted transition hover:bg-kwik-red/5 hover:text-kwik-red"
+   548→            >
+   549→              <X className="h-3 w-3" /> Clear
+   550→            </button>
+   551→          )}
+   552→        </div>
+   553→
+   554→        {/* Advanced filter panel */}
+   555→        <AnimatePresence initial={false}>
+   556→          {showAdvanced && (
+   557→            <motion.div
+   558→              initial={{ opacity: 0, height: 0 }}
+   559→              animate={{ opacity: 1, height: "auto" }}
+   560→              exit={{ opacity: 0, height: 0 }}
+   561→              transition={{ duration: 0.2 }}
+   562→              className="overflow-hidden"
+   563→            >
+   564→              <div className="mt-3 space-y-3 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+   565→                {/* Search */}
+   566→                <div>
+   567→                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
+   568→                    <Search className="h-3 w-3" /> Search transactions
+   569→                  </label>
+   570→                  <div className="relative">
+   571→                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
+   572→                    <input
+   573→                      type="text"
+   574→                      value={searchTerm}
+   575→                      onChange={(e) => setSearchTerm(e.target.value)}
+   576→                      placeholder="Search by description or category…"
+   577→                      className="h-9 w-full rounded-lg border border-kwik-border-light bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-kwik-muted/70 focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
+   578→                    />
+   579→                    {searchTerm && (
+   580→                      <button
+   581→                        type="button"
+   582→                        onClick={() => setSearchTerm("")}
+   583→                        aria-label="Clear search"
+   584→                        className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-kwik-muted hover:bg-kwik-red/10 hover:text-kwik-red"
+   585→                      >
+   586→                        <X className="h-3 w-3" />
+   587→                      </button>
+   588→                    )}
+   589→                  </div>
+   590→                </div>
+   591→
+   592→                {/* Date range */}
+   593→                <div>
+   594→                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
+   595→                    <Calendar className="h-3 w-3" /> Date range
+   596→                  </label>
+   597→                  <div className="flex flex-wrap gap-1.5">
+   598→                    {([
+   599→                      { v: "7d", label: "Last 7 days" },
+   600→                      { v: "30d", label: "Last 30 days" },
+   601→                      { v: "90d", label: "Last 90 days" },
+   602→                      { v: "all", label: "All time" },
+   603→                    ] as const).map((opt) => (
+   604→                      <button
+   605→                        key={opt.v}
+   606→                        type="button"
+   607→                        onClick={() => setDateRange(opt.v)}
+   608→                        className={cn(
+   609→                          "inline-flex h-8 items-center rounded-lg px-3 text-xs font-medium transition",
+   610→                          dateRange === opt.v
+   611→                            ? "bg-kwik-orange-tint text-kwik-orange"
+   612→                            : "border border-kwik-border-light text-kwik-muted hover:bg-background",
+   613→                        )}
+   614→                      >
+   615→                        {opt.label}
+   616→                      </button>
+   617→                    ))}
+   618→                  </div>
+   619→                </div>
+   620→
+   621→                {/* Category */}
+   622→                <div>
+   623→                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
+   624→                    <Filter className="h-3 w-3" /> Category
+   625→                  </label>
+   626→                  <div className="flex flex-wrap gap-1.5">
+   627→                    <button
+   628→                      type="button"
+   629→                      onClick={() => setCategoryFilter("ALL")}
+   630→                      className={cn(
+   631→                        "inline-flex h-8 items-center rounded-lg px-3 text-xs font-medium transition",
+   632→                        categoryFilter === "ALL"
+   633→                          ? "bg-kwik-orange-tint text-kwik-orange"
+   634→                          : "border border-kwik-border-light text-kwik-muted hover:bg-background",
+   635→                      )}
+   636→                    >
+   637→                      All categories
+   638→                    </button>
+   639→                    {availableCategories.map((cat) => (
+   640→                      <button
+   641→                        key={cat}
+   642→                        type="button"
+   643→                        onClick={() => setCategoryFilter(cat)}
+   644→                        className={cn(
+   645→                          "inline-flex h-8 items-center rounded-lg px-3 text-xs font-medium transition",
+   646→                          categoryFilter === cat
+   647→                            ? "bg-kwik-orange-tint text-kwik-orange"
+   648→                            : "border border-kwik-border-light text-kwik-muted hover:bg-background",
+   649→                        )}
+   650→                      >
+   651→                        {cat.replace(/_/g, " ").toLowerCase()}
+   652→                      </button>
+   653→                    ))}
+   654→                  </div>
+   655→                </div>
+   656→              </div>
+   657→            </motion.div>
+   658→          )}
+   659→        </AnimatePresence>
+   660→
+   661→        {/* Empty / no-results states */}
+   662→        {txs.length === 0 ? (
+   663→          <div className="mt-4">
+   664→            {hasActiveFilters ? (
+   665→              <EmptyState
+   666→                variant="default"
+   667→                icon={<Filter className="h-12 w-12" />}
+   668→                title="No matching transactions"
+   669→                description="Try adjusting your filters or search term to see more transactions."
+   670→                action={
+   671→                  <button
+   672→                    type="button"
+   673→                    onClick={clearAllFilters}
+   674→                    className="inline-flex h-10 items-center justify-center rounded-xl bg-kwik-orange px-5 text-sm font-semibold text-white hover:bg-kwik-orange-hover"
+   675→                  >
+   676→                    Clear all filters
+   677→                  </button>
+   678→                }
+   679→              />
+   680→            ) : (
+   681→              <EmptyState
+   682→                variant="default"
+   683→                icon={<Coins className="h-12 w-12" />}
+   684→                title="No transactions yet"
+   685→                description="Earn KwikCoins by placing orders, referring friends, and climbing tiers."
+   686→              />
+   687→            )}
+   688→          </div>
+   689→        ) : (
+   690→          <div className="mt-4 space-y-2">
+   691→            {txs.map((tx, i) => {
+   692→              const Icon = CATEGORY_ICONS[tx.category] ?? Coins;
+   693→              const isCredit = tx.type === "CREDIT";
+   694→              return (
+   695→                <motion.div
+   696→                  key={tx.id}
+   697→                  initial={{ opacity: 0, x: -8 }}
+   698→                  animate={{ opacity: 1, x: 0 }}
+   699→                  transition={{ delay: Math.min(i * 0.03, 0.3) }}
+   700→                  className="group flex items-center gap-3 rounded-xl border border-kwik-border-light bg-kwik-bg-surface p-3 transition-colors hover:border-kwik-orange/30"
+   701→                >
+   702→                  <div
+   703→                    className={cn(
+   704→                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+   705→                      isCredit ? "bg-kwik-green/10" : "bg-kwik-red/10",
+   706→                    )}
+   707→                  >
+   708→                    <Icon className={cn("h-5 w-5", isCredit ? "text-kwik-green" : "text-kwik-red")} />
+   709→                  </div>
+   710→                  <div className="min-w-0 flex-1">
+   711→                    <p className="truncate text-sm font-medium text-foreground">{tx.description}</p>
+   712→                    <p className="text-xs text-kwik-muted">
+   713→                      {formatDateTime(tx.createdAt)} · {tx.category.replace(/_/g, " ").toLowerCase()}
+   714→                    </p>
+   715→                  </div>
+   716→                  <div className={cn("flex items-center gap-1 text-sm font-bold", isCredit ? "text-kwik-green" : "text-kwik-red")}>
+   717→                    {isCredit ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
+   718→                    {isCredit ? "+" : "−"}
+   719→                    {tx.amount}
+   720→                  </div>
+   721→                </motion.div>
+   722→              );
+   723→            })}
+   724→          </div>
+   725→        )}
+   726→      </div>
+   727→
+   728→      {/* Redemption modal */}
+   729→      <RedeemModal
+   730→        open={redeemOpen}
+   731→        onClose={() => setRedeemOpen(false)}
+   732→        wallet={wallet}
+   733→        initialType={redeemType}
+   734→      />
+   735→    </div>
+   736→  );
+   737→}
+   738→
+   739→// ── ExpiringCoinsBanner ───────────────────────────────────────────────────
+   740→
+   741→function daysUntil(iso: string): number {
+   742→  const ms = new Date(iso).getTime() - Date.now();
+   743→  return Math.max(0, Math.ceil(ms / 86400000));
+   744→}
+   745→
+   746→function ExpiringCoinsBanner({
+   747→  expiring,
+   748→  onRedeem,
+   749→}: {
+   750→  expiring: ExpiringCoins;
+   751→  onRedeem: () => void;
+   752→}) {
+   753→  const days = daysUntil(expiring.expiresAt);
+   754→  const isUrgent = days <= 7;
+   755→  const [dismissed, setDismissed] = React.useState(false);
+   756→
+   757→  if (dismissed) return null;
+   758→
+   759→  return (
+   760→    <motion.div
+   761→      initial={{ opacity: 0, y: -8 }}
+   762→      animate={{ opacity: 1, y: 0 }}
+   763→      className={cn(
+   764→        "mt-4 overflow-hidden rounded-2xl border p-4 sm:p-5",
+   765→        isUrgent
+   766→          ? "border-kwik-red/30 bg-kwik-red/5"
+   767→          : "border-kwik-amber/30 bg-kwik-amber/5",
+   768→      )}
+   769→    >
+   770→      <div className="flex items-start gap-3">
+   771→        <div
+   772→          className={cn(
+   773→            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+   774→            isUrgent ? "bg-kwik-red/10 text-kwik-red" : "bg-kwik-amber/10 text-kwik-amber",
+   775→          )}
+   776→        >
+   777→          {isUrgent ? (
+   778→            <AlertTriangle className="h-5 w-5" />
+   779→          ) : (
+   780→            <Clock className="h-5 w-5" />
+   781→          )}
+   782→        </div>
+   783→        <div className="min-w-0 flex-1">
+   784→          <div className="flex flex-wrap items-center gap-2">
+   785→            <p className="font-heading text-sm font-bold text-foreground">
+   786→              {expiring.amount} KwikCoins expiring soon
+   787→            </p>
+   788→            <span
+   789→              className={cn(
+   790→                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+   791→                isUrgent
+   792→                  ? "bg-kwik-red/10 text-kwik-red"
+   793→                  : "bg-kwik-amber/10 text-kwik-amber",
+   794→              )}
+   795→            >
+   796→              <Flame className="h-3 w-3" />
+   797→              {days === 0 ? "Today" : days === 1 ? "1 day" : `${days} days`}
+   798→            </span>
+   799→          </div>
+   800→          <p className="mt-1 text-xs text-kwik-muted">
+   801→            {expiring.reason
+   802→              ? `${expiring.reason}. `
+   803→              : ""}
+   804→            Use them before {new Date(expiring.expiresAt).toLocaleDateString("en-NG", {
+   805→              day: "numeric",
+   806→              month: "long",
+   807→              year: "numeric",
+   808→            })} or they&apos;ll be forfeited.
+   809→          </p>
+   810→          <div className="mt-3 flex flex-wrap gap-2">
+   811→            <button
+   812→              type="button"
+   813→              onClick={onRedeem}
+   814→              className={cn(
+   815→                "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white transition",
+   816→                isUrgent ? "bg-kwik-red hover:bg-kwik-red/90" : "bg-kwik-amber hover:bg-kwik-amber/90",
+   817→              )}
+   818→            >
+   819→              <Gift className="h-3.5 w-3.5" />
+   820→              Redeem now
+   821→            </button>
+   822→            <button
+   823→              type="button"
+   824→              onClick={() => setDismissed(true)}
+   825→              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-kwik-border-light bg-kwik-bg-surface px-3 text-xs font-medium text-kwik-muted transition hover:bg-kwik-bg-page"
+   826→            >
+   827→              Remind me later
+   828→            </button>
+   829→          </div>
+   830→        </div>
+   831→        <button
+   832→          type="button"
+   833→          onClick={() => setDismissed(true)}
+   834→          aria-label="Dismiss"
+   835→          className="text-kwik-muted transition hover:text-foreground"
+   836→        >
+   837→          <X className="h-4 w-4" />
+   838→        </button>
+   839→      </div>
+   840→    </motion.div>
+   841→  );
+   842→}
+   843→
+   844→// ── ReferralProgramCard ───────────────────────────────────────────────────
+   845→
+   846→function ReferralProgramCard({ referral }: { referral: ReferralData }) {
+   847→  const [copied, setCopied] = React.useState<"code" | "link" | null>(null);
+   848→
+   849→  function copy(text: string, kind: "code" | "link") {
+   850→    if (typeof navigator !== "undefined" && navigator.clipboard) {
+   851→      navigator.clipboard.writeText(text).catch(() => {});
+   852→    }
+   853→    setCopied(kind);
+   854→    setTimeout(() => setCopied(null), 2000);
+   855→  }
+   856→
+   857→  const milestoneProgress = Math.min(
+   858→    100,
+   859→    (referral.successfulReferrals / referral.nextMilestone) * 100,
+   860→  );
+   861→  const remainingToMilestone = Math.max(
+   862→    0,
+   863→    referral.nextMilestone - referral.successfulReferrals,
+   864→  );
+   865→
+   866→  return (
+   867→    <motion.div
+   868→      initial={{ opacity: 0, y: 12 }}
+   869→      animate={{ opacity: 1, y: 0 }}
+   870→      className="mt-6 overflow-hidden rounded-3xl border border-kwik-border-light bg-gradient-to-br from-kwik-bg-surface via-kwik-bg-surface to-kwik-violet-tint/30 p-5 sm:p-6"
+   871→    >
+   872→      {/* Header */}
+   873→      <div className="flex items-start justify-between gap-3">
+   874→        <div className="flex items-center gap-3">
+   875→          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-kwik-violet-tint text-kwik-violet">
+   876→            <UserPlus className="h-5 w-5" />
+   877→          </div>
+   878→          <div>
+   879→            <h2 className="font-heading text-lg font-bold text-foreground">
+   880→              Refer &amp; Earn
+   881→            </h2>
+   882→            <p className="text-xs text-kwik-muted">
+   883→              Get {referral.rewardPerReferral} coins per friend · they get {referral.friendReward} coins
+   884→            </p>
+   885→          </div>
+   886→        </div>
+   887→      </div>
+   888→
+   889→      {/* Stats row */}
+   890→      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+   891→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-3">
+   892→          <div className="flex items-center gap-1.5 text-kwik-green">
+   893→            <Users className="h-3.5 w-3.5" />
+   894→            <span className="text-[11px] font-semibold uppercase tracking-wide">Invited</span>
+   895→          </div>
+   896→          <p className="mt-1 font-heading text-xl font-bold text-foreground">
+   897→            {referral.totalReferrals}
+   898→          </p>
+   899→        </div>
+   900→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-3">
+   901→          <div className="flex items-center gap-1.5 text-kwik-orange">
+   902→            <Check className="h-3.5 w-3.5" />
+   903→            <span className="text-[11px] font-semibold uppercase tracking-wide">Joined</span>
+   904→          </div>
+   905→          <p className="mt-1 font-heading text-xl font-bold text-foreground">
+   906→            {referral.successfulReferrals}
+   907→          </p>
+   908→        </div>
+   909→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-3">
+   910→          <div className="flex items-center gap-1.5 text-kwik-amber">
+   911→            <Clock className="h-3.5 w-3.5" />
+   912→            <span className="text-[11px] font-semibold uppercase tracking-wide">Pending</span>
+   913→          </div>
+   914→          <p className="mt-1 font-heading text-xl font-bold text-foreground">
+   915→            {referral.pendingReferrals}
+   916→          </p>
+   917→        </div>
+   918→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-3">
+   919→          <div className="flex items-center gap-1.5 text-kwik-violet">
+   920→            <Coins className="h-3.5 w-3.5" />
+   921→            <span className="text-[11px] font-semibold uppercase tracking-wide">Earned</span>
+   922→          </div>
+   923→          <p className="mt-1 font-heading text-xl font-bold text-foreground">
+   924→            {referral.coinsEarned.toLocaleString()}
+   925→          </p>
+   926→        </div>
+   927→      </div>
+   928→
+   929→      {/* Referral code + link */}
+   930→      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+   931→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-3">
+   932→          <p className="text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
+   933→            Your referral code
+   934→          </p>
+   935→          <div className="mt-1.5 flex items-center justify-between gap-2">
+   936→            <code className="font-mono text-base font-bold tracking-wider text-kwik-orange-dark">
+   937→              {referral.code}
+   938→            </code>
+   939→            <button
+   940→              type="button"
+   941→              onClick={() => copy(referral.code, "code")}
+   942→              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-kwik-border-light bg-kwik-bg-page px-2.5 text-xs font-medium text-kwik-muted transition hover:bg-kwik-bg-surface"
+   943→            >
+   944→              {copied === "code" ? (
+   945→                <>
+   946→                  <Check className="h-3.5 w-3.5 text-kwik-green" /> Copied
+   947→                </>
+   948→              ) : (
+   949→                <>
+   950→                  <Copy className="h-3.5 w-3.5" /> Copy
+   951→                </>
+   952→              )}
+   953→            </button>
+   954→          </div>
+   955→        </div>
+   956→        <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-3">
+   957→          <p className="text-[11px] font-semibold uppercase tracking-wide text-kwik-muted">
+   958→            Shareable link
+   959→          </p>
+   960→          <div className="mt-1.5 flex items-center justify-between gap-2">
+   961→            <span className="truncate text-xs text-kwik-muted">
+   962→              {referral.referralUrl.replace(/^https?:\/\//, "")}
+   963→            </span>
+   964→            <button
+   965→              type="button"
+   966→              onClick={() => copy(referral.referralUrl, "link")}
+   967→              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-kwik-gradient px-2.5 text-xs font-semibold text-white transition hover:opacity-90"
+   968→            >
+   969→              {copied === "link" ? (
+   970→                <>
+   971→                  <Check className="h-3.5 w-3.5" /> Copied
+   972→                </>
+   973→              ) : (
+   974→                <>
+   975→                  <Share2 className="h-3.5 w-3.5" /> Share
+   976→                </>
+   977→              )}
+   978→            </button>
+   979→          </div>
+   980→        </div>
+   981→      </div>
+   982→
+   983→      {/* Milestone progress */}
+   984→      <div className="mt-5 rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-4">
+   985→        <div className="flex items-center justify-between gap-2">
+   986→          <div className="flex items-center gap-2">
+   987→            <Target className="h-4 w-4 text-kwik-orange" />
+   988→            <p className="text-sm font-semibold text-foreground">
+   989→              Next milestone: {referral.nextMilestone} referrals
+   990→            </p>
+   991→          </div>
+   992→          <span className="inline-flex items-center gap-1 rounded-full bg-kwik-orange-tint px-2.5 py-0.5 text-xs font-bold text-kwik-orange-dark">
+   993→            <Trophy className="h-3 w-3" />
+   994→            +{referral.milestoneBonus} bonus
+   995→          </span>
+   996→        </div>
+   997→        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-kwik-bg-page">
+   998→          <motion.div
+   999→            initial={{ width: 0 }}
+  1000→            animate={{ width: `${milestoneProgress}%` }}
+  1001→            transition={{ duration: 0.8, ease: "easeOut" }}
+  1002→            className="h-full rounded-full bg-gradient-to-r from-kwik-orange to-kwik-amber"
+  1003→          />
+  1004→        </div>
+  1005→        <p className="mt-2 text-xs text-kwik-muted">
+  1006→          {remainingToMilestone > 0 ? (
+  1007→            <>
+  1008→              Just{" "}
+  1009→              <span className="font-semibold text-kwik-orange-dark">
+  1010→                {remainingToMilestone} more {remainingToMilestone === 1 ? "friend" : "friends"}
+  1011→              </span>{" "}
+  1012→              to unlock a {referral.milestoneBonus}-coin bonus!
+  1013→            </>
+  1014→          ) : (
+  1015→            <span className="font-semibold text-kwik-green">
+  1016→              Milestone reached! Bonus coins credited.
+  1017→            </span>
+  1018→          )}
+  1019→        </p>
+  1020→      </div>
+  1021→    </motion.div>
+  1022→  );
+  1023→}
+  1024→
+  1025→// ── RedeemModal ───────────────────────────────────────────────────────────
+  1026→
+  1027→function RedeemModal({
+  1028→  open,
+  1029→  onClose,
+  1030→  wallet,
+  1031→  initialType,
+  1032→}: {
+  1033→  open: boolean;
+  1034→  onClose: () => void;
+  1035→  wallet: WalletData;
+  1036→  initialType: WalletRedemptionType;
+  1037→}) {
+  1038→  const redeem = useRedeemWallet();
+  1039→  const [redemptionType, setRedemptionType] = React.useState<WalletRedemptionType>(initialType);
+  1040→  const [amountInput, setAmountInput] = React.useState<string>("");
+  1041→
+  1042→  // Sync the selected type when the parent passes a new initial type
+  1043→  // (e.g. when the user clicks "Ad Credit" vs "Transfer" on the wallet card).
+  1044→  React.useEffect(() => {
+  1045→    if (open) setRedemptionType(initialType);
+  1046→  }, [open, initialType]);
+  1047→
+  1048→  // Reset the amount input whenever the modal closes so the next open is clean.
+  1049→  React.useEffect(() => {
+  1050→    if (!open) {
+  1051→      const t = setTimeout(() => setAmountInput(""), 180);
+  1052→      return () => clearTimeout(t);
+  1053→    }
+  1054→    return undefined;
+  1055→  }, [open]);
+  1056→
+  1057→  const amount = Number(amountInput) || 0;
+  1058→  const nairaValue = amount * 10; // 1 KwikCoin = ₦10
+  1059→  const exceedsBalance = amount > wallet.balance;
+  1060→  const canSubmit =
+  1061→    !redeem.isPending && amount > 0 && !exceedsBalance && amountInput !== "";
+  1062→
+  1063→  function setQuick(value: number) {
+  1064→    setAmountInput(String(value));
+  1065→  }
+  1066→
+  1067→  function setMax() {
+  1068→    setAmountInput(String(wallet.balance));
+  1069→  }
+  1070→
+  1071→  async function handleConfirm() {
+  1072→    if (!canSubmit) return;
+  1073→    try {
+  1074→      const result = await redeem.mutateAsync({ amount, redemptionType });
+  1075→      kwikToast.success(
+  1076→        "Redemption successful",
+  1077→        `${amount.toLocaleString()} KwikCoins converted. New balance: ${result.newBalance.toLocaleString()} coins.`,
+  1078→      );
+  1079→      onClose();
+  1080→    } catch (e) {
+  1081→      kwikToast.error(
+  1082→        "Redemption failed",
+  1083→        e instanceof Error ? e.message : "Please try again.",
+  1084→      );
+  1085→    }
+  1086→  }
+  1087→
+  1088→  return (
+  1089→    <AnimatePresence>
+  1090→      {open ? (
+  1091→        <motion.div
+  1092→          initial={{ opacity: 0 }}
+  1093→          animate={{ opacity: 1 }}
+  1094→          exit={{ opacity: 0 }}
+  1095→          className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+  1096→          role="dialog"
+  1097→          aria-modal="true"
+  1098→          aria-label="Redeem KwikCoins"
+  1099→        >
+  1100→          {/* Overlay */}
+  1101→          <div
+  1102→            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+  1103→            onClick={() => {
+  1104→              if (!redeem.isPending) onClose();
+  1105→            }}
+  1106→          />
+  1107→
+  1108→          {/* Modal card */}
+  1109→          <motion.div
+  1110→            initial={{ scale: 0.96, opacity: 0, y: 16 }}
+  1111→            animate={{ scale: 1, opacity: 1, y: 0 }}
+  1112→            exit={{ scale: 0.96, opacity: 0, y: 16 }}
+  1113→            transition={{ type: "spring", duration: 0.32, bounce: 0.18 }}
+  1114→            className="relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-kwik-border-light bg-kwik-bg-surface shadow-2xl sm:max-w-lg sm:rounded-3xl"
+  1115→          >
+  1116→            {/* Header */}
+  1117→            <div className="flex items-center justify-between border-b border-kwik-border-light bg-kwik-bg-page px-5 py-4">
+  1118→              <div className="flex items-center gap-2.5">
+  1119→                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-kwik-orange/10">
+  1120→                  <Coins className="h-5 w-5 text-kwik-orange" />
+  1121→                </div>
+  1122→                <div>
+  1123→                  <h2 className="font-heading text-base font-bold text-foreground">Redeem KwikCoins</h2>
+  1124→                  <p className="text-xs text-kwik-muted">Convert your coins to cash, ad credit, or transfer.</p>
+  1125→                </div>
+  1126→              </div>
+  1127→              <button
+  1128→                type="button"
+  1129→                onClick={() => {
+  1130→                  if (!redeem.isPending) onClose();
+  1131→                }}
+  1132→                aria-label="Close"
+  1133→                disabled={redeem.isPending}
+  1134→                className="rounded-lg p-1.5 text-kwik-muted transition hover:bg-kwik-bg-light hover:text-foreground disabled:opacity-50"
+  1135→              >
+  1136→                <X className="h-5 w-5" />
+  1137→              </button>
+  1138→            </div>
+  1139→
+  1140→            {/* Body */}
+  1141→            <div className="flex-1 overflow-y-auto px-5 py-4">
+  1142→              {/* Current balance */}
+  1143→              <div className="flex items-center justify-between rounded-2xl border border-kwik-border-light bg-kwik-bg-page px-4 py-3">
+  1144→                <div>
+  1145→                  <p className="text-xs font-semibold uppercase tracking-wide text-kwik-muted">Available balance</p>
+  1146→                  <p className="mt-0.5 font-heading text-lg font-bold text-foreground">
+  1147→                    {wallet.balance.toLocaleString()}{" "}
+  1148→                    <span className="text-sm font-normal text-kwik-muted">KwikCoins</span>
+  1149→                  </p>
+  1150→                </div>
+  1151→                <div className="text-right">
+  1152→                  <p className="text-xs font-semibold uppercase tracking-wide text-kwik-muted">Value</p>
+  1153→                  <p className="mt-0.5 text-sm font-semibold text-kwik-green">
+  1154→                    {formatNGN(wallet.nairaEquivalent)}
+  1155→                  </p>
+  1156→                </div>
+  1157→              </div>
+  1158→
+  1159→              {/* Redemption type selector */}
+  1160→              <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
+  1161→                Redemption type
+  1162→              </p>
+  1163→              <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+  1164→                {REDEMPTION_OPTIONS.map((opt) => {
+  1165→                  const selected = redemptionType === opt.type;
+  1166→                  const Icon = opt.Icon;
+  1167→                  return (
+  1168→                    <button
+  1169→                      key={opt.type}
+  1170→                      type="button"
+  1171→                      onClick={() => setRedemptionType(opt.type)}
+  1172→                      aria-pressed={selected}
+  1173→                      className={cn(
+  1174→                        "relative flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange/40",
+  1175→                        selected
+  1176→                          ? "border-kwik-orange bg-kwik-orange/5 ring-1 ring-kwik-orange/30"
+  1177→                          : "border-kwik-border-light bg-kwik-bg-page hover:border-kwik-orange/40",
+  1178→                      )}
+  1179→                    >
+  1180→                      <Icon
+  1181→                        className={cn(
+  1182→                          "h-5 w-5",
+  1183→                          selected ? "text-kwik-orange" : "text-kwik-muted",
+  1184→                        )}
+  1185→                      />
+  1186→                      <p className="text-xs font-semibold text-foreground">{opt.label}</p>
+  1187→                      <p className="text-[11px] leading-tight text-kwik-muted">{opt.description}</p>
+  1188→                      {selected ? (
+  1189→                        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-kwik-orange text-white">
+  1190→                          <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+  1191→                        </span>
+  1192→                      ) : null}
+  1193→                    </button>
+  1194→                  );
+  1195→                })}
+  1196→              </div>
+  1197→
+  1198→              {/* Amount input */}
+  1199→              <div className="mt-4">
+  1200→                <label
+  1201→                  htmlFor="redeem-amount"
+  1202→                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-kwik-muted"
+  1203→                >
+  1204→                  Amount (KwikCoins)
+  1205→                </label>
+  1206→                <input
+  1207→                  id="redeem-amount"
+  1208→                  type="number"
+  1209→                  inputMode="numeric"
+  1210→                  min={1}
+  1211→                  max={wallet.balance}
+  1212→                  value={amountInput}
+  1213→                  onChange={(e) => setAmountInput(e.target.value)}
+  1214→                  placeholder="Enter amount"
+  1215→                  className={cn(
+  1216→                    "h-11 w-full rounded-xl border bg-kwik-bg-page px-3 text-sm font-semibold text-foreground outline-none transition placeholder:font-normal placeholder:text-kwik-muted focus:ring-2",
+  1217→                    exceedsBalance
+  1218→                      ? "border-kwik-red focus:ring-kwik-red/20"
+  1219→                      : "border-kwik-border-light focus:border-kwik-orange focus:ring-kwik-orange/20",
+  1220→                  )}
+  1221→                />
+  1222→                {/* Quick amount chips */}
+  1223→                <div className="mt-2 flex flex-wrap gap-1.5">
+  1224→                  {QUICK_AMOUNTS.map((q) => (
+  1225→                    <button
+  1226→                      key={q}
+  1227→                      type="button"
+  1228→                      onClick={() => setQuick(q)}
+  1229→                      disabled={q > wallet.balance}
+  1230→                      className={cn(
+  1231→                        "inline-flex h-8 items-center rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
+  1232→                        amountInput === String(q)
+  1233→                          ? "border-kwik-orange bg-kwik-orange/10 text-kwik-orange"
+  1234→                          : "border-kwik-border-light text-kwik-muted hover:bg-kwik-bg-light",
+  1235→                      )}
+  1236→                    >
+  1237→                      {q}
+  1238→                    </button>
+  1239→                  ))}
+  1240→                  <button
+  1241→                    type="button"
+  1242→                    onClick={setMax}
+  1243→                    className="inline-flex h-8 items-center rounded-full border border-kwik-border-light px-3 text-xs font-semibold text-kwik-muted transition hover:bg-kwik-bg-light"
+  1244→                  >
+  1245→                    Max
+  1246→                  </button>
+  1247→                </div>
+  1248→                {exceedsBalance ? (
+  1249→                  <p className="mt-1.5 text-xs text-kwik-red">
+  1250→                    Amount exceeds your available balance.
+  1251→                  </p>
+  1252→                ) : null}
+  1253→              </div>
+  1254→
+  1255→              {/* Live preview */}
+  1256→              <div className="mt-4 rounded-2xl bg-kwik-orange/5 p-4">
+  1257→                <div className="flex items-center justify-between">
+  1258→                  <div className="flex items-center gap-2">
+  1259→                    <Sparkles className="h-4 w-4 text-kwik-orange" />
+  1260→                    <span className="text-sm font-semibold text-foreground">You receive</span>
+  1261→                  </div>
+  1262→                  <p className="font-heading text-lg font-bold text-kwik-orange">
+  1263→                    {formatNGN(nairaValue)}
+  1264→                  </p>
+  1265→                </div>
+  1266→                <p className="mt-1 text-xs text-kwik-muted">
+  1267→                  1 KwikCoin = ₦10 · Rate locked at {wallet.tier} tier ({wallet.earningRate}× earning).
+  1268→                </p>
+  1269→              </div>
+  1270→            </div>
+  1271→
+  1272→            {/* Footer */}
+  1273→            <div className="flex items-center gap-3 border-t border-kwik-border-light bg-kwik-bg-page px-5 py-4">
+  1274→              <button
+  1275→                type="button"
+  1276→                onClick={() => {
+  1277→                  if (!redeem.isPending) onClose();
+  1278→                }}
+  1279→                disabled={redeem.isPending}
+  1280→                className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-kwik-border-light bg-kwik-bg-surface px-4 text-sm font-semibold text-kwik-dark transition hover:bg-kwik-bg-light disabled:opacity-50 sm:flex-none sm:px-5"
+  1281→              >
+  1282→                Cancel
+  1283→              </button>
+  1284→              <button
+  1285→                type="button"
+  1286→                onClick={handleConfirm}
+  1287→                disabled={!canSubmit}
+  1288→                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-kwik-orange px-4 text-sm font-semibold text-white transition hover:bg-kwik-orange-hover disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-6"
+  1289→              >
+  1290→                {redeem.isPending ? (
+  1291→                  <>
+  1292→                    <Loader2 className="h-4 w-4 animate-spin" /> Redeeming…
+  1293→                  </>
+  1294→                ) : (
+  1295→                  <>
+  1296→                    <Check className="h-4 w-4" /> Confirm redemption
+  1297→                  </>
+  1298→                )}
+  1299→              </button>
+  1300→            </div>
+  1301→          </motion.div>
+  1302→        </motion.div>
+  1303→      ) : null}
+  1304→    </AnimatePresence>
+  1305→  );
+  1306→}
+  1307→
+  1308→export default function WalletPage() {
+  1309→  return (
+  1310→    <AccountLayout>
+  1311→      <WalletContent />
+  1312→    </AccountLayout>
+  1313→  );
+  1314→}
+  1315→

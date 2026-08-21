@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuthStore, UserRole } from '@kwikseller/utils'
+import { useAuthStore, UserRole } from '@/lib/utils'
 import { Shield } from 'lucide-react'
 
 export default function RootPage() {
@@ -64,3 +64,4 @@ export default function RootPage() {
   // Show nothing while redirecting
   return null
 }
+

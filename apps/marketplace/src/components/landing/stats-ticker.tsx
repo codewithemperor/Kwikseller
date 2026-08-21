@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 
 import {
   STATS_TICKER_ITEMS as stats,

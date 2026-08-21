@@ -21,6 +21,10 @@ class DispatchOrderDto {
   carrier?: string;
 }
 
+class CompletePickupDto {
+  note?: string;
+}
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 /**
@@ -122,5 +126,18 @@ export class OrderLifecycleController {
     @Param('id') orderId: string,
   ) {
     return this.lifecycle.markDelivered(user, orderId);
+  }
+
+  @Post(':id/complete-pickup')
+  @ApiOperation({
+    summary:
+      'Vendor confirms an in-store pickup handoff for a PICKUP order and releases Kwikscrow immediately',
+  })
+  async completePickup(
+    @CurrentUser() user: any,
+    @Param('id') orderId: string,
+    @Body() dto?: CompletePickupDto,
+  ) {
+    return this.lifecycle.completePickup(user, orderId, dto);
   }
 }

@@ -12,7 +12,7 @@ import {
 import { Button, Chip, Card } from "@heroui/react";
 import { useRecentlyViewedStore } from "@/stores";
 import { useCartStore } from "@/stores";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-NG", {

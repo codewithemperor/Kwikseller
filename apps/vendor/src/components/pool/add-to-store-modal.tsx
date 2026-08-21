@@ -8,8 +8,8 @@ import {
   AppModal,
   AppImage,
   FieldInput,
-} from "@kwikseller/ui";
-import { cn, formatCurrency } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { PoolCatalogItem } from "@/lib/pool";
 
 export interface AddToStoreModalProps {

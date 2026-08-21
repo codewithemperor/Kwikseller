@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 import { Smartphone, CheckCircle, Download } from 'lucide-react'
 
 const features = [

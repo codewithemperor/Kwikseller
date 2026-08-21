@@ -1,6 +1,6 @@
 "use client";
 import { create } from "zustand";
-import { paymentsApi, escrowApi } from "@kwikseller/api-client";
+import { paymentsApi, escrowApi } from "@/lib/api-client";
 import { unwrapApiData } from "@/lib/vendor-format";
 
 const WALLET_CACHE_MS = 30_000;

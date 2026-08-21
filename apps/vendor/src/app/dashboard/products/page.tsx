@@ -16,8 +16,8 @@ import {
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorPageSearch } from "@/components/vendor-page-context";
 import { useVendorProductsStore } from "@/stores/vendor-products-store";
-import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
-import type { Product, ProductType } from "@kwikseller/types";
+import { uploadApi, vendorCommerceApi } from "@/lib/api-client";
+import type { Product, ProductType } from "@/lib/types";
 import {
   AppButton,
   AppImage,
@@ -31,8 +31,8 @@ import {
   VendorMetricCard,
   VendorPageHeader,
   type SearchAutoSuggestItem,
-} from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { VendorProductCard as VendorMarketplaceProductCard } from "@/components/vendor-product-card";
 import { motion } from "framer-motion";

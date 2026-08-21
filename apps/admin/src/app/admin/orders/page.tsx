@@ -6,7 +6,7 @@ import { toast } from "@heroui/react";
 import { AlertTriangle, MapPin, PackageCheck, ReceiptText, RefreshCw, Truck } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { commerceOpsApi, type AdminCommerceOrder } from "@/lib/api";
-import { formatCurrency } from "@kwikseller/utils";
+import { formatCurrency } from "@/lib/utils";
 
 function unwrap<T>(value: unknown): T {
   if (value && typeof value === "object" && "data" in value) {
@@ -188,3 +188,4 @@ export default function AdminOrdersPage() {
     </div>
   );
 }
+

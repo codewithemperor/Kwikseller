@@ -1,0 +1,1268 @@
+     1→// KWIKSELLER - Pool Selling Page
+     2→// Rich, professional content showcasing pool selling with all sections
+     3→
+     4→"use client";
+     5→
+     6→import React, { useRef, useState, useMemo } from "react";
+     7→import Image from "next/image";
+     8→import Link from "next/link";
+     9→import { useRouter } from "next/navigation";
+    10→import {
+    11→  Droplets,
+    12→  ArrowRight,
+    13→  Package,
+    14→  ShoppingCart,
+    15→  Wallet,
+    16→  TrendingUp,
+    17→  CheckCircle,
+    18→  X,
+    19→  Flame,
+    20→  BarChart3,
+    21→  Truck,
+    22→  Shield,
+    23→  Clock,
+    24→  Sparkles,
+    25→  Calculator,
+    26→  HandCoins,
+    27→  Users,
+    28→  Search,
+    29→  ListPlus,
+    30→  Tag,
+    31→  Zap,
+    32→  Star,
+    33→  Award,
+    34→  ArrowUpRight,
+    35→  Layers,
+    36→  BadgeDollarSign,
+    37→  PieChart,
+    38→  Globe,
+    39→  Smartphone,
+    40→  Shirt,
+    41→  Home as HomeIcon,
+    42→  Utensils,
+    43→} from "lucide-react";
+    44→import { Button, Card, Chip, Separator } from "@heroui/react";
+    45→import { motion, useInView } from "framer-motion";
+    46→import { cn } from "@/lib/utils";
+    47→
+    48→// ─── Animation helpers ─────────────────────────────────────────────
+    49→
+    50→function AnimatedSection({
+    51→  children,
+    52→  className = "",
+    53→  delay = 0,
+    54→}: {
+    55→  children: React.ReactNode;
+    56→  className?: string;
+    57→  delay?: number;
+    58→}) {
+    59→  const ref = useRef<HTMLDivElement>(null);
+    60→  const isInView = useInView(ref, { once: true, margin: "-60px" });
+    61→  return (
+    62→    <motion.div
+    63→      ref={ref}
+    64→      initial={{ opacity: 0, y: 30 }}
+    65→      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+    66→      transition={{ duration: 0.5, delay, ease: "easeOut" as const }}
+    67→      className={className}
+    68→    >
+    69→      {children}
+    70→    </motion.div>
+    71→  );
+    72→}
+    73→
+    74→function StaggerChild({
+    75→  children,
+    76→  className = "",
+    77→  index = 0,
+    78→}: {
+    79→  children: React.ReactNode;
+    80→  className?: string;
+    81→  index?: number;
+    82→}) {
+    83→  const ref = useRef<HTMLDivElement>(null);
+    84→  const isInView = useInView(ref, { once: true, margin: "-60px" });
+    85→  return (
+    86→    <motion.div
+    87→      ref={ref}
+    88→      initial={{ opacity: 0, y: 30 }}
+    89→      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+    90→      transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+    91→      className={className}
+    92→    >
+    93→      {children}
+    94→    </motion.div>
+    95→  );
+    96→}
+    97→
+    98→// ─── Data ──────────────────────────────────────────────────────
+    99→
+   100→const howItWorksSteps = [
+   101→  {
+   102→    number: 1,
+   103→    icon: ListPlus,
+   104→    title: "List Your Products",
+   105→    description:
+   106→      "Add products to the pool without buying stock upfront. Browse our curated catalog of trending items and add them to your virtual storefront with one click — zero inventory required.",
+   107→    color: "bg-amber-500",
+   108→    miniItems: ["One-Click Add", "No Inventory", "Instant Setup"],
+   109→  },
+   110→  {
+   111→    number: 2,
+   112→    icon: ShoppingCart,
+   113→    title: "Customers Order",
+   114→    description:
+   115→      "Buyers purchase from the combined pool at competitive prices. Your store gets exposure to thousands of shoppers looking for exactly the products you've listed.",
+   116→    color: "bg-emerald-500",
+   117→    miniItems: ["Combined Reach", "Competitive Prices", "More Sales"],
+   118→  },
+   119→  {
+   120→    number: 3,
+   121→    icon: Layers,
+   122→    title: "Orders are Pooled",
+   123→    description:
+   124→      "The system groups similar orders for bulk purchasing, driving down costs and increasing margins. The platform automatically consolidates and routes orders for maximum efficiency.",
+   125→    color: "bg-rose-500",
+   126→    miniItems: ["Auto-Grouping", "Bulk Pricing", "Smart Routing"],
+   127→  },
+   128→  {
+   129→    number: 4,
+   130→    icon: BadgeDollarSign,
+   131→    title: "Fulfill & Earn",
+   132→    description:
+   133→      "Purchase in bulk, fulfill individual orders, and keep the profit. You earn commissions on every sale without ever touching the inventory — pure profit with zero risk.",
+   134→    color: "bg-violet-500",
+   135→    miniItems: ["Bulk Savings", "Auto Fulfillment", "Keep Profits"],
+   136→  },
+   137→];
+   138→
+   139→const benefits = [
+   140→  {
+   141→    icon: Shield,
+   142→    title: "Zero Inventory Risk",
+   143→    description:
+   144→      "No upfront cost means no financial risk. You never buy stock you can't sell — if a product doesn't move, you lose nothing.",
+   145→    color: "text-emerald-600 dark:text-emerald-400",
+   146→    bg: "bg-emerald-50 dark:bg-emerald-900/30",
+   147→  },
+   148→  {
+   149→    icon: TrendingUp,
+   150→    title: "Bulk Purchase Power",
+   151→    description:
+   152→      "When orders are pooled together, you get wholesale pricing and dramatically better margins than buying individually.",
+   153→    color: "text-amber-600 dark:text-amber-400",
+   154→    bg: "bg-amber-50 dark:bg-amber-900/30",
+   155→  },
+   156→  {
+   157→    icon: Truck,
+   158→    title: "Combined Logistics",
+   159→    description:
+   160→      "Shared delivery costs across pooled orders means lower shipping fees for your customers and higher satisfaction ratings.",
+   161→    color: "text-sky-600 dark:text-sky-400",
+   162→    bg: "bg-sky-50 dark:bg-sky-900/30",
+   163→  },
+   164→  {
+   165→    icon: Package,
+   166→    title: "Wider Product Range",
+   167→    description:
+   168→      "Offer hundreds of products across multiple categories without needing capital. More products mean more opportunities to earn.",
+   169→    color: "text-rose-600 dark:text-rose-400",
+   170→    bg: "bg-rose-50 dark:bg-rose-900/30",
+   171→  },
+   172→  {
+   173→    icon: Users,
+   174→    title: "Community-Driven",
+   175→    description:
+   176→      "Strength in numbers — a growing network of vendors pooling resources creates a powerful collective that benefits everyone.",
+   177→    color: "text-violet-600 dark:text-violet-400",
+   178→    bg: "bg-violet-50 dark:bg-violet-900/30",
+   179→  },
+   180→  {
+   181→    icon: PieChart,
+   182→    title: "Data-Driven Insights",
+   183→    description:
+   184→      "Know what sells before you invest. Access real-time analytics on trending products, demand forecasts, and optimal pricing.",
+   185→    color: "text-teal-600 dark:text-teal-400",
+   186→    bg: "bg-teal-50 dark:bg-teal-900/30",
+   187→  },
+   188→];
+   189→
+   190→const comparisonData = [
+   191→  {
+   192→    feature: "Startup Cost",
+   193→    traditional: "₦100K – ₦1M+",
+   194→    poolSelling: "₦0",
+   195→    traditionalGood: false,
+   196→  },
+   197→  {
+   198→    feature: "Product Range",
+   199→    traditional: "Limited by capital",
+   200→    poolSelling: "Unlimited pool access",
+   201→    traditionalGood: false,
+   202→  },
+   203→  {
+   204→    feature: "Logistics",
+   205→    traditional: "Individual shipping costs",
+   206→    poolSelling: "Shared delivery network",
+   207→    traditionalGood: false,
+   208→  },
+   209→  {
+   210→    feature: "Risk Level",
+   211→    traditional: "High — unsold stock",
+   212→    poolSelling: "Low — no inventory held",
+   213→    traditionalGood: false,
+   214→  },
+   215→  {
+   216→    feature: "Storage Needed",
+   217→    traditional: "Warehouse / storeroom",
+   218→    poolSelling: "No storage required",
+   219→    traditionalGood: false,
+   220→  },
+   221→  {
+   222→    feature: "Time to Launch",
+   223→    traditional: "2–4 weeks setup",
+   224→    poolSelling: "Start in minutes",
+   225→    traditionalGood: false,
+   226→  },
+   227→  {
+   228→    feature: "Scalability",
+   229→    traditional: "Limited by stock capacity",
+   230→    poolSelling: "Unlimited — add more products",
+   231→    traditionalGood: false,
+   232→  },
+   233→  {
+   234→    feature: "Testing Products",
+   235→    traditional: "Expensive experiments",
+   236→    poolSelling: "Test risk-free",
+   237→    traditionalGood: false,
+   238→  },
+   239→];
+   240→
+   241→const successStories = [
+   242→  {
+   243→    name: "Aisha Bello",
+   244→    location: "Lagos, Nigeria",
+   245→    avatar: "AB",
+   246→    avatarColor: "bg-amber-500",
+   247→    category: "Fashion & Accessories",
+   248→    monthlyRevenue: "₦850,000",
+   249→    productsSold: "2,400+",
+   250→    growth: "+340%",
+   251→    quote:
+   252→      "Pool selling transformed my business. I went from selling 10 items to over 2,400 monthly — without buying a single piece of inventory upfront.",
+   253→  },
+   254→  {
+   255→    name: "Emmanuel Okonkwo",
+   256→    location: "Abuja, Nigeria",
+   257→    avatar: "EO",
+   258→    avatarColor: "bg-emerald-500",
+   259→    category: "Electronics",
+   260→    monthlyRevenue: "₦1.2M",
+   261→    productsSold: "1,800+",
+   262→    growth: "+520%",
+   263→    quote:
+   264→      "The bulk purchasing power is incredible. My profit margins jumped from 12% to 35% because the platform pools orders for wholesale pricing.",
+   265→  },
+   266→  {
+   267→    name: "Fatima Ibrahim",
+   268→    location: "Kano, Nigeria",
+   269→    avatar: "FI",
+   270→    avatarColor: "bg-rose-500",
+   271→    category: "Beauty & Skincare",
+   272→    monthlyRevenue: "₦620,000",
+   273→    productsSold: "3,100+",
+   274→    growth: "+280%",
+   275→    quote:
+   276→      "I was skeptical at first, but the data insights told me exactly which products to list. Now I earn more than my full-time job — from home.",
+   277→  },
+   278→];
+   279→
+   280→const poolCategories = [
+   281→  {
+   282→    name: "Fashion",
+   283→    icon: Shirt,
+   284→    productCount: "12,400+",
+   285→    color: "bg-rose-500",
+   286→  },
+   287→  {
+   288→    name: "Electronics",
+   289→    icon: Smartphone,
+   290→    productCount: "8,200+",
+   291→    color: "bg-amber-500",
+   292→  },
+   293→  {
+   294→    name: "Beauty",
+   295→    icon: Sparkles,
+   296→    productCount: "9,800+",
+   297→    color: "bg-violet-500",
+   298→  },
+   299→  {
+   300→    name: "Home & Living",
+   301→    icon: HomeIcon,
+   302→    productCount: "6,500+",
+   303→    color: "bg-emerald-500",
+   304→  },
+   305→  {
+   306→    name: "Phones",
+   307→    icon: Smartphone,
+   308→    productCount: "5,300+",
+   309→    color: "bg-sky-500",
+   310→  },
+   311→  {
+   312→    name: "Food & Drinks",
+   313→    icon: Utensils,
+   314→    productCount: "4,100+",
+   315→    color: "bg-orange-500",
+   316→  },
+   317→];
+   318→
+   319→// ─── Step Image Placeholder ──────────────────────────────────────
+   320→
+   321→function StepImage({
+   322→  step,
+   323→  isInView,
+   324→}: {
+   325→  step: (typeof howItWorksSteps)[number];
+   326→  isInView: boolean;
+   327→}) {
+   328→  const Icon = step.icon;
+   329→  const isOdd = step.number % 2 === 1;
+   330→
+   331→  return (
+   332→    <motion.div
+   333→      initial={{ opacity: 0, x: isOdd ? -30 : 30 }}
+   334→      animate={
+   335→        isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: isOdd ? -30 : 30 }
+   336→      }
+   337→      transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
+   338→      className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden"
+   339→    >
+   340→      <div className={cn("absolute inset-0 opacity-90", step.color)} />
+   341→
+   342→      {/* Floating icon */}
+   343→      <motion.div
+   344→        animate={isInView ? { y: [0, -8, 0] } : { y: 0 }}
+   345→        transition={{
+   346→          duration: 5,
+   347→          repeat: Infinity,
+   348→          ease: "easeInOut",
+   349→          delay: step.number * 0.3,
+   350→        }}
+   351→        className="absolute inset-0 flex items-center justify-center"
+   352→      >
+   353→        <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+   354→          <Icon className="w-10 h-10 md:w-12 md:h-12 text-white" />
+   355→        </div>
+   356→      </motion.div>
+   357→
+   358→      {/* Mini tags */}
+   359→      <motion.div
+   360→        initial={{ opacity: 0, y: 10 }}
+   361→        animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+   362→        transition={{ duration: 0.5, delay: 0.4 }}
+   363→        className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2"
+   364→      >
+   365→        {step.miniItems.map((item, i) => (
+   366→          <span
+   367→            key={i}
+   368→            className="inline-flex items-center bg-white/20 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full font-medium"
+   369→          >
+   370→            {item}
+   371→          </span>
+   372→        ))}
+   373→      </motion.div>
+   374→
+   375→      {/* Decorative circles */}
+   376→      <motion.div
+   377→        animate={isInView ? { y: [0, -6, 0] } : { y: 0 }}
+   378→        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+   379→        className={cn(
+   380→          "absolute -top-4 -right-4 w-20 h-20 rounded-full bg-white/10 pointer-events-none",
+   381→        )}
+   382→      />
+   383→      <motion.div
+   384→        animate={isInView ? { y: [0, 5, 0] } : { y: 0 }}
+   385→        transition={{
+   386→          duration: 5,
+   387→          repeat: Infinity,
+   388→          ease: "easeInOut",
+   389→          delay: 1,
+   390→        }}
+   391→        className={cn(
+   392→          "absolute -bottom-3 -left-3 w-14 h-14 rounded-full bg-white/10 pointer-events-none",
+   393→        )}
+   394→      />
+   395→
+   396→      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-black/10" />
+   397→    </motion.div>
+   398→  );
+   399→}
+   400→
+   401→// ─── How It Works Step (separate component to use hooks) ────────
+   402→
+   403→function HowItWorksStep({
+   404→  step,
+   405→  index,
+   406→  totalSteps,
+   407→}: {
+   408→  step: (typeof howItWorksSteps)[number];
+   409→  index: number;
+   410→  totalSteps: number;
+   411→}) {
+   412→  const ref = useRef<HTMLDivElement>(null);
+   413→  const isInView = useInView(ref, { once: true, margin: "-80px" });
+   414→  const isOdd = step.number % 2 === 1;
+   415→
+   416→  return (
+   417→    <motion.div
+   418→      ref={ref}
+   419→      initial={{ opacity: 0, y: 50 }}
+   420→      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+   421→      transition={{ duration: 0.7, delay: index * 0.05, ease: "easeOut" }}
+   422→    >
+   423→      {/* Connecting line (except last) */}
+   424→      {index < totalSteps - 1 && (
+   425→        <div className="hidden md:flex justify-center">
+   426→          <div className="w-px border-l-2 border-dashed border-default-200 my-4" />
+   427→        </div>
+   428→      )}
+   429→
+   430→      <div
+   431→        className={cn(
+   432→          "flex flex-col gap-8 md:gap-12 lg:gap-16",
+   433→          isOdd ? "md:flex-row" : "md:flex-row-reverse",
+   434→        )}
+   435→      >
+   436→        {/* Image side */}
+   437→        <div className="w-full md:w-1/2 max-w-lg mx-auto">
+   438→          <StepImage step={step} isInView={isInView} />
+   439→        </div>
+   440→
+   441→        {/* Text side */}
+   442→        <motion.div
+   443→          initial={{ opacity: 0, x: isOdd ? 30 : -30 }}
+   444→          animate={
+   445→            isInView
+   446→              ? { opacity: 1, x: 0 }
+   447→              : { opacity: 0, x: isOdd ? 30 : -30 }
+   448→          }
+   449→          transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
+   450→          className="w-full md:w-1/2 flex flex-col justify-center"
+   451→        >
+   452→          {/* Step number */}
+   453→          <div className="flex items-center gap-3 mb-5">
+   454→            <div
+   455→              className={cn(
+   456→                "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md",
+   457→                step.color,
+   458→              )}
+   459→            >
+   460→              {step.number}
+   461→            </div>
+   462→            <div className={cn("flex-1 h-0.5 bg-accent/30 rounded-full")} />
+   463→          </div>
+   464→
+   465→          <h3 className="text-2xl md:text-3xl font-bold mb-4">{step.title}</h3>
+   466→          <p className="text-default-500 text-base md:text-lg leading-relaxed max-w-md">
+   467→            {step.description}
+   468→          </p>
+   469→
+   470→          {/* Step progress */}
+   471→          <div className="flex items-center gap-2 mt-6">
+   472→            {howItWorksSteps.map((s) => (
+   473→              <div
+   474→                key={s.number}
+   475→                className={cn(
+   476→                  "h-1.5 rounded-full transition-all duration-500",
+   477→                  s.number <= step.number
+   478→                    ? cn("bg-accent w-8")
+   479→                    : "bg-default-200 w-4",
+   480→                )}
+   481→              />
+   482→            ))}
+   483→            <span className="text-xs text-default-400 ml-2">
+   484→              Step {step.number} of {totalSteps}
+   485→            </span>
+   486→          </div>
+   487→        </motion.div>
+   488→      </div>
+   489→    </motion.div>
+   490→  );
+   491→}
+   492→
+   493→// ─── Pool Earnings Calculator ─────────────────────────────────────
+   494→
+   495→function PoolEarningsCalculator() {
+   496→  const [productsListed, setProductsListed] = useState(100);
+   497→  const [avgOrderValue, setAvgOrderValue] = useState(5000);
+   498→  const [monthlyOrders, setMonthlyOrders] = useState(200);
+   499→
+   500→  const earnings = useMemo(() => {
+   501→    const avgCommissionRate = 0.18; // 18% average commission
+   502→    const monthlyRevenue = monthlyOrders * avgOrderValue;
+   503→    const monthlyProfit = monthlyRevenue * avgCommissionRate;
+   504→    // Pool savings from bulk purchasing: ~15% discount on orders
+   505→    const poolSavings = monthlyRevenue * 0.15;
+   506→    const yearlyProfit = monthlyProfit * 12;
+   507→    return { monthlyRevenue, monthlyProfit, poolSavings, yearlyProfit };
+   508→  }, [productsListed, avgOrderValue, monthlyOrders]);
+   509→
+   510→  return (
+   511→    <Card className="border-none shadow-xl p-6 sm:p-8 max-w-3xl mx-auto">
+   512→      <div className="flex items-center gap-3 mb-8">
+   513→        <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center">
+   514→          <Calculator className="w-6 h-6 text-white" />
+   515→        </div>
+   516→        <div>
+   517→          <h3 className="text-lg font-bold">Earnings Calculator</h3>
+   518→          <p className="text-sm text-default-500">
+   519→            Estimate your potential pool selling income
+   520→          </p>
+   521→        </div>
+   522→      </div>
+   523→
+   524→      <div className="space-y-7">
+   525→        {/* Products Listed */}
+   526→        <div>
+   527→          <div className="flex justify-between mb-2">
+   528→            <label className="text-sm font-medium">Products Listed</label>
+   529→            <span className="text-sm font-bold text-accent">
+   530→              {productsListed}
+   531→            </span>
+   532→          </div>
+   533→          <input
+   534→            type="range"
+   535→            min={10}
+   536→            max={500}
+   537→            step={10}
+   538→            value={productsListed}
+   539→            onChange={(e) => setProductsListed(Number(e.target.value))}
+   540→            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-default-200 accent-accent"
+   541→          />
+   542→          <div className="flex justify-between text-xs text-default-400 mt-1">
+   543→            <span>10</span>
+   544→            <span>500</span>
+   545→          </div>
+   546→        </div>
+   547→
+   548→        {/* Average Order Value */}
+   549→        <div>
+   550→          <div className="flex justify-between mb-2">
+   551→            <label className="text-sm font-medium">Average Order Value</label>
+   552→            <span className="text-sm font-bold text-accent">
+   553→              ₦{avgOrderValue.toLocaleString()}
+   554→            </span>
+   555→          </div>
+   556→          <input
+   557→            type="range"
+   558→            min={1000}
+   559→            max={50000}
+   560→            step={1000}
+   561→            value={avgOrderValue}
+   562→            onChange={(e) => setAvgOrderValue(Number(e.target.value))}
+   563→            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-default-200 accent-accent"
+   564→          />
+   565→          <div className="flex justify-between text-xs text-default-400 mt-1">
+   566→            <span>₦1,000</span>
+   567→            <span>₦50,000</span>
+   568→          </div>
+   569→        </div>
+   570→
+   571→        {/* Monthly Orders */}
+   572→        <div>
+   573→          <div className="flex justify-between mb-2">
+   574→            <label className="text-sm font-medium">Monthly Orders</label>
+   575→            <span className="text-sm font-bold text-accent">
+   576→              {monthlyOrders.toLocaleString()}
+   577→            </span>
+   578→          </div>
+   579→          <input
+   580→            type="range"
+   581→            min={50}
+   582→            max={10000}
+   583→            step={50}
+   584→            value={monthlyOrders}
+   585→            onChange={(e) => setMonthlyOrders(Number(e.target.value))}
+   586→            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-default-200 accent-accent"
+   587→          />
+   588→          <div className="flex justify-between text-xs text-default-400 mt-1">
+   589→            <span>50</span>
+   590→            <span>10,000</span>
+   591→          </div>
+   592→        </div>
+   593→      </div>
+   594→
+   595→      <Separator className="my-7" />
+   596→
+   597→      {/* Results */}
+   598→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   599→        <div className="text-center p-4 rounded-xl bg-accent/10 border border-accent/20">
+   600→          <p className="text-xs text-default-500 mb-1 font-medium">
+   601→            Monthly Revenue
+   602→          </p>
+   603→          <p className="text-xl sm:text-2xl font-bold text-accent">
+   604→            ₦{Math.round(earnings.monthlyRevenue).toLocaleString()}
+   605→          </p>
+   606→        </div>
+   607→        <div className="text-center p-4 rounded-xl bg-success/10 border border-success/20">
+   608→          <p className="text-xs text-default-500 mb-1 font-medium">
+   609→            Profit Margin
+   610→          </p>
+   611→          <p className="text-xl sm:text-2xl font-bold text-success">
+   612→            ₦{Math.round(earnings.monthlyProfit).toLocaleString()}
+   613→          </p>
+   614→        </div>
+   615→        <div className="text-center p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50">
+   616→          <p className="text-xs text-default-500 mb-1 font-medium">
+   617→            Pool Savings
+   618→          </p>
+   619→          <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">
+   620→            ₦{Math.round(earnings.poolSavings).toLocaleString()}
+   621→          </p>
+   622→        </div>
+   623→      </div>
+   624→
+   625→      <p className="text-xs text-default-400 text-center mt-4">
+   626→        * Based on 18% average commission rate and 15% bulk purchase savings.
+   627→        Actual results may vary.
+   628→      </p>
+   629→    </Card>
+   630→  );
+   631→}
+   632→
+   633→// ─── Page ──────────────────────────────────────────────────────
+   634→
+   635→export default function PoolPage() {
+   636→  const router = useRouter();
+   637→
+   638→  return (
+   639→    <>
+   640→      {/* ═══════════════════════════════════════════════════════════
+   641→          1. HERO SECTION
+   642→      ═══════════════════════════════════════════════════════════ */}
+   643→      <section className="bg-accent relative overflow-hidden">
+   644→        <div className="absolute inset-0 pattern-grid opacity-10 pointer-events-none" />
+   645→
+   646→        {/* Decorative blur orbs */}
+   647→        <motion.div
+   648→          animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
+   649→          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+   650→          className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/10 blur-[60px] pointer-events-none"
+   651→        />
+   652→        <motion.div
+   653→          animate={{ scale: [1.2, 1, 1.2], opacity: [0.1, 0.2, 0.1] }}
+   654→          transition={{
+   655→            duration: 10,
+   656→            repeat: Infinity,
+   657→            ease: "easeInOut",
+   658→            delay: 2,
+   659→          }}
+   660→          className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-white/10 blur-[80px] pointer-events-none"
+   661→        />
+   662→
+   663→        <div className="container mx-auto px-0 md:px-4  py-16 sm:py-20 md:py-24 relative">
+   664→          <AnimatedSection>
+   665→            <div className="max-w-3xl mx-auto text-center">
+   666→              {/* Chip badge */}
+   667→              <motion.div
+   668→                initial={{ opacity: 0, scale: 0.8 }}
+   669→                animate={{ opacity: 1, scale: 1 }}
+   670→                transition={{ duration: 0.4, delay: 0.1 }}
+   671→              >
+   672→                <Chip
+   673→                  variant="soft"
+   674→                  className="mb-6 bg-white/20 text-white border-white/20 text-sm"
+   675→                >
+   676→                  <Droplets className="w-3.5 h-3.5 mr-1" />
+   677→                  Pool Selling by Kwikseller
+   678→                </Chip>
+   679→              </motion.div>
+   680→
+   681→              {/* Heading */}
+   682→              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+   683→                Sell Without{" "}
+   684→                <span className="relative inline-block">
+   685→                  <span className="relative z-10">Inventory</span>
+   686→                  <motion.span
+   687→                    initial={{ width: 0 }}
+   688→                    animate={{ width: "100%" }}
+   689→                    transition={{ duration: 0.8, delay: 0.5 }}
+   690→                    className="absolute bottom-1 left-0 h-3 bg-white/25 rounded-full -z-0"
+   691→                  />
+   692→                </span>
+   693→              </h1>
+   694→
+   695→              {/* Description */}
+   696→              <p className="text-white/80 text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+   697→                Pool selling is a unique Kwikseller feature where vendors list
+   698→                products without holding inventory. Multiple vendors pool
+   699→                together to fulfill orders at scale — meaning zero risk, zero
+   700→                upfront cost, and unlimited earning potential.
+   701→              </p>
+   702→
+   703→              {/* CTA buttons */}
+   704→              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+   705→                <Button
+   706→                  size="lg"
+   707→                  className="bg-white text-accent-foreground font-bold kwik-shadow-lg hover:bg-white/90 transition-colors px-8"
+   708→                  onPress={() => router.push("/register")}
+   709→                >
+   710→                  Start Pool Selling Free
+   711→                  <ArrowRight className="ml-2 w-4 h-4" />
+   712→                </Button>
+   713→                <Button
+   714→                  size="lg"
+   715→                  variant="ghost"
+   716→                  className="text-white border-white/30 hover:bg-white/10 font-medium"
+   717→                  onPress={() => {
+   718→                    const el = document.getElementById("how-it-works");
+   719→                    el?.scrollIntoView({ behavior: "smooth" });
+   720→                  }}
+   721→                >
+   722→                  How It Works
+   723→                  <ChevronDown className="ml-2 w-4 h-4" />
+   724→                </Button>
+   725→              </div>
+   726→
+   727→              {/* Trust badges */}
+   728→              <div className="flex flex-wrap items-center justify-center gap-6 mt-10">
+   729→                {[
+   730→                  { icon: Shield, label: "Zero Risk" },
+   731→                  { icon: Zap, label: "Instant Setup" },
+   732→                  { icon: HandCoins, label: "No Upfront Cost" },
+   733→                ].map((badge, i) => {
+   734→                  const BadgeIcon = badge.icon;
+   735→                  return (
+   736→                    <motion.div
+   737→                      key={badge.label}
+   738→                      initial={{ opacity: 0, y: 10 }}
+   739→                      animate={{ opacity: 1, y: 0 }}
+   740→                      transition={{ duration: 0.4, delay: 0.7 + i * 0.1 }}
+   741→                      className="flex items-center gap-2 text-white/70"
+   742→                    >
+   743→                      <BadgeIcon className="w-4 h-4" />
+   744→                      <span className="text-sm font-medium">{badge.label}</span>
+   745→                    </motion.div>
+   746→                  );
+   747→                })}
+   748→              </div>
+   749→            </div>
+   750→          </AnimatedSection>
+   751→        </div>
+   752→
+   753→        {/* Wave divider */}
+   754→        <div className="absolute bottom-0 left-0 right-0">
+   755→          <svg
+   756→            viewBox="0 0 1440 60"
+   757→            fill="none"
+   758→            xmlns="http://www.w3.org/2000/svg"
+   759→            className="w-full h-auto"
+   760→          >
+   761→            <path
+   762→              d="M0 60V20C240 50 480 0 720 20C960 40 1200 10 1440 30V60H0Z"
+   763→              className="fill-background"
+   764→            />
+   765→          </svg>
+   766→        </div>
+   767→      </section>
+   768→
+   769→      {/* ═══════════════════════════════════════════════════════════
+   770→          2. HOW POOL SELLING WORKS (4 steps, alternating layout)
+   771→      ═══════════════════════════════════════════════════════════ */}
+   772→      <section
+   773→        id="how-it-works"
+   774→        className="py-16 sm:py-20 relative overflow-hidden"
+   775→      >
+   776→        {/* Decorative blobs */}
+   777→        <div className="absolute top-20 -left-32 w-64 h-64 rounded-full bg-amber-500/5 blur-[100px] pointer-events-none" />
+   778→        <div className="absolute bottom-20 -right-32 w-64 h-64 rounded-full bg-emerald-500/5 blur-[100px] pointer-events-none" />
+   779→
+   780→        <div className="container mx-auto px-0 md:px-4  relative">
+   781→          <AnimatedSection>
+   782→            <div className="text-center mb-16">
+   783→              <Chip variant="soft" className="mb-4">
+   784→                <Sparkles className="w-4 h-4 mr-1" />
+   785→                Simple Process
+   786→              </Chip>
+   787→              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
+   788→                How Pool Selling <span className="text-accent">Works</span>
+   789→              </h2>
+   790→              <p className="text-default-500 max-w-2xl mx-auto text-base md:text-lg">
+   791→                Four simple steps to start earning from shared product
+   792→                inventory. No warehouse, no stock, no stress.
+   793→              </p>
+   794→            </div>
+   795→          </AnimatedSection>
+   796→
+   797→          {/* Steps with alternating layout */}
+   798→          <div className="space-y-4">
+   799→            {howItWorksSteps.map((step, index) => (
+   800→              <HowItWorksStep
+   801→                key={step.number}
+   802→                step={step}
+   803→                index={index}
+   804→                totalSteps={howItWorksSteps.length}
+   805→              />
+   806→            ))}
+   807→          </div>
+   808→        </div>
+   809→      </section>
+   810→
+   811→      {/* ═══════════════════════════════════════════════════════════
+   812→          3. BENEFITS SECTION (6 cards, 2x3 grid)
+   813→      ═══════════════════════════════════════════════════════════ */}
+   814→      <section className="py-16 sm:py-20 bg-default-50 relative">
+   815→        <div className="absolute inset-0 pattern-dots opacity-30 pointer-events-none" />
+   816→        <div className="container mx-auto px-0 md:px-4  relative">
+   817→          <AnimatedSection>
+   818→            <div className="text-center mb-12">
+   819→              <Chip variant="soft" className="mb-4">
+   820→                <Award className="w-4 h-4 mr-1" />
+   821→                Benefits
+   822→              </Chip>
+   823→              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+   824→                Why Choose Pool Selling?
+   825→              </h2>
+   826→              <p className="text-default-500 max-w-2xl mx-auto">
+   827→                Pool selling offers a smarter, risk-free way to build a
+   828→                profitable e-commerce business in Africa.
+   829→              </p>
+   830→            </div>
+   831→          </AnimatedSection>
+   832→
+   833→          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+   834→            {benefits.map((benefit, index) => {
+   835→              const Icon = benefit.icon;
+   836→              return (
+   837→                <StaggerChild key={benefit.title} index={index}>
+   838→                  <Card className="group border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-6 h-full relative overflow-hidden">
+   839→                    {/* Top gradient line */}
+   840→                    <div className="absolute top-0 left-0 right-0 h-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+   841→
+   842→                    <div
+   843→                      className={cn(
+   844→                        "w-12 h-12 rounded-xl flex items-center justify-center mb-4",
+   845→                        benefit.bg,
+   846→                      )}
+   847→                    >
+   848→                      <Icon className={cn("w-6 h-6", benefit.color)} />
+   849→                    </div>
+   850→                    <h3 className="text-lg font-bold mb-2">{benefit.title}</h3>
+   851→                    <p className="text-default-500 text-sm leading-relaxed">
+   852→                      {benefit.description}
+   853→                    </p>
+   854→                  </Card>
+   855→                </StaggerChild>
+   856→              );
+   857→            })}
+   858→          </div>
+   859→        </div>
+   860→      </section>
+   861→
+   862→      {/* ═══════════════════════════════════════════════════════════
+   863→          4. POOL SELLING VS TRADITIONAL (Comparison Table)
+   864→      ═══════════════════════════════════════════════════════════ */}
+   865→      <section className="py-16 sm:py-20 relative overflow-hidden">
+   866→        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-accent/5 blur-[80px] pointer-events-none" />
+   867→        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-success/5 blur-[80px] pointer-events-none" />
+   868→
+   869→        <div className="container mx-auto px-0 md:px-4  relative">
+   870→          <AnimatedSection>
+   871→            <div className="text-center mb-12">
+   872→              <Chip variant="soft" className="mb-4">
+   873→                <BarChart3 className="w-4 h-4 mr-1" />
+   874→                Compare
+   875→              </Chip>
+   876→              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+   877→                Pool Selling vs Traditional
+   878→              </h2>
+   879→              <p className="text-default-500 max-w-2xl mx-auto">
+   880→                See why thousands of African vendors are switching to pool
+   881→                selling for a smarter, more profitable business model.
+   882→              </p>
+   883→            </div>
+   884→          </AnimatedSection>
+   885→
+   886→          <AnimatedSection>
+   887→            <div className="max-w-3xl mx-auto">
+   888→              <Card className="border-none shadow-xl overflow-hidden">
+   889→                {/* Table header */}
+   890→                <div className="grid grid-cols-3 p-4 sm:p-5 font-semibold text-sm">
+   891→                  <div className="text-default-500">Feature</div>
+   892→                  <div className="text-center">
+   893→                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-danger/10 text-danger text-xs font-bold">
+   894→                      <X className="w-3 h-3" />
+   895→                      Traditional
+   896→                    </span>
+   897→                  </div>
+   898→                  <div className="text-center">
+   899→                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent text-white text-xs font-bold">
+   900→                      <Droplets className="w-3 h-3" />
+   901→                      Pool Selling
+   902→                    </span>
+   903→                  </div>
+   904→                </div>
+   905→
+   906→                {/* Table body */}
+   907→                <div className="divide-y divide-default-100 dark:divide-default-100/50">
+   908→                  {comparisonData.map((row, index) => (
+   909→                    <motion.div
+   910→                      key={row.feature}
+   911→                      initial={{ opacity: 0, x: -10 }}
+   912→                      animate={{ opacity: 1, x: 0 }}
+   913→                      transition={{ duration: 0.3, delay: index * 0.05 }}
+   914→                      className={cn(
+   915→                        "grid grid-cols-3 p-4 text-sm",
+   916→                        index % 2 === 0
+   917→                          ? "bg-background"
+   918→                          : "bg-default-50/50 dark:bg-default-100/10",
+   919→                      )}
+   920→                    >
+   921→                      <div className="font-medium flex items-center">
+   922→                        {row.feature}
+   923→                      </div>
+   924→                      <div className="text-center text-default-400 flex items-center justify-center gap-1">
+   925→                        <X className="w-3.5 h-3.5 text-danger/50 flex-shrink-0 hidden sm:block" />
+   926→                        <span className="text-xs">{row.traditional}</span>
+   927→                      </div>
+   928→                      <div className="text-center font-medium text-success flex items-center justify-center gap-1">
+   929→                        <CheckCircle className="w-3.5 h-3.5 text-success flex-shrink-0 hidden sm:block" />
+   930→                        <span className="text-xs">{row.poolSelling}</span>
+   931→                      </div>
+   932→                    </motion.div>
+   933→                  ))}
+   934→                </div>
+   935→
+   936→                {/* Table footer */}
+   937→                <div className="p-4 sm:p-5 bg-success/5 border-t border-success/20">
+   938→                  <div className="flex items-center justify-center gap-2 text-success font-semibold text-sm">
+   939→                    <CheckCircle className="w-4 h-4" />
+   940→                    Pool selling wins on every metric — start smarter today
+   941→                  </div>
+   942→                </div>
+   943→              </Card>
+   944→            </div>
+   945→          </AnimatedSection>
+   946→        </div>
+   947→      </section>
+   948→
+   949→      {/* ═══════════════════════════════════════════════════════════
+   950→          5. SUCCESS STORIES (3 mini vendor stories)
+   951→      ═══════════════════════════════════════════════════════════ */}
+   952→      <section className="py-16 sm:py-20 bg-default-50 relative">
+   953→        <div className="absolute inset-0 pattern-diagonal opacity-20 pointer-events-none" />
+   954→        <div className="container mx-auto px-0 md:px-4  relative">
+   955→          <AnimatedSection>
+   956→            <div className="text-center mb-12">
+   957→              <Chip variant="soft" className="mb-4">
+   958→                <Star className="w-4 h-4 mr-1" />
+   959→                Success Stories
+   960→              </Chip>
+   961→              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+   962→                Real Vendors, Real Results
+   963→              </h2>
+   964→              <p className="text-default-500 max-w-2xl mx-auto">
+   965→                Meet vendors who transformed their businesses using Kwikseller
+   966→                pool selling.
+   967→              </p>
+   968→            </div>
+   969→          </AnimatedSection>
+   970→
+   971→          <div className="grid md:grid-cols-3 gap-6">
+   972→            {successStories.map((story, index) => (
+   973→              <StaggerChild key={story.name} index={index}>
+   974→                <Card className="group border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-6 h-full relative overflow-hidden">
+   975→                  {/* Top accent */}
+   976→                  <div
+   977→                    className={cn(
+   978→                      "absolute top-0 left-0 right-0 h-1 bg-accent",
+   979→                    )}
+   980→                  />
+   981→
+   982→                  {/* Avatar + Name */}
+   983→                  <div className="flex items-center gap-3 mb-4">
+   984→                    <div
+   985→                      className={cn(
+   986→                        "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md",
+   987→                        story.avatarColor,
+   988→                      )}
+   989→                    >
+   990→                      {story.avatar}
+   991→                    </div>
+   992→                    <div>
+   993→                      <h4 className="font-bold text-sm">{story.name}</h4>
+   994→                      <p className="text-xs text-default-500">
+   995→                        {story.location}
+   996→                      </p>
+   997→                    </div>
+   998→                  </div>
+   999→
+  1000→                  {/* Category chip */}
+  1001→                  <Chip size="sm" variant="soft" className="mb-3">
+  1002→                    {story.category}
+  1003→                  </Chip>
+  1004→
+  1005→                  {/* Quote */}
+  1006→                  <p className="text-sm text-default-600 dark:text-default-400 leading-relaxed mb-5 line-clamp-3">
+  1007→                    &ldquo;{story.quote}&rdquo;
+  1008→                  </p>
+  1009→
+  1010→                  {/* Metrics */}
+  1011→                  <div className="grid grid-cols-3 gap-3 pt-4 border-t border-default-100">
+  1012→                    <div className="text-center">
+  1013→                      <p className="text-base font-bold text-accent">
+  1014→                        {story.monthlyRevenue}
+  1015→                      </p>
+  1016→                      <p className="text-[10px] text-default-400 font-medium">
+  1017→                        Monthly Revenue
+  1018→                      </p>
+  1019→                    </div>
+  1020→                    <div className="text-center">
+  1021→                      <p className="text-base font-bold text-success">
+  1022→                        {story.productsSold}
+  1023→                      </p>
+  1024→                      <p className="text-[10px] text-default-400 font-medium">
+  1025→                        Products Sold
+  1026→                      </p>
+  1027→                    </div>
+  1028→                    <div className="text-center">
+  1029→                      <p className="text-base font-bold text-amber-600 dark:text-amber-400">
+  1030→                        {story.growth}
+  1031→                      </p>
+  1032→                      <p className="text-[10px] text-default-400 font-medium">
+  1033→                        Growth
+  1034→                      </p>
+  1035→                    </div>
+  1036→                  </div>
+  1037→                </Card>
+  1038→              </StaggerChild>
+  1039→            ))}
+  1040→          </div>
+  1041→        </div>
+  1042→      </section>
+  1043→
+  1044→      {/* ═══════════════════════════════════════════════════════════
+  1045→          6. POOL CATEGORIES
+  1046→      ═══════════════════════════════════════════════════════════ */}
+  1047→      <section className="py-16 sm:py-20 relative">
+  1048→        <div className="container mx-auto px-0 md:px-4 ">
+  1049→          <AnimatedSection>
+  1050→            <div className="text-center mb-12">
+  1051→              <Chip variant="soft" className="mb-4">
+  1052→                <Tag className="w-4 h-4 mr-1" />
+  1053→                Categories
+  1054→              </Chip>
+  1055→              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+  1056→                Popular Pool Categories
+  1057→              </h2>
+  1058→              <p className="text-default-500 max-w-2xl mx-auto">
+  1059→                Browse the most in-demand product categories available in the
+  1060→                pool. Thousands of products ready for you to sell.
+  1061→              </p>
+  1062→            </div>
+  1063→          </AnimatedSection>
+  1064→
+  1065→          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+  1066→            {poolCategories.map((cat, index) => {
+  1067→              const Icon = cat.icon;
+  1068→              return (
+  1069→                <StaggerChild key={cat.name} index={index}>
+  1070→                  <Card className="group border-none shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-5 text-center cursor-pointer h-full">
+  1071→                    <div
+  1072→                      className={cn(
+  1073→                        "w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md group-hover:scale-110 transition-transform text-white",
+  1074→                        cat.color,
+  1075→                      )}
+  1076→                    >
+  1077→                      <Icon className="w-6 h-6 text-white" />
+  1078→                    </div>
+  1079→                    <h3 className="text-sm font-bold mb-1">{cat.name}</h3>
+  1080→                    <p className="text-xs text-default-400">
+  1081→                      {cat.productCount} products
+  1082→                    </p>
+  1083→                  </Card>
+  1084→                </StaggerChild>
+  1085→              );
+  1086→            })}
+  1087→          </div>
+  1088→
+  1089→          {/* Total pool products banner */}
+  1090→          <AnimatedSection delay={0.3}>
+  1091→            <div className="mt-8 text-center">
+  1092→              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent/10 border border-accent/20">
+  1093→                <Globe className="w-4 h-4 text-accent" />
+  1094→                <span className="text-sm font-semibold">
+  1095→                  <span className="text-accent">46,300+</span> products
+  1096→                  available across all pool categories
+  1097→                </span>
+  1098→              </div>
+  1099→            </div>
+  1100→          </AnimatedSection>
+  1101→        </div>
+  1102→      </section>
+  1103→
+  1104→      {/* ═══════════════════════════════════════════════════════════
+  1105→          7. EARNINGS CALCULATOR
+  1106→      ═══════════════════════════════════════════════════════════ */}
+  1107→      <section className="py-16 sm:py-20 bg-accent relative overflow-hidden">
+  1108→        <div className="absolute inset-0 pattern-grid opacity-10 pointer-events-none" />
+  1109→        <div className="container mx-auto px-0 md:px-4  relative">
+  1110→          <AnimatedSection>
+  1111→            <div className="text-center mb-10">
+  1112→              <Chip
+  1113→                variant="soft"
+  1114→                className="mb-4 bg-white/20 text-white border-white/20"
+  1115→              >
+  1116→                <HandCoins className="w-4 h-4 mr-1" />
+  1117→                Calculator
+  1118→              </Chip>
+  1119→              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+  1120→                How Much Could You Earn?
+  1121→              </h2>
+  1122→              <p className="text-white/80 max-w-2xl mx-auto">
+  1123→                Use our interactive calculator to estimate your potential pool
+  1124→                selling income. Adjust the sliders and see your earnings in real
+  1125→                time.
+  1126→              </p>
+  1127→            </div>
+  1128→          </AnimatedSection>
+  1129→
+  1130→          <PoolEarningsCalculator />
+  1131→        </div>
+  1132→
+  1133→        {/* Wave divider */}
+  1134→        <div className="absolute bottom-0 left-0 right-0">
+  1135→          <svg
+  1136→            viewBox="0 0 1440 40"
+  1137→            fill="none"
+  1138→            xmlns="http://www.w3.org/2000/svg"
+  1139→            className="w-full h-auto"
+  1140→          >
+  1141→            <path
+  1142→              d="M0 40V15C360 40 720 0 1080 20C1260 30 1380 15 1440 20V40H0Z"
+  1143→              className="fill-background"
+  1144→            />
+  1145→          </svg>
+  1146→        </div>
+  1147→      </section>
+  1148→
+  1149→      {/* ═══════════════════════════════════════════════════════════
+  1150→          8. CTA SECTION
+  1151→      ═══════════════════════════════════════════════════════════ */}
+  1152→      <section className="py-16 sm:py-20 relative overflow-hidden">
+  1153→        {/* Background decorative blobs */}
+  1154→        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-accent/5 blur-[120px] pointer-events-none deco-blob" />
+  1155→
+  1156→        <div className="container mx-auto px-0 md:px-4  relative">
+  1157→          <AnimatedSection>
+  1158→            <Card className="border-none p-8 sm:p-10 md:p-14 bg-accent text-white overflow-hidden relative">
+  1159→              {/* Decorative circles */}
+  1160→              <motion.div
+  1161→                animate={{ scale: [1, 1.3, 1], opacity: [0.05, 0.1, 0.05] }}
+  1162→                transition={{
+  1163→                  duration: 8,
+  1164→                  repeat: Infinity,
+  1165→                  ease: "easeInOut",
+  1166→                }}
+  1167→                className="absolute top-0 right-0 w-80 h-80 rounded-full bg-white/5 -translate-y-1/3 translate-x-1/3 pointer-events-none"
+  1168→              />
+  1169→              <motion.div
+  1170→                animate={{ scale: [1.2, 1, 1.2], opacity: [0.08, 0.03, 0.08] }}
+  1171→                transition={{
+  1172→                  duration: 10,
+  1173→                  repeat: Infinity,
+  1174→                  ease: "easeInOut",
+  1175→                  delay: 3,
+  1176→                }}
+  1177→                className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-white/5 translate-y-1/3 -translate-x-1/3 pointer-events-none"
+  1178→              />
+  1179→
+  1180→              <div className="relative flex flex-col items-center text-center max-w-2xl mx-auto">
+  1181→                {/* Icon */}
+  1182→                <motion.div
+  1183→                  initial={{ scale: 0 }}
+  1184→                  animate={{ scale: 1 }}
+  1185→                  transition={{
+  1186→                    type: "spring",
+  1187→                    damping: 15,
+  1188→                    stiffness: 200,
+  1189→                    delay: 0.2,
+  1190→                  }}
+  1191→                  className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6 shadow-lg"
+  1192→                >
+  1193→                  <Droplets className="w-10 h-10 text-white" />
+  1194→                </motion.div>
+  1195→
+  1196→                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
+  1197→                  Start Pool Selling Today
+  1198→                </h2>
+  1199→                <p className="text-white/80 text-base sm:text-lg max-w-lg mb-8 leading-relaxed">
+  1200→                  Join thousands of African vendors earning commissions without
+  1201→                  holding inventory. Zero risk, zero upfront cost — just list,
+  1202→                  sell, and profit.
+  1203→                </p>
+  1204→
+  1205→                {/* Stats row */}
+  1206→                <div className="grid grid-cols-3 gap-6 sm:gap-10 mb-10 w-full max-w-md">
+  1207→                  {[
+  1208→                    { value: "10K+", label: "Active Vendors" },
+  1209→                    { value: "46K+", label: "Pool Products" },
+  1210→                    { value: "₦2B+", label: "Monthly Sales" },
+  1211→                  ].map((stat, i) => (
+  1212→                    <div key={stat.label} className="text-center">
+  1213→                      <p className="text-xl sm:text-2xl font-bold">
+  1214→                        {stat.value}
+  1215→                      </p>
+  1216→                      <p className="text-white/60 text-xs sm:text-sm">
+  1217→                        {stat.label}
+  1218→                      </p>
+  1219→                    </div>
+  1220→                  ))}
+  1221→                </div>
+  1222→
+  1223→                <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+  1224→                  <Button
+  1225→                    size="lg"
+  1226→                    className="bg-white text-accent-foreground font-bold kwik-shadow-lg hover:bg-white/90 transition-colors px-8 sm:px-10"
+  1227→                    onPress={() => router.push("/register")}
+  1228→                  >
+  1229→                    Register Now — It&apos;s Free
+  1230→                    <ArrowRight className="ml-2 w-4 h-4" />
+  1231→                  </Button>
+  1232→                  <Button
+  1233→                    size="lg"
+  1234→                    variant="ghost"
+  1235→                    className="text-white border-white/30 hover:bg-white/10 font-medium"
+  1236→                    onPress={() => router.push("/pricing")}
+  1237→                  >
+  1238→                    View Plans
+  1239→                  </Button>
+  1240→                </div>
+  1241→              </div>
+  1242→            </Card>
+  1243→          </AnimatedSection>
+  1244→        </div>
+  1245→      </section>
+  1246→    </>
+  1247→  );
+  1248→}
+  1249→
+  1250→// ─── Chevron Down Icon (used in hero CTA) ──────────────────────────
+  1251→
+  1252→function ChevronDown({ className }: { className?: string }) {
+  1253→  return (
+  1254→    <svg
+  1255→      xmlns="http://www.w3.org/2000/svg"
+  1256→      viewBox="0 0 24 24"
+  1257→      fill="none"
+  1258→      stroke="currentColor"
+  1259→      strokeWidth="2"
+  1260→      strokeLinecap="round"
+  1261→      strokeLinejoin="round"
+  1262→      className={className}
+  1263→    >
+  1264→      <path d="m6 9 6 6 6-6" />
+  1265→    </svg>
+  1266→  );
+  1267→}
+  1268→

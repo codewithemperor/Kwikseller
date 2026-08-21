@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { JobQueueService } from '../../common/services/job-queue.service';
 import { PaystackService } from './paystack.service';
 import { PlatformSettingService } from '../../common/services/platform-setting.service';
 import { EscrowService } from '../../payments/escrow.service';
@@ -103,6 +104,7 @@ export class CommerceService {
     private readonly eventEmitter: EventEmitter2,
     private readonly platformSetting: PlatformSettingService,
     private readonly escrowService: EscrowService,
+    private readonly jobQueueService: JobQueueService,
   ) {}
 
   private db() {
@@ -759,7 +761,7 @@ export class CommerceService {
               shippingFee: 0, // TBD — set when quote is agreed
               totalAmount: groupTotal, // subtotal + processing fee (delivery added at agreement)
               discount: 0,
-              status: 'PENDING', // NEW lifecycle: order exists, awaiting quote
+              status: deliveryMethod === 'PICKUP' ? 'PENDING_PAYMENT' : 'PENDING',
               paymentStatus: 'PENDING',
               quoteStatus: deliveryMethod === 'PICKUP' ? 'AGREED' : 'PENDING_VENDOR_QUOTE', // pickup has no delivery fee to quote
               deliveryMethod,
@@ -842,6 +844,7 @@ export class CommerceService {
                 : '',
               deliveryContactName: dto.shippingAddress?.fullName ?? '',
               deliveryContactPhone: dto.shippingAddress?.phone ?? '',
+              customerConfirmed: false,
             },
           });
 
@@ -1212,6 +1215,10 @@ export class CommerceService {
         },
       });
 
+      await this.jobQueueService.enqueuePaymentVerification({
+        reference: result.reference,
+      });
+
       return {
         ...result,
         payment,
@@ -1278,6 +1285,10 @@ export class CommerceService {
             accessCode: initialized.accessCode,
           }),
         },
+      });
+
+      await this.jobQueueService.enqueuePaymentVerification({
+        reference,
       });
     }
 
@@ -3275,7 +3286,7 @@ export class CommerceService {
         for (const order of payment.parentCheckout.orders ?? []) {
           await tx.order.update({
             where: { id: order.id },
-            data: { status: 'PAID', paymentStatus: 'PAID' },
+            data: { status: 'CONFIRMED', paymentStatus: 'PAID' },
           });
           await this.commitReservations(tx, order.items);
           await this.createFulfillmentsForPaidOrder(tx, order);
@@ -3314,7 +3325,7 @@ export class CommerceService {
       await tx.order.update({
         where: { id: payment.orderId },
         data: {
-          status: 'PAID',
+          status: 'CONFIRMED',
           paymentStatus: 'PAID',
         },
       });

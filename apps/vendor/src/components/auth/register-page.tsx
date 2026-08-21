@@ -13,9 +13,9 @@ import {
   OTPVerification,
   AppButton,
   BrandedAuthHeader,
-} from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
-import { registerSchema, type RegisterFormData } from "@kwikseller/types";
+} from "@/lib/ui";
+import { kwikToast, useAuth } from "@/lib/utils";
+import { registerSchema, type RegisterFormData } from "@/lib/types";
 
 const STORE_CATEGORIES = [
   { value: 'fashion', label: 'Fashion & Apparel' },

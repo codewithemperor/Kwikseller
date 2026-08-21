@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@kwikseller/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface GuestRouteProps {
   children: React.ReactNode;

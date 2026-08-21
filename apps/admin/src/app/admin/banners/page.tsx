@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { bannersApi } from "@/lib/api";
 import type { Banner } from "@/lib/api";
-import { formatRelativeTime } from "@kwikseller/utils";
+import { formatRelativeTime } from "@/lib/utils";
 
 const positionLabels: Record<string, string> = { HOME_HERO: "Home Hero", HOME_SIDEBAR: "Home Sidebar", CATEGORY_TOP: "Category Top", PRODUCT_PAGE: "Product Page" };
 
@@ -61,3 +61,4 @@ export default function BannersPage() {
     </div>
   );
 }
+

@@ -9,7 +9,7 @@ import {
   VendorPageHeader as SharedVendorPageHeader,
   VendorMetricCard as SharedVendorMetricCard,
   type VendorMetricCardProps,
-} from "@kwikseller/ui";
+} from "@/lib/ui";
 
 interface SummaryCardProps {
   eyebrow?: string;
@@ -101,7 +101,7 @@ function HeaderActionMenu({ children }: { children: React.ReactNode }) {
 // The shared VendorDrawer + VendorMobileNav now handle navigation.
 //
 // VendorPageHeader & VendorMetricCard below are now THIN ADAPTERS that delegate
-// to the single shared implementation in @kwikseller/ui. This eliminates the
+// to the single shared implementation in @/lib/ui. This eliminates the
 // "two competing definitions with incompatible prop signatures" shadowing bug:
 // there is now only ONE real implementation; the local exports just translate
 // the legacy prop API (label/note/tone/action/eyebrow) into the shared one

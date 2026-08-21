@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useCartStore, useWishlistStore } from '@/stores'
-import { kwikToast } from '@kwikseller/utils'
+import { kwikToast } from '@/lib/toast'
 import { AppImage } from '@/components/ui/app-image'
 import { AccountLayout } from '@/components/layout/account-layout'
 import type { WishlistItem } from '@/stores/wishlist-store'
@@ -247,8 +247,8 @@ function WishlistPageInner() {
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
         >
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-danger/10 flex items-center justify-center">
-              <Heart className="w-6 h-6 text-danger" fill="currentColor" />
+            <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center">
+              <Heart className="w-5 h-5 text-danger" fill="currentColor" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">My Wishlist</h1>
@@ -284,7 +284,7 @@ function WishlistPageInner() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mb-6 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-surface p-4 sm:grid-cols-3"
+            className="mb-6 grid grid-cols-3 gap-3 rounded-2xl border border-border bg-surface px-4 py-3"
           >
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -302,7 +302,7 @@ function WishlistPageInner() {
                 {totalSavings > 0 ? formatCurrency(totalSavings) : '—'}
               </p>
             </div>
-            <div className="col-span-2 sm:col-span-1">
+            <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                 Items
               </p>

@@ -42,6 +42,10 @@ interface DispatchOrderDto {
   carrier?: string;
 }
 
+interface CompletePickupDto {
+  note?: string;
+}
+
 @Injectable()
 export class OrderLifecycleService {
   private readonly logger = new Logger(OrderLifecycleService.name);
@@ -116,10 +120,9 @@ export class OrderLifecycleService {
       );
     }
 
-    if (order.status === 'COMPLETED') {
-      // Idempotent: already confirmed. Return as-is.
+    if (order.delivery?.customerConfirmed) {
       this.logger.log(
-        `Order ${orderId} already COMPLETED — confirmReceipt is a no-op`,
+        `Order ${orderId} already customer-confirmed — confirmReceipt is a no-op`,
       );
       return order;
     }
@@ -136,13 +139,13 @@ export class OrderLifecycleService {
       delivery = await db.delivery?.create({
         data: {
           orderId: order.id,
-          status: isPickup ? 'COMPLETED' : 'DELIVERED',
+          status: isPickup ? 'DELIVERED' : 'DELIVERED',
           pickupAddress: storeAddress,
           deliveryAddress: storeAddress,
           customerConfirmed: true,
           customerConfirmedAt: now,
           ...(isPickup
-            ? { pickupConfirmedAt: now, pickupConfirmedBy: userId }
+            ? { pickupConfirmedAt: now, pickupConfirmedBy: userId, deliveredAt: now }
             : { deliveredAt: now }),
         },
       });
@@ -154,12 +157,10 @@ export class OrderLifecycleService {
       if (isPickup) {
         deliveryUpdate.pickupConfirmedAt = now;
         deliveryUpdate.pickupConfirmedBy = userId;
-        deliveryUpdate.status = 'COMPLETED';
+        deliveryUpdate.deliveredAt = now;
+        deliveryUpdate.status = 'DELIVERED';
       } else {
-        // Standard delivery: mark as DELIVERED (if not already COMPLETED).
-        if (delivery.status !== 'COMPLETED') {
-          deliveryUpdate.status = 'DELIVERED';
-        }
+        deliveryUpdate.status = 'DELIVERED';
         if (!delivery.deliveredAt) {
           deliveryUpdate.deliveredAt = now;
         }
@@ -170,26 +171,10 @@ export class OrderLifecycleService {
       });
     }
 
-    // Two-phase order status transition: PENDING/CONFIRMED/PROCESSING/etc → DELIVERED → COMPLETED.
-    // We do both writes inside a single transaction so the order never sits in a half-state.
-    const updatedOrder = await db.$transaction?.([
-      db.order?.update({
-        where: { id: order.id },
-        data: { status: 'DELIVERED' },
-      }),
-      // Second update is sequenced after the first via the same transaction array
-      // (Prisma interactive transactions would be cleaner, but $transaction([...])
-      // runs sequentially and is what this codebase uses elsewhere).
-      db.order?.update({
-        where: { id: order.id },
-        data: { status: 'COMPLETED' },
-      }),
-    ]);
-
-    // Take the final state from the last write.
-    const finalOrder = Array.isArray(updatedOrder)
-      ? updatedOrder[updatedOrder.length - 1]
-      : updatedOrder;
+    const finalOrder = await db.order?.update({
+      where: { id: order.id },
+      data: { status: 'DELIVERED' },
+    });
 
     // ─── THE KWIKSCROW RELEASE ────────────────────────────────────────────
     // This is the ONLY call site in the codebase that triggers the release of
@@ -526,6 +511,10 @@ export class OrderLifecycleService {
     }
 
     const now = new Date();
+    const releaseAt =
+      order.estimatedDeliveryEnd != null
+        ? new Date(new Date(order.estimatedDeliveryEnd).getTime() + 24 * 60 * 60 * 1000)
+        : new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const updatedOrder = await db.$transaction?.(async (tx: DbClient) => {
       const updated = await tx.order?.update({
@@ -543,6 +532,16 @@ export class OrderLifecycleService {
         });
       }
 
+      if (order.escrow && ['HELD', 'PENDING_RELEASE'].includes(order.escrow.status)) {
+        await tx.escrow?.update({
+          where: { id: order.escrow.id },
+          data: {
+            status: 'HELD',
+            releaseAt,
+          },
+        });
+      }
+
       return updated;
     });
 
@@ -556,6 +555,95 @@ export class OrderLifecycleService {
     this.logger.log(
       `Order ${order.id} marked delivered by vendor ${userId} (escrow NOT released — awaiting customer confirmation)`,
     );
+    return this.loadOrder(order.id);
+  }
+
+  // ─── 7. Vendor: Complete pickup handoff (PICKUP orders only) ────────────
+
+  async completePickup(user: AuthUser, orderId: string, dto?: CompletePickupDto) {
+    const userId = this.userId(user);
+    const db = this.db();
+    const order = await this.loadOrder(orderId);
+    await this.assertVendor(order, userId);
+
+    if (order.deliveryMethod !== 'PICKUP') {
+      throw new BadRequestException(
+        `complete-pickup is only valid for PICKUP orders (this order is ${order.deliveryMethod}).`,
+      );
+    }
+
+    if (order.paymentStatus !== 'PAID') {
+      throw new BadRequestException(
+        `Cannot complete pickup before payment is confirmed (paymentStatus: ${order.paymentStatus}).`,
+      );
+    }
+
+    if (!['FULFILLED', 'PROCESSING', 'CONFIRMED', 'PAID'].includes(order.status)) {
+      throw new BadRequestException(
+        `Cannot complete pickup from ${order.status} status.`,
+      );
+    }
+
+    const now = new Date();
+
+    await db.$transaction?.(async (tx: DbClient) => {
+      if (order.delivery) {
+        await tx.delivery?.update({
+          where: { id: order.delivery.id },
+          data: {
+            status: 'COMPLETED',
+            pickupConfirmedAt: now,
+            pickupConfirmedBy: userId,
+            deliveredAt: now,
+            customerConfirmed: true,
+            customerConfirmedAt: now,
+            deliveryNotes: dto?.note,
+          },
+        });
+      } else {
+        await tx.delivery?.create({
+          data: {
+            orderId: order.id,
+            status: 'COMPLETED',
+            pickupAddress: order.store?.name || 'Vendor location',
+            deliveryAddress: order.store?.name || 'Vendor location',
+            pickupConfirmedAt: now,
+            pickupConfirmedBy: userId,
+            deliveredAt: now,
+            customerConfirmed: true,
+            customerConfirmedAt: now,
+            deliveryNotes: dto?.note,
+          },
+        });
+      }
+
+      await tx.order?.update({
+        where: { id: order.id },
+        data: { status: 'DELIVERED' },
+      });
+    });
+
+    try {
+      await this.escrowService.releaseByOrderId(order.id);
+    } catch (err) {
+      this.logger.error(
+        `Escrow release failed for pickup order ${order.id}: ${
+          (err as Error)?.message || err
+        }`,
+      );
+    }
+
+    this.eventEmitter.emit('order.pickup_completed', {
+      orderId: order.id,
+      buyerId: order.buyerId,
+      storeId: order.storeId,
+      vendorId: userId,
+      at: now,
+      note: dto?.note,
+    });
+
+    this.logger.log(`Pickup order ${order.id} completed by vendor ${userId}`);
+
     return this.loadOrder(order.id);
   }
 }

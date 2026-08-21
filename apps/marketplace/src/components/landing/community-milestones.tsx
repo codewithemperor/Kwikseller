@@ -9,7 +9,7 @@ import {
   COMMUNITY_MILESTONES_HEADER_ICON as Milestone,
   type MilestoneItem,
 } from "@/constants/landing";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Animation Variants ──────────────────────────────────────
 

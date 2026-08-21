@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, AlertCircle } from "lucide-react";
-import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
-import { loginSchema, type LoginFormData } from "@kwikseller/types";
+import { cn, TextInput, PasswordInput, OTPVerification, AppButton, BrandedAuthHeader } from "@/lib/ui";
+import { kwikToast, useAuth } from "@/lib/utils";
+import { loginSchema, type LoginFormData } from "@/lib/types";
 
 export interface PortalConfig {
   name: string;

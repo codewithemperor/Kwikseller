@@ -19,7 +19,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import {
   useCartStore,
   useWishlistStore,
@@ -45,6 +45,7 @@ import {
 import { ProductVariantSelector } from "@/components/product/product-variant-selector";
 import { useReviews, useReviewSummary } from "@/lib/api-hooks";
 import type { MarketplaceProduct, ProductVariant } from "@/data/marketplace-home";
+import { PhotoLightbox } from "@/components/modals/photo-lightbox";
 
 /* ─── Product Description (renders HTML or plain text) ─── */
 function ProductDescription({ description }: { description: string }) {
@@ -898,44 +899,12 @@ export function ProductDetailPage({
       </AnimatePresence>
 
       {/* Review photo lightbox */}
-      <AnimatePresence>
-        {lightbox && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-            onClick={() => setLightbox(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Review photo"
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightbox(null);
-              }}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-              aria-label="Close photo"
-            >
-              <span className="text-xl">×</span>
-            </button>
-            <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
-              className="relative max-h-[85vh] max-w-[85vw] overflow-hidden rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <AppImage
-                src={lightbox.src}
-                alt={lightbox.alt}
-                className="max-h-[85vh] max-w-[85vw] object-contain"
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <PhotoLightbox
+        src={lightbox?.src ?? null}
+        alt={lightbox?.alt ?? ""}
+        isOpen={!!lightbox}
+        onClose={() => setLightbox(null)}
+      />
     </div>
   );
 }

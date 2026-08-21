@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import { marketplaceTrendingFilters } from "@/data/marketplace-home";
 
 interface ProductFilterChipsProps {

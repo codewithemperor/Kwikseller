@@ -20,7 +20,7 @@ import {
   Tag,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 import { getSimilarSuggestions } from '@/lib/search-similarity'
 import {
   POPULAR_SEARCH_CATEGORIES as POPULAR_CATEGORIES,

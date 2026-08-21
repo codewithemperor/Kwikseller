@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Check, Heart, Scale, ShoppingCart, Star } from "lucide-react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { useCartStore, useCompareStore, useWishlistStore } from "@/stores";
 import { AppImage } from "@/components/ui/app-image";
 import type { MarketplaceProduct } from "@/data/marketplace-home";

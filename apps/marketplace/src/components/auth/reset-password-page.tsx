@@ -7,12 +7,16 @@ import { useForm, useWatch, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Lock, CheckCircle, ArrowLeft, Check } from "lucide-react";
 import { InputOTP } from "@heroui/react";
-import { cn, PasswordInput, SubmitButton } from "@kwikseller/ui";
-import { kwikToast, useAuth, usePendingResetEmail } from "@kwikseller/utils";
+import { cn } from "@/lib/utils";
+import { PasswordInput } from "@/components/ui/form-inputs";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
+import { usePendingResetEmail } from "@/stores/auth-store";
 import {
   resetPasswordSchema,
   type ResetPasswordFormData,
-} from "@kwikseller/types";
+} from "@/types";
 
 interface ResetPasswordPageProps {
   loginPath: string;

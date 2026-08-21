@@ -6,7 +6,7 @@ import { toast } from "@heroui/react";
 import { Edit3, Power, RotateCw, Truck } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { deliveryRatesApi, type DeliveryRate } from "@/lib/api";
-import { formatCurrency } from "@kwikseller/utils";
+import { formatCurrency } from "@/lib/utils";
 
 const NIGERIA_STATES = [
   "Abia",
@@ -335,3 +335,4 @@ export default function DeliveryRatesPage() {
     </div>
   );
 }
+

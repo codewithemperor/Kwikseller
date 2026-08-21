@@ -11,7 +11,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Chip, Card } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   VIDEO_TESTIMONIALS as testimonials,
   type VideoTestimonial,

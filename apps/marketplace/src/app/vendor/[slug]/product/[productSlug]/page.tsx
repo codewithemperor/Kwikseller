@@ -4,9 +4,9 @@ import React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Check, PackageCheck, ShoppingCart } from "lucide-react";
-import { marketplaceStoresApi } from "@kwikseller/api-client";
-import type { Product } from "@kwikseller/types";
-import { kwikToast } from "@kwikseller/utils";
+import { marketplaceStoresApi } from "@/services/api-client";
+import type { Product } from "@/types";
+import { kwikToast } from "@/lib/toast";
 import {
   StorefrontLoading,
   StorefrontSectionTitle,

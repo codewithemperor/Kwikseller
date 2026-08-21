@@ -13,7 +13,7 @@ import {
   Hand,
 } from "lucide-react";
 import { Chip, Button } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 // ─── Feature Data ──────────────────────────────────────────────

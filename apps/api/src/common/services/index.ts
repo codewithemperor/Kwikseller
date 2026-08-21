@@ -2,8 +2,12 @@
 // Export all shared services
 
 export { EmailService } from './email.service';
+export { EmailQueueWorker } from './email-queue.worker';
+export { JobQueueService, RetryableJobError } from './job-queue.service';
+export type { QueueJob, QueuePayloadMap } from './job-queue.service';
 export { PushService } from './push.service';
 export { CacheService } from './cache.service';
+export { RedisService } from './redis.service';
 export { StorageService } from './storage.service';
 export { AuditService } from './audit.service';
 export { NotificationService } from './notification.service';

@@ -17,7 +17,8 @@ import {
   Award,
   ArrowRight,
 } from "lucide-react";
-import { kwikToast, useAuth } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
 import { AccountLayout } from "@/components/layout/account-layout";
 
 // Mock data for demo mode (avoids importing the heavy order-workflow store
@@ -122,7 +123,7 @@ function ProfilePageInner() {
 
   return (
     <main className="bg-background min-h-screen px-4 py-6">
-      <div className="container mx-auto max-w-3xl space-y-5">
+      <div className="container mx-auto max-w-4xl space-y-5">
         {/* Demo mode banner */}
         {isDemoMode && (
           <motion.div
@@ -146,21 +147,22 @@ function ProfilePageInner() {
           animate={{ opacity: 1, y: 0 }}
           className="overflow-hidden rounded-2xl border border-border bg-surface"
         >
-          <div className="kwik-gradient px-5 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold text-white backdrop-blur">
+          <div className="border-b border-border px-5 py-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary-50 text-lg font-bold text-secondary-700">
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="truncate font-heading text-xl font-bold text-white">
+                <p className="text-sm text-gray-500">Buyer profile</p>
+                <h1 className="truncate font-heading text-xl font-bold text-foreground">
                   {displayName}
                 </h1>
-                <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-white/85">
+                <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-gray-500">
                   <Mail className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{displayEmail}</span>
                 </p>
               </div>
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+              <span className="rounded-full bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700">
                 {demoUser.tier} Member
               </span>
             </div>
@@ -168,23 +170,23 @@ function ProfilePageInner() {
 
           {/* Stats row */}
           <div className="grid grid-cols-3 divide-x divide-border">
-            <div className="p-4 text-center">
-              <p className="font-heading text-xl font-bold text-foreground">
+            <div className="py-3 text-center">
+              <p className="font-heading text-lg font-bold text-foreground">
                 {demoUser.totalOrders}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">Orders</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">Orders</p>
             </div>
-            <div className="p-4 text-center">
-              <p className="font-heading text-xl font-bold text-foreground">
+            <div className="py-3 text-center">
+              <p className="font-heading text-lg font-bold text-foreground">
                 {formatNGN(demoUser.totalSpent)}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">Total spent</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">Total spent</p>
             </div>
-            <div className="p-4 text-center">
-              <p className="font-heading text-xl font-bold text-secondary-600">
+            <div className="py-3 text-center">
+              <p className="font-heading text-lg font-bold text-secondary-600">
                 {demoUser.kwikCoins.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">KwikCoins</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">KwikCoins</p>
             </div>
           </div>
         </motion.section>
@@ -196,25 +198,25 @@ function ProfilePageInner() {
           transition={{ delay: 0.05 }}
           className="overflow-hidden rounded-2xl border border-border bg-surface"
         >
-          <div className="kwik-gradient px-5 py-4 text-white">
+          <div className="border-b border-border px-5 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary-50 text-secondary-700">
                   <Wallet className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-white/75">
+                  <p className="text-xs font-semibold text-gray-500">
                     KwikCoins Wallet
                   </p>
-                  <p className="font-heading text-2xl font-bold">
+                  <p className="font-heading text-2xl font-bold text-foreground">
                     {demoUser.kwikCoins.toLocaleString()}{" "}
-                    <span className="text-sm font-normal text-white/75">coins</span>
+                    <span className="text-sm font-normal text-gray-500">coins</span>
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-white/75">Worth</p>
-                <p className="font-heading text-lg font-bold">
+                <p className="text-xs text-gray-500">Worth</p>
+                <p className="font-heading text-lg font-bold text-foreground">
                   {formatNGN(demoUser.kwikCoinsValue)}
                 </p>
               </div>
@@ -249,6 +251,7 @@ function ProfilePageInner() {
         </motion.section>
 
         {/* Navigation groups */}
+        <div className="grid gap-5 lg:grid-cols-2">
         {groups.map((group, gIdx) => (
           <motion.section
             key={group.title}
@@ -257,7 +260,7 @@ function ProfilePageInner() {
             transition={{ delay: 0.1 + gIdx * 0.05 }}
             className="space-y-2"
           >
-            <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+            <h2 className="px-1 text-sm font-semibold text-gray-500">
               {group.title}
             </h2>
             <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
@@ -280,6 +283,7 @@ function ProfilePageInner() {
             </div>
           </motion.section>
         ))}
+        </div>
 
         {/* Saved addresses preview */}
         <motion.section
@@ -289,9 +293,9 @@ function ProfilePageInner() {
           className="space-y-2"
         >
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-              Saved Addresses
-            </h2>
+              <h2 className="text-sm font-semibold text-gray-500">
+                Saved Addresses
+              </h2>
             <Link
               href="/profile/addresses"
               className="text-xs font-medium text-primary-600 hover:text-primary-700"
@@ -335,7 +339,7 @@ function ProfilePageInner() {
             className="space-y-2"
           >
             <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              <h2 className="text-sm font-semibold text-gray-500">
                 Recent Orders
               </h2>
               <Link

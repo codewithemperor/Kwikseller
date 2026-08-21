@@ -1,0 +1,1258 @@
+     1→// KWIKSELLER - Shared API Client
+     2→// Centralized Axios client for all frontend apps
+     3→
+     4→import axios, {
+     5→  AxiosError,
+     6→  AxiosInstance,
+     7→  AxiosRequestConfig,
+     8→  AxiosResponse,
+     9→  InternalAxiosRequestConfig,
+    10→} from 'axios'
+    11→import type {
+    12→  CheckoutRequest,
+    13→  CheckoutResponse,
+    14→  CartValidationResponse,
+    15→  CouponValidationResponse,
+    16→  DigitalAsset,
+    17→  DeliveryRate,
+    18→  InventoryItem,
+    19→  PoolCampaign,
+    20→  PoolProduct,
+    21→  PoolSelectionRequest,
+    22→  Product,
+    23→  ProductStatus,
+    24→  ProductSource,
+    25→  ProductType,
+    26→  InventoryPolicy,
+    27→  Store,
+    28→  StorefrontDesignConfig,
+    29→  VendorDashboardMetrics,
+    30→  VendorPoolOffer,
+    31→} from '@kwikseller/types'
+    32→
+    33→// ==================== Types ====================
+    34→
+    35→export interface ApiResponse<T = unknown> {
+    36→  data: T
+    37→  success: boolean
+    38→  message?: string
+    39→  meta?: {
+    40→    page?: number
+    41→    limit?: number
+    42→    total?: number
+    43→    totalPages?: number
+    44→  }
+    45→}
+    46→
+    47→export interface ApiError {
+    48→  statusCode: number
+    49→  message: string
+    50→  error?: string
+    51→  details?: Record<string, string[]>
+    52→}
+    53→
+    54→export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+    55→  meta: {
+    56→    page: number
+    57→    limit: number
+    58→    total: number
+    59→    totalPages: number
+    60→  }
+    61→}
+    62→
+    63→export interface RequestConfig extends AxiosRequestConfig {
+    64→  skipAuth?: boolean
+    65→}
+    66→
+    67→// ==================== Configuration ====================
+    68→
+    69→const getBaseURL = (): string => {
+    70→  const configuredUrl = process.env.NEXT_PUBLIC_API_URL
+    71→
+    72→  if (!configuredUrl) {
+    73→    // Client (browser): relative "/api/v1" so requests go through the
+    74→    // gateway and hit the in-app route handlers (dummy) or the proxied
+    75→    // rewrite (real API).
+    76→    // Server (SSR/RSC): absolute localhost:3000 so server-side fetches
+    77→    // resolve against the Next.js app's own route handlers. In production
+    78→    // set NEXT_PUBLIC_API_URL to the real NestJS backend.
+    79→    return typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:3000/api/v1'
+    80→  }
+    81→
+    82→  const withProtocol = /^https?:\/\//i.test(configuredUrl)
+    83→    ? configuredUrl
+    84→    : `https://${configuredUrl}`
+    85→  const withoutTrailingSlash = withProtocol.replace(/\/+$/, '')
+    86→
+    87→  return withoutTrailingSlash.endsWith('/api/v1')
+    88→    ? withoutTrailingSlash
+    89→    : `${withoutTrailingSlash}/api/v1`
+    90→}
+    91→
+    92→// Storage keys
+    93→const STORAGE_KEYS = {
+    94→  ACCESS_TOKEN: 'kwikseller_access_token',
+    95→  REFRESH_TOKEN: 'kwikseller_refresh_token',
+    96→  AUTH_STORE: 'kwikseller_auth',
+    97→}
+    98→
+    99→// ==================== Token Refresh Mutex ====================
+   100→// Prevents concurrent 401 responses from triggering multiple refresh calls.
+   101→// Only one refresh request is in-flight at a time; other requests queue and
+   102→// resolve once the refresh completes.
+   103→
+   104→let isRefreshing = false
+   105→let refreshQueue: Array<{
+   106→  resolve: (token: string) => void
+   107→  reject: (error: unknown) => void
+   108→}> = []
+   109→
+   110→function processRefreshQueue(error: unknown, token: string | null = null): void {
+   111→  refreshQueue.forEach(({ resolve, reject }) => {
+   112→    if (error) reject(error)
+   113→    else if (token) resolve(token)
+   114→  })
+   115→  refreshQueue = []
+   116→}
+   117→
+   118→// ==================== Token Management ====================
+   119→
+   120→export const tokenManager = {
+   121→  getAccessToken: (): string | null => {
+   122→    if (typeof window === 'undefined') return null
+   123→    return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+   124→  },
+   125→
+   126→  getRefreshToken: (): string | null => {
+   127→    if (typeof window === 'undefined') return null
+   128→    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)
+   129→  },
+   130→
+   131→  setTokens: (accessToken: string, refreshToken?: string): void => {
+   132→    if (typeof window === 'undefined') return
+   133→    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+   134→    if (refreshToken) {
+   135→      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+   136→    }
+   137→  },
+   138→
+   139→  clearTokens: (): void => {
+   140→    if (typeof window === 'undefined') return
+   141→    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
+   142→    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+   143→    localStorage.removeItem(STORAGE_KEYS.AUTH_STORE)
+   144→  },
+   145→
+   146→  isAuthenticated: (): boolean => {
+   147→    return !!tokenManager.getAccessToken()
+   148→  },
+   149→}
+   150→
+   151→// ==================== Create Axios Instance ====================
+   152→
+   153→const createApiClient = (): AxiosInstance => {
+   154→  const instance = axios.create({
+   155→    baseURL: getBaseURL(),
+   156→    timeout: 30000,
+   157→    headers: {
+   158→      'Content-Type': 'application/json',
+   159→    },
+   160→  })
+   161→
+   162→  const redirectToLogin = () => {
+   163→    if (typeof window === 'undefined') return
+   164→    tokenManager.clearTokens()
+   165→    const currentPath = window.location.pathname
+   166→    const currentHost = window.location.hostname
+   167→    const isAdminApp = currentHost.includes('admin') || currentPath.startsWith('/admin')
+   168→    const isRiderApp = currentHost.includes('rider') || currentPath.startsWith('/rider')
+   169→    const isVendorApp = currentHost.includes('vendor') || currentPath.startsWith('/dashboard')
+   170→    let loginPath = '/login'
+   171→    if (isAdminApp) loginPath = '/admin/login'
+   172→    else if (isRiderApp) loginPath = '/rider/login'
+   173→    // Vendor app login is at /login (same as default), but we preserve
+   174→    // the dashboard redirect so the user lands back where they were
+   175→    window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`
+   176→  }
+   177→
+   178→  // Request interceptor - Add auth token
+   179→  instance.interceptors.request.use(
+   180→    (config: InternalAxiosRequestConfig) => {
+   181→      // Skip auth if explicitly requested
+   182→      if ((config as RequestConfig).skipAuth) {
+   183→        return config
+   184→      }
+   185→
+   186→      const token = tokenManager.getAccessToken()
+   187→      if (token && config.headers) {
+   188→        config.headers.Authorization = `Bearer ${token}`
+   189→      }
+   190→      return config
+   191→    },
+   192→    (error) => Promise.reject(error)
+   193→  )
+   194→
+   195→  // Response interceptor - Handle errors and token refresh with mutex
+   196→  instance.interceptors.response.use(
+   197→    (response: AxiosResponse) => response,
+   198→    async (error: AxiosError<ApiError>) => {
+   199→      const originalRequest = error.config as InternalAxiosRequestConfig & {
+   200→        _retry?: boolean
+   201→      }
+   202→      const isAuthEndpoint = originalRequest?.url?.includes('/auth/')
+   203→
+   204→      // Handle 401 Unauthorized - Try to refresh token (with mutex to prevent race conditions)
+   205→      if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+   206→        if (isRefreshing) {
+   207→          // Another refresh is already in-flight — queue this request
+   208→          return new Promise((resolve, reject) => {
+   209→            refreshQueue.push({
+   210→              resolve: (newToken: string) => {
+   211→                if (originalRequest.headers) {
+   212→                  originalRequest.headers.Authorization = `Bearer ${newToken}`
+   213→                }
+   214→                resolve(instance(originalRequest))
+   215→              },
+   216→              reject: (err: unknown) => reject(err),
+   217→            })
+   218→          })
+   219→        }
+   220→
+   221→        originalRequest._retry = true
+   222→        isRefreshing = true
+   223→
+   224→        try {
+   225→          const refreshToken = tokenManager.getRefreshToken()
+   226→          if (refreshToken) {
+   227→            const response = await axios.post(`${getBaseURL()}/auth/refresh`, {
+   228→              refreshToken,
+   229→            })
+   230→
+   231→            const { accessToken, refreshToken: newRefreshToken } = response.data.data || response.data
+   232→            tokenManager.setTokens(accessToken, newRefreshToken)
+   233→
+   234→            // Notify queued requests
+   235→            processRefreshQueue(null, accessToken)
+   236→
+   237→            // Retry original request with new token
+   238→            if (originalRequest.headers) {
+   239→              originalRequest.headers.Authorization = `Bearer ${accessToken}`
+   240→            }
+   241→            return instance(originalRequest)
+   242→          }
+   243→          // No refresh token available
+   244→          processRefreshQueue(new Error('No refresh token available'), null)
+   245→          tokenManager.clearTokens()
+   246→          redirectToLogin()
+   247→        } catch (refreshError) {
+   248→          // Refresh failed
+   249→          processRefreshQueue(refreshError, null)
+   250→          tokenManager.clearTokens()
+   251→          redirectToLogin()
+   252→        } finally {
+   253→          isRefreshing = false
+   254→        }
+   255→      }
+   256→
+   257→      // Handle other errors
+   258→      const apiError: ApiError = {
+   259→        statusCode: error.response?.status || 500,
+   260→        message: error.response?.data?.message || error.message || 'An error occurred',
+   261→        error: error.response?.data?.error,
+   262→        details: error.response?.data?.details,
+   263→      }
+   264→
+   265→      return Promise.reject(apiError)
+   266→    }
+   267→  )
+   268→
+   269→  return instance
+   270→}
+   271→
+   272→// Create singleton instance
+   273→const apiClient = createApiClient()
+   274→
+   275→// ==================== API Methods ====================
+   276→
+   277→export const api = {
+   278→  get: <T = unknown>(
+   279→    url: string,
+   280→    config?: RequestConfig
+   281→  ): Promise<ApiResponse<T>> => apiClient.get(url, config).then((res) => res.data),
+   282→
+   283→  post: <T = unknown>(
+   284→    url: string,
+   285→    data?: unknown,
+   286→    config?: RequestConfig
+   287→  ): Promise<ApiResponse<T>> => apiClient.post(url, data, config).then((res) => res.data),
+   288→
+   289→  put: <T = unknown>(
+   290→    url: string,
+   291→    data?: unknown,
+   292→    config?: RequestConfig
+   293→  ): Promise<ApiResponse<T>> => apiClient.put(url, data, config).then((res) => res.data),
+   294→
+   295→  patch: <T = unknown>(
+   296→    url: string,
+   297→    data?: unknown,
+   298→    config?: RequestConfig
+   299→  ): Promise<ApiResponse<T>> => apiClient.patch(url, data, config).then((res) => res.data),
+   300→
+   301→  delete: <T = unknown>(
+   302→    url: string,
+   303→    config?: RequestConfig
+   304→  ): Promise<ApiResponse<T>> => apiClient.delete(url, config).then((res) => res.data),
+   305→}
+   306→
+   307→// ==================== Auth API ====================
+   308→
+   309→export const authApi = {
+   310→  login: (email: string, password: string) =>
+   311→    api.post('/auth/login', { email, password }),
+   312→
+   313→  register: (data: {
+   314→    email: string
+   315→    password: string
+   316→    role: string
+   317→    phone?: string
+   318→    firstName?: string
+   319→    lastName?: string
+   320→    storeName?: string
+   321→    storeCategory?: string
+   322→    storeSlug?: string
+   323→  }) => api.post('/auth/register', data),
+   324→
+   325→  logout: () => {
+   326→    tokenManager.clearTokens()
+   327→    return api.post('/auth/logout')
+   328→  },
+   329→
+   330→  refresh: (refreshToken: string) =>
+   331→    api.post('/auth/refresh', { refreshToken }),
+   332→
+   333→  me: () => api.get('/auth/me'),
+   334→
+   335→  forgotPassword: (email: string) =>
+   336→    api.post('/auth/forgot-password', { email }),
+   337→
+   338→  resetPassword: (data: { email: string; otp: string; newPassword: string }) =>
+   339→    api.post('/auth/reset-password', data),
+   340→
+   341→  verifyEmail: (data: { email: string; otp: string }) =>
+   342→    api.post('/auth/verify-email', data),
+   343→
+   344→  resendVerification: (email: string) =>
+   345→    api.post('/auth/resend-verification', { email }),
+   346→
+   347→  changeEmail: (data: { newEmail: string; password: string }) =>
+   348→    api.post('/auth/change-email', data),
+   349→}
+   350→
+   351→// ==================== Users API ====================
+   352→
+   353→export const usersApi = {
+   354→  getProfile: () => api.get('/users/me'),
+   355→
+   356→  updateProfile: (data: {
+   357→    firstName?: string
+   358→    lastName?: string
+   359→    phone?: string
+   360→    bio?: string
+   361→  }) => api.patch('/users/me/profile', data),
+   362→
+   363→  uploadAvatar: (file: File) => {
+   364→    const formData = new FormData()
+   365→    formData.append('avatar', file)
+   366→    return api.post('/users/me/avatar', formData, {
+   367→      headers: { 'Content-Type': 'multipart/form-data' },
+   368→    })
+   369→  },
+   370→
+   371→  getAddresses: () => api.get('/users/me/addresses'),
+   372→
+   373→  addAddress: (data: {
+   374→    line1: string
+   375→    line2?: string
+   376→    city: string
+   377→    state: string
+   378→    localGovernment?: string
+   379→    stateId?: string
+   380→    lgaId?: string
+   381→    country: string
+   382→    postalCode?: string
+   383→    type: 'SHIPPING' | 'BILLING'
+   384→    isDefault?: boolean
+   385→  }) => api.post('/users/me/addresses', data),
+   386→
+   387→  updateAddress: (id: string, data: Partial<{
+   388→    line1: string
+   389→    line2: string
+   390→    city: string
+   391→    state: string
+   392→    localGovernment: string
+   393→    stateId: string
+   394→    lgaId: string
+   395→    country: string
+   396→    postalCode: string
+   397→    isDefault: boolean
+   398→  }>) => api.patch(`/users/me/addresses/${id}`, data),
+   399→
+   400→  deleteAddress: (id: string) => api.delete(`/users/me/addresses/${id}`),
+   401→
+   402→  setDefaultAddress: (id: string) => api.patch(`/users/me/addresses/${id}/default`),
+   403→
+   404→  // KYC
+   405→  getKycStatus: () => api.get('/users/kyc'),
+   406→
+   407→  submitKyc: (data: {
+   408→    type: 'NIN' | 'BVN' | 'PASSPORT' | 'CAC'
+   409→    documentUrl: string
+   410→  }) => api.post('/users/kyc', data),
+   411→}
+   412→
+   413→// ==================== Products API ====================
+   414→
+   415→export const productsApi = {
+   416→  list: (params?: {
+   417→    category?: string
+   418→    status?: string
+   419→    storeId?: string
+   420→    search?: string
+   421→    page?: number
+   422→    limit?: number
+   423→    sortBy?: string
+   424→    sortOrder?: 'asc' | 'desc'
+   425→  }) => api.get('/products', { params }),
+   426→
+   427→  get: (id: string) => api.get(`/products/${id}`),
+   428→
+   429→  getBySlug: (slug: string) => api.get(`/products/slug/${slug}`),
+   430→
+   431→  create: (data: {
+   432→    name: string
+   433→    description?: string
+   434→    price: number
+   435→    comparePrice?: number
+   436→    sku?: string
+   437→    productType?: ProductType
+   438→    productSource?: ProductSource
+   439→    requiresShipping?: boolean
+   440→    trackInventory?: boolean
+   441→    lowStock?: number
+   442→    stock: number
+   443→    categoryId?: string
+   444→    images?: string[]
+   445→    digitalAssets?: Array<Partial<DigitalAsset>>
+   446→    variants?: Array<{
+   447→      name: string
+   448→      options: Record<string, string>
+   449→      price: number
+   450→      stock: number
+   451→      sku?: string
+   452→    }>
+   453→  }) => api.post('/products', data),
+   454→
+   455→  update: (id: string, data: Partial<{
+   456→    name: string
+   457→    description: string
+   458→    price: number
+   459→    comparePrice: number
+   460→    sku: string
+   461→    productType: ProductType
+   462→    productSource: ProductSource
+   463→    requiresShipping: boolean
+   464→    trackInventory: boolean
+   465→    lowStock: number
+   466→    stock: number
+   467→    categoryId: string
+   468→    status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
+   469→  }>) => api.patch(`/products/${id}`, data),
+   470→
+   471→  delete: (id: string) => api.delete(`/products/${id}`),
+   472→
+   473→  uploadImage: (productId: string, file: File) => {
+   474→    const formData = new FormData()
+   475→    formData.append('image', file)
+   476→    return api.post(`/products/${productId}/images`, formData, {
+   477→      headers: { 'Content-Type': 'multipart/form-data' },
+   478→    })
+   479→  },
+   480→
+   481→  deleteImage: (productId: string, imageId: string) =>
+   482→    api.delete(`/products/${productId}/images/${imageId}`),
+   483→
+   484→  // Marketplace search
+   485→  search: (params: {
+   486→    q: string
+   487→    category?: string
+   488→    limit?: number
+   489→    page?: number
+   490→    sortBy?: string
+   491→    sortOrder?: 'asc' | 'desc'
+   492→  }) => api.get('/products/search', { params }),
+   493→
+   494→  // Trending products
+   495→  getTrending: (params?: { limit?: number }) =>
+   496→    api.get('/products/trending', { params }),
+   497→
+   498→  // Top rated products
+   499→  getTopProducts: (params?: { limit?: number }) =>
+   500→    api.get('/products/top', { params }),
+   501→
+   502→  // Deals / discounted products
+   503→  getDeals: (params?: { limit?: number }) =>
+   504→    api.get('/deals', { params }),
+   505→
+   506→  // Category products by slug
+   507→  getCategoryBySlug: (slug: string, params?: { limit?: number; page?: number }) =>
+   508→    api.get(`/products/category/${slug}`, { params }),
+   509→
+   510→  // Categories
+   511→  getCategories: () => api.get('/products/categories'),
+   512→
+   513→  getCategory: (id: string) => api.get(`/products/categories/${id}`),
+   514→}
+   515→
+   516→// ==================== Marketplace API ====================
+   517→
+   518→export const marketplaceApi = {
+   519→  getHomeFeed: () => api.get('/products/home-feed'),
+   520→
+   521→  getHomeFeedMore: (params?: { page?: number; limit?: number }) =>
+   522→    api.get('/products/home-feed/more', { params }),
+   523→
+   524→  // Banners
+   525→  getBanners: (params?: { type?: string }) =>
+   526→    api.get('/banners', { params }),
+   527→
+   528→  // Categories (public)
+   529→  getCategories: () => api.get('/categories'),
+   530→
+   531→  // Brands
+   532→  getBrands: () => api.get('/brands'),
+   533→
+   534→  // Top sellers
+   535→  getSellers: (params?: { limit?: number }) =>
+   536→    api.get('/sellers', { params }),
+   537→
+   538→  // Pool-backed marketplace inventory
+   539→  getPoolOffers: (params?: { categoryId?: string; page?: number; limit?: number }) =>
+   540→    api.get<VendorPoolOffer[]>('/pool/offers', { params }),
+   541→
+   542→  getPoolCampaigns: (params?: { status?: string; page?: number; limit?: number }) =>
+   543→    api.get<PoolCampaign[]>('/pool/campaigns', { params }),
+   544→}
+   545→
+   546→export const marketplaceStoresApi = {
+   547→  getBySlug: (slug: string) => api.get<Store>(`/stores/${encodeURIComponent(slug)}`),
+   548→
+   549→  getProducts: (
+   550→    slug: string,
+   551→    params?: {
+   552→      limit?: number
+   553→      search?: string
+   554→      category?: string
+   555→      source?: string
+   556→    },
+   557→  ) => api.get<Product[]>(`/stores/${encodeURIComponent(slug)}/products`, { params }),
+   558→
+   559→  getProduct: (slug: string, productSlug: string) =>
+   560→    api.get<Product>(`/stores/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),
+   561→}
+   562→
+   563→// ==================== Checkout API ====================
+   564→
+   565→export const checkoutApi = {
+   566→  create: (data: CheckoutRequest) =>
+   567→    api.post<CheckoutResponse>('/checkout', data),
+   568→
+   569→  verifyPayment: (reference: string) =>
+   570→    api.get(`/checkout/payments/${reference}`),
+   571→}
+   572→
+   573→// ==================== Store API ====================
+   574→
+   575→export const storeApi = {
+   576→  get: () => api.get('/store'),
+   577→
+   578→  create: (data: {
+   579→    name: string
+   580→    slug?: string
+   581→    description?: string
+   582→    category?: string
+   583→  }) => api.post('/store', data),
+   584→
+   585→  update: (data: Partial<{
+   586→    name: string
+   587→    description: string
+   588→    category: string
+   589→    slug: string
+   590→    logoUrl: string
+   591→    bannerUrl: string
+   592→  }>) => api.patch('/store', data),
+   593→
+   594→  uploadLogo: (file: File) => {
+   595→    const formData = new FormData()
+   596→    formData.append('logo', file)
+   597→    return api.post('/store/logo', formData, {
+   598→      headers: { 'Content-Type': 'multipart/form-data' },
+   599→    })
+   600→  },
+   601→
+   602→  uploadBanner: (file: File) => {
+   603→    const formData = new FormData()
+   604→    formData.append('banner', file)
+   605→    return api.post('/store/banner', formData, {
+   606→      headers: { 'Content-Type': 'multipart/form-data' },
+   607→    })
+   608→  },
+   609→
+   610→  // Analytics
+   611→  getAnalytics: (period?: '7d' | '30d' | '90d' | '1y') =>
+   612→    api.get('/store/analytics', { params: { period } }),
+   613→}
+   614→
+   615→export const uploadApi = {
+   616→  productImage: (file: File) => {
+   617→    const formData = new FormData()
+   618→    formData.append('file', file)
+   619→    return api.post('/upload/product', formData, {
+   620→      headers: { 'Content-Type': 'multipart/form-data' },
+   621→    })
+   622→  },
+   623→}
+   624→
+   625→// ==================== Vendor Commerce API ====================
+   626→
+   627→export const vendorCommerceApi = {
+   628→  getDashboard: (params?: { q?: string }) =>
+   629→    api.get<VendorDashboardMetrics>('/vendor/dashboard', { params }),
+   630→
+   631→  listProducts: (params?: { status?: string; type?: ProductType; search?: string; page?: number; limit?: number }) =>
+   632→    api.get('/vendor/products', { params }),
+   633→
+   634→  createProduct: (data: {
+   635→    name: string
+   636→    description?: string
+   637→    price: number
+   638→    comparePrice?: number
+   639→    sku?: string
+   640→    brandId?: string
+   641→    categoryId?: string
+   642→    productType: ProductType
+   643→    productSource?: ProductSource
+   644→    status?: ProductStatus
+   645→    inventoryPolicy?: InventoryPolicy
+   646→    requiresShipping?: boolean
+   647→    trackInventory?: boolean
+   648→    initialStock?: number
+   649→    lowStock?: number
+   650→    images?: string[]
+   651→    poolEnabled?: boolean
+   652→    poolBasePrice?: number
+   653→    poolMinSalePrice?: number
+   654→    poolMaxSelectableQuantity?: number
+   655→  }) => api.post('/vendor/products', data),
+   656→
+   657→  bulkImportProducts: (products: Array<{
+   658→    name: string
+   659→    description?: string
+   660→    category?: string
+   661→    price: number
+   662→    comparePrice?: number
+   663→    stock?: number
+   664→    sku?: string
+   665→    tags?: string
+   666→  }>) => api.post('/vendor/products/bulk-import', { products }),
+   667→
+   668→  updateProduct: (
+   669→    productId: string,
+   670→    data: Partial<{
+   671→      name: string
+   672→      description: string
+   673→      price: number
+   674→      comparePrice: number
+   675→      sku: string
+   676→      brandId: string
+   677→      categoryId: string
+   678→      status: ProductStatus
+   679→      productType: ProductType
+   680→      inventoryPolicy: InventoryPolicy
+   681→      requiresShipping: boolean
+   682→      trackInventory: boolean
+   683→      lowStock: number
+   684→      images: string[]
+   685→      poolEnabled: boolean
+   686→      poolBasePrice: number
+   687→      poolMinSalePrice: number
+   688→      poolMaxSelectableQuantity: number
+   689→    }>,
+   690→  ) => api.patch(`/vendor/products/${productId}`, data),
+   691→
+   692→  getDeliverySettings: () => api.get('/vendor/delivery-settings'),
+   693→
+   694→  updateDeliverySettings: (data: {
+   695→    manualDeliveryEnabled?: boolean
+   696→    kwiksellerDeliveryEnabled?: boolean
+   697→    processingDays?: number
+   698→    dispatchNote?: string
+   699→    returnPolicy?: string
+   700→  }) => api.patch('/vendor/delivery-settings', data),
+   701→
+   702→  adjustInventory: (
+   703→    productId: string,
+   704→    data: { variantId?: string; quantityDelta: number; reason: string },
+   705→  ) => api.post<InventoryItem>('/vendor/inventory/adjustments', { productId, ...data }),
+   706→
+   707→  addDigitalAsset: (productId: string, data: Partial<DigitalAsset>) =>
+   708→    api.post<DigitalAsset>('/vendor/digital-assets', { productId, ...data }),
+   709→
+   710→  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number; dateRange?: string }) =>
+   711→    api.get('/vendor/orders', { params }),
+   712→
+   713→  getOrder: (orderId: string) =>
+   714→    api.get(`/vendor/orders/${orderId}`),
+   715→
+   716→  updateOrderStatus: (orderId: string, status: string) =>
+   717→    api.patch(`/vendor/orders/${orderId}/status`, { status }),
+   718→
+   719→  submitDeliveryQuote: (orderId: string, data: { amount: number; note?: string }) =>
+   720→    api.post(`/orders/${orderId}/quote`, data),
+   721→
+   722→  reviseDeliveryQuote: (orderId: string, data: { amount: number; note?: string }) =>
+   723→    api.patch(`/orders/${orderId}/quote/revise`, data),
+   724→
+   725→  getOrderQuote: (orderId: string) =>
+   726→    api.get(`/orders/${orderId}/quote`),
+   727→
+   728→  acceptQuoteReduction: (orderId: string, data?: { note?: string }) =>
+   729→    api.post(`/orders/${orderId}/quote/accept-reduction`, data),
+   730→
+   731→  rejectQuoteReduction: (orderId: string, data?: { note?: string }) =>
+   732→    api.post(`/orders/${orderId}/quote/reject-reduction`, data),
+   733→
+   734→  dispatchOrder: (orderId: string, data?: { trackingNumber?: string; carrier?: string }) =>
+   735→    api.post(`/orders/${orderId}/dispatch`, data),
+   736→
+   737→  markDelivered: (orderId: string) =>
+   738→    api.post(`/orders/${orderId}/mark-delivered`),
+   739→
+   740→  getOrderAttentionCounts: () =>
+   741→    api.get<{ pendingQuotes: number; reductionRequests: number; readyToAccept: number; total: number }>('/vendor/orders/attention-counts'),
+   742→
+   743→  listPoolCatalog: (params?: { categoryId?: string; vendorId?: string; search?: string; page?: number; limit?: number }) =>
+   744→    api.get<PoolProduct[]>('/vendor/pool/catalog', { params }),
+   745→
+   746→  createPoolOffer: (data: { poolProductId: string; retailPrice: number; markup?: number }) =>
+   747→    api.post<VendorPoolOffer>('/vendor/pool/offers', data),
+   748→
+   749→  createPoolSelection: (data: PoolSelectionRequest) =>
+   750→    api.post<VendorPoolOffer>('/vendor/pool/selections', data),
+   751→
+   752→  updatePoolSelection: (id: string, data: Partial<{ retailPrice: number; status: string; isActive: boolean }>) =>
+   753→    api.patch<VendorPoolOffer>(`/vendor/pool/selections/${id}`, data),
+   754→
+   755→  deletePoolSelection: (id: string) =>
+   756→    api.delete(`/vendor/pool/selections/${id}`),
+   757→
+   758→  updatePoolOffer: (id: string, data: Partial<{ retailPrice: number; markup: number; status: string }>) =>
+   759→    api.patch<VendorPoolOffer>(`/vendor/pool/offers/${id}`, data),
+   760→
+   761→  getStorefrontDesign: () => api.get<StorefrontDesignConfig>('/vendor/storefront-design'),
+   762→
+   763→  updateStorefrontDesign: (data: Partial<StorefrontDesignConfig>) =>
+   764→    api.patch<StorefrontDesignConfig>('/vendor/storefront-design', data),
+   765→
+   766→  // Vendor order detail & actions
+   767→  getOrderDetail: (orderId: string) => api.get(`/vendor/orders/${orderId}`),
+   768→
+   769→  acceptOrder: (orderId: string, note?: string) =>
+   770→    api.patch(`/vendor/orders/${orderId}/accept`, { note }),
+   771→
+   772→  rejectOrder: (orderId: string, reason: string) =>
+   773→    api.patch(`/vendor/orders/${orderId}/reject`, { reason }),
+   774→
+   775→  prepareOrder: (orderId: string) =>
+   776→    api.patch(`/vendor/orders/${orderId}/prepare`),
+   777→
+   778→  readyOrder: (orderId: string) =>
+   779→    api.patch(`/vendor/orders/${orderId}/ready`),
+   780→
+   781→  cancelOrder: (orderId: string, reason: string) =>
+   782→    api.patch(`/vendor/orders/${orderId}/cancel`, { reason }),
+   783→}
+   784→
+   785→// ==================== Analytics API ====================
+   786→
+   787→export const analyticsApi = {
+   788→  getOverview: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+   789→    api.get('/vendor/analytics/overview', { params }),
+   790→
+   791→  getRevenue: (params?: { startDate?: string; endDate?: string; period?: string; groupBy?: string }) =>
+   792→    api.get('/vendor/analytics/revenue', { params }),
+   793→
+   794→  getTopProducts: (params?: { startDate?: string; endDate?: string; limit?: number }) =>
+   795→    api.get('/vendor/analytics/top-products', { params }),
+   796→
+   797→  getCategories: (params?: { startDate?: string; endDate?: string }) =>
+   798→    api.get('/vendor/analytics/categories', { params }),
+   799→
+   800→  getProducts: (params?: { startDate?: string; endDate?: string; period?: string; limit?: number }) =>
+   801→    api.get('/vendor/analytics/products', { params }),
+   802→
+   803→  getOrders: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+   804→    api.get('/vendor/analytics/orders', { params }),
+   805→
+   806→  getCustomers: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+   807→    api.get('/vendor/analytics/customers', { params }),
+   808→}
+   809→
+   810→// ==================== Order Operations API ====================
+   811→
+   812→export const orderOperationsApi = {
+   813→  addNote: (orderId: string, note: string) =>
+   814→    api.post(`/vendor/orders/${orderId}/note`, { note }),
+   815→}
+   816→
+   817→// ==================== Vendor Profile API ====================
+   818→
+   819→export const vendorProfileApi = {
+   820→  update: (data: {
+   821→    storeName?: string
+   822→    storeSlug?: string
+   823→    storeDescription?: string
+   824→    phone?: string
+   825→    firstName?: string
+   826→    lastName?: string
+   827→  }) => api.patch('/vendor/profile', data),
+   828→}
+   829→
+   830→// ==================== Orders API ====================
+   831→
+   832→export const ordersApi = {
+   833→  list: (params?: {
+   834→    status?: string
+   835→    storeId?: string
+   836→    buyerId?: string
+   837→    page?: number
+   838→    limit?: number
+   839→  }) => api.get('/orders', { params }),
+   840→
+   841→  get: (id: string) => api.get(`/orders/${id}`),
+   842→
+   843→  create: (data: {
+   844→    items: Array<{
+   845→      productId: string
+   846→      variantId?: string
+   847→      quantity: number
+   848→    }>
+   849→    addressId: string
+   850→    paymentMethod?: string
+   851→  }) => api.post('/orders', data),
+   852→
+   853→  updateStatus: (id: string, status: string) =>
+   854→    api.patch(`/orders/${id}/status`, { status }),
+   855→
+   856→  cancel: (id: string, reason?: string) =>
+   857→    api.post(`/orders/${id}/cancel`, { reason }),
+   858→
+   859→  // Tracking
+   860→  getTracking: (id: string) => api.get(`/orders/${id}/tracking`),
+   861→
+   862→  // For vendors
+   863→  getStoreOrders: (params?: {
+   864→    status?: string
+   865→    page?: number
+   866→    limit?: number
+   867→  }) => api.get('/orders/store', { params }),
+   868→
+   869→  acceptOrder: (id: string) => api.post(`/orders/${id}/accept`),
+   870→
+   871→  rejectOrder: (id: string, reason: string) =>
+   872→    api.post(`/orders/${id}/reject`, { reason }),
+   873→
+   874→  markAsReady: (id: string) => api.post(`/orders/${id}/ready`),
+   875→
+   876→  markAsShipped: (id: string, trackingNumber?: string) =>
+   877→    api.post(`/orders/${id}/ship`, { trackingNumber }),
+   878→}
+   879→
+   880→// ==================== Cart API ====================
+   881→
+   882→export const cartApi = {
+   883→  get: () => api.get('/cart'),
+   884→
+   885→  validate: () => api.get<CartValidationResponse>('/cart/validate'),
+   886→
+   887→  addItem: (productId: string, quantity: number, variantId?: string) =>
+   888→    api.post('/cart/items', { productId, quantity, variantId }),
+   889→
+   890→  addPoolOffer: (poolOfferId: string, quantity: number) =>
+   891→    api.post(`/cart/pool-offers/${poolOfferId}`, { quantity }),
+   892→
+   893→  updateItem: (itemId: string, quantity: number) =>
+   894→    api.patch(`/cart/items/${itemId}`, { quantity }),
+   895→
+   896→  removeItem: (itemId: string) => api.delete(`/cart/items/${itemId}`),
+   897→
+   898→  clearStore: (storeSlug: string) => api.delete(`/cart/stores/${encodeURIComponent(storeSlug)}`),
+   899→
+   900→  clear: () => api.delete('/cart'),
+   901→
+   902→  applyCoupon: (code: string) =>
+   903→    api.post<CouponValidationResponse>('/cart/coupon', { code }),
+   904→
+   905→  removeCoupon: () => api.delete('/cart/coupon'),
+   906→}
+   907→
+   908→export const deliveryRatesApi = {
+   909→  lookup: (params: { state: string; localGovernment: string }) =>
+   910→    api.get<DeliveryRate>('/delivery-rates', { params }),
+   911→}
+   912→
+   913→// ==================== Payments API ====================
+   914→
+   915→export const paymentsApi = {
+   916→  // Initialize payment
+   917→  initialize: (orderId: string, gateway: 'PAYSTACK' | 'FLUTTERWAVE') =>
+   918→    api.post('/payments/initialize', { orderId, gateway }),
+   919→
+   920→  // Verify payment
+   921→  verify: (reference: string) =>
+   922→    api.get(`/payments/verify/${reference}`),
+   923→
+   924→  verifyPaystackWebhookHealth: () => api.get('/payments/paystack/health'),
+   925→
+   926→  // Get payment methods
+   927→  getMethods: () => api.get('/payments/methods'),
+   928→
+   929→  // Wallet (for vendors) — backend controller is @Controller('vendor/wallet')
+   930→  getWallet: () => api.get('/vendor/wallet'),
+   931→
+   932→  getWalletTransactions: (params?: {
+   933→    type?: 'CREDIT' | 'DEBIT'
+   934→    page?: number
+   935→    limit?: number
+   936→  }) => api.get('/vendor/wallet/transactions', { params }),
+   937→
+   938→  requestWithdrawal: (data: {
+   939→    amount: number
+   940→    bankCode: string
+   941→    accountNumber: string
+   942→    accountName: string
+   943→  }) => api.post('/vendor/wallet/withdraw', data),
+   944→
+   945→  getWithdrawals: (params?: { status?: string }) =>
+   946→    api.get('/vendor/wallet/withdrawals', { params }),
+   947→
+   948→  // Bank list
+   949→  getBanks: () => api.get('/payments/banks'),
+   950→
+   951→  verifyAccount: (bankCode: string, accountNumber: string) =>
+   952→    api.get(`/payments/verify-account`, {
+   953→      params: { bankCode, accountNumber },
+   954→    }),
+   955→}
+   956→
+   957→// ==================== Notifications API ====================
+   958→
+   959→export const notificationsApi = {
+   960→  list: (params?: {
+   961→    unread?: boolean
+   962→    type?: string
+   963→    page?: number
+   964→    limit?: number
+   965→  }) => api.get('/notifications', { params }),
+   966→
+   967→  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+   968→
+   969→  markAllAsRead: () => api.post('/notifications/read-all'),
+   970→
+   971→  getUnreadCount: () => api.get('/notifications/unread-count'),
+   972→
+   973→  // Push notifications
+   974→  subscribePush: (subscription: PushSubscriptionJSON) =>
+   975→    api.post('/notifications/push/subscribe', subscription),
+   976→
+   977→  unsubscribePush: (endpoint: string) =>
+   978→    api.delete('/notifications/push/unsubscribe', { data: { endpoint } }),
+   979→
+   980→  getVapidKey: () => api.get('/notifications/push/vapid-public-key'),
+   981→}
+   982→
+   983→// ==================== Subscriptions API ====================
+   984→
+   985→export const subscriptionsApi = {
+   986→  getPlans: () => api.get('/subscriptions/plans'),
+   987→
+   988→  getCurrentPlan: () => api.get('/subscriptions/current'),
+   989→
+   990→  subscribe: (plan: string) => api.post('/subscriptions', { plan }),
+   991→
+   992→  cancel: () => api.post('/subscriptions/cancel'),
+   993→
+   994→  renew: () => api.post('/subscriptions/renew'),
+   995→}
+   996→
+   997→// ==================== Delivery API (Riders) ====================
+   998→
+   999→export const deliveryApi = {
+  1000→  // Get available deliveries
+  1001→  getAvailable: (params?: {
+  1002→    page?: number
+  1003→    limit?: number
+  1004→  }) => api.get('/deliveries/available', { params }),
+  1005→
+  1006→  // Get my deliveries
+  1007→  getMyDeliveries: (params?: {
+  1008→    status?: string
+  1009→    page?: number
+  1010→    limit?: number
+  1011→  }) => api.get('/deliveries/my', { params }),
+  1012→
+  1013→  // Accept delivery
+  1014→  accept: (orderId: string) => api.post(`/deliveries/${orderId}/accept`),
+  1015→
+  1016→  // Pickup
+  1017→  pickup: (orderId: string, photoUrl?: string) =>
+  1018→    api.post(`/deliveries/${orderId}/pickup`, { photoUrl }),
+  1019→
+  1020→  // In transit
+  1021→  startTransit: (orderId: string) =>
+  1022→    api.post(`/deliveries/${orderId}/start-transit`),
+  1023→
+  1024→  // Complete delivery
+  1025→  complete: (orderId: string, otp: string, photoUrl?: string) =>
+  1026→    api.post(`/deliveries/${orderId}/complete`, { otp, photoUrl }),
+  1027→
+  1028→  // Get delivery details
+  1029→  getDetails: (orderId: string) => api.get(`/deliveries/${orderId}`),
+  1030→
+  1031→  // Update location
+  1032→  updateLocation: (lat: number, lng: number) =>
+  1033→    api.post('/deliveries/location', { lat, lng }),
+  1034→
+  1035→  // Toggle availability
+  1036→  toggleAvailability: (isAvailable: boolean) =>
+  1037→    api.patch('/deliveries/availability', { isAvailable }),
+  1038→
+  1039→  // Earnings
+  1040→  getEarnings: (period?: 'today' | 'week' | 'month') =>
+  1041→    api.get('/deliveries/earnings', { params: { period } }),
+  1042→}
+  1043→
+  1044→// ==================== KYC API ====================
+  1045→
+  1046→export const kycApi = {
+  1047→  getStatus: () => api.get('/vendor/kyc/status'),
+  1048→
+  1049→  submitKyc: (data: {
+  1050→    businessType: 'INDIVIDUAL' | 'SOLE_PROPRIETORSHIP' | 'REGISTERED_BUSINESS';
+  1051→    fullName: string;
+  1052→    dateOfBirth: string;
+  1053→    phone: string;
+  1054→    idType: 'NIN' | 'PASSPORT' | 'DRIVERS_LICENSE';
+  1055→    idFrontUrl: string;
+  1056→    idBackUrl?: string;
+  1057→    businessRegistrationUrl?: string;
+  1058→    utilityBillUrl?: string;
+  1059→    taxId?: string;
+  1060→    selfieUrl?: string;
+  1061→  }) => api.post('/vendor/kyc/submit', data),
+  1062→
+  1063→  getSubmissions: () => api.get('/vendor/kyc/submissions'),
+  1064→}
+  1065→
+  1066→// ==================== Onboarding API ====================
+  1067→
+  1068→export const onboardingApi = {
+  1069→  getStatus: () => api.get('/vendor/onboarding/status'),
+  1070→
+  1071→  completeStep: (step: string, data: Record<string, unknown>) =>
+  1072→    api.post('/vendor/onboarding/step', { step, data }),
+  1073→
+  1074→  complete: () => api.post('/vendor/onboarding/complete'),
+  1075→}
+  1076→
+  1077→// ==================== Vendor Deliveries API ====================
+  1078→
+  1079→export const vendorDeliveriesApi = {
+  1080→  // List vendor's deliveries
+  1081→  list: (params?: {
+  1082→    status?: string
+  1083→    page?: number
+  1084→    limit?: number
+  1085→  }) => api.get('/vendor/deliveries', { params }),
+  1086→
+  1087→  // Mark delivery as preparing (ACCEPTED → PREPARING)
+  1088→  markPreparing: (deliveryId: string) =>
+  1089→    api.post(`/vendor/deliveries/${deliveryId}/preparing`),
+  1090→
+  1091→  // Mark as ready for pickup (PREPARING → READY_FOR_PICKUP)
+  1092→  markReady: (deliveryId: string) =>
+  1093→    api.post(`/vendor/deliveries/${deliveryId}/ready`),
+  1094→
+  1095→  // Vendor confirms handoff to rider (alternative pickup confirmation)
+  1096→  confirmPickup: (deliveryId: string) =>
+  1097→    api.post(`/vendor/deliveries/${deliveryId}/pickup-confirm`),
+  1098→
+  1099→  // Get tracking info for a specific delivery
+  1100→  getTracking: (deliveryId: string) =>
+  1101→    api.get(`/vendor/deliveries/${deliveryId}/tracking`),
+  1102→}
+  1103→
+  1104→// ==================== Escrow API ====================
+  1105→
+  1106→export const escrowApi = {
+  1107→  // Get vendor's escrow holdings
+  1108→  getHoldings: () => api.get('/vendor/wallet/escrow-holdings'),
+  1109→
+  1110→  // Admin: manual escrow release
+  1111→  manualRelease: (deliveryId: string) =>
+  1112→    api.post(`/admin/escrow/${deliveryId}/manual-release`),
+  1113→
+  1114→  // Admin: refund escrow
+  1115→  refund: (deliveryId: string) =>
+  1116→    api.post(`/admin/escrow/${deliveryId}/refund`),
+  1117→
+  1118→  // Get escrow detail for a specific delivery
+  1119→  getEscrowDetail: (deliveryId: string) =>
+  1120→    api.get(`/vendor/escrow/${deliveryId}`),
+  1121→
+  1122→  // Open a dispute on an escrow holding
+  1123→  openDispute: (orderId: string, reason: string, evidence?: string) =>
+  1124→    api.post(`/vendor/escrow/${orderId}/dispute`, { reason, evidence }),
+  1125→}
+  1126→
+  1127→// ==================== Admin API ====================
+  1128→
+  1129→export const adminApi = {
+  1130→  // Dashboard stats
+  1131→  getStats: () => api.get('/admin/stats'),
+  1132→
+  1133→  // Users management
+  1134→  getUsers: (params?: {
+  1135→    role?: string
+  1136→    status?: string
+  1137→    search?: string
+  1138→    page?: number
+  1139→    limit?: number
+  1140→  }) => api.get('/admin/users', { params }),
+  1141→
+  1142→  getUser: (id: string) => api.get(`/admin/users/${id}`),
+  1143→
+  1144→  updateUserStatus: (id: string, status: 'ACTIVE' | 'SUSPENDED' | 'BANNED') =>
+  1145→    api.patch(`/admin/users/${id}/status`, { status }),
+  1146→
+  1147→  // Vendors
+  1148→  getVendors: (params?: {
+  1149→    status?: string
+  1150→    kycStatus?: string
+  1151→    search?: string
+  1152→    page?: number
+  1153→    limit?: number
+  1154→  }) => api.get('/admin/vendors', { params }),
+  1155→
+  1156→  approveKyc: (vendorId: string) =>
+  1157→    api.post(`/admin/vendors/${vendorId}/kyc/approve`),
+  1158→
+  1159→  rejectKyc: (vendorId: string, reason: string) =>
+  1160→    api.post(`/admin/vendors/${vendorId}/kyc/reject`, { reason }),
+  1161→
+  1162→  // Products moderation
+  1163→  getProductsForReview: (params?: {
+  1164→    page?: number
+  1165→    limit?: number
+  1166→  }) => api.get('/admin/products/review', { params }),
+  1167→
+  1168→  approveProduct: (productId: string) =>
+  1169→    api.post(`/admin/products/${productId}/approve`),
+  1170→
+  1171→  rejectProduct: (productId: string, reason: string) =>
+  1172→    api.post(`/admin/products/${productId}/reject`, { reason }),
+  1173→
+  1174→  // Orders
+  1175→  getAllOrders: (params?: {
+  1176→    status?: string
+  1177→    page?: number
+  1178→    limit?: number
+  1179→  }) => api.get('/admin/orders', { params }),
+  1180→
+  1181→  updateOrderManualStatus: (orderId: string, status: string, note?: string, trackingCode?: string) =>
+  1182→    api.patch(`/admin/orders/${orderId}/manual-status`, { status, note, trackingCode }),
+  1183→
+  1184→  // Commerce operations
+  1185→  getCommerceOverview: () => api.get('/admin/commerce/overview'),
+  1186→
+  1187→  getPayments: (params?: { status?: string; gateway?: string; page?: number; limit?: number }) =>
+  1188→    api.get('/admin/payments', { params }),
+  1189→
+  1190→  getDeliveryRates: (params?: { state?: string; isActive?: boolean }) =>
+  1191→    api.get<DeliveryRate[]>('/admin/delivery-rates', { params }),
+  1192→
+  1193→  createDeliveryRate: (data: {
+  1194→    state: string
+  1195→    localGovernment: string
+  1196→    fee: number
+  1197→    minDeliveryDays: number
+  1198→    maxDeliveryDays: number
+  1199→    isActive?: boolean
+  1200→  }) => api.post<DeliveryRate>('/admin/delivery-rates', data),
+  1201→
+  1202→  updateDeliveryRate: (
+  1203→    id: string,
+  1204→    data: Partial<{
+  1205→      state: string
+  1206→      localGovernment: string
+  1207→      fee: number
+  1208→      minDeliveryDays: number
+  1209→      maxDeliveryDays: number
+  1210→      isActive: boolean
+  1211→    }>,
+  1212→  ) => api.patch<DeliveryRate>(`/admin/delivery-rates/${id}`, data),
+  1213→
+  1214→  deactivateDeliveryRate: (id: string) => api.delete<DeliveryRate>(`/admin/delivery-rates/${id}`),
+  1215→
+  1216→  refundPayment: (paymentId: string, reason: string, amount?: number, orderId?: string) =>
+  1217→    api.post(`/admin/payments/${paymentId}/refund`, { reason, amount, orderId }),
+  1218→
+  1219→  // Pool governance
+  1220→  getPoolProducts: (params?: { status?: string; page?: number; limit?: number }) =>
+  1221→    api.get<PoolProduct[]>('/admin/pool/products', { params }),
+  1222→
+  1223→  createPoolProduct: (data: Partial<PoolProduct>) =>
+  1224→    api.post<PoolProduct>('/admin/pool/products', data),
+  1225→
+  1226→  updatePoolProduct: (id: string, data: Partial<PoolProduct>) =>
+  1227→    api.patch<PoolProduct>(`/admin/pool/products/${id}`, data),
+  1228→
+  1229→  getPoolCampaigns: (params?: { status?: string; page?: number; limit?: number }) =>
+  1230→    api.get<PoolCampaign[]>('/admin/pool/campaigns', { params }),
+  1231→
+  1232→  createPoolCampaign: (data: Partial<PoolCampaign>) =>
+  1233→    api.post<PoolCampaign>('/admin/pool/campaigns', data),
+  1234→
+  1235→  // Disputes
+  1236→  getDisputes: (params?: {
+  1237→    status?: string
+  1238→    page?: number
+  1239→    limit?: number
+  1240→  }) => api.get('/admin/disputes', { params }),
+  1241→
+  1242→  resolveDispute: (disputeId: string, resolution: string, refundAmount?: number) =>
+  1243→    api.post(`/admin/disputes/${disputeId}/resolve`, { resolution, refundAmount }),
+  1244→
+  1245→  // Analytics
+  1246→  getAnalytics: (period?: '7d' | '30d' | '90d' | '1y') =>
+  1247→    api.get('/admin/analytics', { params: { period } }),
+  1248→
+  1249→  // Settings
+  1250→  getSettings: () => api.get('/admin/settings'),
+  1251→
+  1252→  updateSettings: (settings: Record<string, unknown>) =>
+  1253→    api.patch('/admin/settings', settings),
+  1254→}
+  1255→
+  1256→// Export default instance for custom requests
+  1257→export default apiClient
+  1258→

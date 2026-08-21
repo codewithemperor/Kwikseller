@@ -49,7 +49,7 @@ start-stop-daemon --start \
   --startas /bin/bash \
   -- -c "
     while true; do
-      '$ROOT_DIR/node_modules/.bin/next' dev -p 3000 >> '$LOG_FILE' 2>&1
+      '$APP_DIR/node_modules/.bin/next' dev -p 3000 >> '$LOG_FILE' 2>&1
       rc=\$?
       echo \"[marketplace] next dev exited (rc=\$rc) — restarting in 3s\" >> '$LOG_FILE'
       sleep 3

@@ -40,7 +40,7 @@ import {
   type SearchMeta,
   type SearchResponse,
 } from "@/lib/api";
-import { api } from "@kwikseller/api-client";
+import { api } from "@/services/api-client";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
 import type { SearchableProduct } from "@/data/products";
 

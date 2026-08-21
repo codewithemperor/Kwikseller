@@ -1,7 +1,7 @@
 "use client";
 
 import { GuestRoute } from "@/components/auth";
-import { BrandedAuthLayout } from "@kwikseller/ui";
+import { BrandedAuthLayout } from "@/lib/ui";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (

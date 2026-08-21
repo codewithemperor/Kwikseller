@@ -19,7 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button, Chip, Card } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
   VENDOR_SPOTLIGHT as vendors,

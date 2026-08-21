@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { couponsApi } from "@/lib/api";
 import type { Coupon } from "@/lib/api";
-import { formatRelativeTime, formatCurrency, copyToClipboard } from "@kwikseller/utils";
+import { formatRelativeTime, formatCurrency, copyToClipboard } from "@/lib/utils";
 
 export default function CouponsPage() {
   const router = useRouter();
@@ -60,3 +60,4 @@ export default function CouponsPage() {
     </div>
   );
 }
+

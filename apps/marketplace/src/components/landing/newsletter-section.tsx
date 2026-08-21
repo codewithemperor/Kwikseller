@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Check, Sparkles, Users, TrendingUp } from "lucide-react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 
 /**
  * NewsletterSection — a homepage section for email subscription with social

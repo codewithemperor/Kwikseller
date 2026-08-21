@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
+import { JobQueueService } from './job-queue.service';
 import { NotificationService } from './notification.service';
-import { EmailService } from './email.service';
 
 /**
  * OrderEventListener — listens to commerce/quote/payment domain events
@@ -34,7 +34,7 @@ export class OrderEventListener {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-    private readonly emailService: EmailService,
+    private readonly jobQueueService: JobQueueService,
   ) {}
 
   // ============================================================
@@ -122,7 +122,12 @@ export class OrderEventListener {
   ) {
     if (!to) return;
     try {
-      await this.emailService.sendEmail(to, subject, template, variables);
+      await this.jobQueueService.enqueueEmail({
+        to,
+        subject,
+        template,
+        variables,
+      });
     } catch (err) {
       this.logger.warn(
         `safeEmail(to=${to}, template=${template}) failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -348,6 +353,78 @@ export class OrderEventListener {
       'Payment Initialized',
       `Payment of ₦${Number(amount ?? 0).toLocaleString()} for order #${orderId} has been initialized (ref: ${reference}). Complete the payment to confirm your order.`,
       { orderId, reference, amount: Number(amount ?? 0) },
+    );
+  }
+
+  @OnEvent('order.preparing')
+  async handleOrderPreparing(payload: any) {
+    const { orderId, buyerId } = payload ?? {};
+    await this.safeNotify(
+      buyerId,
+      'ORDER',
+      'Vendor is preparing your order',
+      `Your vendor has started preparing order #${orderId}.`,
+      { orderId },
+    );
+  }
+
+  @OnEvent('order.ready_for_pickup')
+  async handleOrderReadyForPickup(payload: any) {
+    const { orderId, buyerId } = payload ?? {};
+    await this.safeNotify(
+      buyerId,
+      'ORDER',
+      'Order ready for pickup',
+      `Order #${orderId} is ready for pickup at the vendor store. Bring your order ID for collection.`,
+      { orderId },
+    );
+  }
+
+  @OnEvent('order.dispatched')
+  async handleOrderDispatched(payload: any) {
+    const { orderId, buyerId, trackingNumber, carrier } = payload ?? {};
+    await this.safeNotify(
+      buyerId,
+      'ORDER',
+      'Order dispatched',
+      `Order #${orderId} has been dispatched${carrier ? ` via ${carrier}` : ''}${trackingNumber ? ` (tracking: ${trackingNumber})` : ''}.`,
+      { orderId, trackingNumber, carrier },
+    );
+  }
+
+  @OnEvent('order.delivered')
+  async handleOrderDelivered(payload: any) {
+    const { orderId, buyerId } = payload ?? {};
+    await this.safeNotify(
+      buyerId,
+      'ORDER',
+      'Order delivered',
+      `Order #${orderId} has been marked delivered. Please confirm receipt within 24 hours after the final ETA window if everything is okay.`,
+      { orderId },
+    );
+  }
+
+  @OnEvent('order.confirmed')
+  async handleOrderConfirmed(payload: any) {
+    const { orderId, buyerId } = payload ?? {};
+    await this.safeNotify(
+      buyerId,
+      'ORDER',
+      'Receipt confirmed',
+      `You confirmed receipt for order #${orderId}. Kwikscrow is releasing the funds to the vendor.`,
+      { orderId },
+    );
+  }
+
+  @OnEvent('order.pickup_completed')
+  async handlePickupCompleted(payload: any) {
+    const { orderId, buyerId } = payload ?? {};
+    await this.safeNotify(
+      buyerId,
+      'ORDER',
+      'Pickup completed',
+      `Order #${orderId} was handed over successfully at the vendor store.`,
+      { orderId },
     );
   }
 }

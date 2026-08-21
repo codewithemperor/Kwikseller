@@ -2,7 +2,7 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   CreditCard,
   Shield,
@@ -227,7 +227,7 @@ export function PaymentMethodsShowcase() {
         <AnimatedSection>
           <div className="text-center mb-10">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <Chip variant="soft" color="primary" size="sm">
+              <Chip variant="soft" color="default" size="sm">
                 <CreditCard className="w-3.5 h-3.5 mr-1" />
                 Multiple Methods
               </Chip>

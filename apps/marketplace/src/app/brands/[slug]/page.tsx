@@ -28,7 +28,7 @@ import {
   BrandStatsStrip,
   type BrandEnrichment,
 } from "@/components/brand/brand-info-card";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 
 // ─── Sort options ──────────────────────────────────────────────────────────
 

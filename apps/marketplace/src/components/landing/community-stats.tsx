@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
 import { Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   COMMUNITY_STATS as stats,
   COMMUNITY_STATS_CTA_ICON as ArrowRight,

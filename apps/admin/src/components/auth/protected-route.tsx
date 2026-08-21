@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore, UserRole } from "@kwikseller/utils";
+import { useAuthStore, UserRole } from "@/lib/utils";
 import { Shield, AlertTriangle } from "lucide-react";
 import { canAccessPermission, SECTION_PERMISSION, type AdminSection } from "@/lib/admin-permissions";
 
@@ -213,3 +213,4 @@ export function RoleBadge({ role }: { role: UserRole }) {
     </span>
   );
 }
+

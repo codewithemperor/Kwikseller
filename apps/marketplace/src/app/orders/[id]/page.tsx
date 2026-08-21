@@ -10,15 +10,19 @@
  *   - `deliveryMethod`: PICKUP | STANDARD_DELIVERY
  *   - `escrow.status`, `delivery.status`, `fulfillments[].status`
  *
+ * Layout: workspace + sticky sidebar (two-column on lg+, single column on mobile)
+ *
  * Sections:
  *   1. Header (order ref, date, overall status badge)
- *   2. Visual timeline (9 stages — highlights the current stage)
- *   3. Products (uses SNAPSHOT fields, never live product data)
- *   4. Quote negotiation (STANDARD_DELIVERY only)
- *   5. Payment + Kwikscrow status
- *   6. Delivery section
- *   7. Context-aware customer actions
- *   8. Order summary (subtotal, processing fee, delivery fee, total)
+ *   2. [Workspace] Visual timeline (9 stages — highlights the current stage)
+ *   3. [Workspace] Quote negotiation (STANDARD_DELIVERY only)
+ *   4. [Workspace] Products (uses SNAPSHOT fields, never live product data)
+ *   5. [Workspace] Payment + Kwikscrow status
+ *   6. [Workspace] Delivery section
+ *   7. [Sidebar]  Order summary (subtotal, processing fee, delivery fee, total)
+ *   8. [Sidebar]  Context-aware customer actions
+ *   9. [Sidebar]  Escrow/payment status indicator
+ *  10. [Sidebar]  Vendor mini-card
  *
  * Styling: Tailwind + existing kwik-* semantic tokens. NO blue/indigo.
  */
@@ -31,6 +35,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   Clock,
   CreditCard,
   MapPin,
@@ -42,8 +47,11 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
-import { ErrorBoundary, Skeleton } from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AccountLayout } from "@/components/layout/account-layout";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
 import {
   useAcceptQuote,
   useCancelOrder,
@@ -85,6 +93,18 @@ function orderReference(order: MarketplaceOrder): string {
     order.checkoutReference ||
     order.id.slice(-8).toUpperCase()
   );
+}
+
+function getAutoReleaseDeadline(order: MarketplaceOrder): Date | null {
+  if (order.deliveryMethod !== "STANDARD_DELIVERY") return null;
+  const base = order.estimatedDeliveryEnd ?? order.delivery?.deliveredAt ?? order.escrow?.releaseAt;
+  if (!base) return null;
+  const deadline = new Date(base);
+  if (Number.isNaN(deadline.getTime())) return null;
+  if (order.estimatedDeliveryEnd || order.delivery?.deliveredAt) {
+    deadline.setHours(deadline.getHours() + 24);
+  }
+  return deadline;
 }
 
 /** Display name for an order item — prefers the snapshot, falls back to live product. */
@@ -214,13 +234,8 @@ function computeTimelineStages(order: MarketplaceOrder): TimelineStage[] {
     order.status === "FULFILLED" ||
     order.status === "SHIPPED" ||
     order.status === "DELIVERED";
-  const confirmed =
-    order.delivery?.customerConfirmed === true ||
-    order.status === "DELIVERED" ||
-    order.status === "COMPLETED";
-  const completed =
-    order.status === "COMPLETED" ||
-    order.escrow?.status === "RELEASED";
+  const confirmed = order.delivery?.customerConfirmed === true;
+  const completed = order.escrow?.status === "RELEASED";
 
   // Determine the "current" stage.
   let currentKey = "placed";
@@ -273,7 +288,7 @@ function OrderNotFound({ id }: { id: string }) {
       <Package className="mx-auto h-10 w-10 text-gray-400" />
       <h1 className="mt-4 text-2xl font-semibold text-foreground">Order not found</h1>
       <p className="mt-2 text-sm text-gray-500">
-        We could not load order <span className="font-mono">{id}</span>.
+        We could not load order <span className="font-semibold text-foreground">{id}</span>.
       </p>
       <Link
         href="/orders"
@@ -285,10 +300,6 @@ function OrderNotFound({ id }: { id: string }) {
   );
 }
 
-function needsAuthRedirect(): boolean {
-  return typeof window !== "undefined" && !localStorage.getItem("kwikseller_access_token");
-}
-
 // ─── Timeline UI ───────────────────────────────────────────────────────────
 
 function OrderTimeline({ order }: { order: MarketplaceOrder }) {
@@ -298,11 +309,11 @@ function OrderTimeline({ order }: { order: MarketplaceOrder }) {
   return (
     <section
       aria-label="Order status timeline"
-      className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5 sm:p-6"
+      className="rounded-lg border border-[#e3e5e8] bg-white p-4"
     >
-      <header className="mb-5 flex items-center gap-2">
+      <header className="mb-4 flex items-center gap-2">
         <Package className="h-4 w-4 text-kwik-orange" />
-        <h2 className="font-heading text-sm font-bold uppercase tracking-[0.16em] text-foreground">
+        <h2 className="text-sm font-semibold text-foreground">
           Order timeline
         </h2>
       </header>
@@ -310,7 +321,7 @@ function OrderTimeline({ order }: { order: MarketplaceOrder }) {
         {stages.map((stage, idx) => (
           <li
             key={stage.key}
-            className="relative flex gap-4 pb-5 last:pb-0"
+            className="relative flex gap-3 pb-4 last:pb-0"
           >
             {/* Vertical line — hidden for the last node */}
             {idx < stages.length - 1 && (
@@ -357,7 +368,7 @@ function OrderTimeline({ order }: { order: MarketplaceOrder }) {
                 >
                   {stage.label}
                   {stage.current && (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-kwik-orange/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-kwik-orange">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-kwik-orange/10 px-2 py-0.5 text-[10px] font-bold text-kwik-orange">
                       Current
                     </span>
                   )}
@@ -385,34 +396,92 @@ function OrderTimeline({ order }: { order: MarketplaceOrder }) {
   );
 }
 
-// ─── Products section (uses SNAPSHOT fields) ───────────────────────────────
-
-function ProductsSection({ order }: { order: MarketplaceOrder }) {
-  const items = order.items ?? [];
-  if (items.length === 0) return null;
+function ResponsivePanelModal({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
 
   return (
-    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface">
-      <div className="border-b border-kwik-border-light p-4 sm:p-5">
-        <h2 className="font-semibold text-foreground">
-          Items in this order
-          <span className="ml-2 text-sm font-normal text-kwik-muted">
+    <div
+      className="fixed inset-0 z-[140] flex items-end bg-black/45 p-0 sm:items-center sm:justify-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-2xl sm:max-w-2xl sm:rounded-lg sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#f1f2f3] text-[#59534b]"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Products section (uses SNAPSHOT fields) ───────────────────────────────
+
+function ProductsSection({
+  order,
+  limit,
+  onShowAll,
+}: {
+  order: MarketplaceOrder;
+  limit?: number;
+  onShowAll?: () => void;
+}) {
+  const items = order.items ?? [];
+  if (items.length === 0) return null;
+  const visibleItems = typeof limit === "number" ? items.slice(0, limit) : items;
+
+  return (
+    <section className="rounded-lg border border-[#e3e5e8] bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-[#eceef0] px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">
+          Order items
+          <span className="ml-2 text-xs font-normal text-kwik-muted">
             ({items.length} item{items.length === 1 ? "" : "s"})
           </span>
         </h2>
+        {onShowAll && items.length > (limit ?? items.length) ? (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="text-xs font-medium text-[#6c675f] transition hover:text-foreground"
+          >
+            Show all
+          </button>
+        ) : null}
       </div>
-      <ul className="divide-y divide-kwik-border-light">
-        {items.map((item) => {
+      <ul className="divide-y divide-[#f0ece6]">
+        {visibleItems.map((item) => {
           const image = itemDisplayImage(item);
           const name = itemDisplayName(item);
           const variant = itemDisplayVariant(item);
           return (
             <li
               key={item.id}
-              className="flex items-start justify-between gap-4 p-4 sm:p-5"
+              className="flex items-start justify-between gap-3 px-4 py-3"
             >
               <div className="flex min-w-0 flex-1 items-start gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#eceef0] bg-[#f4f5f6]">
                   {image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -425,7 +494,7 @@ function ProductsSection({ order }: { order: MarketplaceOrder }) {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-foreground">{name}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{name}</p>
                   {variant && (
                     <p className="mt-0.5 text-xs text-kwik-muted">Variant: {variant}</p>
                   )}
@@ -434,13 +503,24 @@ function ProductsSection({ order }: { order: MarketplaceOrder }) {
                   </p>
                 </div>
               </div>
-              <p className="shrink-0 font-semibold text-foreground tabular-nums">
+              <p className="shrink-0 text-sm font-semibold text-foreground tabular-nums">
                 {formatCurrency(item.totalPrice)}
               </p>
             </li>
           );
         })}
       </ul>
+      {onShowAll && items.length > (limit ?? items.length) ? (
+        <div className="border-t border-[#f0ece6] px-4 py-3 sm:px-5">
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#6c675f] transition hover:text-foreground"
+          >
+            Show {items.length - (limit ?? items.length)} more item{items.length - (limit ?? items.length) === 1 ? "" : "s"}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -482,6 +562,7 @@ function QuoteSection({
       latestCustomerReductionNote={latestCustomerReduction?.note}
       revisionCount={revisions.length}
       createdAt={quote?.createdAt}
+      paymentPaid={order.paymentStatus === "PAID"}
     />
   );
 }
@@ -496,6 +577,7 @@ function QuoteNegotiationCard({
   latestCustomerReductionNote,
   revisionCount,
   createdAt,
+  paymentPaid,
 }: {
   orderId: string;
   quoteStatus: QuoteStatus;
@@ -506,6 +588,7 @@ function QuoteNegotiationCard({
   latestCustomerReductionNote?: string | null;
   revisionCount: number;
   createdAt?: string;
+  paymentPaid: boolean;
 }) {
   const acceptQuote = useAcceptQuote(orderId);
   const requestReduction = useRequestReduction(orderId);
@@ -607,25 +690,25 @@ function QuoteNegotiationCard({
   return (
     <section
       aria-label="Vendor quote negotiation"
-      className="overflow-hidden rounded-2xl border border-kwik-border bg-kwik-bg-surface shadow-sm"
+      className="overflow-hidden rounded-lg border border-[#e3e5e8] bg-white"
     >
-      <div className="kwik-gradient px-5 py-4 sm:px-6">
+      <div className="border-b border-kwik-border-light px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+            <p className="text-sm font-medium text-kwik-muted">
               Delivery quote
             </p>
-            <h2 className="mt-1 font-heading text-lg font-bold text-white sm:text-xl">
+            <h2 className="mt-1 font-heading text-lg font-bold text-foreground sm:text-xl">
               Vendor quotation
             </h2>
             {createdAt && (
-              <p className="mt-0.5 text-xs text-white/80">
+              <p className="mt-0.5 text-xs text-kwik-muted">
                 Opened {formatDate(createdAt)}
                 {revisionCount > 0 && ` · ${revisionCount} revision${revisionCount === 1 ? "" : "s"}`}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
+          <div className="flex items-center gap-2 rounded-full bg-kwik-orange/10 px-3 py-1.5 text-xs font-semibold text-kwik-orange ring-1 ring-kwik-orange/20">
             <StatusBadgeTransparent status={quoteStatus} />
           </div>
         </div>
@@ -646,7 +729,7 @@ function QuoteNegotiationCard({
         {canAcceptOrReduce && (
           <div className="space-y-4">
             <div className="rounded-xl border border-kwik-border-light bg-gray-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-semibold text-gray-500">
                 Vendor&apos;s quoted delivery fee
               </p>
               <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
@@ -711,7 +794,7 @@ function QuoteNegotiationCard({
                 <div>
                   <label
                     htmlFor="reduction-amount"
-                    className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+                    className="text-xs font-semibold text-gray-500"
                   >
                     Your proposed amount (₦)
                   </label>
@@ -730,7 +813,7 @@ function QuoteNegotiationCard({
                 <div>
                   <label
                     htmlFor="reduction-note"
-                    className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+                    className="text-xs font-semibold text-gray-500"
                   >
                     Note (optional)
                   </label>
@@ -811,28 +894,31 @@ function QuoteNegotiationCard({
                 Quote agreed: {formatCurrency(agreedAmount ?? currentAmount)}
               </p>
               <p className="mt-1 text-xs">
-                You can now proceed to payment. Your funds will be held safely
-                by {KwisCrow.NAME} until you confirm receipt.
+                {paymentPaid
+                  ? `Payment confirmed. ${KwisCrow.NAME} is holding your funds safely until you confirm receipt.`
+                  : `You can now proceed to payment. Your funds will be held safely by ${KwisCrow.NAME} until you confirm receipt.`}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleProceedToPayment}
-              disabled={initializePayment.isPending}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-secondary-500 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {initializePayment.isPending ? (
-                <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  Initializing payment…
-                </>
-              ) : (
-                <>
-                  <CreditCard className="h-4 w-4" />
-                  Proceed to payment
-                </>
-              )}
-            </button>
+            {!paymentPaid ? (
+              <button
+                type="button"
+                onClick={handleProceedToPayment}
+                disabled={initializePayment.isPending}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-secondary-500 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {initializePayment.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    Initializing payment…
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-4 w-4" />
+                    Proceed to payment
+                  </>
+                )}
+              </button>
+            ) : null}
           </div>
         )}
 
@@ -866,7 +952,7 @@ function QuoteNegotiationCard({
 
 function StatusBadgeTransparent({ status }: { status: QuoteStatus }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+    <span className="inline-flex items-center rounded-full bg-kwik-orange/10 px-2.5 py-0.5 text-[11px] font-semibold text-kwik-orange">
       {status.replace(/_/g, " ")}
     </span>
   );
@@ -879,7 +965,7 @@ function PaymentSection({ order }: { order: MarketplaceOrder }) {
   const escrow = order.escrow;
 
   return (
-    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+    <section className="rounded-lg border border-[#e3e5e8] bg-white p-4">
       <header className="flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-kwik-orange" />
         <h2 className="font-semibold text-foreground">Payment</h2>
@@ -899,7 +985,7 @@ function PaymentSection({ order }: { order: MarketplaceOrder }) {
         {order.payment?.reference && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-kwik-muted">Reference</span>
-            <span className="font-mono text-foreground">{order.payment.reference}</span>
+            <span className="font-medium text-foreground">{order.payment.reference}</span>
           </div>
         )}
         {order.payment?.paidAt && (
@@ -948,6 +1034,7 @@ function DeliverySection({ order }: { order: MarketplaceOrder }) {
   const isPickup = order.deliveryMethod === "PICKUP";
   const delivery = order.delivery;
   const address = order.address;
+  const autoReleaseDeadline = getAutoReleaseDeadline(order);
 
   let addressLine = "No delivery address on this order";
   if (delivery?.deliveryAddress) {
@@ -968,7 +1055,7 @@ function DeliverySection({ order }: { order: MarketplaceOrder }) {
   }
 
   return (
-    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+    <section className="rounded-lg border border-[#e3e5e8] bg-white p-4">
       <header className="flex items-center gap-2">
         <Truck className="h-5 w-5 text-kwik-orange" />
         <h2 className="font-semibold text-foreground">Delivery</h2>
@@ -999,6 +1086,14 @@ function DeliverySection({ order }: { order: MarketplaceOrder }) {
             <span className="text-foreground">{delivery.estimatedMinutes} min</span>
           </div>
         )}
+        {order.estimatedDeliveryStart && order.estimatedDeliveryEnd && !isPickup && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-kwik-muted">Delivery window</span>
+            <span className="text-right text-foreground">
+              {formatDate(order.estimatedDeliveryStart)} - {formatDate(order.estimatedDeliveryEnd)}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 flex items-start gap-3 rounded-xl bg-gray-50 px-3 py-3 text-sm">
@@ -1021,6 +1116,24 @@ function DeliverySection({ order }: { order: MarketplaceOrder }) {
           )}
         </div>
       </div>
+
+      {isPickup ? (
+        <div className="mt-4 rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-xs text-kwik-orange">
+          <p className="font-semibold">Show your order ID at the vendor store to collect this package.</p>
+          <p className="mt-1">
+            After handoff, the vendor completes pickup in their dashboard and {KwisCrow.NAME} releases the payment.
+          </p>
+        </div>
+      ) : autoReleaseDeadline && !delivery?.customerConfirmed && order.escrow?.status !== "RELEASED" ? (
+        <div className="mt-4 rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-xs text-kwik-orange">
+          <p className="font-semibold">
+            If you do not respond, funds auto-release on {formatDate(autoReleaseDeadline)}.
+          </p>
+          <p className="mt-1">
+            The 24-hour response window starts after the final delivery date in the vendor's quoted range.
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1035,7 +1148,7 @@ function OrderSummary({ order }: { order: MarketplaceOrder }) {
   const total = Number(order.totalAmount ?? subtotal + processingFee + deliveryFee - discount);
 
   return (
-    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+    <section className="rounded-lg border border-[#e3e5e8] bg-white p-4">
       <h2 className="font-semibold text-foreground">Order summary</h2>
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex items-center justify-between">
@@ -1100,21 +1213,30 @@ function CustomerActions({ order }: { order: MarketplaceOrder }) {
     order.delivery?.status === "ARRIVED";
   const alreadyConfirmed = order.delivery?.customerConfirmed === true;
   const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+  const isPickup = order.deliveryMethod === "PICKUP";
+  const autoReleaseDeadline = getAutoReleaseDeadline(order);
+  const orderAwaitsPayment =
+    order.status === "PENDING_PAYMENT" ||
+    (order.status === "PENDING" && quoteAgreed && paymentPending);
+  const orderCanStillBeCancelled =
+    order.status === "PENDING" ||
+    order.status === "PENDING_PAYMENT";
+  const orderTrackableStatuses = ["PAID", "CONFIRMED", "PROCESSING", "FULFILLED", "SHIPPED", "DELIVERED", "COMPLETED"];
 
   // 1. Proceed to Payment — quote agreed, not yet paid
-  const showProceedToPayment = quoteAgreed && paymentPending && !isCancelled;
+  const showProceedToPayment = quoteAgreed && paymentPending && orderAwaitsPayment && !isCancelled;
 
-  // 2. Confirm receipt — paid AND (delivered OR ready for pickup)
+  // 2. Confirm receipt — standard delivery only, after delivered/arrived.
   const showConfirmReceipt =
-    paymentPaid && deliveryReady && !alreadyConfirmed && !isCancelled;
+    !isPickup && paymentPaid && deliveryReady && !alreadyConfirmed && !isCancelled;
 
   // 3. Cancel — payment pending AND quote not yet agreed (and not cancelled)
   const showCancel =
-    paymentPending && !quoteAgreed && !isCancelled;
+    paymentPending && orderCanStillBeCancelled && !quoteAgreed && !isCancelled;
 
   // 4. Track order link — show once paid+processing or beyond
   const showTrack =
-    (paymentPaid || order.status === "PROCESSING" || order.status === "FULFILLED") &&
+    (paymentPaid || orderTrackableStatuses.includes(order.status)) &&
     !isCancelled;
 
   if (!showProceedToPayment && !showConfirmReceipt && !showCancel && !showTrack) {
@@ -1178,8 +1300,24 @@ function CustomerActions({ order }: { order: MarketplaceOrder }) {
   };
 
   return (
-    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+    <section className="rounded-lg border border-[#e3e5e8] bg-white p-4">
       <h2 className="font-semibold text-foreground">Actions</h2>
+      {isPickup && paymentPaid && !isCancelled ? (
+        <div className="mt-3 rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-xs text-kwik-orange">
+          <p className="font-semibold">Pickup order</p>
+          <p className="mt-1">
+            Bring order ID <span className="font-semibold text-foreground">{orderReference(order)}</span> to the vendor store. The vendor will complete the handoff in their dashboard.
+          </p>
+        </div>
+      ) : null}
+      {!isPickup && autoReleaseDeadline && paymentPaid && !alreadyConfirmed && order.escrow?.status !== "RELEASED" ? (
+        <div className="mt-3 rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-xs text-kwik-orange">
+          <p className="font-semibold">Response deadline</p>
+          <p className="mt-1">
+            Please confirm receipt or raise an issue before {formatDate(autoReleaseDeadline)}. If there is no response after then, funds release automatically.
+          </p>
+        </div>
+      ) : null}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         {showProceedToPayment && (
           <button
@@ -1251,7 +1389,9 @@ function OrderDetailPageInner() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, isInitialized } = useAuth();
+  const [timelineOpen, setTimelineOpen] = React.useState(false);
+  const [itemsOpen, setItemsOpen] = React.useState(false);
 
   const { data: order, isLoading, isError } = useOrder(orderId);
   // Fetch the quote (only meaningful for STANDARD_DELIVERY, but the hook is
@@ -1265,11 +1405,11 @@ function OrderDetailPageInner() {
 
   // Redirect to login if the user is unauthenticated (the API requires JWT).
   React.useEffect(() => {
-    if (!isAuthLoading && !isAuthenticated && needsAuthRedirect()) {
+    if (isInitialized && !isAuthLoading && !isAuthenticated) {
       const returnUrl = window.location.pathname + window.location.search;
       router.replace(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
     }
-  }, [isAuthLoading, isAuthenticated, router]);
+  }, [isAuthLoading, isAuthenticated, isInitialized, router]);
 
   // A 404 on the quote is expected for PICKUP orders and pre-quote orders —
   // log it once for debugging but don't surface to the user.
@@ -1299,49 +1439,41 @@ function OrderDetailPageInner() {
   const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
 
   return (
-    <div className="bg-background min-h-screen">
-      {/* ── Hero header (matches checkout/orders page design) ── */}
-      <section className="kwik-gradient relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
-        <div className="container relative mx-auto max-w-6xl px-4 py-8">
-          <Link
-            href="/orders"
-            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-white/85 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to orders
-          </Link>
+    <div className="min-h-screen bg-[#f6f7f8]">
+      <section className="mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
+        <div className="border-b border-[#dfe2e5] pb-4">
+          <nav className="mb-3 flex items-center gap-2 text-xs text-[#7d8187]" aria-label="Breadcrumb">
+            <Link href="/" className="hover:text-foreground">Home</Link>
+            <ChevronRight className="h-3 w-3" />
+            <Link href="/orders" className="hover:text-foreground">Orders</Link>
+            <ChevronRight className="h-3 w-3" />
+            <span className="truncate">{orderReference(order)}</span>
+          </nav>
 
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
-                  Order {orderReference(order)}
-                </p>
-                <h1 className="mt-1 font-heading text-2xl font-bold text-white sm:text-3xl">
-                  {order.store?.name ?? "Vendor store"}
+                <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
+                  Order ID: {orderReference(order)}
                 </h1>
-                <p className="mt-1 text-xs text-white/80">
-                  Placed {formatDate(order.createdAt)}
+                <p className="mt-2 text-xs text-[#73777d] sm:text-sm">
+                  Order date: {formatDate(order.createdAt)}
                   {order.deliveryMethod && (
                     <>
-                      {" · "}
+                      <span className="mx-2 text-[#c4c7ca]">|</span>
                       {order.deliveryMethod === "PICKUP" ? "Pickup" : "Standard delivery"}
                     </>
                   )}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <StatusBadge
-                  status={order.status}
-                  className="bg-white/15 text-white ring-white/30"
-                />
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <StatusBadge status={order.status} />
                 {order.paymentStatus === "PAID" && order.escrow?.status === "HELD" && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-kwik-orange/10 px-2.5 py-1 text-[11px] font-semibold text-kwik-orange ring-1 ring-kwik-orange/20">
                     <ShieldCheck className="h-3 w-3" />
                     {KwisCrow.NAME}: Held
                   </span>
@@ -1352,9 +1484,8 @@ function OrderDetailPageInner() {
         </div>
       </section>
 
-      {/* ── Status bar ── */}
-      <div className="border-b border-kwik-border bg-kwik-bg-surface">
-        <div className="container mx-auto max-w-6xl px-4 py-3 text-xs text-muted-foreground">
+      <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6 lg:px-8">
+        <div className="border-l-2 border-kwik-orange bg-white px-3 py-2 text-xs text-[#62666c] shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
           {isCancelled ? (
             "This order has been cancelled."
           ) : order.paymentStatus === "PAID" ? (
@@ -1369,34 +1500,86 @@ function OrderDetailPageInner() {
         </div>
       </div>
 
-      {/* ── Content ── */}
-      <section className="container mx-auto max-w-6xl px-4 py-8">
-        {/* Timeline */}
-        <OrderTimeline order={order} />
-
-        {/* Quote negotiation (STANDARD_DELIVERY only) */}
-        <div className="mt-4">
-          <QuoteSection order={order} quote={quote} />
+      {/* ── Content: workspace + sticky sidebar ── */}
+      <section className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mb-3 flex gap-2 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setTimelineOpen(true)}
+            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-[#dfe2e5] bg-white px-3 text-xs font-medium text-[#262626]"
+          >
+            <Clock className="h-4 w-4" />
+            View timeline
+          </button>
+          <button
+            type="button"
+            onClick={() => setItemsOpen(true)}
+            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-[#dfe2e5] bg-white px-3 text-xs font-medium text-[#262626]"
+          >
+            <Package className="h-4 w-4" />
+            Show items
+          </button>
         </div>
 
-        {/* Two-column layout: products + side panel */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-3 space-y-4">
-            <ProductsSection order={order} />
-            <CustomerActions order={order} />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* Left: Order workspace */}
+          <div className="space-y-4">
+            <div className="lg:hidden">
+              <CustomerActions order={order} />
+            </div>
+
+            {/* Quote negotiation (STANDARD_DELIVERY only) */}
+            <QuoteSection order={order} quote={quote} />
+
+            {/* Products */}
+            <ProductsSection
+              order={order}
+              limit={4}
+              onShowAll={() => setItemsOpen(true)}
+            />
+
+            {/* Payment + Escrow */}
+            <PaymentSection order={order} />
+
+            {/* Delivery */}
+            <DeliverySection order={order} />
           </div>
 
-          <div className="lg:col-span-2 space-y-4">
-            <PaymentSection order={order} />
-            <DeliverySection order={order} />
+          {/* Right: Sticky sidebar */}
+          <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+            <div className="hidden lg:block">
+              <OrderTimeline order={order} />
+            </div>
+
+            {/* Order summary with totals */}
             <OrderSummary order={order} />
+
+            {/* Customer action buttons */}
+            <div className="hidden lg:block">
+              <CustomerActions order={order} />
+            </div>
+
+            {/* Escrow/payment status indicator */}
+            {order.paymentStatus === "PAID" && order.escrow?.status && (
+              <section className="rounded-lg border border-kwik-orange/20 bg-white p-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-kwik-orange" />
+                  <p className="text-sm font-semibold text-kwik-orange">
+                    {KwisCrow.NAME}: {order.escrow.status.replace(/_/g, " ")}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-kwik-orange/80">
+                  Your payment is secured in escrow until you confirm receipt.
+                </p>
+              </section>
+            )}
 
             {/* Vendor mini-card */}
             {order.store && (
-              <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-4">
+              <section className="rounded-lg border border-[#e3e5e8] bg-white p-4">
                 <div className="flex items-center gap-2">
                   <Store className="h-4 w-4 text-kwik-orange" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-kwik-muted">
+                  <h3 className="text-sm font-semibold text-kwik-muted">
                     Vendor
                   </h3>
                 </div>
@@ -1411,8 +1594,24 @@ function OrderDetailPageInner() {
                 )}
               </section>
             )}
-          </div>
+          </aside>
         </div>
+
+        <ResponsivePanelModal
+          open={timelineOpen}
+          title="Order timeline"
+          onClose={() => setTimelineOpen(false)}
+        >
+          <OrderTimeline order={order} />
+        </ResponsivePanelModal>
+
+        <ResponsivePanelModal
+          open={itemsOpen}
+          title="All order items"
+          onClose={() => setItemsOpen(false)}
+        >
+          <ProductsSection order={order} />
+        </ResponsivePanelModal>
       </section>
     </div>
   );
@@ -1422,39 +1621,41 @@ function OrderDetailPageInner() {
 
 export default function BuyerOrderDetailPage() {
   return (
-    <ErrorBoundary
-      fallback={
-        <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-kwik-red/10">
-            <AlertTriangle className="h-7 w-7 text-kwik-red" />
-          </div>
-          <h1 className="text-xl font-bold text-foreground">
-            Something went wrong loading this order
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Please try again. If the problem persists, head back to your orders
-            list.
-          </p>
-          <div className="mt-6 flex justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-secondary-500 px-4 text-sm font-semibold text-white hover:bg-secondary-600"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try again
-            </button>
-            <Link
-              href="/orders"
-              className="inline-flex h-10 items-center justify-center rounded-md border border-kwik-border bg-kwik-bg-surface px-4 text-sm font-semibold text-foreground hover:border-gray-300"
-            >
-              Back to orders
-            </Link>
-          </div>
-        </main>
-      }
-    >
-      <OrderDetailPageInner />
-    </ErrorBoundary>
+    <AccountLayout>
+      <ErrorBoundary
+        fallback={
+          <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-kwik-red/10">
+              <AlertTriangle className="h-7 w-7 text-kwik-red" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground">
+              Something went wrong loading this order
+            </h1>
+            <p className="mt-2 text-sm text-gray-500">
+              Please try again. If the problem persists, head back to your orders
+              list.
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-secondary-500 px-4 text-sm font-semibold text-white hover:bg-secondary-600"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Try again
+              </button>
+              <Link
+                href="/orders"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-kwik-border bg-kwik-bg-surface px-4 text-sm font-semibold text-foreground hover:border-gray-300"
+              >
+                Back to orders
+              </Link>
+            </div>
+          </main>
+        }
+      >
+        <OrderDetailPageInner />
+      </ErrorBoundary>
+    </AccountLayout>
   );
 }

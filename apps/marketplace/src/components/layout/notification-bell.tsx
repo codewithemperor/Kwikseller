@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, CheckCheck, ChevronRight, X, AlertCircle } from "lucide-react";
-import { useAuth } from "@kwikseller/utils";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import {
   useNotifications,

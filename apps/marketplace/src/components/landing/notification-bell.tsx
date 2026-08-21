@@ -18,7 +18,7 @@ import {
   Info,
 } from 'lucide-react'
 import { Button, Chip } from '@heroui/react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 
 // --- Types ---
 

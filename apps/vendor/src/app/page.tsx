@@ -5,7 +5,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@kwikseller/utils";
+import { useAuthStore } from "@/lib/utils";
 import { KwiksellerLoader } from "@/components/kwikseller-loader";
 
 export default function VendorPage() {

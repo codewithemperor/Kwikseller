@@ -2,7 +2,7 @@
 
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   Leaf,
   Sprout,
@@ -275,7 +275,7 @@ export function EcoFriendlyProducts() {
         <AnimatedSection delay={0.4}>
           <div className="text-center">
             <Button
-              variant="bordered"
+              variant="outline"
               className="border-accent text-accent hover:bg-accent/5 press-scale"
               onPress={() => {
                 const el = document.getElementById("categories");

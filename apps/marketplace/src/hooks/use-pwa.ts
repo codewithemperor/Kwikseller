@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores'
-import { notificationsApi } from '@kwikseller/api-client'
+import { notificationsApi } from '@/services/api-client'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>

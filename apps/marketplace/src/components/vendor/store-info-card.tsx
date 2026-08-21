@@ -18,7 +18,7 @@ import {
   Globe,
 } from "lucide-react";
 import Link from "next/link";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 
 /**
  * Enriched store fields surfaced by the dummy /api/v1/stores/:slug endpoint

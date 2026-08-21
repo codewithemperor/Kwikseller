@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@heroui/react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import {
   useCartStore,
   useWishlistStore,
@@ -313,7 +313,7 @@ function QuickViewContent({
             <div className="grid grid-cols-[1fr_auto] gap-2.5">
               <Button
                 onPress={handleAddToCart}
-                disabled={isOutOfStock}
+                isDisabled={isOutOfStock}
                 className="h-12 min-w-0 rounded-xl bg-kwik-orange px-4 font-semibold text-white hover:bg-kwik-orange-hover disabled:opacity-50"
               >
                 <ShoppingCart className="mr-2 h-4 w-4" />

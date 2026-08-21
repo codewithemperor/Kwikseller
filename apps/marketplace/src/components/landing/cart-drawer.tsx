@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Minus, Plus, Shield, ShoppingBag, Trash2, X } from "lucide-react";
 import { Button } from "@heroui/react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { AppImage } from "@/components/ui/app-image";
 import { useCartStore } from "@/stores";
 

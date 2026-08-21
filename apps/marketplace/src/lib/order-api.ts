@@ -23,7 +23,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@kwikseller/api-client";
+import { api } from "@/services/api-client";
 
 // ─── Types (mirror the dummy API / NestJS Order shape) ─────────────────────
 

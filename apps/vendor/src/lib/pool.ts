@@ -1,4 +1,4 @@
-import type { PoolProduct, PoolSourceType } from "@kwikseller/types";
+import type { PoolProduct, PoolSourceType } from "./types";
 
 export type PoolCatalogItem = PoolProduct & {
   sourceType?: PoolSourceType;

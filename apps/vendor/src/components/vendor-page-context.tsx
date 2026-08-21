@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { SearchAutoSuggestItem } from "@kwikseller/ui";
+import type { SearchAutoSuggestItem } from "@/lib/ui";
 
 export type VendorPageSearchProvider = (query: string) => Promise<SearchAutoSuggestItem[]> | SearchAutoSuggestItem[];
 export type VendorPageSearchSubmit = (query: string) => void;

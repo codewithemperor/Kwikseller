@@ -4,7 +4,7 @@ import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@heroui/react";
 import { RefreshCw, ShieldCheck, UserCog } from "lucide-react";
-import { AppButton } from "@kwikseller/ui";
+import { AppButton } from "@/lib/ui";
 import { PageHeader } from "@/components/ui";
 import { adminUsersApi, type AdminUser } from "@/lib/api";
 import {
@@ -184,3 +184,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+

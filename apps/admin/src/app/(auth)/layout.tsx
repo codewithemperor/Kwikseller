@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminGuestRoute } from "@/components/auth";
-import { BrandedAuthLayout } from "@kwikseller/ui";
+import { BrandedAuthLayout } from "@/lib/ui";
 import { BarChart3, ShieldCheck, UsersRound } from "lucide-react";
 
 export default function AuthLayout({
@@ -45,3 +45,4 @@ export default function AuthLayout({
     </AdminGuestRoute>
   );
 }
+

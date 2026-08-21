@@ -1,8 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { Product } from "@kwikseller/types";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { Product } from "@/lib/types";
 import { unwrapApiData } from "@/lib/vendor-format";
 
 const PRODUCTS_CACHE_MS = 30_000;

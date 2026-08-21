@@ -755,6 +755,49 @@ export class EscrowService {
       }
     }
 
+    // 3) Auto-release delivered standard-delivery orders once the ETA window
+    //    has fully elapsed and the customer has not disputed or responded.
+    const overdueDelivered = await db.escrow?.findMany({
+      where: {
+        status: "HELD",
+        releaseAt: { lte: new Date() },
+        order: {
+          status: "DELIVERED",
+          deliveryMethod: "STANDARD_DELIVERY",
+          disputeStatus: { not: "OPENED" },
+        },
+      },
+      include: { order: { include: { delivery: true } } },
+    });
+
+    for (const escrow of overdueDelivered ?? []) {
+      const delivery = escrow.order?.delivery;
+      if (!delivery || delivery.customerConfirmed || delivery.customerRejected) {
+        continue;
+      }
+
+      try {
+        await db.delivery?.update({
+          where: { id: delivery.id },
+          data: {
+            customerConfirmed: true,
+            customerConfirmedAt: new Date(),
+          },
+        });
+        await db.escrow?.update({
+          where: { id: escrow.id },
+          data: { status: "PENDING_RELEASE", releaseAt: new Date() },
+        });
+        await this.releaseFunds(delivery.id);
+        processed++;
+      } catch (err) {
+        failed++;
+        this.logger.warn(
+          `Failed to auto-release overdue delivered escrow ${escrow.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
     return { processed, failed };
   }
 

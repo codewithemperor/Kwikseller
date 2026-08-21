@@ -1,0 +1,1463 @@
+     1→"use client";
+     2→
+     3→/**
+     4→ * Customer Order Detail Page — driven by the REAL backend order lifecycle.
+     5→ *
+     6→ * Order state dimensions (see `apps/marketplace/src/lib/order-api.ts`):
+     7→ *   - `status` (OrderStatus): PENDING → PAID → PROCESSING → FULFILLED → DELIVERED → COMPLETED | CANCELLED
+     8→ *   - `paymentStatus`: PENDING → PAID | FAILED | REFUNDED
+     9→ *   - `quoteStatus`: PENDING_VENDOR_QUOTE → QUOTED → CUSTOMER_REQUESTED_REDUCTION → VENDOR_REVISED → AGREED | REJECTED | EXPIRED | CANCELLED
+    10→ *   - `deliveryMethod`: PICKUP | STANDARD_DELIVERY
+    11→ *   - `escrow.status`, `delivery.status`, `fulfillments[].status`
+    12→ *
+    13→ * Sections:
+    14→ *   1. Header (order ref, date, overall status badge)
+    15→ *   2. Visual timeline (9 stages — highlights the current stage)
+    16→ *   3. Products (uses SNAPSHOT fields, never live product data)
+    17→ *   4. Quote negotiation (STANDARD_DELIVERY only)
+    18→ *   5. Payment + Kwikscrow status
+    19→ *   6. Delivery section
+    20→ *   7. Context-aware customer actions
+    21→ *   8. Order summary (subtotal, processing fee, delivery fee, total)
+    22→ *
+    23→ * Styling: Tailwind + existing kwik-* semantic tokens. NO blue/indigo.
+    24→ */
+    25→
+    26→import React from "react";
+    27→import Link from "next/link";
+    28→import { useParams, useRouter } from "next/navigation";
+    29→import { motion } from "framer-motion";
+    30→import {
+    31→  AlertTriangle,
+    32→  ArrowLeft,
+    33→  CheckCircle2,
+    34→  Clock,
+    35→  CreditCard,
+    36→  MapPin,
+    37→  MessageSquareText,
+    38→  Package,
+    39→  RefreshCw,
+    40→  ShieldCheck,
+    41→  Store,
+    42→  Truck,
+    43→  XCircle,
+    44→} from "lucide-react";
+    45→import { ErrorBoundary } from "@/components/ui/error-boundary";
+    46→import { Skeleton } from "@/components/ui/skeleton";
+    47→import { kwikToast } from "@/lib/toast";
+    48→import { useAuth } from "@/lib/auth-context";
+    49→import {
+    50→  useAcceptQuote,
+    51→  useCancelOrder,
+    52→  useConfirmReceipt,
+    53→  useInitializePayment,
+    54→  useOrder,
+    55→  useQuote,
+    56→  useRejectQuote,
+    57→  useRequestReduction,
+    58→  type MarketplaceOrder,
+    59→  type MarketplaceOrderItem,
+    60→  type OrderQuote,
+    61→  type QuoteStatus,
+    62→  type QuoteRevision,
+    63→} from "@/lib/order-api";
+    64→import { KwisCrow } from "@/constants/order-workflow";
+    65→
+    66→// ─── Helpers ───────────────────────────────────────────────────────────────
+    67→
+    68→function formatCurrency(amount: number | null | undefined): string {
+    69→  const value = Number(amount ?? 0);
+    70→  return new Intl.NumberFormat("en-NG", {
+    71→    style: "currency",
+    72→    currency: "NGN",
+    73→    maximumFractionDigits: 0,
+    74→  }).format(value);
+    75→}
+    76→
+    77→function formatDate(value?: string | Date | null): string {
+    78→  if (!value) return "Not available";
+    79→  return new Intl.DateTimeFormat("en-NG", {
+    80→    dateStyle: "medium",
+    81→    timeStyle: "short",
+    82→  }).format(new Date(value));
+    83→}
+    84→
+    85→function orderReference(order: MarketplaceOrder): string {
+    86→  return (
+    87→    order.checkoutReference ||
+    88→    order.id.slice(-8).toUpperCase()
+    89→  );
+    90→}
+    91→
+    92→/** Display name for an order item — prefers the snapshot, falls back to live product. */
+    93→function itemDisplayName(item: MarketplaceOrderItem): string {
+    94→  return (
+    95→    item.productNameSnapshot ||
+    96→    item.product?.name ||
+    97→    `Item ${item.id.slice(-4)}`
+    98→  );
+    99→}
+   100→
+   101→/** Display image for an order item — prefers the snapshot, falls back to live product. */
+   102→function itemDisplayImage(item: MarketplaceOrderItem): string | null {
+   103→  const snapshot = item.productImageSnapshot;
+   104→  if (snapshot && snapshot.trim() !== "") return snapshot;
+   105→  const main = item.product?.images?.find((i) => i.isMain) || item.product?.images?.[0];
+   106→  return main?.url ?? null;
+   107→}
+   108→
+   109→/** Display variant name for an order item — prefers the snapshot. */
+   110→function itemDisplayVariant(item: MarketplaceOrderItem): string | null {
+   111→  const snapshot = item.variantNameSnapshot;
+   112→  if (snapshot && snapshot.trim() !== "") return snapshot;
+   113→  return item.variant?.name ?? null;
+   114→}
+   115→
+   116→// ─── Status badge styling (NO blue/indigo — kwik-orange/green/red/gray) ────
+   117→
+   118→const STATUS_BADGE_STYLES: Record<string, string> = {
+   119→  // Order status
+   120→  PENDING: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   121→  PENDING_PAYMENT: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   122→  PAID: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+   123→  CONFIRMED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+   124→  PROCESSING: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   125→  FULFILLED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+   126→  SHIPPED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+   127→  DELIVERED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+   128→  COMPLETED: "bg-kwik-green/15 text-kwik-green ring-kwik-green/30",
+   129→  CANCELLED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+   130→  REFUNDED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+   131→  // Payment status
+   132→  AUTHORIZED: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   133→  FAILED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+   134→  // Quote status
+   135→  PENDING_VENDOR_QUOTE: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   136→  QUOTED: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   137→  CUSTOMER_REQUESTED_REDUCTION: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   138→  VENDOR_REVISED: "bg-kwik-orange/10 text-kwik-orange ring-kwik-orange/20",
+   139→  AGREED: "bg-kwik-green/10 text-kwik-green ring-kwik-green/20",
+   140→  REJECTED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+   141→  EXPIRED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+   142→  // Escrow status
+   143→  HELD: "bg-kwik-orange/15 text-kwik-orange ring-kwik-orange/30",
+   144→  PENDING_RELEASE: "bg-kwik-orange/15 text-kwik-orange ring-kwik-orange/30",
+   145→  RELEASED: "bg-kwik-green/15 text-kwik-green ring-kwik-green/30",
+   146→  DISPUTED: "bg-kwik-red/10 text-kwik-red ring-kwik-red/20",
+   147→  PARTIAL: "bg-kwik-orange/15 text-kwik-orange ring-kwik-orange/30",
+   148→};
+   149→
+   150→function StatusBadge({ status, className }: { status: string; className?: string }) {
+   151→  const normalized = status.replace(/_/g, " ");
+   152→  const style = STATUS_BADGE_STYLES[status] ?? "bg-gray-100 text-gray-600 ring-gray-200";
+   153→  return (
+   154→    <span
+   155→      className={
+   156→        "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 " +
+   157→        style +
+   158→        (className ? " " + className : "")
+   159→      }
+   160→    >
+   161→      {normalized}
+   162→    </span>
+   163→  );
+   164→}
+   165→
+   166→// ─── Timeline stage computation ────────────────────────────────────────────
+   167→//
+   168→// 9 stages:
+   169→//   1. Order Placed
+   170→//   2. Vendor Quote
+   171→//   3. Quote Agreed
+   172→//   4. Payment
+   173→//   5. Kwikscrow Holding
+   174→//   6. Processing
+   175→//   7. Pickup / Delivery
+   176→//   8. Confirmed
+   177→//   9. Completed
+   178→//
+   179→// `current` = the stage the order is currently AT (highlighted).
+   180→// `reached` = stages the order has already passed (filled green/orange).
+   181→// Cancelled orders show all stages greyed with a "Cancelled" label.
+   182→
+   183→interface TimelineStage {
+   184→  key: string;
+   185→  label: string;
+   186→  hint: string;
+   187→  reached: boolean;
+   188→  current: boolean;
+   189→}
+   190→
+   191→function computeTimelineStages(order: MarketplaceOrder): TimelineStage[] {
+   192→  const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+   193→  const isPickup = order.deliveryMethod === "PICKUP";
+   194→  const paymentPaid = order.paymentStatus === "PAID";
+   195→  const quoteAgreed =
+   196→    order.quoteStatus === "AGREED" ||
+   197→    // PICKUP auto-agrees at checkout, and any paid order implies the quote was agreed.
+   198→    (isPickup && order.status !== "PENDING") ||
+   199→    paymentPaid;
+   200→  const quoteQuoted =
+   201→    order.quoteStatus !== "PENDING_VENDOR_QUOTE" || quoteAgreed;
+   202→  const escrowHeld =
+   203→    order.escrow?.status === "HELD" ||
+   204→    order.escrow?.status === "PENDING_RELEASE" ||
+   205→    order.escrow?.status === "RELEASED" ||
+   206→    order.escrow?.status === "PARTIAL";
+   207→  const isProcessing =
+   208→    order.status === "PROCESSING" ||
+   209→    (order.fulfillments?.some((f) => f.status === "PROCESSING") ?? false);
+   210→  const deliveryReady =
+   211→    order.delivery?.status === "READY_FOR_PICKUP" ||
+   212→    order.delivery?.status === "PICKED_UP" ||
+   213→    order.delivery?.status === "IN_TRANSIT" ||
+   214→    order.delivery?.status === "ARRIVED" ||
+   215→    order.delivery?.status === "DELIVERED" ||
+   216→    order.status === "FULFILLED" ||
+   217→    order.status === "SHIPPED" ||
+   218→    order.status === "DELIVERED";
+   219→  const confirmed =
+   220→    order.delivery?.customerConfirmed === true ||
+   221→    order.status === "DELIVERED" ||
+   222→    order.status === "COMPLETED";
+   223→  const completed =
+   224→    order.status === "COMPLETED" ||
+   225→    order.escrow?.status === "RELEASED";
+   226→
+   227→  // Determine the "current" stage.
+   228→  let currentKey = "placed";
+   229→  if (completed) currentKey = "completed";
+   230→  else if (confirmed) currentKey = "confirmed";
+   231→  else if (deliveryReady) currentKey = "delivery";
+   232→  else if (isProcessing) currentKey = "processing";
+   233→  else if (escrowHeld) currentKey = "escrow";
+   234→  else if (paymentPaid) currentKey = "payment";
+   235→  else if (quoteAgreed) currentKey = "agreed";
+   236→  else if (quoteQuoted) currentKey = "quote";
+   237→
+   238→  const stages: Array<[string, string, string, boolean]> = [
+   239→    ["placed", "Order Placed", "Your order was placed and sent to the vendor.", true],
+   240→    ["quote", "Vendor Quote", "The vendor is preparing a delivery quote.", quoteQuoted],
+   241→    ["agreed", "Quote Agreed", "Both parties agreed on the delivery fee.", quoteAgreed],
+   242→    ["payment", "Payment", "You paid via Paystack.", paymentPaid],
+   243→    ["escrow", `${KwisCrow.NAME} Holding`, "Funds are held safely in escrow.", escrowHeld],
+   244→    ["processing", "Processing", "The vendor is preparing your order.", isProcessing],
+   245→    ["delivery", isPickup ? "Ready for Pickup" : "Out for Delivery", isPickup ? "Your order is ready for pickup." : "Your order is on its way.", deliveryReady],
+   246→    ["confirmed", "Confirmed", "You confirmed receipt of the order.", confirmed],
+   247→    ["completed", "Completed", "Escrow released to the vendor. Order complete.", completed],
+   248→  ];
+   249→
+   250→  return stages.map(([key, label, hint, reached]) => ({
+   251→    key,
+   252→    label,
+   253→    hint,
+   254→    reached: isCancelled ? false : reached,
+   255→    current: isCancelled ? false : currentKey === key,
+   256→  }));
+   257→}
+   258→
+   259→// ─── Skeleton + Not Found ──────────────────────────────────────────────────
+   260→
+   261→function OrderDetailSkeleton() {
+   262→  return (
+   263→    <main className="mx-auto max-w-6xl px-4 py-8">
+   264→      <Skeleton className="h-5 w-36" />
+   265→      <Skeleton className="mt-6 h-36 rounded-2xl" />
+   266→      <Skeleton className="mt-4 h-48 rounded-2xl" />
+   267→      <Skeleton className="mt-4 h-64 rounded-2xl" />
+   268→    </main>
+   269→  );
+   270→}
+   271→
+   272→function OrderNotFound({ id }: { id: string }) {
+   273→  return (
+   274→    <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+   275→      <Package className="mx-auto h-10 w-10 text-gray-400" />
+   276→      <h1 className="mt-4 text-2xl font-semibold text-foreground">Order not found</h1>
+   277→      <p className="mt-2 text-sm text-gray-500">
+   278→        We could not load order <span className="font-mono">{id}</span>.
+   279→      </p>
+   280→      <Link
+   281→        href="/orders"
+   282→        className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-secondary-500 px-5 text-sm font-semibold text-white transition hover:bg-secondary-600"
+   283→      >
+   284→        Back to orders
+   285→      </Link>
+   286→    </main>
+   287→  );
+   288→}
+   289→
+   290→function needsAuthRedirect(): boolean {
+   291→  return typeof window !== "undefined" && !localStorage.getItem("kwikseller_access_token");
+   292→}
+   293→
+   294→// ─── Timeline UI ───────────────────────────────────────────────────────────
+   295→
+   296→function OrderTimeline({ order }: { order: MarketplaceOrder }) {
+   297→  const stages = computeTimelineStages(order);
+   298→  const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+   299→
+   300→  return (
+   301→    <section
+   302→      aria-label="Order status timeline"
+   303→      className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5 sm:p-6"
+   304→    >
+   305→      <header className="mb-5 flex items-center gap-2">
+   306→        <Package className="h-4 w-4 text-kwik-orange" />
+   307→        <h2 className="font-heading text-sm font-bold uppercase tracking-[0.16em] text-foreground">
+   308→          Order timeline
+   309→        </h2>
+   310→      </header>
+   311→      <ol className="relative">
+   312→        {stages.map((stage, idx) => (
+   313→          <li
+   314→            key={stage.key}
+   315→            className="relative flex gap-4 pb-5 last:pb-0"
+   316→          >
+   317→            {/* Vertical line — hidden for the last node */}
+   318→            {idx < stages.length - 1 && (
+   319→              <span
+   320→                aria-hidden="true"
+   321→                className={
+   322→                  "absolute left-[14px] top-7 bottom-[-4px] w-0.5 " +
+   323→                  (stage.reached ? "bg-kwik-green" : "bg-kwik-border")
+   324→                }
+   325→              />
+   326→            )}
+   327→            {/* Dot */}
+   328→            <span
+   329→              className={
+   330→                "relative z-10 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition " +
+   331→                (isCancelled
+   332→                  ? "border-kwik-border bg-kwik-bg-surface text-kwik-muted"
+   333→                  : stage.reached
+   334→                    ? "border-transparent bg-kwik-green text-white"
+   335→                    : stage.current
+   336→                      ? "border-kwik-orange bg-kwik-orange/10 text-kwik-orange"
+   337→                      : "border-kwik-border bg-kwik-bg-surface text-kwik-muted")
+   338→              }
+   339→              aria-hidden="true"
+   340→            >
+   341→              {stage.reached && !isCancelled ? (
+   342→                <CheckCircle2 className="h-4 w-4" strokeWidth={2.5} />
+   343→              ) : stage.current ? (
+   344→                <Clock className="h-3 w-3" strokeWidth={2.5} />
+   345→              ) : (
+   346→                <span className="text-[10px] font-bold">{idx + 1}</span>
+   347→              )}
+   348→            </span>
+   349→            {/* Content */}
+   350→            <div className="min-w-0 flex-1">
+   351→              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+   352→                <p
+   353→                  className={
+   354→                    "text-sm font-semibold " +
+   355→                    (stage.reached || stage.current
+   356→                      ? "text-foreground"
+   357→                      : "text-kwik-muted")
+   358→                  }
+   359→                >
+   360→                  {stage.label}
+   361→                  {stage.current && (
+   362→                    <span className="ml-2 inline-flex items-center rounded-full bg-kwik-orange/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-kwik-orange">
+   363→                      Current
+   364→                    </span>
+   365→                  )}
+   366→                </p>
+   367→              </div>
+   368→              <p
+   369→                className={
+   370→                  "mt-1 text-xs leading-5 " +
+   371→                  (stage.reached || stage.current ? "text-gray-500" : "text-kwik-muted")
+   372→                }
+   373→              >
+   374→                {stage.hint}
+   375→              </p>
+   376→            </div>
+   377→          </li>
+   378→        ))}
+   379→      </ol>
+   380→      {isCancelled && (
+   381→        <div className="mt-4 flex items-center gap-2 rounded-xl bg-kwik-red/5 px-3 py-2 text-xs text-kwik-red">
+   382→          <XCircle className="h-3.5 w-3.5 shrink-0" />
+   383→          <span>This order was cancelled.</span>
+   384→        </div>
+   385→      )}
+   386→    </section>
+   387→  );
+   388→}
+   389→
+   390→// ─── Products section (uses SNAPSHOT fields) ───────────────────────────────
+   391→
+   392→function ProductsSection({ order }: { order: MarketplaceOrder }) {
+   393→  const items = order.items ?? [];
+   394→  if (items.length === 0) return null;
+   395→
+   396→  return (
+   397→    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface">
+   398→      <div className="border-b border-kwik-border-light p-4 sm:p-5">
+   399→        <h2 className="font-semibold text-foreground">
+   400→          Items in this order
+   401→          <span className="ml-2 text-sm font-normal text-kwik-muted">
+   402→            ({items.length} item{items.length === 1 ? "" : "s"})
+   403→          </span>
+   404→        </h2>
+   405→      </div>
+   406→      <ul className="divide-y divide-kwik-border-light">
+   407→        {items.map((item) => {
+   408→          const image = itemDisplayImage(item);
+   409→          const name = itemDisplayName(item);
+   410→          const variant = itemDisplayVariant(item);
+   411→          return (
+   412→            <li
+   413→              key={item.id}
+   414→              className="flex items-start justify-between gap-4 p-4 sm:p-5"
+   415→            >
+   416→              <div className="flex min-w-0 flex-1 items-start gap-3">
+   417→                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+   418→                  {image ? (
+   419→                    // eslint-disable-next-line @next/next/no-img-element
+   420→                    <img
+   421→                      src={image}
+   422→                      alt={name}
+   423→                      className="h-full w-full object-cover"
+   424→                    />
+   425→                  ) : (
+   426→                    <Package className="h-5 w-5 text-kwik-muted" strokeWidth={1.5} />
+   427→                  )}
+   428→                </div>
+   429→                <div className="min-w-0">
+   430→                  <p className="truncate font-semibold text-foreground">{name}</p>
+   431→                  {variant && (
+   432→                    <p className="mt-0.5 text-xs text-kwik-muted">Variant: {variant}</p>
+   433→                  )}
+   434→                  <p className="mt-1 text-xs text-gray-500">
+   435→                    Qty {item.quantity} × {formatCurrency(item.unitPrice)}
+   436→                  </p>
+   437→                </div>
+   438→              </div>
+   439→              <p className="shrink-0 font-semibold text-foreground tabular-nums">
+   440→                {formatCurrency(item.totalPrice)}
+   441→              </p>
+   442→            </li>
+   443→          );
+   444→        })}
+   445→      </ul>
+   446→    </section>
+   447→  );
+   448→}
+   449→
+   450→// ─── Quote negotiation section ─────────────────────────────────────────────
+   451→
+   452→function QuoteSection({
+   453→  order,
+   454→  quote,
+   455→}: {
+   456→  order: MarketplaceOrder;
+   457→  quote: OrderQuote | null | undefined;
+   458→}) {
+   459→  // Only render for STANDARD_DELIVERY (PICKUP auto-agrees at checkout).
+   460→  if (order.deliveryMethod !== "STANDARD_DELIVERY") return null;
+   461→
+   462→  // Sync quoteStatus: prefer the Quote entity's status when present
+   463→  // (it may be ahead of the denormalized Order.quoteStatus by a few ms).
+   464→  const quoteStatus: QuoteStatus = quote?.status ?? order.quoteStatus;
+   465→
+   466→  const revisions: QuoteRevision[] = quote?.revisions ?? [];
+   467→  const latestVendorRevision = [...revisions]
+   468→    .reverse()
+   469→    .find((r) => r.type === "VENDOR_QUOTE" || r.type === "VENDOR_REVISE");
+   470→  const latestCustomerReduction = [...revisions]
+   471→    .reverse()
+   472→    .find((r) => r.type === "CUSTOMER_REQUEST_REDUCTION");
+   473→  const currentAmount = quote?.currentAmount ?? order.agreedDeliveryFee ?? 0;
+   474→  const agreedAmount = quote?.agreedAmount ?? (quoteStatus === "AGREED" ? order.agreedDeliveryFee : null);
+   475→
+   476→  return (
+   477→    <QuoteNegotiationCard
+   478→      orderId={order.id}
+   479→      quoteStatus={quoteStatus}
+   480→      currentAmount={currentAmount}
+   481→      agreedAmount={agreedAmount ?? null}
+   482→      latestVendorNote={latestVendorRevision?.note}
+   483→      latestCustomerReductionAmount={latestCustomerReduction?.amount}
+   484→      latestCustomerReductionNote={latestCustomerReduction?.note}
+   485→      revisionCount={revisions.length}
+   486→      createdAt={quote?.createdAt}
+   487→    />
+   488→  );
+   489→}
+   490→
+   491→function QuoteNegotiationCard({
+   492→  orderId,
+   493→  quoteStatus,
+   494→  currentAmount,
+   495→  agreedAmount,
+   496→  latestVendorNote,
+   497→  latestCustomerReductionAmount,
+   498→  latestCustomerReductionNote,
+   499→  revisionCount,
+   500→  createdAt,
+   501→}: {
+   502→  orderId: string;
+   503→  quoteStatus: QuoteStatus;
+   504→  currentAmount: number;
+   505→  agreedAmount: number | null;
+   506→  latestVendorNote?: string | null;
+   507→  latestCustomerReductionAmount?: number;
+   508→  latestCustomerReductionNote?: string | null;
+   509→  revisionCount: number;
+   510→  createdAt?: string;
+   511→}) {
+   512→  const acceptQuote = useAcceptQuote(orderId);
+   513→  const requestReduction = useRequestReduction(orderId);
+   514→  const rejectQuote = useRejectQuote(orderId);
+   515→  const initializePayment = useInitializePayment(orderId);
+   516→  const router = useRouter();
+   517→
+   518→  const [reductionOpen, setReductionOpen] = React.useState(false);
+   519→  const [reductionAmount, setReductionAmount] = React.useState("");
+   520→  const [reductionNote, setReductionNote] = React.useState("");
+   521→
+   522→  const canAcceptOrReduce =
+   523→    quoteStatus === "QUOTED" || quoteStatus === "VENDOR_REVISED";
+   524→
+   525→  const handleAccept = async () => {
+   526→    try {
+   527→      await acceptQuote.mutateAsync({});
+   528→      kwikToast.success(
+   529→        "Quote accepted",
+   530→        "You can now proceed to payment.",
+   531→      );
+   532→    } catch (err) {
+   533→      const message = err instanceof Error ? err.message : "Failed to accept quote.";
+   534→      kwikToast.error("Couldn't accept quote", message);
+   535→    }
+   536→  };
+   537→
+   538→  const handleRequestReduction = async () => {
+   539→    const amount = Number(reductionAmount);
+   540→    if (!Number.isFinite(amount) || amount <= 0) {
+   541→      kwikToast.warning("Enter a valid amount", "Please enter a positive delivery fee.");
+   542→      return;
+   543→    }
+   544→    if (amount >= currentAmount) {
+   545→      kwikToast.warning(
+   546→        "Amount too high",
+   547→        "Your proposed amount must be lower than the vendor's current quote.",
+   548→      );
+   549→      return;
+   550→    }
+   551→    try {
+   552→      await requestReduction.mutateAsync({
+   553→        amount,
+   554→        note: reductionNote.trim() || undefined,
+   555→      });
+   556→      kwikToast.success(
+   557→        "Reduction requested",
+   558→        "The vendor will review your proposed amount.",
+   559→      );
+   560→      setReductionOpen(false);
+   561→      setReductionAmount("");
+   562→      setReductionNote("");
+   563→    } catch (err) {
+   564→      const message = err instanceof Error ? err.message : "Failed to request reduction.";
+   565→      kwikToast.error("Couldn't request reduction", message);
+   566→    }
+   567→  };
+   568→
+   569→  const handleReject = async () => {
+   570→    if (
+   571→      !window.confirm(
+   572→        "Reject this quote? The order will be cancelled and cannot be reopened.",
+   573→      )
+   574→    ) {
+   575→      return;
+   576→    }
+   577→    try {
+   578→      await rejectQuote.mutateAsync({});
+   579→      kwikToast.info("Quote rejected", "The order has been cancelled.");
+   580→    } catch (err) {
+   581→      const message = err instanceof Error ? err.message : "Failed to reject quote.";
+   582→      kwikToast.error("Couldn't reject quote", message);
+   583→    }
+   584→  };
+   585→
+   586→  const handleProceedToPayment = async () => {
+   587→    try {
+   588→      const result = await initializePayment.mutateAsync();
+   589→      if (result.authorizationUrl) {
+   590→        kwikToast.info(
+   591→          "Redirecting to Paystack",
+   592→          "Complete your payment to confirm the order.",
+   593→        );
+   594→        // Use a full-page redirect so the Paystack callback can return here.
+   595→        window.location.href = result.authorizationUrl;
+   596→      } else {
+   597→        kwikToast.error(
+   598→          "Payment initialization failed",
+   599→          "No authorization URL was returned by the server.",
+   600→        );
+   601→      }
+   602→    } catch (err) {
+   603→      const message =
+   604→        err instanceof Error ? err.message : "Failed to initialize payment.";
+   605→      kwikToast.error("Couldn't initialize payment", message);
+   606→    }
+   607→  };
+   608→
+   609→  return (
+   610→    <section
+   611→      aria-label="Vendor quote negotiation"
+   612→      className="overflow-hidden rounded-2xl border border-kwik-border bg-kwik-bg-surface shadow-sm"
+   613→    >
+   614→      <div className="kwik-gradient px-5 py-4 sm:px-6">
+   615→        <div className="flex flex-wrap items-start justify-between gap-3">
+   616→          <div>
+   617→            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+   618→              Delivery quote
+   619→            </p>
+   620→            <h2 className="mt-1 font-heading text-lg font-bold text-white sm:text-xl">
+   621→              Vendor quotation
+   622→            </h2>
+   623→            {createdAt && (
+   624→              <p className="mt-0.5 text-xs text-white/80">
+   625→                Opened {formatDate(createdAt)}
+   626→                {revisionCount > 0 && ` · ${revisionCount} revision${revisionCount === 1 ? "" : "s"}`}
+   627→              </p>
+   628→            )}
+   629→          </div>
+   630→          <div className="flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
+   631→            <StatusBadgeTransparent status={quoteStatus} />
+   632→          </div>
+   633→        </div>
+   634→      </div>
+   635→
+   636→      <div className="px-5 py-5 sm:px-6">
+   637→        {/* Status-dependent message + actions */}
+   638→        {quoteStatus === "PENDING_VENDOR_QUOTE" && (
+   639→          <div className="flex items-center gap-3 rounded-xl bg-kwik-orange/5 p-4 text-sm text-kwik-orange">
+   640→            <RefreshCw className="h-4 w-4 animate-spin" />
+   641→            <span>
+   642→              Waiting for the vendor to provide a delivery quote. This page
+   643→              updates automatically.
+   644→            </span>
+   645→          </div>
+   646→        )}
+   647→
+   648→        {canAcceptOrReduce && (
+   649→          <div className="space-y-4">
+   650→            <div className="rounded-xl border border-kwik-border-light bg-gray-50 p-4">
+   651→              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+   652→                Vendor&apos;s quoted delivery fee
+   653→              </p>
+   654→              <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
+   655→                {formatCurrency(currentAmount)}
+   656→              </p>
+   657→              {latestVendorNote && (
+   658→                <div className="mt-3 flex items-start gap-2 rounded-lg bg-kwik-bg-surface px-3 py-2 text-xs text-gray-600">
+   659→                  <MessageSquareText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-kwik-orange" />
+   660→                  <p>
+   661→                    <span className="font-semibold text-foreground">Vendor note: </span>
+   662→                    {latestVendorNote}
+   663→                  </p>
+   664→                </div>
+   665→              )}
+   666→            </div>
+   667→
+   668→            {!reductionOpen ? (
+   669→              <div className="flex flex-col gap-2 sm:flex-row-reverse sm:items-center sm:justify-start">
+   670→                <button
+   671→                  type="button"
+   672→                  onClick={handleAccept}
+   673→                  disabled={acceptQuote.isPending}
+   674→                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-secondary-500 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+   675→                >
+   676→                  {acceptQuote.isPending ? (
+   677→                    <>
+   678→                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+   679→                      Accepting…
+   680→                    </>
+   681→                  ) : (
+   682→                    <>
+   683→                      <CheckCircle2 className="h-4 w-4" />
+   684→                      Accept quote
+   685→                    </>
+   686→                  )}
+   687→                </button>
+   688→                <button
+   689→                  type="button"
+   690→                  onClick={() => setReductionOpen(true)}
+   691→                  disabled={requestReduction.isPending}
+   692→                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-kwik-border bg-kwik-bg-surface px-5 text-sm font-semibold text-foreground transition hover:border-kwik-orange hover:text-kwik-orange disabled:opacity-60"
+   693→                >
+   694→                  Request reduction
+   695→                </button>
+   696→                <button
+   697→                  type="button"
+   698→                  onClick={handleReject}
+   699→                  disabled={rejectQuote.isPending}
+   700→                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold text-kwik-red transition hover:bg-kwik-red/5 disabled:opacity-60"
+   701→                >
+   702→                  {rejectQuote.isPending ? "Rejecting…" : "Reject"}
+   703→                </button>
+   704→              </div>
+   705→            ) : (
+   706→              <div className="space-y-3 rounded-xl border border-kwik-border-light bg-gray-50 p-4">
+   707→                <p className="text-sm font-semibold text-foreground">
+   708→                  Propose a lower delivery fee
+   709→                </p>
+   710→                <p className="text-xs text-gray-500">
+   711→                  The vendor can accept or counter your proposed amount.
+   712→                </p>
+   713→                <div>
+   714→                  <label
+   715→                    htmlFor="reduction-amount"
+   716→                    className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+   717→                  >
+   718→                    Your proposed amount (₦)
+   719→                  </label>
+   720→                  <input
+   721→                    id="reduction-amount"
+   722→                    type="number"
+   723→                    inputMode="numeric"
+   724→                    min={1}
+   725→                    step="any"
+   726→                    value={reductionAmount}
+   727→                    onChange={(e) => setReductionAmount(e.target.value)}
+   728→                    placeholder={`Less than ${formatCurrency(currentAmount)}`}
+   729→                    className="mt-1 block h-11 w-full rounded-md border border-kwik-border bg-kwik-bg-surface px-3 text-sm text-foreground shadow-sm focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/30"
+   730→                  />
+   731→                </div>
+   732→                <div>
+   733→                  <label
+   734→                    htmlFor="reduction-note"
+   735→                    className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+   736→                  >
+   737→                    Note (optional)
+   738→                  </label>
+   739→                  <textarea
+   740→                    id="reduction-note"
+   741→                    rows={2}
+   742→                    value={reductionNote}
+   743→                    onChange={(e) => setReductionNote(e.target.value)}
+   744→                    placeholder="Add a short message to the vendor…"
+   745→                    className="mt-1 block w-full rounded-md border border-kwik-border bg-kwik-bg-surface px-3 py-2 text-sm text-foreground shadow-sm focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/30"
+   746→                  />
+   747→                </div>
+   748→                <div className="flex flex-col gap-2 sm:flex-row-reverse">
+   749→                  <button
+   750→                    type="button"
+   751→                    onClick={handleRequestReduction}
+   752→                    disabled={requestReduction.isPending}
+   753→                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-secondary-500 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-600 disabled:cursor-not-allowed disabled:opacity-70"
+   754→                  >
+   755→                    {requestReduction.isPending ? (
+   756→                      <>
+   757→                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+   758→                        Sending…
+   759→                      </>
+   760→                    ) : (
+   761→                      "Send request"
+   762→                    )}
+   763→                  </button>
+   764→                  <button
+   765→                    type="button"
+   766→                    onClick={() => {
+   767→                      setReductionOpen(false);
+   768→                      setReductionAmount("");
+   769→                      setReductionNote("");
+   770→                    }}
+   771→                    disabled={requestReduction.isPending}
+   772→                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-kwik-border bg-kwik-bg-surface px-5 text-sm font-semibold text-foreground transition hover:border-gray-300 disabled:opacity-60"
+   773→                  >
+   774→                    Cancel
+   775→                  </button>
+   776→                </div>
+   777→              </div>
+   778→            )}
+   779→          </div>
+   780→        )}
+   781→
+   782→        {quoteStatus === "CUSTOMER_REQUESTED_REDUCTION" && (
+   783→          <div className="space-y-3">
+   784→            <div className="rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 p-4 text-sm text-kwik-orange">
+   785→              <p className="font-semibold">
+   786→                You requested {formatCurrency(latestCustomerReductionAmount ?? currentAmount)}.
+   787→              </p>
+   788→              <p className="mt-1 text-xs">
+   789→                Waiting for the vendor to respond — they can accept your amount
+   790→                or send a counter-offer.
+   791→              </p>
+   792→              {latestCustomerReductionNote && (
+   793→                <p className="mt-2 text-xs italic text-kwik-orange/80">
+   794→                  “{latestCustomerReductionNote}”
+   795→                </p>
+   796→              )}
+   797→            </div>
+   798→            <button
+   799→              type="button"
+   800→              onClick={handleReject}
+   801→              disabled={rejectQuote.isPending}
+   802→              className="inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold text-kwik-red transition hover:bg-kwik-red/5 disabled:opacity-60"
+   803→            >
+   804→              {rejectQuote.isPending ? "Withdrawing…" : "Withdraw / reject"}
+   805→            </button>
+   806→          </div>
+   807→        )}
+   808→
+   809→        {quoteStatus === "AGREED" && (
+   810→          <div className="space-y-4">
+   811→            <div className="rounded-xl border border-kwik-green/30 bg-kwik-green/5 p-4 text-sm text-kwik-green">
+   812→              <p className="font-semibold">
+   813→                Quote agreed: {formatCurrency(agreedAmount ?? currentAmount)}
+   814→              </p>
+   815→              <p className="mt-1 text-xs">
+   816→                You can now proceed to payment. Your funds will be held safely
+   817→                by {KwisCrow.NAME} until you confirm receipt.
+   818→              </p>
+   819→            </div>
+   820→            <button
+   821→              type="button"
+   822→              onClick={handleProceedToPayment}
+   823→              disabled={initializePayment.isPending}
+   824→              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-secondary-500 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+   825→            >
+   826→              {initializePayment.isPending ? (
+   827→                <>
+   828→                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+   829→                  Initializing payment…
+   830→                </>
+   831→              ) : (
+   832→                <>
+   833→                  <CreditCard className="h-4 w-4" />
+   834→                  Proceed to payment
+   835→                </>
+   836→              )}
+   837→            </button>
+   838→          </div>
+   839→        )}
+   840→
+   841→        {quoteStatus === "REJECTED" && (
+   842→          <div className="rounded-xl border border-kwik-red/20 bg-kwik-red/5 p-4 text-sm text-kwik-red">
+   843→            <p className="font-semibold">Quote rejected.</p>
+   844→            <p className="mt-1 text-xs">This order has been cancelled.</p>
+   845→          </div>
+   846→        )}
+   847→
+   848→        {quoteStatus === "EXPIRED" && (
+   849→          <div className="rounded-xl border border-kwik-red/20 bg-kwik-red/5 p-4 text-sm text-kwik-red">
+   850→            <p className="font-semibold">Quote expired.</p>
+   851→            <p className="mt-1 text-xs">
+   852→              The quote was not accepted in time and has expired. Please place a
+   853→              new order.
+   854→            </p>
+   855→          </div>
+   856→        )}
+   857→
+   858→        {quoteStatus === "CANCELLED" && (
+   859→          <div className="rounded-xl border border-kwik-border-light bg-gray-100 p-4 text-sm text-gray-600">
+   860→            <p className="font-semibold">Order cancelled.</p>
+   861→            <p className="mt-1 text-xs">This order was cancelled before agreement.</p>
+   862→          </div>
+   863→        )}
+   864→      </div>
+   865→    </section>
+   866→  );
+   867→}
+   868→
+   869→function StatusBadgeTransparent({ status }: { status: QuoteStatus }) {
+   870→  return (
+   871→    <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+   872→      {status.replace(/_/g, " ")}
+   873→    </span>
+   874→  );
+   875→}
+   876→
+   877→// ─── Payment + Escrow section ──────────────────────────────────────────────
+   878→
+   879→function PaymentSection({ order }: { order: MarketplaceOrder }) {
+   880→  const paid = order.paymentStatus === "PAID";
+   881→  const escrow = order.escrow;
+   882→
+   883→  return (
+   884→    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+   885→      <header className="flex items-center gap-2">
+   886→        <CreditCard className="h-5 w-5 text-kwik-orange" />
+   887→        <h2 className="font-semibold text-foreground">Payment</h2>
+   888→      </header>
+   889→
+   890→      <div className="mt-3 space-y-2 text-sm">
+   891→        <div className="flex items-center justify-between">
+   892→          <span className="text-kwik-muted">Payment status</span>
+   893→          <StatusBadge status={order.paymentStatus} />
+   894→        </div>
+   895→        <div className="flex items-center justify-between">
+   896→          <span className="text-kwik-muted">Total paid</span>
+   897→          <span className="font-semibold text-foreground tabular-nums">
+   898→            {formatCurrency(order.totalAmount)}
+   899→          </span>
+   900→        </div>
+   901→        {order.payment?.reference && (
+   902→          <div className="flex items-center justify-between text-xs">
+   903→            <span className="text-kwik-muted">Reference</span>
+   904→            <span className="font-mono text-foreground">{order.payment.reference}</span>
+   905→          </div>
+   906→        )}
+   907→        {order.payment?.paidAt && (
+   908→          <div className="flex items-center justify-between text-xs">
+   909→            <span className="text-kwik-muted">Paid at</span>
+   910→            <span className="text-foreground">{formatDate(order.payment.paidAt)}</span>
+   911→          </div>
+   912→        )}
+   913→      </div>
+   914→
+   915→      {paid && escrow && (
+   916→        <div className="mt-4 flex items-start gap-2 rounded-xl border border-kwik-orange/20 bg-kwik-orange/5 px-3 py-2.5 text-xs text-kwik-orange">
+   917→          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+   918→          <div>
+   919→            <p className="font-semibold">
+   920→              Payment confirmed — funds held in {KwisCrow.NAME}.
+   921→            </p>
+   922→            <p className="mt-0.5 text-kwik-orange/80">
+   923→              Escrow status: <span className="font-semibold">{escrow.status}</span>
+   924→              {escrow.heldAt && ` · held since ${formatDate(escrow.heldAt)}`}
+   925→            </p>
+   926→          </div>
+   927→        </div>
+   928→      )}
+   929→
+   930→      {paid && !escrow && (
+   931→        <div className="mt-4 flex items-start gap-2 rounded-xl border border-kwik-green/20 bg-kwik-green/5 px-3 py-2.5 text-xs text-kwik-green">
+   932→          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+   933→          <p>Payment confirmed.</p>
+   934→        </div>
+   935→      )}
+   936→
+   937→      {order.paymentStatus === "FAILED" && (
+   938→        <div className="mt-4 flex items-start gap-2 rounded-xl border border-kwik-red/20 bg-kwik-red/5 px-3 py-2.5 text-xs text-kwik-red">
+   939→          <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+   940→          <p>Payment failed. Please try again or contact support.</p>
+   941→        </div>
+   942→      )}
+   943→    </section>
+   944→  );
+   945→}
+   946→
+   947→// ─── Delivery section ──────────────────────────────────────────────────────
+   948→
+   949→function DeliverySection({ order }: { order: MarketplaceOrder }) {
+   950→  const isPickup = order.deliveryMethod === "PICKUP";
+   951→  const delivery = order.delivery;
+   952→  const address = order.address;
+   953→
+   954→  let addressLine = "No delivery address on this order";
+   955→  if (delivery?.deliveryAddress) {
+   956→    addressLine = delivery.deliveryAddress;
+   957→  } else if (address) {
+   958→    addressLine = [
+   959→      address.fullName,
+   960→      address.line1,
+   961→      address.line2,
+   962→      address.city,
+   963→      address.state,
+   964→      address.country,
+   965→    ]
+   966→      .filter(Boolean)
+   967→      .join(", ");
+   968→  } else if (order.deliveryLocalGovernment && order.deliveryState) {
+   969→    addressLine = `${order.deliveryLocalGovernment}, ${order.deliveryState}, Nigeria`;
+   970→  }
+   971→
+   972→  return (
+   973→    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+   974→      <header className="flex items-center gap-2">
+   975→        <Truck className="h-5 w-5 text-kwik-orange" />
+   976→        <h2 className="font-semibold text-foreground">Delivery</h2>
+   977→      </header>
+   978→
+   979→      <div className="mt-3 space-y-2 text-sm">
+   980→        <div className="flex items-center justify-between">
+   981→          <span className="text-kwik-muted">Method</span>
+   982→          <span className="font-semibold text-foreground">
+   983→            {isPickup ? "Pickup" : "Standard delivery"}
+   984→          </span>
+   985→        </div>
+   986→        {delivery && (
+   987→          <div className="flex items-center justify-between">
+   988→            <span className="text-kwik-muted">Status</span>
+   989→            <StatusBadge status={delivery.status} />
+   990→          </div>
+   991→        )}
+   992→        {delivery?.currentLocation && (
+   993→          <div className="flex items-center justify-between text-xs">
+   994→            <span className="text-kwik-muted">Current location</span>
+   995→            <span className="text-foreground">{delivery.currentLocation}</span>
+   996→          </div>
+   997→        )}
+   998→        {delivery?.estimatedMinutes != null && (
+   999→          <div className="flex items-center justify-between text-xs">
+  1000→            <span className="text-kwik-muted">ETA</span>
+  1001→            <span className="text-foreground">{delivery.estimatedMinutes} min</span>
+  1002→          </div>
+  1003→        )}
+  1004→      </div>
+  1005→
+  1006→      <div className="mt-4 flex items-start gap-3 rounded-xl bg-gray-50 px-3 py-3 text-sm">
+  1007→        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-kwik-orange" />
+  1008→        <div>
+  1009→          <p className="font-semibold text-foreground">
+  1010→            {isPickup ? "Pickup address" : "Delivery address"}
+  1011→          </p>
+  1012→          <p className="mt-0.5 text-xs leading-5 text-gray-600">{addressLine}</p>
+  1013→          {delivery?.deliveryContactName && (
+  1014→            <p className="mt-1 text-xs text-kwik-muted">
+  1015→              Contact: {delivery.deliveryContactName}
+  1016→              {delivery.deliveryContactPhone ? ` · ${delivery.deliveryContactPhone}` : ""}
+  1017→            </p>
+  1018→          )}
+  1019→          {delivery?.deliveredAt && (
+  1020→            <p className="mt-2 text-xs text-kwik-green">
+  1021→              Delivered {formatDate(delivery.deliveredAt)}
+  1022→            </p>
+  1023→          )}
+  1024→        </div>
+  1025→      </div>
+  1026→    </section>
+  1027→  );
+  1028→}
+  1029→
+  1030→// ─── Order summary section ─────────────────────────────────────────────────
+  1031→
+  1032→function OrderSummary({ order }: { order: MarketplaceOrder }) {
+  1033→  const subtotal = Number(order.subtotal ?? 0);
+  1034→  const processingFee = Number(order.processingFeeAmount ?? 0);
+  1035→  const deliveryFee = Number(order.agreedDeliveryFee ?? order.shippingFee ?? 0);
+  1036→  const discount = Number(order.discount ?? 0);
+  1037→  const total = Number(order.totalAmount ?? subtotal + processingFee + deliveryFee - discount);
+  1038→
+  1039→  return (
+  1040→    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+  1041→      <h2 className="font-semibold text-foreground">Order summary</h2>
+  1042→      <dl className="mt-3 space-y-2 text-sm">
+  1043→        <div className="flex items-center justify-between">
+  1044→          <dt className="text-kwik-muted">Subtotal</dt>
+  1045→          <dd className="font-medium text-foreground tabular-nums">
+  1046→            {formatCurrency(subtotal)}
+  1047→          </dd>
+  1048→        </div>
+  1049→        {processingFee > 0 && (
+  1050→          <div className="flex items-center justify-between">
+  1051→            <dt className="text-kwik-muted">
+  1052→              Processing fee
+  1053→              {order.processingFeePercent
+  1054→                ? ` (${Number(order.processingFeePercent)}%)`
+  1055→                : ""}
+  1056→            </dt>
+  1057→            <dd className="font-medium text-foreground tabular-nums">
+  1058→              {formatCurrency(processingFee)}
+  1059→            </dd>
+  1060→          </div>
+  1061→        )}
+  1062→        <div className="flex items-center justify-between">
+  1063→          <dt className="text-kwik-muted">Delivery fee</dt>
+  1064→          <dd className="font-medium text-foreground tabular-nums">
+  1065→            {order.deliveryMethod === "STANDARD_DELIVERY" &&
+  1066→            order.quoteStatus !== "AGREED"
+  1067→              ? "To be agreed"
+  1068→              : formatCurrency(deliveryFee)}
+  1069→          </dd>
+  1070→        </div>
+  1071→        {discount > 0 && (
+  1072→          <div className="flex items-center justify-between text-kwik-green">
+  1073→            <dt>Discount</dt>
+  1074→            <dd className="font-medium tabular-nums">−{formatCurrency(discount)}</dd>
+  1075→          </div>
+  1076→        )}
+  1077→        <div className="flex items-center justify-between border-t border-kwik-border-light pt-2 text-base">
+  1078→          <dt className="font-bold text-foreground">Total</dt>
+  1079→          <dd className="font-bold text-kwik-orange tabular-nums">
+  1080→            {formatCurrency(total)}
+  1081→          </dd>
+  1082→        </div>
+  1083→      </dl>
+  1084→    </section>
+  1085→  );
+  1086→}
+  1087→
+  1088→// ─── Customer actions (context-aware) ──────────────────────────────────────
+  1089→
+  1090→function CustomerActions({ order }: { order: MarketplaceOrder }) {
+  1091→  const router = useRouter();
+  1092→  const confirmReceipt = useConfirmReceipt(order.id);
+  1093→  const cancelOrder = useCancelOrder(order.id);
+  1094→  const initializePayment = useInitializePayment(order.id);
+  1095→
+  1096→  const quoteAgreed = order.quoteStatus === "AGREED";
+  1097→  const paymentPending = order.paymentStatus === "PENDING";
+  1098→  const paymentPaid = order.paymentStatus === "PAID";
+  1099→  const deliveryReady =
+  1100→    order.delivery?.status === "DELIVERED" ||
+  1101→    order.delivery?.status === "READY_FOR_PICKUP" ||
+  1102→    order.delivery?.status === "ARRIVED";
+  1103→  const alreadyConfirmed = order.delivery?.customerConfirmed === true;
+  1104→  const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+  1105→
+  1106→  // 1. Proceed to Payment — quote agreed, not yet paid
+  1107→  const showProceedToPayment = quoteAgreed && paymentPending && !isCancelled;
+  1108→
+  1109→  // 2. Confirm receipt — paid AND (delivered OR ready for pickup)
+  1110→  const showConfirmReceipt =
+  1111→    paymentPaid && deliveryReady && !alreadyConfirmed && !isCancelled;
+  1112→
+  1113→  // 3. Cancel — payment pending AND quote not yet agreed (and not cancelled)
+  1114→  const showCancel =
+  1115→    paymentPending && !quoteAgreed && !isCancelled;
+  1116→
+  1117→  // 4. Track order link — show once paid+processing or beyond
+  1118→  const showTrack =
+  1119→    (paymentPaid || order.status === "PROCESSING" || order.status === "FULFILLED") &&
+  1120→    !isCancelled;
+  1121→
+  1122→  if (!showProceedToPayment && !showConfirmReceipt && !showCancel && !showTrack) {
+  1123→    return null;
+  1124→  }
+  1125→
+  1126→  const handleProceedToPayment = async () => {
+  1127→    try {
+  1128→      const result = await initializePayment.mutateAsync();
+  1129→      if (result.authorizationUrl) {
+  1130→        kwikToast.info(
+  1131→          "Redirecting to Paystack",
+  1132→          "Complete your payment to confirm the order.",
+  1133→        );
+  1134→        window.location.href = result.authorizationUrl;
+  1135→      } else {
+  1136→        kwikToast.error(
+  1137→          "Payment initialization failed",
+  1138→          "No authorization URL was returned by the server.",
+  1139→        );
+  1140→      }
+  1141→    } catch (err) {
+  1142→      const message =
+  1143→        err instanceof Error ? err.message : "Failed to initialize payment.";
+  1144→      kwikToast.error("Couldn't initialize payment", message);
+  1145→    }
+  1146→  };
+  1147→
+  1148→  const handleConfirmReceipt = async () => {
+  1149→    if (
+  1150→      !window.confirm(
+  1151→        `Confirm receipt of this order? ${KwisCrow.NAME} will release the funds to the vendor.`,
+  1152→      )
+  1153→    ) {
+  1154→      return;
+  1155→    }
+  1156→    try {
+  1157→      await confirmReceipt.mutateAsync();
+  1158→      kwikToast.success(
+  1159→        "Receipt confirmed",
+  1160→        `${KwisCrow.NAME} has released the funds to the vendor. Thank you!`,
+  1161→      );
+  1162→    } catch (err) {
+  1163→      const message =
+  1164→        err instanceof Error ? err.message : "Failed to confirm receipt.";
+  1165→      kwikToast.error("Couldn't confirm receipt", message);
+  1166→    }
+  1167→  };
+  1168→
+  1169→  const handleCancel = async () => {
+  1170→    const reason = window.prompt("Reason for cancelling this order? (optional)");
+  1171→    try {
+  1172→      await cancelOrder.mutateAsync({ reason: reason || undefined });
+  1173→      kwikToast.info("Order cancelled", "No payment was taken.");
+  1174→      router.push("/orders");
+  1175→    } catch (err) {
+  1176→      const message =
+  1177→        err instanceof Error ? err.message : "Failed to cancel order.";
+  1178→      kwikToast.error("Couldn't cancel order", message);
+  1179→    }
+  1180→  };
+  1181→
+  1182→  return (
+  1183→    <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-5">
+  1184→      <h2 className="font-semibold text-foreground">Actions</h2>
+  1185→      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+  1186→        {showProceedToPayment && (
+  1187→          <button
+  1188→            type="button"
+  1189→            onClick={handleProceedToPayment}
+  1190→            disabled={initializePayment.isPending}
+  1191→            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-secondary-500 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-secondary-600 disabled:cursor-not-allowed disabled:opacity-70"
+  1192→          >
+  1193→            {initializePayment.isPending ? (
+  1194→              <>
+  1195→                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+  1196→                Initializing…
+  1197→              </>
+  1198→            ) : (
+  1199→              <>
+  1200→                <CreditCard className="h-4 w-4" />
+  1201→                Proceed to payment
+  1202→              </>
+  1203→            )}
+  1204→          </button>
+  1205→        )}
+  1206→        {showConfirmReceipt && (
+  1207→          <button
+  1208→            type="button"
+  1209→            onClick={handleConfirmReceipt}
+  1210→            disabled={confirmReceipt.isPending}
+  1211→            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-kwik-green px-5 text-sm font-bold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+  1212→          >
+  1213→            {confirmReceipt.isPending ? (
+  1214→              <>
+  1215→                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+  1216→                Confirming…
+  1217→              </>
+  1218→            ) : (
+  1219→              <>
+  1220→                <CheckCircle2 className="h-4 w-4" />
+  1221→                Confirm receipt
+  1222→              </>
+  1223→            )}
+  1224→          </button>
+  1225→        )}
+  1226→        {showTrack && (
+  1227→          <Link
+  1228→            href={`/orders/${encodeURIComponent(order.id)}/track`}
+  1229→            className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-kwik-border bg-kwik-bg-surface px-5 text-sm font-semibold text-foreground transition hover:border-kwik-orange hover:text-kwik-orange"
+  1230→          >
+  1231→            <Truck className="h-4 w-4" />
+  1232→            Track order
+  1233→          </Link>
+  1234→        )}
+  1235→        {showCancel && (
+  1236→          <button
+  1237→            type="button"
+  1238→            onClick={handleCancel}
+  1239→            disabled={cancelOrder.isPending}
+  1240→            className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-kwik-red/30 px-5 text-sm font-semibold text-kwik-red transition hover:bg-kwik-red/5 disabled:cursor-not-allowed disabled:opacity-70"
+  1241→          >
+  1242→            {cancelOrder.isPending ? "Cancelling…" : "Cancel order"}
+  1243→          </button>
+  1244→        )}
+  1245→      </div>
+  1246→    </section>
+  1247→  );
+  1248→}
+  1249→
+  1250→// ─── Main page body ────────────────────────────────────────────────────────
+  1251→
+  1252→function OrderDetailPageInner() {
+  1253→  const router = useRouter();
+  1254→  const params = useParams<{ id: string }>();
+  1255→  const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
+  1256→  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  1257→
+  1258→  const { data: order, isLoading, isError } = useOrder(orderId);
+  1259→  // Fetch the quote (only meaningful for STANDARD_DELIVERY, but the hook is
+  1260→  // always enabled — the call returns 404 for PICKUP orders, which we swallow).
+  1261→  const { data: quote, error: quoteError } = useQuote(orderId);
+  1262→
+  1263→  // Hydration guard — only render the body after the client has mounted so
+  1264→  // localStorage-persisted Zustand stores don't trigger hydration warnings.
+  1265→  const [hasMounted, setHasMounted] = React.useState(false);
+  1266→  React.useEffect(() => setHasMounted(true), []);
+  1267→
+  1268→  // Redirect to login if the user is unauthenticated (the API requires JWT).
+  1269→  React.useEffect(() => {
+  1270→    if (!isAuthLoading && !isAuthenticated && needsAuthRedirect()) {
+  1271→      const returnUrl = window.location.pathname + window.location.search;
+  1272→      router.replace(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+  1273→    }
+  1274→  }, [isAuthLoading, isAuthenticated, router]);
+  1275→
+  1276→  // A 404 on the quote is expected for PICKUP orders and pre-quote orders —
+  1277→  // log it once for debugging but don't surface to the user.
+  1278→  React.useEffect(() => {
+  1279→    if (quoteError) {
+  1280→      console.debug(
+  1281→        "[orders/[id]] quote fetch returned an error (likely PICKUP / not yet created):",
+  1282→        quoteError instanceof Error ? quoteError.message : quoteError,
+  1283→      );
+  1284→    }
+  1285→  }, [quoteError]);
+  1286→
+  1287→  if (!hasMounted || isAuthLoading || (isLoading && !order)) {
+  1288→    return <OrderDetailSkeleton />;
+  1289→  }
+  1290→
+  1291→  if (!order) {
+  1292→    // If we got a 404 on the quote, that's fine — it just means this is a
+  1293→    // PICKUP order or the quote hasn't been created yet. Only show not-found
+  1294→    // when the ORDER itself failed to load.
+  1295→    if (isError) {
+  1296→      return <OrderNotFound id={orderId} />;
+  1297→    }
+  1298→    return <OrderDetailSkeleton />;
+  1299→  }
+  1300→
+  1301→  const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+  1302→
+  1303→  return (
+  1304→    <div className="bg-background min-h-screen">
+  1305→      {/* ── Hero header (matches checkout/orders page design) ── */}
+  1306→      <section className="kwik-gradient relative overflow-hidden">
+  1307→        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+  1308→        <div className="container relative mx-auto max-w-6xl px-4 py-8">
+  1309→          <Link
+  1310→            href="/orders"
+  1311→            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-white/85 transition-colors hover:text-white"
+  1312→          >
+  1313→            <ArrowLeft className="h-4 w-4" />
+  1314→            Back to orders
+  1315→          </Link>
+  1316→
+  1317→          <motion.div
+  1318→            initial={{ opacity: 0, y: 8 }}
+  1319→            animate={{ opacity: 1, y: 0 }}
+  1320→            transition={{ duration: 0.3 }}
+  1321→          >
+  1322→            <div className="flex flex-wrap items-start justify-between gap-3">
+  1323→              <div className="min-w-0">
+  1324→                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+  1325→                  Order {orderReference(order)}
+  1326→                </p>
+  1327→                <h1 className="mt-1 font-heading text-2xl font-bold text-white sm:text-3xl">
+  1328→                  {order.store?.name ?? "Vendor store"}
+  1329→                </h1>
+  1330→                <p className="mt-1 text-xs text-white/80">
+  1331→                  Placed {formatDate(order.createdAt)}
+  1332→                  {order.deliveryMethod && (
+  1333→                    <>
+  1334→                      {" · "}
+  1335→                      {order.deliveryMethod === "PICKUP" ? "Pickup" : "Standard delivery"}
+  1336→                    </>
+  1337→                  )}
+  1338→                </p>
+  1339→              </div>
+  1340→              <div className="flex flex-col items-end gap-2">
+  1341→                <StatusBadge
+  1342→                  status={order.status}
+  1343→                  className="bg-white/15 text-white ring-white/30"
+  1344→                />
+  1345→                {order.paymentStatus === "PAID" && order.escrow?.status === "HELD" && (
+  1346→                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+  1347→                    <ShieldCheck className="h-3 w-3" />
+  1348→                    {KwisCrow.NAME}: Held
+  1349→                  </span>
+  1350→                )}
+  1351→              </div>
+  1352→            </div>
+  1353→          </motion.div>
+  1354→        </div>
+  1355→      </section>
+  1356→
+  1357→      {/* ── Status bar ── */}
+  1358→      <div className="border-b border-kwik-border bg-kwik-bg-surface">
+  1359→        <div className="container mx-auto max-w-6xl px-4 py-3 text-xs text-muted-foreground">
+  1360→          {isCancelled ? (
+  1361→            "This order has been cancelled."
+  1362→          ) : order.paymentStatus === "PAID" ? (
+  1363→            <>Payment confirmed — funds held by {KwisCrow.NAME} escrow.</>
+  1364→          ) : order.quoteStatus === "AGREED" ? (
+  1365→            "Quote agreed — ready to pay."
+  1366→          ) : order.deliveryMethod === "STANDARD_DELIVERY" ? (
+  1367→            "Awaiting the vendor's delivery quote."
+  1368→          ) : (
+  1369→            "Awaiting payment."
+  1370→          )}
+  1371→        </div>
+  1372→      </div>
+  1373→
+  1374→      {/* ── Content ── */}
+  1375→      <section className="container mx-auto max-w-6xl px-4 py-8">
+  1376→        {/* Timeline */}
+  1377→        <OrderTimeline order={order} />
+  1378→
+  1379→        {/* Quote negotiation (STANDARD_DELIVERY only) */}
+  1380→        <div className="mt-4">
+  1381→          <QuoteSection order={order} quote={quote} />
+  1382→        </div>
+  1383→
+  1384→        {/* Two-column layout: products + side panel */}
+  1385→        <div className="mt-4 grid gap-4 lg:grid-cols-5">
+  1386→          <div className="lg:col-span-3 space-y-4">
+  1387→            <ProductsSection order={order} />
+  1388→            <CustomerActions order={order} />
+  1389→          </div>
+  1390→
+  1391→          <div className="lg:col-span-2 space-y-4">
+  1392→            <PaymentSection order={order} />
+  1393→            <DeliverySection order={order} />
+  1394→            <OrderSummary order={order} />
+  1395→
+  1396→            {/* Vendor mini-card */}
+  1397→            {order.store && (
+  1398→              <section className="rounded-2xl border border-kwik-border bg-kwik-bg-surface p-4">
+  1399→                <div className="flex items-center gap-2">
+  1400→                  <Store className="h-4 w-4 text-kwik-orange" />
+  1401→                  <h3 className="text-xs font-semibold uppercase tracking-wide text-kwik-muted">
+  1402→                    Vendor
+  1403→                  </h3>
+  1404→                </div>
+  1405→                <p className="mt-2 font-semibold text-foreground">{order.store.name}</p>
+  1406→                {order.store.slug && (
+  1407→                  <Link
+  1408→                    href={`/vendors/${encodeURIComponent(order.store.slug)}`}
+  1409→                    className="mt-1 inline-block text-xs font-semibold text-kwik-orange hover:underline"
+  1410→                  >
+  1411→                    View store →
+  1412→                  </Link>
+  1413→                )}
+  1414→              </section>
+  1415→            )}
+  1416→          </div>
+  1417→        </div>
+  1418→      </section>
+  1419→    </div>
+  1420→  );
+  1421→}
+  1422→
+  1423→// ─── Default export: ErrorBoundary wrapper ─────────────────────────────────
+  1424→
+  1425→export default function BuyerOrderDetailPage() {
+  1426→  return (
+  1427→    <ErrorBoundary
+  1428→      fallback={
+  1429→        <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+  1430→          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-kwik-red/10">
+  1431→            <AlertTriangle className="h-7 w-7 text-kwik-red" />
+  1432→          </div>
+  1433→          <h1 className="text-xl font-bold text-foreground">
+  1434→            Something went wrong loading this order
+  1435→          </h1>
+  1436→          <p className="mt-2 text-sm text-gray-500">
+  1437→            Please try again. If the problem persists, head back to your orders
+  1438→            list.
+  1439→          </p>
+  1440→          <div className="mt-6 flex justify-center gap-3">
+  1441→            <button
+  1442→              type="button"
+  1443→              onClick={() => window.location.reload()}
+  1444→              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-secondary-500 px-4 text-sm font-semibold text-white hover:bg-secondary-600"
+  1445→            >
+  1446→              <RefreshCw className="h-4 w-4" />
+  1447→              Try again
+  1448→            </button>
+  1449→            <Link
+  1450→              href="/orders"
+  1451→              className="inline-flex h-10 items-center justify-center rounded-md border border-kwik-border bg-kwik-bg-surface px-4 text-sm font-semibold text-foreground hover:border-gray-300"
+  1452→            >
+  1453→              Back to orders
+  1454→            </Link>
+  1455→          </div>
+  1456→        </main>
+  1457→      }
+  1458→    >
+  1459→      <OrderDetailPageInner />
+  1460→    </ErrorBoundary>
+  1461→  );
+  1462→}
+  1463→

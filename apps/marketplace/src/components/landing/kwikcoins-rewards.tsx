@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   KWIKCOINS_EARNING_METHODS as earningMethods,
   KWIKCOINS_REWARD_TIERS as tiers,

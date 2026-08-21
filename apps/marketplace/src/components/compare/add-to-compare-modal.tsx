@@ -4,7 +4,7 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Check, PackageOpen } from "lucide-react";
 import { useCompareStore } from "@/stores";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { browseProducts } from "@/data/browse-products";
 
 function formatNGN(n: number) {

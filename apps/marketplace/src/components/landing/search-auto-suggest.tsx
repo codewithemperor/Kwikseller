@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   SearchAutoSuggest as SharedSearchAutoSuggest,
   type SearchAutoSuggestItem,
-} from "@kwikseller/ui";
-import { productsApi } from "@kwikseller/api-client";
+} from "@/components/ui/search-auto-suggest";
+import { productsApi } from "@/services/api-client";
 import { getSimilarSuggestions } from "@/lib/search-similarity";
 
 import {

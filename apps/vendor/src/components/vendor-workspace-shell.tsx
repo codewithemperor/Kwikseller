@@ -8,9 +8,9 @@ import { ProtectedRoute } from "@/components/auth";
 import { VendorHeader } from "@/components/layout/vendor-header";
 import { VendorDrawer } from "@/components/layout/vendor-drawer";
 import { VendorMobileNav } from "@/components/layout/vendor-mobile-nav";
-import { OfflineBanner } from "@kwikseller/ui";
-import { useAuthStore } from "@kwikseller/utils";
-import { vendorCommerceApi } from "@kwikseller/api-client";
+import { OfflineBanner } from "@/lib/ui";
+import { useAuthStore } from "@/lib/utils";
+import { vendorCommerceApi } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export function VendorWorkspaceShell({ children }: { children: React.ReactNode }) {

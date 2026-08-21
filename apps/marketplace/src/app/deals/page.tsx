@@ -114,7 +114,7 @@ function DealsListingContent() {
             <span className="font-medium text-foreground">Deals</span>
           </nav>
 
-          <div className="pb-5">
+          <div className="pb-3">
             <motion.h1
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}

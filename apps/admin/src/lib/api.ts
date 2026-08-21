@@ -1,6 +1,6 @@
 "use client";
 
-import { api, productsApi, adminApi } from "@kwikseller/api-client";
+import { api, productsApi, adminApi } from "@/lib/api-client";
 import type {
   Product,
   Category,
@@ -8,7 +8,7 @@ import type {
   DeliveryRate,
   Order as CommerceOrder,
   Payment,
-} from "@kwikseller/types";
+} from "@/lib/types";
 
 // ==================== Admin Extended API ====================
 // Extends the shared api-client with admin-specific endpoints
@@ -617,3 +617,4 @@ export const adminUsersApi = {
     },
   ) => api.patch(`/admin/users/${id}`, data),
 };
+

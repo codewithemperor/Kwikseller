@@ -15,8 +15,8 @@
  */
 "use client";
 
-import { api } from "@kwikseller/api-client";
-import type { ApiResponse } from "@kwikseller/api-client";
+import { api } from "@/services/api-client";
+import type { ApiResponse } from "@/services/api-client";
 
 // Re-export the canonical client for direct use where needed.
 export { api };

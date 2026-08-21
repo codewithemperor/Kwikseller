@@ -1,0 +1,47 @@
+/* ============================================================
+   KWIKSELLER — Shared Brand Utilities (CANONICAL SOURCE)
+   ───────────────────────────────────────────────────────────
+   This is the SINGLE SOURCE OF TRUTH for the kwik-* brand
+   utility classes. Apps that define their own `.kwik-gradient`
+   MUST match these definitions exactly.
+
+   Color system (all OKLCH, no hex):
+     --primary-*    Blue   (brand, links, headers)
+     --secondary-*  Orange (CTA buttons)
+     --gray-*       Blue-gray (derived from primary hue)
+   Light + dark variants for every scale.
+
+   Apps import their own globals.css which defines the tokens;
+   these utilities reference those tokens via var().
+   ============================================================ */
+
+/* Unified brand gradient: navy-blue → blue → orange.
+   Used on hero banners, CTAs badges, section dividers. */
+.kwik-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--primary-900, oklch(0.33 0.13 255)) 0%,
+    var(--primary-500, oklch(0.62 0.19 255)) 45%,
+    var(--secondary-500, oklch(0.7 0.17 48)) 100%
+  );
+}
+
+.kwik-gradient-text {
+  background-image: linear-gradient(
+    135deg,
+    var(--primary-600, oklch(0.55 0.2 255)) 0%,
+    var(--primary-400, oklch(0.72 0.15 255)) 40%,
+    var(--secondary-500, oklch(0.7 0.17 48)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.kwik-shadow {
+  box-shadow: 0 2px 8px oklch(0.62 0.19 255 / 12%);
+}
+
+.kwik-shadow-lg {
+  box-shadow: 0 4px 16px oklch(0.62 0.19 255 / 18%);
+}

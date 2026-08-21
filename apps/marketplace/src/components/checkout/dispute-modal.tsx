@@ -2,13 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
-import {
-  AppButton,
-  AppModal,
-  FieldInput,
-  FieldTextarea,
-} from "@kwikseller/ui";
-import { cn } from "@kwikseller/utils";
+import { AppButton } from "@/components/ui/app-button";
+import { AppModal } from "@/components/ui/app-modal";
+import { FieldInput, FieldTextarea } from "@/components/ui/plain-inputs";
+import { cn } from "@/lib/utils";
 
 export interface DisputeModalProps {
   isOpen: boolean;

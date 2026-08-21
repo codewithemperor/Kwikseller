@@ -36,7 +36,7 @@ import {
   type VendorReview,
 } from "@/lib/order-api";
 import { useStores } from "@/lib/api-hooks";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { LoadingSpinner, PageLoading } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AccountLayout } from "@/components/layout/account-layout";

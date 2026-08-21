@@ -15,9 +15,9 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { Order } from "@kwikseller/types";
-import { Skeleton, VendorPageHeader, type SearchAutoSuggestItem } from "@kwikseller/ui";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { Order } from "@/lib/types";
+import { Skeleton, VendorPageHeader, type SearchAutoSuggestItem } from "@/lib/ui";
 import { useVendorPageSearch } from "@/components/vendor-page-context";
 import { VendorSecondaryTabs } from "@/components/vendor-secondary-tabs";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";

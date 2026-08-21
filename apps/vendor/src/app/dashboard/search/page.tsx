@@ -14,10 +14,10 @@ import { motion } from "framer-motion";
 import { VendorSoftPanel } from "@/components/dashboard/vendor-dashboard-ui";
 import { PoolCatalogItem, poolItemRouteKey, poolSourceName } from "@/lib/pool";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { Order, Product } from "@kwikseller/types";
-import { EmptyState, FieldInput, Skeleton, SkeletonCard, VendorPageHeader } from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { Order, Product } from "@/lib/types";
+import { EmptyState, FieldInput, Skeleton, SkeletonCard, VendorPageHeader } from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
 
 type SearchResults = {
   products: Product[];

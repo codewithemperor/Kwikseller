@@ -13,11 +13,7 @@
     "@heroui/react": "^3.0.3",
     "@heroui/styles": "^3.0.3",
     "@hookform/resolvers": "^5.1.1",
-    "@kwikseller/api-client": "workspace:*",
-    "@kwikseller/fonts": "workspace:*",
-    "@kwikseller/types": "workspace:*",
-    "@kwikseller/ui": "workspace:*",
-    "@kwikseller/utils": "workspace:*",
+    "@internationalized/date": "^3.12.0",
     "@tanstack/react-query": "^5.82.0",
     "@tanstack/react-query-devtools": "^5.95.0",
     "@tanstack/react-table": "^8.21.3",
@@ -39,17 +35,20 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@kwikseller/eslint-config": "workspace:*",
-    "@kwikseller/typescript-config": "workspace:*",
+    "@next/eslint-plugin-next": "^16.2.1",
     "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^22.15.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bun-types": "^1.3.4",
     "eslint": "^9",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "^8.5.12",
     "tailwindcss": "^4.2.4",
     "tw-animate-css": "^1.3.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "^8.57.1"
   }
 }

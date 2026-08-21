@@ -1,0 +1,1258 @@
+     1→     1→// KWIKSELLER - Shared API Client
+     2→     2→// Centralized Axios client for all frontend apps
+     3→     3→
+     4→     4→import axios, {
+     5→     5→  AxiosError,
+     6→     6→  AxiosInstance,
+     7→     7→  AxiosRequestConfig,
+     8→     8→  AxiosResponse,
+     9→     9→  InternalAxiosRequestConfig,
+    10→    10→} from 'axios'
+    11→    11→import type {
+    12→    12→  CheckoutRequest,
+    13→    13→  CheckoutResponse,
+    14→    14→  CartValidationResponse,
+    15→    15→  CouponValidationResponse,
+    16→    16→  DigitalAsset,
+    17→    17→  DeliveryRate,
+    18→    18→  InventoryItem,
+    19→    19→  PoolCampaign,
+    20→    20→  PoolProduct,
+    21→    21→  PoolSelectionRequest,
+    22→    22→  Product,
+    23→    23→  ProductStatus,
+    24→    24→  ProductSource,
+    25→    25→  ProductType,
+    26→    26→  InventoryPolicy,
+    27→    27→  Store,
+    28→    28→  StorefrontDesignConfig,
+    29→    29→  VendorDashboardMetrics,
+    30→    30→  VendorPoolOffer,
+    31→    31→} from '@kwikseller/types'
+    32→    32→
+    33→    33→// ==================== Types ====================
+    34→    34→
+    35→    35→export interface ApiResponse<T = unknown> {
+    36→    36→  data: T
+    37→    37→  success: boolean
+    38→    38→  message?: string
+    39→    39→  meta?: {
+    40→    40→    page?: number
+    41→    41→    limit?: number
+    42→    42→    total?: number
+    43→    43→    totalPages?: number
+    44→    44→  }
+    45→    45→}
+    46→    46→
+    47→    47→export interface ApiError {
+    48→    48→  statusCode: number
+    49→    49→  message: string
+    50→    50→  error?: string
+    51→    51→  details?: Record<string, string[]>
+    52→    52→}
+    53→    53→
+    54→    54→export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+    55→    55→  meta: {
+    56→    56→    page: number
+    57→    57→    limit: number
+    58→    58→    total: number
+    59→    59→    totalPages: number
+    60→    60→  }
+    61→    61→}
+    62→    62→
+    63→    63→export interface RequestConfig extends AxiosRequestConfig {
+    64→    64→  skipAuth?: boolean
+    65→    65→}
+    66→    66→
+    67→    67→// ==================== Configuration ====================
+    68→    68→
+    69→    69→const getBaseURL = (): string => {
+    70→    70→  const configuredUrl = process.env.NEXT_PUBLIC_API_URL
+    71→    71→
+    72→    72→  if (!configuredUrl) {
+    73→    73→    // Client (browser): relative "/api/v1" so requests go through the
+    74→    74→    // gateway and hit the in-app route handlers (dummy) or the proxied
+    75→    75→    // rewrite (real API).
+    76→    76→    // Server (SSR/RSC): absolute localhost:3000 so server-side fetches
+    77→    77→    // resolve against the Next.js app's own route handlers. In production
+    78→    78→    // set NEXT_PUBLIC_API_URL to the real NestJS backend.
+    79→    79→    return typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:3000/api/v1'
+    80→    80→  }
+    81→    81→
+    82→    82→  const withProtocol = /^https?:\/\//i.test(configuredUrl)
+    83→    83→    ? configuredUrl
+    84→    84→    : `https://${configuredUrl}`
+    85→    85→  const withoutTrailingSlash = withProtocol.replace(/\/+$/, '')
+    86→    86→
+    87→    87→  return withoutTrailingSlash.endsWith('/api/v1')
+    88→    88→    ? withoutTrailingSlash
+    89→    89→    : `${withoutTrailingSlash}/api/v1`
+    90→    90→}
+    91→    91→
+    92→    92→// Storage keys
+    93→    93→const STORAGE_KEYS = {
+    94→    94→  ACCESS_TOKEN: 'kwikseller_access_token',
+    95→    95→  REFRESH_TOKEN: 'kwikseller_refresh_token',
+    96→    96→  AUTH_STORE: 'kwikseller_auth',
+    97→    97→}
+    98→    98→
+    99→    99→// ==================== Token Refresh Mutex ====================
+   100→   100→// Prevents concurrent 401 responses from triggering multiple refresh calls.
+   101→   101→// Only one refresh request is in-flight at a time; other requests queue and
+   102→   102→// resolve once the refresh completes.
+   103→   103→
+   104→   104→let isRefreshing = false
+   105→   105→let refreshQueue: Array<{
+   106→   106→  resolve: (token: string) => void
+   107→   107→  reject: (error: unknown) => void
+   108→   108→}> = []
+   109→   109→
+   110→   110→function processRefreshQueue(error: unknown, token: string | null = null): void {
+   111→   111→  refreshQueue.forEach(({ resolve, reject }) => {
+   112→   112→    if (error) reject(error)
+   113→   113→    else if (token) resolve(token)
+   114→   114→  })
+   115→   115→  refreshQueue = []
+   116→   116→}
+   117→   117→
+   118→   118→// ==================== Token Management ====================
+   119→   119→
+   120→   120→export const tokenManager = {
+   121→   121→  getAccessToken: (): string | null => {
+   122→   122→    if (typeof window === 'undefined') return null
+   123→   123→    return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+   124→   124→  },
+   125→   125→
+   126→   126→  getRefreshToken: (): string | null => {
+   127→   127→    if (typeof window === 'undefined') return null
+   128→   128→    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)
+   129→   129→  },
+   130→   130→
+   131→   131→  setTokens: (accessToken: string, refreshToken?: string): void => {
+   132→   132→    if (typeof window === 'undefined') return
+   133→   133→    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
+   134→   134→    if (refreshToken) {
+   135→   135→      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+   136→   136→    }
+   137→   137→  },
+   138→   138→
+   139→   139→  clearTokens: (): void => {
+   140→   140→    if (typeof window === 'undefined') return
+   141→   141→    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
+   142→   142→    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+   143→   143→    localStorage.removeItem(STORAGE_KEYS.AUTH_STORE)
+   144→   144→  },
+   145→   145→
+   146→   146→  isAuthenticated: (): boolean => {
+   147→   147→    return !!tokenManager.getAccessToken()
+   148→   148→  },
+   149→   149→}
+   150→   150→
+   151→   151→// ==================== Create Axios Instance ====================
+   152→   152→
+   153→   153→const createApiClient = (): AxiosInstance => {
+   154→   154→  const instance = axios.create({
+   155→   155→    baseURL: getBaseURL(),
+   156→   156→    timeout: 30000,
+   157→   157→    headers: {
+   158→   158→      'Content-Type': 'application/json',
+   159→   159→    },
+   160→   160→  })
+   161→   161→
+   162→   162→  const redirectToLogin = () => {
+   163→   163→    if (typeof window === 'undefined') return
+   164→   164→    tokenManager.clearTokens()
+   165→   165→    const currentPath = window.location.pathname
+   166→   166→    const currentHost = window.location.hostname
+   167→   167→    const isAdminApp = currentHost.includes('admin') || currentPath.startsWith('/admin')
+   168→   168→    const isRiderApp = currentHost.includes('rider') || currentPath.startsWith('/rider')
+   169→   169→    const isVendorApp = currentHost.includes('vendor') || currentPath.startsWith('/dashboard')
+   170→   170→    let loginPath = '/login'
+   171→   171→    if (isAdminApp) loginPath = '/admin/login'
+   172→   172→    else if (isRiderApp) loginPath = '/rider/login'
+   173→   173→    // Vendor app login is at /login (same as default), but we preserve
+   174→   174→    // the dashboard redirect so the user lands back where they were
+   175→   175→    window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`
+   176→   176→  }
+   177→   177→
+   178→   178→  // Request interceptor - Add auth token
+   179→   179→  instance.interceptors.request.use(
+   180→   180→    (config: InternalAxiosRequestConfig) => {
+   181→   181→      // Skip auth if explicitly requested
+   182→   182→      if ((config as RequestConfig).skipAuth) {
+   183→   183→        return config
+   184→   184→      }
+   185→   185→
+   186→   186→      const token = tokenManager.getAccessToken()
+   187→   187→      if (token && config.headers) {
+   188→   188→        config.headers.Authorization = `Bearer ${token}`
+   189→   189→      }
+   190→   190→      return config
+   191→   191→    },
+   192→   192→    (error) => Promise.reject(error)
+   193→   193→  )
+   194→   194→
+   195→   195→  // Response interceptor - Handle errors and token refresh with mutex
+   196→   196→  instance.interceptors.response.use(
+   197→   197→    (response: AxiosResponse) => response,
+   198→   198→    async (error: AxiosError<ApiError>) => {
+   199→   199→      const originalRequest = error.config as InternalAxiosRequestConfig & {
+   200→   200→        _retry?: boolean
+   201→   201→      }
+   202→   202→      const isAuthEndpoint = originalRequest?.url?.includes('/auth/')
+   203→   203→
+   204→   204→      // Handle 401 Unauthorized - Try to refresh token (with mutex to prevent race conditions)
+   205→   205→      if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+   206→   206→        if (isRefreshing) {
+   207→   207→          // Another refresh is already in-flight — queue this request
+   208→   208→          return new Promise((resolve, reject) => {
+   209→   209→            refreshQueue.push({
+   210→   210→              resolve: (newToken: string) => {
+   211→   211→                if (originalRequest.headers) {
+   212→   212→                  originalRequest.headers.Authorization = `Bearer ${newToken}`
+   213→   213→                }
+   214→   214→                resolve(instance(originalRequest))
+   215→   215→              },
+   216→   216→              reject: (err: unknown) => reject(err),
+   217→   217→            })
+   218→   218→          })
+   219→   219→        }
+   220→   220→
+   221→   221→        originalRequest._retry = true
+   222→   222→        isRefreshing = true
+   223→   223→
+   224→   224→        try {
+   225→   225→          const refreshToken = tokenManager.getRefreshToken()
+   226→   226→          if (refreshToken) {
+   227→   227→            const response = await axios.post(`${getBaseURL()}/auth/refresh`, {
+   228→   228→              refreshToken,
+   229→   229→            })
+   230→   230→
+   231→   231→            const { accessToken, refreshToken: newRefreshToken } = response.data.data || response.data
+   232→   232→            tokenManager.setTokens(accessToken, newRefreshToken)
+   233→   233→
+   234→   234→            // Notify queued requests
+   235→   235→            processRefreshQueue(null, accessToken)
+   236→   236→
+   237→   237→            // Retry original request with new token
+   238→   238→            if (originalRequest.headers) {
+   239→   239→              originalRequest.headers.Authorization = `Bearer ${accessToken}`
+   240→   240→            }
+   241→   241→            return instance(originalRequest)
+   242→   242→          }
+   243→   243→          // No refresh token available
+   244→   244→          processRefreshQueue(new Error('No refresh token available'), null)
+   245→   245→          tokenManager.clearTokens()
+   246→   246→          redirectToLogin()
+   247→   247→        } catch (refreshError) {
+   248→   248→          // Refresh failed
+   249→   249→          processRefreshQueue(refreshError, null)
+   250→   250→          tokenManager.clearTokens()
+   251→   251→          redirectToLogin()
+   252→   252→        } finally {
+   253→   253→          isRefreshing = false
+   254→   254→        }
+   255→   255→      }
+   256→   256→
+   257→   257→      // Handle other errors
+   258→   258→      const apiError: ApiError = {
+   259→   259→        statusCode: error.response?.status || 500,
+   260→   260→        message: error.response?.data?.message || error.message || 'An error occurred',
+   261→   261→        error: error.response?.data?.error,
+   262→   262→        details: error.response?.data?.details,
+   263→   263→      }
+   264→   264→
+   265→   265→      return Promise.reject(apiError)
+   266→   266→    }
+   267→   267→  )
+   268→   268→
+   269→   269→  return instance
+   270→   270→}
+   271→   271→
+   272→   272→// Create singleton instance
+   273→   273→const apiClient = createApiClient()
+   274→   274→
+   275→   275→// ==================== API Methods ====================
+   276→   276→
+   277→   277→export const api = {
+   278→   278→  get: <T = unknown>(
+   279→   279→    url: string,
+   280→   280→    config?: RequestConfig
+   281→   281→  ): Promise<ApiResponse<T>> => apiClient.get(url, config).then((res) => res.data),
+   282→   282→
+   283→   283→  post: <T = unknown>(
+   284→   284→    url: string,
+   285→   285→    data?: unknown,
+   286→   286→    config?: RequestConfig
+   287→   287→  ): Promise<ApiResponse<T>> => apiClient.post(url, data, config).then((res) => res.data),
+   288→   288→
+   289→   289→  put: <T = unknown>(
+   290→   290→    url: string,
+   291→   291→    data?: unknown,
+   292→   292→    config?: RequestConfig
+   293→   293→  ): Promise<ApiResponse<T>> => apiClient.put(url, data, config).then((res) => res.data),
+   294→   294→
+   295→   295→  patch: <T = unknown>(
+   296→   296→    url: string,
+   297→   297→    data?: unknown,
+   298→   298→    config?: RequestConfig
+   299→   299→  ): Promise<ApiResponse<T>> => apiClient.patch(url, data, config).then((res) => res.data),
+   300→   300→
+   301→   301→  delete: <T = unknown>(
+   302→   302→    url: string,
+   303→   303→    config?: RequestConfig
+   304→   304→  ): Promise<ApiResponse<T>> => apiClient.delete(url, config).then((res) => res.data),
+   305→   305→}
+   306→   306→
+   307→   307→// ==================== Auth API ====================
+   308→   308→
+   309→   309→export const authApi = {
+   310→   310→  login: (email: string, password: string) =>
+   311→   311→    api.post('/auth/login', { email, password }),
+   312→   312→
+   313→   313→  register: (data: {
+   314→   314→    email: string
+   315→   315→    password: string
+   316→   316→    role: string
+   317→   317→    phone?: string
+   318→   318→    firstName?: string
+   319→   319→    lastName?: string
+   320→   320→    storeName?: string
+   321→   321→    storeCategory?: string
+   322→   322→    storeSlug?: string
+   323→   323→  }) => api.post('/auth/register', data),
+   324→   324→
+   325→   325→  logout: () => {
+   326→   326→    tokenManager.clearTokens()
+   327→   327→    return api.post('/auth/logout')
+   328→   328→  },
+   329→   329→
+   330→   330→  refresh: (refreshToken: string) =>
+   331→   331→    api.post('/auth/refresh', { refreshToken }),
+   332→   332→
+   333→   333→  me: () => api.get('/auth/me'),
+   334→   334→
+   335→   335→  forgotPassword: (email: string) =>
+   336→   336→    api.post('/auth/forgot-password', { email }),
+   337→   337→
+   338→   338→  resetPassword: (data: { email: string; otp: string; newPassword: string }) =>
+   339→   339→    api.post('/auth/reset-password', data),
+   340→   340→
+   341→   341→  verifyEmail: (data: { email: string; otp: string }) =>
+   342→   342→    api.post('/auth/verify-email', data),
+   343→   343→
+   344→   344→  resendVerification: (email: string) =>
+   345→   345→    api.post('/auth/resend-verification', { email }),
+   346→   346→
+   347→   347→  changeEmail: (data: { newEmail: string; password: string }) =>
+   348→   348→    api.post('/auth/change-email', data),
+   349→   349→}
+   350→   350→
+   351→   351→// ==================== Users API ====================
+   352→   352→
+   353→   353→export const usersApi = {
+   354→   354→  getProfile: () => api.get('/users/me'),
+   355→   355→
+   356→   356→  updateProfile: (data: {
+   357→   357→    firstName?: string
+   358→   358→    lastName?: string
+   359→   359→    phone?: string
+   360→   360→    bio?: string
+   361→   361→  }) => api.patch('/users/me/profile', data),
+   362→   362→
+   363→   363→  uploadAvatar: (file: File) => {
+   364→   364→    const formData = new FormData()
+   365→   365→    formData.append('avatar', file)
+   366→   366→    return api.post('/users/me/avatar', formData, {
+   367→   367→      headers: { 'Content-Type': 'multipart/form-data' },
+   368→   368→    })
+   369→   369→  },
+   370→   370→
+   371→   371→  getAddresses: () => api.get('/users/me/addresses'),
+   372→   372→
+   373→   373→  addAddress: (data: {
+   374→   374→    line1: string
+   375→   375→    line2?: string
+   376→   376→    city: string
+   377→   377→    state: string
+   378→   378→    localGovernment?: string
+   379→   379→    stateId?: string
+   380→   380→    lgaId?: string
+   381→   381→    country: string
+   382→   382→    postalCode?: string
+   383→   383→    type: 'SHIPPING' | 'BILLING'
+   384→   384→    isDefault?: boolean
+   385→   385→  }) => api.post('/users/me/addresses', data),
+   386→   386→
+   387→   387→  updateAddress: (id: string, data: Partial<{
+   388→   388→    line1: string
+   389→   389→    line2: string
+   390→   390→    city: string
+   391→   391→    state: string
+   392→   392→    localGovernment: string
+   393→   393→    stateId: string
+   394→   394→    lgaId: string
+   395→   395→    country: string
+   396→   396→    postalCode: string
+   397→   397→    isDefault: boolean
+   398→   398→  }>) => api.patch(`/users/me/addresses/${id}`, data),
+   399→   399→
+   400→   400→  deleteAddress: (id: string) => api.delete(`/users/me/addresses/${id}`),
+   401→   401→
+   402→   402→  setDefaultAddress: (id: string) => api.patch(`/users/me/addresses/${id}/default`),
+   403→   403→
+   404→   404→  // KYC
+   405→   405→  getKycStatus: () => api.get('/users/kyc'),
+   406→   406→
+   407→   407→  submitKyc: (data: {
+   408→   408→    type: 'NIN' | 'BVN' | 'PASSPORT' | 'CAC'
+   409→   409→    documentUrl: string
+   410→   410→  }) => api.post('/users/kyc', data),
+   411→   411→}
+   412→   412→
+   413→   413→// ==================== Products API ====================
+   414→   414→
+   415→   415→export const productsApi = {
+   416→   416→  list: (params?: {
+   417→   417→    category?: string
+   418→   418→    status?: string
+   419→   419→    storeId?: string
+   420→   420→    search?: string
+   421→   421→    page?: number
+   422→   422→    limit?: number
+   423→   423→    sortBy?: string
+   424→   424→    sortOrder?: 'asc' | 'desc'
+   425→   425→  }) => api.get('/products', { params }),
+   426→   426→
+   427→   427→  get: (id: string) => api.get(`/products/${id}`),
+   428→   428→
+   429→   429→  getBySlug: (slug: string) => api.get(`/products/slug/${slug}`),
+   430→   430→
+   431→   431→  create: (data: {
+   432→   432→    name: string
+   433→   433→    description?: string
+   434→   434→    price: number
+   435→   435→    comparePrice?: number
+   436→   436→    sku?: string
+   437→   437→    productType?: ProductType
+   438→   438→    productSource?: ProductSource
+   439→   439→    requiresShipping?: boolean
+   440→   440→    trackInventory?: boolean
+   441→   441→    lowStock?: number
+   442→   442→    stock: number
+   443→   443→    categoryId?: string
+   444→   444→    images?: string[]
+   445→   445→    digitalAssets?: Array<Partial<DigitalAsset>>
+   446→   446→    variants?: Array<{
+   447→   447→      name: string
+   448→   448→      options: Record<string, string>
+   449→   449→      price: number
+   450→   450→      stock: number
+   451→   451→      sku?: string
+   452→   452→    }>
+   453→   453→  }) => api.post('/products', data),
+   454→   454→
+   455→   455→  update: (id: string, data: Partial<{
+   456→   456→    name: string
+   457→   457→    description: string
+   458→   458→    price: number
+   459→   459→    comparePrice: number
+   460→   460→    sku: string
+   461→   461→    productType: ProductType
+   462→   462→    productSource: ProductSource
+   463→   463→    requiresShipping: boolean
+   464→   464→    trackInventory: boolean
+   465→   465→    lowStock: number
+   466→   466→    stock: number
+   467→   467→    categoryId: string
+   468→   468→    status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
+   469→   469→  }>) => api.patch(`/products/${id}`, data),
+   470→   470→
+   471→   471→  delete: (id: string) => api.delete(`/products/${id}`),
+   472→   472→
+   473→   473→  uploadImage: (productId: string, file: File) => {
+   474→   474→    const formData = new FormData()
+   475→   475→    formData.append('image', file)
+   476→   476→    return api.post(`/products/${productId}/images`, formData, {
+   477→   477→      headers: { 'Content-Type': 'multipart/form-data' },
+   478→   478→    })
+   479→   479→  },
+   480→   480→
+   481→   481→  deleteImage: (productId: string, imageId: string) =>
+   482→   482→    api.delete(`/products/${productId}/images/${imageId}`),
+   483→   483→
+   484→   484→  // Marketplace search
+   485→   485→  search: (params: {
+   486→   486→    q: string
+   487→   487→    category?: string
+   488→   488→    limit?: number
+   489→   489→    page?: number
+   490→   490→    sortBy?: string
+   491→   491→    sortOrder?: 'asc' | 'desc'
+   492→   492→  }) => api.get('/products/search', { params }),
+   493→   493→
+   494→   494→  // Trending products
+   495→   495→  getTrending: (params?: { limit?: number }) =>
+   496→   496→    api.get('/products/trending', { params }),
+   497→   497→
+   498→   498→  // Top rated products
+   499→   499→  getTopProducts: (params?: { limit?: number }) =>
+   500→   500→    api.get('/products/top', { params }),
+   501→   501→
+   502→   502→  // Deals / discounted products
+   503→   503→  getDeals: (params?: { limit?: number }) =>
+   504→   504→    api.get('/deals', { params }),
+   505→   505→
+   506→   506→  // Category products by slug
+   507→   507→  getCategoryBySlug: (slug: string, params?: { limit?: number; page?: number }) =>
+   508→   508→    api.get(`/products/category/${slug}`, { params }),
+   509→   509→
+   510→   510→  // Categories
+   511→   511→  getCategories: () => api.get('/products/categories'),
+   512→   512→
+   513→   513→  getCategory: (id: string) => api.get(`/products/categories/${id}`),
+   514→   514→}
+   515→   515→
+   516→   516→// ==================== Marketplace API ====================
+   517→   517→
+   518→   518→export const marketplaceApi = {
+   519→   519→  getHomeFeed: () => api.get('/products/home-feed'),
+   520→   520→
+   521→   521→  getHomeFeedMore: (params?: { page?: number; limit?: number }) =>
+   522→   522→    api.get('/products/home-feed/more', { params }),
+   523→   523→
+   524→   524→  // Banners
+   525→   525→  getBanners: (params?: { type?: string }) =>
+   526→   526→    api.get('/banners', { params }),
+   527→   527→
+   528→   528→  // Categories (public)
+   529→   529→  getCategories: () => api.get('/categories'),
+   530→   530→
+   531→   531→  // Brands
+   532→   532→  getBrands: () => api.get('/brands'),
+   533→   533→
+   534→   534→  // Top sellers
+   535→   535→  getSellers: (params?: { limit?: number }) =>
+   536→   536→    api.get('/sellers', { params }),
+   537→   537→
+   538→   538→  // Pool-backed marketplace inventory
+   539→   539→  getPoolOffers: (params?: { categoryId?: string; page?: number; limit?: number }) =>
+   540→   540→    api.get<VendorPoolOffer[]>('/pool/offers', { params }),
+   541→   541→
+   542→   542→  getPoolCampaigns: (params?: { status?: string; page?: number; limit?: number }) =>
+   543→   543→    api.get<PoolCampaign[]>('/pool/campaigns', { params }),
+   544→   544→}
+   545→   545→
+   546→   546→export const marketplaceStoresApi = {
+   547→   547→  getBySlug: (slug: string) => api.get<Store>(`/stores/${encodeURIComponent(slug)}`),
+   548→   548→
+   549→   549→  getProducts: (
+   550→   550→    slug: string,
+   551→   551→    params?: {
+   552→   552→      limit?: number
+   553→   553→      search?: string
+   554→   554→      category?: string
+   555→   555→      source?: string
+   556→   556→    },
+   557→   557→  ) => api.get<Product[]>(`/stores/${encodeURIComponent(slug)}/products`, { params }),
+   558→   558→
+   559→   559→  getProduct: (slug: string, productSlug: string) =>
+   560→   560→    api.get<Product>(`/stores/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),
+   561→   561→}
+   562→   562→
+   563→   563→// ==================== Checkout API ====================
+   564→   564→
+   565→   565→export const checkoutApi = {
+   566→   566→  create: (data: CheckoutRequest) =>
+   567→   567→    api.post<CheckoutResponse>('/checkout', data),
+   568→   568→
+   569→   569→  verifyPayment: (reference: string) =>
+   570→   570→    api.get(`/checkout/payments/${reference}`),
+   571→   571→}
+   572→   572→
+   573→   573→// ==================== Store API ====================
+   574→   574→
+   575→   575→export const storeApi = {
+   576→   576→  get: () => api.get('/store'),
+   577→   577→
+   578→   578→  create: (data: {
+   579→   579→    name: string
+   580→   580→    slug?: string
+   581→   581→    description?: string
+   582→   582→    category?: string
+   583→   583→  }) => api.post('/store', data),
+   584→   584→
+   585→   585→  update: (data: Partial<{
+   586→   586→    name: string
+   587→   587→    description: string
+   588→   588→    category: string
+   589→   589→    slug: string
+   590→   590→    logoUrl: string
+   591→   591→    bannerUrl: string
+   592→   592→  }>) => api.patch('/store', data),
+   593→   593→
+   594→   594→  uploadLogo: (file: File) => {
+   595→   595→    const formData = new FormData()
+   596→   596→    formData.append('logo', file)
+   597→   597→    return api.post('/store/logo', formData, {
+   598→   598→      headers: { 'Content-Type': 'multipart/form-data' },
+   599→   599→    })
+   600→   600→  },
+   601→   601→
+   602→   602→  uploadBanner: (file: File) => {
+   603→   603→    const formData = new FormData()
+   604→   604→    formData.append('banner', file)
+   605→   605→    return api.post('/store/banner', formData, {
+   606→   606→      headers: { 'Content-Type': 'multipart/form-data' },
+   607→   607→    })
+   608→   608→  },
+   609→   609→
+   610→   610→  // Analytics
+   611→   611→  getAnalytics: (period?: '7d' | '30d' | '90d' | '1y') =>
+   612→   612→    api.get('/store/analytics', { params: { period } }),
+   613→   613→}
+   614→   614→
+   615→   615→export const uploadApi = {
+   616→   616→  productImage: (file: File) => {
+   617→   617→    const formData = new FormData()
+   618→   618→    formData.append('file', file)
+   619→   619→    return api.post('/upload/product', formData, {
+   620→   620→      headers: { 'Content-Type': 'multipart/form-data' },
+   621→   621→    })
+   622→   622→  },
+   623→   623→}
+   624→   624→
+   625→   625→// ==================== Vendor Commerce API ====================
+   626→   626→
+   627→   627→export const vendorCommerceApi = {
+   628→   628→  getDashboard: (params?: { q?: string }) =>
+   629→   629→    api.get<VendorDashboardMetrics>('/vendor/dashboard', { params }),
+   630→   630→
+   631→   631→  listProducts: (params?: { status?: string; type?: ProductType; search?: string; page?: number; limit?: number }) =>
+   632→   632→    api.get('/vendor/products', { params }),
+   633→   633→
+   634→   634→  createProduct: (data: {
+   635→   635→    name: string
+   636→   636→    description?: string
+   637→   637→    price: number
+   638→   638→    comparePrice?: number
+   639→   639→    sku?: string
+   640→   640→    brandId?: string
+   641→   641→    categoryId?: string
+   642→   642→    productType: ProductType
+   643→   643→    productSource?: ProductSource
+   644→   644→    status?: ProductStatus
+   645→   645→    inventoryPolicy?: InventoryPolicy
+   646→   646→    requiresShipping?: boolean
+   647→   647→    trackInventory?: boolean
+   648→   648→    initialStock?: number
+   649→   649→    lowStock?: number
+   650→   650→    images?: string[]
+   651→   651→    poolEnabled?: boolean
+   652→   652→    poolBasePrice?: number
+   653→   653→    poolMinSalePrice?: number
+   654→   654→    poolMaxSelectableQuantity?: number
+   655→   655→  }) => api.post('/vendor/products', data),
+   656→   656→
+   657→   657→  bulkImportProducts: (products: Array<{
+   658→   658→    name: string
+   659→   659→    description?: string
+   660→   660→    category?: string
+   661→   661→    price: number
+   662→   662→    comparePrice?: number
+   663→   663→    stock?: number
+   664→   664→    sku?: string
+   665→   665→    tags?: string
+   666→   666→  }>) => api.post('/vendor/products/bulk-import', { products }),
+   667→   667→
+   668→   668→  updateProduct: (
+   669→   669→    productId: string,
+   670→   670→    data: Partial<{
+   671→   671→      name: string
+   672→   672→      description: string
+   673→   673→      price: number
+   674→   674→      comparePrice: number
+   675→   675→      sku: string
+   676→   676→      brandId: string
+   677→   677→      categoryId: string
+   678→   678→      status: ProductStatus
+   679→   679→      productType: ProductType
+   680→   680→      inventoryPolicy: InventoryPolicy
+   681→   681→      requiresShipping: boolean
+   682→   682→      trackInventory: boolean
+   683→   683→      lowStock: number
+   684→   684→      images: string[]
+   685→   685→      poolEnabled: boolean
+   686→   686→      poolBasePrice: number
+   687→   687→      poolMinSalePrice: number
+   688→   688→      poolMaxSelectableQuantity: number
+   689→   689→    }>,
+   690→   690→  ) => api.patch(`/vendor/products/${productId}`, data),
+   691→   691→
+   692→   692→  getDeliverySettings: () => api.get('/vendor/delivery-settings'),
+   693→   693→
+   694→   694→  updateDeliverySettings: (data: {
+   695→   695→    manualDeliveryEnabled?: boolean
+   696→   696→    kwiksellerDeliveryEnabled?: boolean
+   697→   697→    processingDays?: number
+   698→   698→    dispatchNote?: string
+   699→   699→    returnPolicy?: string
+   700→   700→  }) => api.patch('/vendor/delivery-settings', data),
+   701→   701→
+   702→   702→  adjustInventory: (
+   703→   703→    productId: string,
+   704→   704→    data: { variantId?: string; quantityDelta: number; reason: string },
+   705→   705→  ) => api.post<InventoryItem>('/vendor/inventory/adjustments', { productId, ...data }),
+   706→   706→
+   707→   707→  addDigitalAsset: (productId: string, data: Partial<DigitalAsset>) =>
+   708→   708→    api.post<DigitalAsset>('/vendor/digital-assets', { productId, ...data }),
+   709→   709→
+   710→   710→  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number; dateRange?: string }) =>
+   711→   711→    api.get('/vendor/orders', { params }),
+   712→   712→
+   713→   713→  getOrder: (orderId: string) =>
+   714→   714→    api.get(`/vendor/orders/${orderId}`),
+   715→   715→
+   716→   716→  updateOrderStatus: (orderId: string, status: string) =>
+   717→   717→    api.patch(`/vendor/orders/${orderId}/status`, { status }),
+   718→   718→
+   719→   719→  submitDeliveryQuote: (orderId: string, data: { amount: number; note?: string }) =>
+   720→   720→    api.post(`/orders/${orderId}/quote`, data),
+   721→   721→
+   722→   722→  reviseDeliveryQuote: (orderId: string, data: { amount: number; note?: string }) =>
+   723→   723→    api.patch(`/orders/${orderId}/quote/revise`, data),
+   724→   724→
+   725→   725→  getOrderQuote: (orderId: string) =>
+   726→   726→    api.get(`/orders/${orderId}/quote`),
+   727→   727→
+   728→   728→  acceptQuoteReduction: (orderId: string, data?: { note?: string }) =>
+   729→   729→    api.post(`/orders/${orderId}/quote/accept-reduction`, data),
+   730→   730→
+   731→   731→  rejectQuoteReduction: (orderId: string, data?: { note?: string }) =>
+   732→   732→    api.post(`/orders/${orderId}/quote/reject-reduction`, data),
+   733→   733→
+   734→   734→  dispatchOrder: (orderId: string, data?: { trackingNumber?: string; carrier?: string }) =>
+   735→   735→    api.post(`/orders/${orderId}/dispatch`, data),
+   736→   736→
+   737→   737→  markDelivered: (orderId: string) =>
+   738→   738→    api.post(`/orders/${orderId}/mark-delivered`),
+   739→   739→
+   740→   740→  getOrderAttentionCounts: () =>
+   741→   741→    api.get<{ pendingQuotes: number; reductionRequests: number; readyToAccept: number; total: number }>('/vendor/orders/attention-counts'),
+   742→   742→
+   743→   743→  listPoolCatalog: (params?: { categoryId?: string; vendorId?: string; search?: string; page?: number; limit?: number }) =>
+   744→   744→    api.get<PoolProduct[]>('/vendor/pool/catalog', { params }),
+   745→   745→
+   746→   746→  createPoolOffer: (data: { poolProductId: string; retailPrice: number; markup?: number }) =>
+   747→   747→    api.post<VendorPoolOffer>('/vendor/pool/offers', data),
+   748→   748→
+   749→   749→  createPoolSelection: (data: PoolSelectionRequest) =>
+   750→   750→    api.post<VendorPoolOffer>('/vendor/pool/selections', data),
+   751→   751→
+   752→   752→  updatePoolSelection: (id: string, data: Partial<{ retailPrice: number; status: string; isActive: boolean }>) =>
+   753→   753→    api.patch<VendorPoolOffer>(`/vendor/pool/selections/${id}`, data),
+   754→   754→
+   755→   755→  deletePoolSelection: (id: string) =>
+   756→   756→    api.delete(`/vendor/pool/selections/${id}`),
+   757→   757→
+   758→   758→  updatePoolOffer: (id: string, data: Partial<{ retailPrice: number; markup: number; status: string }>) =>
+   759→   759→    api.patch<VendorPoolOffer>(`/vendor/pool/offers/${id}`, data),
+   760→   760→
+   761→   761→  getStorefrontDesign: () => api.get<StorefrontDesignConfig>('/vendor/storefront-design'),
+   762→   762→
+   763→   763→  updateStorefrontDesign: (data: Partial<StorefrontDesignConfig>) =>
+   764→   764→    api.patch<StorefrontDesignConfig>('/vendor/storefront-design', data),
+   765→   765→
+   766→   766→  // Vendor order detail & actions
+   767→   767→  getOrderDetail: (orderId: string) => api.get(`/vendor/orders/${orderId}`),
+   768→   768→
+   769→   769→  acceptOrder: (orderId: string, note?: string) =>
+   770→   770→    api.patch(`/vendor/orders/${orderId}/accept`, { note }),
+   771→   771→
+   772→   772→  rejectOrder: (orderId: string, reason: string) =>
+   773→   773→    api.patch(`/vendor/orders/${orderId}/reject`, { reason }),
+   774→   774→
+   775→   775→  prepareOrder: (orderId: string) =>
+   776→   776→    api.patch(`/vendor/orders/${orderId}/prepare`),
+   777→   777→
+   778→   778→  readyOrder: (orderId: string) =>
+   779→   779→    api.patch(`/vendor/orders/${orderId}/ready`),
+   780→   780→
+   781→   781→  cancelOrder: (orderId: string, reason: string) =>
+   782→   782→    api.patch(`/vendor/orders/${orderId}/cancel`, { reason }),
+   783→   783→}
+   784→   784→
+   785→   785→// ==================== Analytics API ====================
+   786→   786→
+   787→   787→export const analyticsApi = {
+   788→   788→  getOverview: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+   789→   789→    api.get('/vendor/analytics/overview', { params }),
+   790→   790→
+   791→   791→  getRevenue: (params?: { startDate?: string; endDate?: string; period?: string; groupBy?: string }) =>
+   792→   792→    api.get('/vendor/analytics/revenue', { params }),
+   793→   793→
+   794→   794→  getTopProducts: (params?: { startDate?: string; endDate?: string; limit?: number }) =>
+   795→   795→    api.get('/vendor/analytics/top-products', { params }),
+   796→   796→
+   797→   797→  getCategories: (params?: { startDate?: string; endDate?: string }) =>
+   798→   798→    api.get('/vendor/analytics/categories', { params }),
+   799→   799→
+   800→   800→  getProducts: (params?: { startDate?: string; endDate?: string; period?: string; limit?: number }) =>
+   801→   801→    api.get('/vendor/analytics/products', { params }),
+   802→   802→
+   803→   803→  getOrders: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+   804→   804→    api.get('/vendor/analytics/orders', { params }),
+   805→   805→
+   806→   806→  getCustomers: (params?: { startDate?: string; endDate?: string; period?: string }) =>
+   807→   807→    api.get('/vendor/analytics/customers', { params }),
+   808→   808→}
+   809→   809→
+   810→   810→// ==================== Order Operations API ====================
+   811→   811→
+   812→   812→export const orderOperationsApi = {
+   813→   813→  addNote: (orderId: string, note: string) =>
+   814→   814→    api.post(`/vendor/orders/${orderId}/note`, { note }),
+   815→   815→}
+   816→   816→
+   817→   817→// ==================== Vendor Profile API ====================
+   818→   818→
+   819→   819→export const vendorProfileApi = {
+   820→   820→  update: (data: {
+   821→   821→    storeName?: string
+   822→   822→    storeSlug?: string
+   823→   823→    storeDescription?: string
+   824→   824→    phone?: string
+   825→   825→    firstName?: string
+   826→   826→    lastName?: string
+   827→   827→  }) => api.patch('/vendor/profile', data),
+   828→   828→}
+   829→   829→
+   830→   830→// ==================== Orders API ====================
+   831→   831→
+   832→   832→export const ordersApi = {
+   833→   833→  list: (params?: {
+   834→   834→    status?: string
+   835→   835→    storeId?: string
+   836→   836→    buyerId?: string
+   837→   837→    page?: number
+   838→   838→    limit?: number
+   839→   839→  }) => api.get('/orders', { params }),
+   840→   840→
+   841→   841→  get: (id: string) => api.get(`/orders/${id}`),
+   842→   842→
+   843→   843→  create: (data: {
+   844→   844→    items: Array<{
+   845→   845→      productId: string
+   846→   846→      variantId?: string
+   847→   847→      quantity: number
+   848→   848→    }>
+   849→   849→    addressId: string
+   850→   850→    paymentMethod?: string
+   851→   851→  }) => api.post('/orders', data),
+   852→   852→
+   853→   853→  updateStatus: (id: string, status: string) =>
+   854→   854→    api.patch(`/orders/${id}/status`, { status }),
+   855→   855→
+   856→   856→  cancel: (id: string, reason?: string) =>
+   857→   857→    api.post(`/orders/${id}/cancel`, { reason }),
+   858→   858→
+   859→   859→  // Tracking
+   860→   860→  getTracking: (id: string) => api.get(`/orders/${id}/tracking`),
+   861→   861→
+   862→   862→  // For vendors
+   863→   863→  getStoreOrders: (params?: {
+   864→   864→    status?: string
+   865→   865→    page?: number
+   866→   866→    limit?: number
+   867→   867→  }) => api.get('/orders/store', { params }),
+   868→   868→
+   869→   869→  acceptOrder: (id: string) => api.post(`/orders/${id}/accept`),
+   870→   870→
+   871→   871→  rejectOrder: (id: string, reason: string) =>
+   872→   872→    api.post(`/orders/${id}/reject`, { reason }),
+   873→   873→
+   874→   874→  markAsReady: (id: string) => api.post(`/orders/${id}/ready`),
+   875→   875→
+   876→   876→  markAsShipped: (id: string, trackingNumber?: string) =>
+   877→   877→    api.post(`/orders/${id}/ship`, { trackingNumber }),
+   878→   878→}
+   879→   879→
+   880→   880→// ==================== Cart API ====================
+   881→   881→
+   882→   882→export const cartApi = {
+   883→   883→  get: () => api.get('/cart'),
+   884→   884→
+   885→   885→  validate: () => api.get<CartValidationResponse>('/cart/validate'),
+   886→   886→
+   887→   887→  addItem: (productId: string, quantity: number, variantId?: string) =>
+   888→   888→    api.post('/cart/items', { productId, quantity, variantId }),
+   889→   889→
+   890→   890→  addPoolOffer: (poolOfferId: string, quantity: number) =>
+   891→   891→    api.post(`/cart/pool-offers/${poolOfferId}`, { quantity }),
+   892→   892→
+   893→   893→  updateItem: (itemId: string, quantity: number) =>
+   894→   894→    api.patch(`/cart/items/${itemId}`, { quantity }),
+   895→   895→
+   896→   896→  removeItem: (itemId: string) => api.delete(`/cart/items/${itemId}`),
+   897→   897→
+   898→   898→  clearStore: (storeSlug: string) => api.delete(`/cart/stores/${encodeURIComponent(storeSlug)}`),
+   899→   899→
+   900→   900→  clear: () => api.delete('/cart'),
+   901→   901→
+   902→   902→  applyCoupon: (code: string) =>
+   903→   903→    api.post<CouponValidationResponse>('/cart/coupon', { code }),
+   904→   904→
+   905→   905→  removeCoupon: () => api.delete('/cart/coupon'),
+   906→   906→}
+   907→   907→
+   908→   908→export const deliveryRatesApi = {
+   909→   909→  lookup: (params: { state: string; localGovernment: string }) =>
+   910→   910→    api.get<DeliveryRate>('/delivery-rates', { params }),
+   911→   911→}
+   912→   912→
+   913→   913→// ==================== Payments API ====================
+   914→   914→
+   915→   915→export const paymentsApi = {
+   916→   916→  // Initialize payment
+   917→   917→  initialize: (orderId: string, gateway: 'PAYSTACK' | 'FLUTTERWAVE') =>
+   918→   918→    api.post('/payments/initialize', { orderId, gateway }),
+   919→   919→
+   920→   920→  // Verify payment
+   921→   921→  verify: (reference: string) =>
+   922→   922→    api.get(`/payments/verify/${reference}`),
+   923→   923→
+   924→   924→  verifyPaystackWebhookHealth: () => api.get('/payments/paystack/health'),
+   925→   925→
+   926→   926→  // Get payment methods
+   927→   927→  getMethods: () => api.get('/payments/methods'),
+   928→   928→
+   929→   929→  // Wallet (for vendors) — backend controller is @Controller('vendor/wallet')
+   930→   930→  getWallet: () => api.get('/vendor/wallet'),
+   931→   931→
+   932→   932→  getWalletTransactions: (params?: {
+   933→   933→    type?: 'CREDIT' | 'DEBIT'
+   934→   934→    page?: number
+   935→   935→    limit?: number
+   936→   936→  }) => api.get('/vendor/wallet/transactions', { params }),
+   937→   937→
+   938→   938→  requestWithdrawal: (data: {
+   939→   939→    amount: number
+   940→   940→    bankCode: string
+   941→   941→    accountNumber: string
+   942→   942→    accountName: string
+   943→   943→  }) => api.post('/vendor/wallet/withdraw', data),
+   944→   944→
+   945→   945→  getWithdrawals: (params?: { status?: string }) =>
+   946→   946→    api.get('/vendor/wallet/withdrawals', { params }),
+   947→   947→
+   948→   948→  // Bank list
+   949→   949→  getBanks: () => api.get('/payments/banks'),
+   950→   950→
+   951→   951→  verifyAccount: (bankCode: string, accountNumber: string) =>
+   952→   952→    api.get(`/payments/verify-account`, {
+   953→   953→      params: { bankCode, accountNumber },
+   954→   954→    }),
+   955→   955→}
+   956→   956→
+   957→   957→// ==================== Notifications API ====================
+   958→   958→
+   959→   959→export const notificationsApi = {
+   960→   960→  list: (params?: {
+   961→   961→    unread?: boolean
+   962→   962→    type?: string
+   963→   963→    page?: number
+   964→   964→    limit?: number
+   965→   965→  }) => api.get('/notifications', { params }),
+   966→   966→
+   967→   967→  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+   968→   968→
+   969→   969→  markAllAsRead: () => api.post('/notifications/read-all'),
+   970→   970→
+   971→   971→  getUnreadCount: () => api.get('/notifications/unread-count'),
+   972→   972→
+   973→   973→  // Push notifications
+   974→   974→  subscribePush: (subscription: PushSubscriptionJSON) =>
+   975→   975→    api.post('/notifications/push/subscribe', subscription),
+   976→   976→
+   977→   977→  unsubscribePush: (endpoint: string) =>
+   978→   978→    api.delete('/notifications/push/unsubscribe', { data: { endpoint } }),
+   979→   979→
+   980→   980→  getVapidKey: () => api.get('/notifications/push/vapid-public-key'),
+   981→   981→}
+   982→   982→
+   983→   983→// ==================== Subscriptions API ====================
+   984→   984→
+   985→   985→export const subscriptionsApi = {
+   986→   986→  getPlans: () => api.get('/subscriptions/plans'),
+   987→   987→
+   988→   988→  getCurrentPlan: () => api.get('/subscriptions/current'),
+   989→   989→
+   990→   990→  subscribe: (plan: string) => api.post('/subscriptions', { plan }),
+   991→   991→
+   992→   992→  cancel: () => api.post('/subscriptions/cancel'),
+   993→   993→
+   994→   994→  renew: () => api.post('/subscriptions/renew'),
+   995→   995→}
+   996→   996→
+   997→   997→// ==================== Delivery API (Riders) ====================
+   998→   998→
+   999→   999→export const deliveryApi = {
+  1000→  1000→  // Get available deliveries
+  1001→  1001→  getAvailable: (params?: {
+  1002→  1002→    page?: number
+  1003→  1003→    limit?: number
+  1004→  1004→  }) => api.get('/deliveries/available', { params }),
+  1005→  1005→
+  1006→  1006→  // Get my deliveries
+  1007→  1007→  getMyDeliveries: (params?: {
+  1008→  1008→    status?: string
+  1009→  1009→    page?: number
+  1010→  1010→    limit?: number
+  1011→  1011→  }) => api.get('/deliveries/my', { params }),
+  1012→  1012→
+  1013→  1013→  // Accept delivery
+  1014→  1014→  accept: (orderId: string) => api.post(`/deliveries/${orderId}/accept`),
+  1015→  1015→
+  1016→  1016→  // Pickup
+  1017→  1017→  pickup: (orderId: string, photoUrl?: string) =>
+  1018→  1018→    api.post(`/deliveries/${orderId}/pickup`, { photoUrl }),
+  1019→  1019→
+  1020→  1020→  // In transit
+  1021→  1021→  startTransit: (orderId: string) =>
+  1022→  1022→    api.post(`/deliveries/${orderId}/start-transit`),
+  1023→  1023→
+  1024→  1024→  // Complete delivery
+  1025→  1025→  complete: (orderId: string, otp: string, photoUrl?: string) =>
+  1026→  1026→    api.post(`/deliveries/${orderId}/complete`, { otp, photoUrl }),
+  1027→  1027→
+  1028→  1028→  // Get delivery details
+  1029→  1029→  getDetails: (orderId: string) => api.get(`/deliveries/${orderId}`),
+  1030→  1030→
+  1031→  1031→  // Update location
+  1032→  1032→  updateLocation: (lat: number, lng: number) =>
+  1033→  1033→    api.post('/deliveries/location', { lat, lng }),
+  1034→  1034→
+  1035→  1035→  // Toggle availability
+  1036→  1036→  toggleAvailability: (isAvailable: boolean) =>
+  1037→  1037→    api.patch('/deliveries/availability', { isAvailable }),
+  1038→  1038→
+  1039→  1039→  // Earnings
+  1040→  1040→  getEarnings: (period?: 'today' | 'week' | 'month') =>
+  1041→  1041→    api.get('/deliveries/earnings', { params: { period } }),
+  1042→  1042→}
+  1043→  1043→
+  1044→  1044→// ==================== KYC API ====================
+  1045→  1045→
+  1046→  1046→export const kycApi = {
+  1047→  1047→  getStatus: () => api.get('/vendor/kyc/status'),
+  1048→  1048→
+  1049→  1049→  submitKyc: (data: {
+  1050→  1050→    businessType: 'INDIVIDUAL' | 'SOLE_PROPRIETORSHIP' | 'REGISTERED_BUSINESS';
+  1051→  1051→    fullName: string;
+  1052→  1052→    dateOfBirth: string;
+  1053→  1053→    phone: string;
+  1054→  1054→    idType: 'NIN' | 'PASSPORT' | 'DRIVERS_LICENSE';
+  1055→  1055→    idFrontUrl: string;
+  1056→  1056→    idBackUrl?: string;
+  1057→  1057→    businessRegistrationUrl?: string;
+  1058→  1058→    utilityBillUrl?: string;
+  1059→  1059→    taxId?: string;
+  1060→  1060→    selfieUrl?: string;
+  1061→  1061→  }) => api.post('/vendor/kyc/submit', data),
+  1062→  1062→
+  1063→  1063→  getSubmissions: () => api.get('/vendor/kyc/submissions'),
+  1064→  1064→}
+  1065→  1065→
+  1066→  1066→// ==================== Onboarding API ====================
+  1067→  1067→
+  1068→  1068→export const onboardingApi = {
+  1069→  1069→  getStatus: () => api.get('/vendor/onboarding/status'),
+  1070→  1070→
+  1071→  1071→  completeStep: (step: string, data: Record<string, unknown>) =>
+  1072→  1072→    api.post('/vendor/onboarding/step', { step, data }),
+  1073→  1073→
+  1074→  1074→  complete: () => api.post('/vendor/onboarding/complete'),
+  1075→  1075→}
+  1076→  1076→
+  1077→  1077→// ==================== Vendor Deliveries API ====================
+  1078→  1078→
+  1079→  1079→export const vendorDeliveriesApi = {
+  1080→  1080→  // List vendor's deliveries
+  1081→  1081→  list: (params?: {
+  1082→  1082→    status?: string
+  1083→  1083→    page?: number
+  1084→  1084→    limit?: number
+  1085→  1085→  }) => api.get('/vendor/deliveries', { params }),
+  1086→  1086→
+  1087→  1087→  // Mark delivery as preparing (ACCEPTED → PREPARING)
+  1088→  1088→  markPreparing: (deliveryId: string) =>
+  1089→  1089→    api.post(`/vendor/deliveries/${deliveryId}/preparing`),
+  1090→  1090→
+  1091→  1091→  // Mark as ready for pickup (PREPARING → READY_FOR_PICKUP)
+  1092→  1092→  markReady: (deliveryId: string) =>
+  1093→  1093→    api.post(`/vendor/deliveries/${deliveryId}/ready`),
+  1094→  1094→
+  1095→  1095→  // Vendor confirms handoff to rider (alternative pickup confirmation)
+  1096→  1096→  confirmPickup: (deliveryId: string) =>
+  1097→  1097→    api.post(`/vendor/deliveries/${deliveryId}/pickup-confirm`),
+  1098→  1098→
+  1099→  1099→  // Get tracking info for a specific delivery
+  1100→  1100→  getTracking: (deliveryId: string) =>
+  1101→  1101→    api.get(`/vendor/deliveries/${deliveryId}/tracking`),
+  1102→  1102→}
+  1103→  1103→
+  1104→  1104→// ==================== Escrow API ====================
+  1105→  1105→
+  1106→  1106→export const escrowApi = {
+  1107→  1107→  // Get vendor's escrow holdings
+  1108→  1108→  getHoldings: () => api.get('/vendor/wallet/escrow-holdings'),
+  1109→  1109→
+  1110→  1110→  // Admin: manual escrow release
+  1111→  1111→  manualRelease: (deliveryId: string) =>
+  1112→  1112→    api.post(`/admin/escrow/${deliveryId}/manual-release`),
+  1113→  1113→
+  1114→  1114→  // Admin: refund escrow
+  1115→  1115→  refund: (deliveryId: string) =>
+  1116→  1116→    api.post(`/admin/escrow/${deliveryId}/refund`),
+  1117→  1117→
+  1118→  1118→  // Get escrow detail for a specific delivery
+  1119→  1119→  getEscrowDetail: (deliveryId: string) =>
+  1120→  1120→    api.get(`/vendor/escrow/${deliveryId}`),
+  1121→  1121→
+  1122→  1122→  // Open a dispute on an escrow holding
+  1123→  1123→  openDispute: (orderId: string, reason: string, evidence?: string) =>
+  1124→  1124→    api.post(`/vendor/escrow/${orderId}/dispute`, { reason, evidence }),
+  1125→  1125→}
+  1126→  1126→
+  1127→  1127→// ==================== Admin API ====================
+  1128→  1128→
+  1129→  1129→export const adminApi = {
+  1130→  1130→  // Dashboard stats
+  1131→  1131→  getStats: () => api.get('/admin/stats'),
+  1132→  1132→
+  1133→  1133→  // Users management
+  1134→  1134→  getUsers: (params?: {
+  1135→  1135→    role?: string
+  1136→  1136→    status?: string
+  1137→  1137→    search?: string
+  1138→  1138→    page?: number
+  1139→  1139→    limit?: number
+  1140→  1140→  }) => api.get('/admin/users', { params }),
+  1141→  1141→
+  1142→  1142→  getUser: (id: string) => api.get(`/admin/users/${id}`),
+  1143→  1143→
+  1144→  1144→  updateUserStatus: (id: string, status: 'ACTIVE' | 'SUSPENDED' | 'BANNED') =>
+  1145→  1145→    api.patch(`/admin/users/${id}/status`, { status }),
+  1146→  1146→
+  1147→  1147→  // Vendors
+  1148→  1148→  getVendors: (params?: {
+  1149→  1149→    status?: string
+  1150→  1150→    kycStatus?: string
+  1151→  1151→    search?: string
+  1152→  1152→    page?: number
+  1153→  1153→    limit?: number
+  1154→  1154→  }) => api.get('/admin/vendors', { params }),
+  1155→  1155→
+  1156→  1156→  approveKyc: (vendorId: string) =>
+  1157→  1157→    api.post(`/admin/vendors/${vendorId}/kyc/approve`),
+  1158→  1158→
+  1159→  1159→  rejectKyc: (vendorId: string, reason: string) =>
+  1160→  1160→    api.post(`/admin/vendors/${vendorId}/kyc/reject`, { reason }),
+  1161→  1161→
+  1162→  1162→  // Products moderation
+  1163→  1163→  getProductsForReview: (params?: {
+  1164→  1164→    page?: number
+  1165→  1165→    limit?: number
+  1166→  1166→  }) => api.get('/admin/products/review', { params }),
+  1167→  1167→
+  1168→  1168→  approveProduct: (productId: string) =>
+  1169→  1169→    api.post(`/admin/products/${productId}/approve`),
+  1170→  1170→
+  1171→  1171→  rejectProduct: (productId: string, reason: string) =>
+  1172→  1172→    api.post(`/admin/products/${productId}/reject`, { reason }),
+  1173→  1173→
+  1174→  1174→  // Orders
+  1175→  1175→  getAllOrders: (params?: {
+  1176→  1176→    status?: string
+  1177→  1177→    page?: number
+  1178→  1178→    limit?: number
+  1179→  1179→  }) => api.get('/admin/orders', { params }),
+  1180→  1180→
+  1181→  1181→  updateOrderManualStatus: (orderId: string, status: string, note?: string, trackingCode?: string) =>
+  1182→  1182→    api.patch(`/admin/orders/${orderId}/manual-status`, { status, note, trackingCode }),
+  1183→  1183→
+  1184→  1184→  // Commerce operations
+  1185→  1185→  getCommerceOverview: () => api.get('/admin/commerce/overview'),
+  1186→  1186→
+  1187→  1187→  getPayments: (params?: { status?: string; gateway?: string; page?: number; limit?: number }) =>
+  1188→  1188→    api.get('/admin/payments', { params }),
+  1189→  1189→
+  1190→  1190→  getDeliveryRates: (params?: { state?: string; isActive?: boolean }) =>
+  1191→  1191→    api.get<DeliveryRate[]>('/admin/delivery-rates', { params }),
+  1192→  1192→
+  1193→  1193→  createDeliveryRate: (data: {
+  1194→  1194→    state: string
+  1195→  1195→    localGovernment: string
+  1196→  1196→    fee: number
+  1197→  1197→    minDeliveryDays: number
+  1198→  1198→    maxDeliveryDays: number
+  1199→  1199→    isActive?: boolean
+  1200→  1200→  }) => api.post<DeliveryRate>('/admin/delivery-rates', data),
+  1201→  1201→
+  1202→  1202→  updateDeliveryRate: (
+  1203→  1203→    id: string,
+  1204→  1204→    data: Partial<{
+  1205→  1205→      state: string
+  1206→  1206→      localGovernment: string
+  1207→  1207→      fee: number
+  1208→  1208→      minDeliveryDays: number
+  1209→  1209→      maxDeliveryDays: number
+  1210→  1210→      isActive: boolean
+  1211→  1211→    }>,
+  1212→  1212→  ) => api.patch<DeliveryRate>(`/admin/delivery-rates/${id}`, data),
+  1213→  1213→
+  1214→  1214→  deactivateDeliveryRate: (id: string) => api.delete<DeliveryRate>(`/admin/delivery-rates/${id}`),
+  1215→  1215→
+  1216→  1216→  refundPayment: (paymentId: string, reason: string, amount?: number, orderId?: string) =>
+  1217→  1217→    api.post(`/admin/payments/${paymentId}/refund`, { reason, amount, orderId }),
+  1218→  1218→
+  1219→  1219→  // Pool governance
+  1220→  1220→  getPoolProducts: (params?: { status?: string; page?: number; limit?: number }) =>
+  1221→  1221→    api.get<PoolProduct[]>('/admin/pool/products', { params }),
+  1222→  1222→
+  1223→  1223→  createPoolProduct: (data: Partial<PoolProduct>) =>
+  1224→  1224→    api.post<PoolProduct>('/admin/pool/products', data),
+  1225→  1225→
+  1226→  1226→  updatePoolProduct: (id: string, data: Partial<PoolProduct>) =>
+  1227→  1227→    api.patch<PoolProduct>(`/admin/pool/products/${id}`, data),
+  1228→  1228→
+  1229→  1229→  getPoolCampaigns: (params?: { status?: string; page?: number; limit?: number }) =>
+  1230→  1230→    api.get<PoolCampaign[]>('/admin/pool/campaigns', { params }),
+  1231→  1231→
+  1232→  1232→  createPoolCampaign: (data: Partial<PoolCampaign>) =>
+  1233→  1233→    api.post<PoolCampaign>('/admin/pool/campaigns', data),
+  1234→  1234→
+  1235→  1235→  // Disputes
+  1236→  1236→  getDisputes: (params?: {
+  1237→  1237→    status?: string
+  1238→  1238→    page?: number
+  1239→  1239→    limit?: number
+  1240→  1240→  }) => api.get('/admin/disputes', { params }),
+  1241→  1241→
+  1242→  1242→  resolveDispute: (disputeId: string, resolution: string, refundAmount?: number) =>
+  1243→  1243→    api.post(`/admin/disputes/${disputeId}/resolve`, { resolution, refundAmount }),
+  1244→  1244→
+  1245→  1245→  // Analytics
+  1246→  1246→  getAnalytics: (period?: '7d' | '30d' | '90d' | '1y') =>
+  1247→  1247→    api.get('/admin/analytics', { params: { period } }),
+  1248→  1248→
+  1249→  1249→  // Settings
+  1250→  1250→  getSettings: () => api.get('/admin/settings'),
+  1251→  1251→
+  1252→  1252→  updateSettings: (settings: Record<string, unknown>) =>
+  1253→  1253→    api.patch('/admin/settings', settings),
+  1254→  1254→}
+  1255→  1255→
+  1256→  1256→// Export default instance for custom requests
+  1257→  1257→export default apiClient
+  1258→  1258→

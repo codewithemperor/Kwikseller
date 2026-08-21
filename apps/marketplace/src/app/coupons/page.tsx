@@ -19,7 +19,7 @@ import {
   Truck,
   Info,
 } from "lucide-react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { AccountLayout } from "@/components/layout/account-layout";
 import { PageLoading } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -265,7 +265,7 @@ function CouponsPageInner() {
   }, [coupons]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       {/* Back link */}
       <Link
         href="/"
@@ -388,7 +388,7 @@ function CouponsPageInner() {
 
       {/* Coupons grid */}
       {!isLoading && !isError && sorted.length > 0 && (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sorted.map((c, i) => (
             <CouponCard key={c.id} coupon={c} index={i} />
           ))}

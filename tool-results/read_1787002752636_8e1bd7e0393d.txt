@@ -1,0 +1,895 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useMemo, useState } from "react";
+     4→import { useRouter } from "next/navigation";
+     5→import { motion } from "framer-motion";
+     6→import {
+     7→  ShieldCheck,
+     8→  ChevronRight,
+     9→  Minus,
+    10→  Plus,
+    11→  Trash2,
+    12→  ShoppingBag,
+    13→  Check,
+    14→  Loader2,
+    15→  Truck,
+    16→  Store,
+    17→  MapPin,
+    18→  X,
+    19→  AlertCircle,
+    20→  Lock,
+    21→} from "lucide-react";
+    22→import { useCartStore } from "@/stores";
+    23→import { useOrderWorkflowStore } from "@/stores/order-workflow-store";
+    24→import { kwikToast } from "@/lib/toast";
+    25→import { useAuth } from "@/lib/auth-context";
+    26→import { KwisCrow } from "@/constants/order-workflow";
+    27→import { cn } from "@/lib/utils";
+    28→import { useCheckout } from "@/lib/order-api";
+    29→import { api } from "@/services/api-client";
+    30→import { AddressConfirmModal, type AddressForm } from "@/components/modals/address-confirm-modal";
+    31→
+    32→// ─── Helpers ───────────────────────────────────────────────────────────────
+    33→
+    34→function formatNGN(n: number) {
+    35→  return new Intl.NumberFormat("en-NG", {
+    36→    style: "currency",
+    37→    currency: "NGN",
+    38→    maximumFractionDigits: 0,
+    39→  }).format(n);
+    40→}
+    41→
+    42→/**
+    43→ * Generates a reasonably-unique idempotency key per checkout attempt.
+    44→ * The backend uses it to dedupe a ParentCheckout (and its per-vendor
+    45→ * Orders) so a network retry returns the original result instead of
+    46→ * double-creating orders. We regenerate it whenever the user starts a
+    47→ * new checkout submission (not on every render).
+    48→ */
+    49→function newIdempotencyKey(): string {
+    50→  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    51→    return `chk_${crypto.randomUUID()}`;
+    52→  }
+    53→  return `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    54→}
+    55→
+    56→// ─── Delivery options (NEW spec: Pickup + Standard Delivery ONLY) ──────────
+    57→//
+    58→// The old STANDARD / EXPRESS / PICKUP trio plus state-based price grid has
+    59→// been removed. The backend is authoritative for every price/fee — at
+    60→// checkout time we only tell it which delivery method the buyer chose.
+    61→//   • PICKUP          → quoteStatus starts as AGREED (no fee to quote),
+    62→//                       buyer can initialize payment immediately.
+    63→//   • STANDARD_DELIVERY → quoteStatus starts as PENDING_VENDOR_QUOTE,
+    64→//                       vendor must quote → customer accepts/requests
+    65→//                       reduction → agreement → then payment.
+    66→
+    67→type DeliveryMethod = "PICKUP" | "STANDARD_DELIVERY";
+    68→
+    69→interface DeliveryOption {
+    70→  method: DeliveryMethod;
+    71→  label: string;
+    72→  Icon: typeof Truck;
+    73→  description: string;
+    74→  feeLabel: string;
+    75→}
+    76→
+    77→const DELIVERY_OPTIONS: DeliveryOption[] = [
+    78→  {
+    79→    method: "PICKUP",
+    80→    label: "Pickup",
+    81→    Icon: Store,
+    82→    description: "Pick up from the vendor's store. No delivery fee.",
+    83→    feeLabel: "₦0",
+    84→  },
+    85→  {
+    86→    method: "STANDARD_DELIVERY",
+    87→    label: "Standard Delivery",
+    88→    Icon: Truck,
+    89→    description:
+    90→      "Doorstep delivery. The vendor will quote a delivery fee after you place the order.",
+    91→    feeLabel: "To be determined by vendor",
+    92→  },
+    93→];
+    94→
+    95→interface UserProfileResponse {
+    96→  id?: string;
+    97→  email?: string;
+    98→  phone?: string;
+    99→  firstName?: string;
+   100→  lastName?: string;
+   101→  profile?: {
+   102→    firstName?: string;
+   103→    lastName?: string;
+   104→    phone?: string;
+   105→  };
+   106→}
+   107→
+   108→// ─── Page ──────────────────────────────────────────────────────────────────
+   109→
+   110→export default function CheckoutPage() {
+   111→  const router = useRouter();
+   112→  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+   113→
+   114→  // ─── Cart store ───
+   115→  const items = useCartStore((s) => s.items);
+   116→  const updateQuantity = useCartStore((s) => s.updateQuantity);
+   117→  const removeItem = useCartStore((s) => s.removeItem);
+   118→  const clearCart = useCartStore((s) => s.clearCart);
+   119→
+   120→  // ─── Local workflow store (kept as a soft mirror so /orders/[id] keeps ──
+   121→  // its rich quotation UI working until the API detail page is migrated).
+   122→  const placeOrder = useOrderWorkflowStore((s) => s.placeOrder);
+   123→
+   124→  // ─── API ───
+   125→  const checkout = useCheckout();
+   126→
+   127→  // ─── UI state ───
+   128→  const [deliveryMethod, setDeliveryMethod] =
+   129→    useState<DeliveryMethod>("PICKUP");
+   130→  const [address, setAddress] = useState<AddressForm>({
+   131→    fullName: "",
+   132→    phone: "",
+   133→    addressLine: "",
+   134→    city: "",
+   135→    state: "Lagos",
+   136→    landmark: "",
+   137→  });
+   138→  const [addressConfirmed, setAddressConfirmed] = useState(false);
+   139→  const [addressModalOpen, setAddressModalOpen] = useState(false);
+   140→  const [profileLoading, setProfileLoading] = useState(false);
+   141→  const [errors, setErrors] = useState<Partial<Record<keyof AddressForm, string>>>(
+   142→    {},
+   143→  );
+   144→
+   145→  // ─── Auth guard ───
+   146→  // The checkout endpoint is JWT-guarded on the backend. If the buyer is
+   147→  // not signed in, send them to /login with a return URL so they land back
+   148→  // here after authenticating.
+   149→  useEffect(() => {
+   150→    if (isAuthLoading) return;
+   151→    if (!isAuthenticated) {
+   152→      const returnUrl = encodeURIComponent("/checkout");
+   153→      router.replace(`/login?redirect=${returnUrl}`);
+   154→    }
+   155→  }, [isAuthLoading, isAuthenticated, router]);
+   156→
+   157→  // ─── Pre-fill name + phone from the user profile API (best-effort) ──
+   158→  // Falls back to the auth store's cached user. Both name and phone are
+   159→  // shown as disabled fields inside the modal — the buyer cannot change
+   160→  // their identity here, only the delivery coordinates.
+   161→  useEffect(() => {
+   162→    if (!isAuthenticated) return;
+   163→    let cancelled = false;
+   164→
+   165→    async function loadProfile() {
+   166→      setProfileLoading(true);
+   167→      try {
+   168→        const res = await api.get<UserProfileResponse>("users/me");
+   169→        if (cancelled) return;
+   170→        const data = res.data;
+   171→        const firstName =
+   172→          data?.profile?.firstName ?? data?.firstName ?? user?.profile?.firstName ?? "";
+   173→        const lastName =
+   174→          data?.profile?.lastName ?? data?.lastName ?? user?.profile?.lastName ?? "";
+   175→        const phone =
+   176→          data?.profile?.phone ?? data?.phone ?? user?.phone ?? "";
+   177→        const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+   178→        setAddress((prev) => ({
+   179→          ...prev,
+   180→          fullName: prev.fullName || fullName,
+   181→          phone: prev.phone || phone,
+   182→        }));
+   183→      } catch {
+   184→        // Best-effort: fall back to whatever the auth store has cached.
+   185→        if (!cancelled && user) {
+   186→          const firstName = user.profile?.firstName ?? "";
+   187→          const lastName = user.profile?.lastName ?? "";
+   188→          const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+   189→          setAddress((prev) => ({
+   190→            ...prev,
+   191→            fullName: prev.fullName || fullName,
+   192→            phone: prev.phone || (user.phone ?? ""),
+   193→          }));
+   194→        }
+   195→      } finally {
+   196→        if (!cancelled) setProfileLoading(false);
+   197→      }
+   198→    }
+   199→
+   200→    void loadProfile();
+   201→    return () => {
+   202→      cancelled = true;
+   203→    };
+   204→  }, [isAuthenticated, user]);
+   205→
+   206→  // ─── Derived cart data ───
+   207→  const itemsByStore = useMemo(() => {
+   208→    const groups: Record<
+   209→      string,
+   210→      { storeName: string; items: typeof items; subtotal: number }
+   211→    > = {};
+   212→    for (const item of items) {
+   213→      const key = item.storeSlug ?? item.store ?? "unknown";
+   214→      if (!groups[key]) {
+   215→        groups[key] = {
+   216→          storeName: item.store ?? item.storeName ?? "Vendor",
+   217→          items: [],
+   218→          subtotal: 0,
+   219→        };
+   220→      }
+   221→      groups[key].items.push(item);
+   222→      groups[key].subtotal += item.price * item.quantity;
+   223→    }
+   224→    return groups;
+   225→  }, [items]);
+   226→
+   227→  const subtotal = useMemo(
+   228→    () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+   229→    [items],
+   230→  );
+   231→  const storeCount = Object.keys(itemsByStore).length;
+   232→
+   233→  // The backend computes the real 1% processing fee (it's authoritative).
+   234→  // For the PICKUP summary only we display a *clearly-labelled* estimate so
+   235→  // the buyer has a ballpark figure; the final amount is shown on the order
+   236→  // detail page after the backend response lands.
+   237→  const estimatedProcessingFee = Math.round(subtotal * 0.01);
+   238→
+   239→  // ─── Validate address (only when Standard Delivery is selected) ───
+   240→  function validateAddress(): boolean {
+   241→    const next: Partial<Record<keyof AddressForm, string>> = {};
+   242→    if (!address.fullName.trim()) next.fullName = "Full name is required";
+   243→    if (!address.phone.trim()) next.phone = "Phone number is required";
+   244→    else if (!/^[0-9+\s-]{7,}$/.test(address.phone.trim()))
+   245→      next.phone = "Enter a valid phone number";
+   246→    if (!address.addressLine.trim())
+   247→      next.addressLine = "Street address is required";
+   248→    if (!address.city.trim()) next.city = "City is required";
+   249→    if (!address.state.trim()) next.state = "State is required";
+   250→    setErrors(next);
+   251→    return Object.keys(next).length === 0;
+   252→  }
+   253→
+   254→  function openAddressModal() {
+   255→    setErrors({});
+   256→    setAddressModalOpen(true);
+   257→  }
+   258→
+   259→  function saveAddressFromModal() {
+   260→    if (!validateAddress()) return;
+   261→    setAddressConfirmed(true);
+   262→    setAddressModalOpen(false);
+   263→    // Confirming the address IS the checkout trigger for Standard Delivery —
+   264→    // place the order straight away instead of bouncing back to the form.
+   265→    handlePlaceOrder();
+   266→  }
+   267→
+   268→  // ─── Place order ───
+   269→  async function handlePlaceOrder() {
+   270→    if (items.length === 0) {
+   271→      kwikToast.error("Your cart is empty", "Add products before checking out.");
+   272→      return;
+   273→    }
+   274→
+   275→    // Standard Delivery requires a valid shipping address. Pickup does not.
+   276→    if (deliveryMethod === "STANDARD_DELIVERY") {
+   277→      if (!validateAddress()) {
+   278→        kwikToast.error(
+   279→          "Confirm your delivery address",
+   280→          "Add or confirm a delivery address before placing your order.",
+   281→        );
+   282→        openAddressModal();
+   283→        return;
+   284→      }
+   285→    }
+   286→
+   287→    checkout.reset();
+   288→    const idempotencyKey = newIdempotencyKey();
+   289→
+   290→    try {
+   291→      const result = await checkout.mutateAsync({
+   292→        items: items.map((i) => ({
+   293→          productId: i.productId,
+   294→          variantId: i.variantId,
+   295→          quantity: i.quantity,
+   296→        })),
+   297→        deliveryMethod,
+   298→        // Pickup needs no shipping address. Standard Delivery requires one.
+   299→        shippingAddress:
+   300→          deliveryMethod === "STANDARD_DELIVERY"
+   301→            ? {
+   302→                fullName: address.fullName,
+   303→                phone: address.phone,
+   304→                addressLine1: address.addressLine,
+   305→                addressLine2: address.landmark,
+   306→                city: address.city,
+   307→                state: address.state,
+   308→                country: "Nigeria",
+   309→              }
+   310→            : undefined,
+   311→        idempotencyKey,
+   312→      });
+   313→
+   314→      const apiOrders = result?.orders ?? [];
+   315→
+   316→      // Soft mirror into the local workflow store so the /orders/[id]
+   317→      // quotation UI keeps working for these orders (PENDING → vendor
+   318→      // quotes → CONFIRMED → buyer pays). This is a UX fallback, not the
+   319→      // source of truth — the API is.
+   320→      for (const group of Object.values(itemsByStore)) {
+   321→        placeOrder({
+   322→          items: group.items.map((i) => ({
+   323→            productId: i.productId,
+   324→            name: i.name,
+   325→            unitPrice: i.price,
+   326→            quantity: i.quantity,
+   327→            image: i.image,
+   328→          })),
+   329→          vendorId: group.storeName,
+   330→          vendorName: group.storeName,
+   331→          deliveryAddress:
+   332→            deliveryMethod === "STANDARD_DELIVERY"
+   333→              ? `${address.fullName}, ${address.addressLine}, ${address.city}, ${address.state}. Phone: ${address.phone}${address.landmark ? `. Landmark: ${address.landmark}` : ""}`
+   334→              : "PICKUP — buyer collects from vendor's store",
+   335→        });
+   336→      }
+   337→
+   338→      clearCart();
+   339→
+   340→      const orderCount = apiOrders.length || storeCount;
+   341→      const isPickup = deliveryMethod === "PICKUP";
+   342→      kwikToast.success(
+   343→        "Order placed!",
+   344→        isPickup
+   345→          ? `${orderCount} order${orderCount > 1 ? "s" : ""} placed. You can initialize payment now.`
+   346→          : `${orderCount} order${orderCount > 1 ? "s" : ""} sent to the vendor${orderCount > 1 ? "s" : ""} for a delivery quote. You'll be notified once they respond.`,
+   347→      );
+   348→
+   349→      // PICKUP: the quote auto-agrees at checkout, so skip the order detail
+   350→      // page and send the buyer straight to the payment gateway.
+   351→      if (isPickup) {
+   352→        const firstOrderId = apiOrders[0]?.id;
+   353→        if (firstOrderId) {
+   354→          try {
+   355→            const payRes = await api.post<{ authorizationUrl?: string }>(
+   356→              `orders/${firstOrderId}/initialize-payment`,
+   357→            );
+   358→            const authorizationUrl = payRes.data?.authorizationUrl;
+   359→            if (authorizationUrl) {
+   360→              kwikToast.info(
+   361→                "Redirecting to payment",
+   362→                "Complete your payment to confirm the order.",
+   363→              );
+   364→              window.location.href = authorizationUrl;
+   365→              return;
+   366→            }
+   367→          } catch (err) {
+   368→            const message =
+   369→              err instanceof Error ? err.message : "Failed to initialize payment.";
+   370→            kwikToast.error(
+   371→              "Payment initialization failed",
+   372→              `${message} You can retry from the order page.`,
+   373→            );
+   374→          }
+   375→          router.push(`/orders/${firstOrderId}`);
+   376→        } else {
+   377→          router.push("/orders");
+   378→        }
+   379→        return;
+   380→      }
+   381→
+   382→      // STANDARD_DELIVERY: redirect to the first API order's detail page if
+   383→      // available (quote negotiation happens there), otherwise the orders list.
+   384→      if (apiOrders.length > 0 && apiOrders[0]?.id) {
+   385→        router.push(`/orders/${apiOrders[0].id}`);
+   386→      } else {
+   387→        router.push("/orders");
+   388→      }
+   389→    } catch (err) {
+   390→      const message =
+   391→        err instanceof Error
+   392→          ? err.message
+   393→          : "Something went wrong. Please try again.";
+   394→      kwikToast.error("Checkout failed", message);
+   395→    }
+   396→  }
+   397→
+   398→  // ─── Loading state (auth still resolving) ───
+   399→  if (isAuthLoading) {
+   400→    return (
+   401→      <div className="bg-background flex min-h-screen items-center justify-center">
+   402→        <div className="flex flex-col items-center gap-3 text-center">
+   403→          <Loader2 className="text-secondary-500 h-7 w-7 animate-spin" />
+   404→          <p className="text-muted-foreground text-sm">Loading checkout…</p>
+   405→        </div>
+   406→      </div>
+   407→    );
+   408→  }
+   409→
+   410→  // ─── Not authenticated (redirect in flight) ───
+   411→  if (!isAuthenticated) {
+   412→    return (
+   413→      <div className="bg-background flex min-h-screen items-center justify-center">
+   414→        <div className="flex flex-col items-center gap-3 text-center">
+   415→          <Lock className="text-muted-foreground h-7 w-7" />
+   416→          <p className="text-muted-foreground text-sm">
+   417→            Redirecting to sign in…
+   418→          </p>
+   419→        </div>
+   420→      </div>
+   421→    );
+   422→  }
+   423→
+   424→  // ─── Empty cart ───
+   425→  if (items.length === 0) {
+   426→    return (
+   427→      <div className="bg-background min-h-screen">
+   428→        <div className="container mx-auto max-w-2xl px-4 py-20 text-center">
+   429→          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+   430→            <ShoppingBag className="text-muted-foreground h-10 w-10" />
+   431→          </div>
+   432→          <h1 className="mt-6 text-foreground text-2xl font-bold">
+   433→            Your cart is empty
+   434→          </h1>
+   435→          <p className="text-muted-foreground mt-2 text-sm">
+   436→            Add products to your cart before checking out.
+   437→          </p>
+   438→          <button
+   439→            type="button"
+   440→            onClick={() => router.push("/products")}
+   441→            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-secondary-500 px-6 text-sm font-semibold text-white hover:bg-secondary-600"
+   442→          >
+   443→            Browse products
+   444→          </button>
+   445→        </div>
+   446→      </div>
+   447→    );
+   448→  }
+   449→
+   450→  return (
+   451→    <div className="bg-background min-h-screen">
+   452→      {/* ── Hero header ── */}
+   453→      <section className="bg-secondary-500 relative overflow-hidden">
+   454→        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+   455→        <div className="container relative mx-auto max-w-7xl px-4 py-8">
+   456→          <motion.div
+   457→            initial={{ opacity: 0, y: 12 }}
+   458→            animate={{ opacity: 1, y: 0 }}
+   459→            transition={{ duration: 0.35 }}
+   460→          >
+   461→            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80">
+   462→              Secure checkout
+   463→            </p>
+   464→            <h1 className="mt-1 text-2xl font-bold text-white md:text-4xl">
+   465→              Review &amp; place your order
+   466→            </h1>
+   467→            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">
+   468→              No payment now — the vendor will send a delivery quote (for
+   469→              Standard Delivery) and you pay once it&rsquo;s agreed. Your funds
+   470→              stay protected by {KwisCrow.NAME} escrow until you confirm receipt.
+   471→            </p>
+   472→          </motion.div>
+   473→        </div>
+   474→      </section>
+   475→
+   476→      <section className="container mx-auto max-w-7xl px-4 py-8">
+   477→        <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+   478→          {/* ── Left column: Products → Delivery Option ── */}
+   479→          <div className="space-y-6">
+   480→            {/* ── 1. PRODUCTS ── */}
+   481→            <section
+   482→              aria-labelledby="checkout-products-heading"
+   483→              className="rounded-2xl border border-border bg-card p-5 md:p-6"
+   484→            >
+   485→              <div className="mb-4 flex items-center gap-2">
+   486→                <div className="bg-secondary-50 text-secondary-700 flex h-9 w-9 items-center justify-center rounded-lg">
+   487→                  <ShoppingBag className="h-5 w-5" />
+   488→                </div>
+   489→                <div>
+   490→                  <h2
+   491→                    id="checkout-products-heading"
+   492→                    className="text-foreground text-base font-semibold"
+   493→                  >
+   494→                    Your items
+   495→                  </h2>
+   496→                  <p className="text-muted-foreground text-xs">
+   497→                    {items.length} item{items.length > 1 ? "s" : ""} from{" "}
+   498→                    {storeCount} vendor{storeCount > 1 ? "s" : ""} — each
+   499→                    vendor receives a separate order.
+   500→                  </p>
+   501→                </div>
+   502→              </div>
+   503→
+   504→              <div className="space-y-5">
+   505→                {Object.entries(itemsByStore).map(([key, group]) => (
+   506→                  <div
+   507→                    key={key}
+   508→                    className="rounded-xl border border-border bg-background p-4"
+   509→                  >
+   510→                    {/* Vendor sub-header (multi-vendor grouping) */}
+   511→                    <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+   512→                      <Store className="text-secondary-600 h-4 w-4" />
+   513→                      <span className="text-foreground text-sm font-semibold">
+   514→                        {group.storeName}
+   515→                      </span>
+   516→                      <span className="text-muted-foreground ml-auto text-xs">
+   517→                        Subtotal: {formatNGN(group.subtotal)}
+   518→                      </span>
+   519→                    </div>
+   520→
+   521→                    <div className="space-y-3">
+   522→                      {group.items.map((item) => (
+   523→                        <div key={item.id} className="flex gap-3">
+   524→                          <div className="bg-muted h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border">
+   525→                            {/* eslint-disable-next-line @next/next/no-img-element */}
+   526→                            <img
+   527→                              src={item.image}
+   528→                              alt={item.name}
+   529→                              className="h-full w-full object-cover"
+   530→                              loading="lazy"
+   531→                            />
+   532→                          </div>
+   533→
+   534→                          <div className="min-w-0 flex-1">
+   535→                            <p className="text-foreground line-clamp-2 text-sm font-medium">
+   536→                              {item.name}
+   537→                            </p>
+   538→                            {item.variantName || item.variantId ? (
+   539→                              <p className="text-muted-foreground mt-0.5 text-xs">
+   540→                                Variant: {item.variantName ?? item.variantId}
+   541→                              </p>
+   542→                            ) : null}
+   543→                            <p className="text-foreground mt-0.5 text-sm font-semibold">
+   544→                              {formatNGN(item.price)}
+   545→                            </p>
+   546→                            {item.comparePrice ? (
+   547→                              <p className="text-muted-foreground text-xs line-through">
+   548→                                {formatNGN(item.comparePrice)}
+   549→                              </p>
+   550→                            ) : null}
+   551→                          </div>
+   552→
+   553→                          <div className="flex flex-col items-end gap-2">
+   554→                            {/* Quantity stepper */}
+   555→                            <div className="flex items-center rounded-lg border border-border">
+   556→                              <button
+   557→                                type="button"
+   558→                                aria-label="Decrease quantity"
+   559→                                onClick={() =>
+   560→                                  updateQuantity(
+   561→                                    item.productId,
+   562→                                    item.quantity - 1,
+   563→                                    item.storeSlug,
+   564→                                  )
+   565→                                }
+   566→                                className="text-muted-foreground hover:text-foreground flex h-8 w-8 items-center justify-center"
+   567→                              >
+   568→                                <Minus className="h-3.5 w-3.5" />
+   569→                              </button>
+   570→                              <span className="text-foreground w-8 text-center text-sm font-medium">
+   571→                                {item.quantity}
+   572→                              </span>
+   573→                              <button
+   574→                                type="button"
+   575→                                aria-label="Increase quantity"
+   576→                                onClick={() =>
+   577→                                  updateQuantity(
+   578→                                    item.productId,
+   579→                                    item.quantity + 1,
+   580→                                    item.storeSlug,
+   581→                                  )
+   582→                                }
+   583→                                className="text-muted-foreground hover:text-foreground flex h-8 w-8 items-center justify-center"
+   584→                              >
+   585→                                <Plus className="h-3.5 w-3.5" />
+   586→                              </button>
+   587→                            </div>
+   588→                            <button
+   589→                              type="button"
+   590→                              aria-label={`Remove ${item.name}`}
+   591→                              onClick={() =>
+   592→                                removeItem(item.productId, item.storeSlug)
+   593→                              }
+   594→                              className="text-muted-foreground hover:text-danger"
+   595→                            >
+   596→                              <Trash2 className="h-4 w-4" />
+   597→                            </button>
+   598→                            {/* Line subtotal */}
+   599→                            <p className="text-foreground text-xs font-semibold">
+   600→                              {formatNGN(item.price * item.quantity)}
+   601→                            </p>
+   602→                          </div>
+   603→                        </div>
+   604→                      ))}
+   605→                    </div>
+   606→                  </div>
+   607→                ))}
+   608→              </div>
+   609→            </section>
+   610→
+   611→            {/* ── 2. DELIVERY OPTION (Pickup / Standard Delivery ONLY) ── */}
+   612→            <section
+   613→              aria-labelledby="checkout-delivery-heading"
+   614→              className="rounded-2xl border border-border bg-card p-5 md:p-6"
+   615→            >
+   616→              <div className="mb-4 flex items-center gap-2">
+   617→                <div className="bg-secondary-50 text-secondary-700 flex h-9 w-9 items-center justify-center rounded-lg">
+   618→                  <Truck className="h-5 w-5" />
+   619→                </div>
+   620→                <div>
+   621→                  <h2
+   622→                    id="checkout-delivery-heading"
+   623→                    className="text-foreground text-base font-semibold"
+   624→                  >
+   625→                    Delivery option
+   626→                  </h2>
+   627→                  <p className="text-muted-foreground text-xs">
+   628→                    Choose how you want to receive your order. The vendor
+   629→                    confirms the final delivery fee during quotation.
+   630→                  </p>
+   631→                </div>
+   632→              </div>
+   633→
+   634→              <div
+   635→                role="radiogroup"
+   636→                aria-label="Delivery method"
+   637→                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+   638→              >
+   639→                {DELIVERY_OPTIONS.map((opt) => {
+   640→                  const selected = deliveryMethod === opt.method;
+   641→                  const Icon = opt.Icon;
+   642→                  return (
+   643→                    <button
+   644→                      key={opt.method}
+   645→                      type="button"
+   646→                      role="radio"
+   647→                      aria-checked={selected}
+   648→                      onClick={() => setDeliveryMethod(opt.method)}
+   649→                      className={cn(
+   650→                        "relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500/40",
+   651→                        selected
+   652→                          ? "border-secondary-500 bg-secondary-50 ring-1 ring-secondary-500/30"
+   653→                          : "border-border bg-background hover:border-secondary-500/40",
+   654→                      )}
+   655→                    >
+   656→                      <div className="flex w-full items-center justify-between">
+   657→                        <div
+   658→                          className={cn(
+   659→                            "flex h-9 w-9 items-center justify-center rounded-lg",
+   660→                            selected
+   661→                              ? "bg-secondary-500/15 text-secondary-700"
+   662→                              : "bg-muted text-muted-foreground",
+   663→                          )}
+   664→                        >
+   665→                          <Icon className="h-5 w-5" />
+   666→                        </div>
+   667→                        {selected ? (
+   668→                          <span className="bg-secondary-500 flex h-5 w-5 items-center justify-center rounded-full text-white">
+   669→                            <Check className="h-3 w-3" strokeWidth={3} />
+   670→                          </span>
+   671→                        ) : null}
+   672→                      </div>
+   673→                      <div>
+   674→                        <p className="text-foreground text-sm font-semibold">
+   675→                          {opt.label}
+   676→                        </p>
+   677→                        <p className="text-muted-foreground text-xs">
+   678→                          {opt.description}
+   679→                        </p>
+   680→                      </div>
+   681→                      <div className="mt-1 w-full border-t border-border pt-2 text-xs">
+   682→                        <p className="flex items-center justify-between">
+   683→                          <span className="text-muted-foreground">
+   684→                            Delivery fee
+   685→                          </span>
+   686→                          <span className="text-foreground font-semibold">
+   687→                            {opt.feeLabel}
+   688→                          </span>
+   689→                        </p>
+   690→                      </div>
+   691→                    </button>
+   692→                  );
+   693→                })}
+   694→              </div>
+   695→
+   696→              {/* Pickup → no address needed. Standard Delivery → address CTA. */}
+   697→              {deliveryMethod === "PICKUP" ? (
+   698→                <div className="mt-4 flex items-start gap-2 rounded-xl bg-muted/60 p-3 text-xs">
+   699→                  <Store className="text-secondary-600 mt-0.5 h-4 w-4 shrink-0" />
+   700→                  <p className="text-muted-foreground">
+   701→                    <span className="text-foreground font-semibold">
+   702→                      Pickup selected.
+   703→                    </span>{" "}
+   704→                    No delivery address needed. The vendor will share pickup
+   705→                    instructions once they accept your order. You can
+   706→                    initialize payment immediately after placing the order.
+   707→                  </p>
+   708→                </div>
+   709→              ) : (
+   710→                <div className="mt-4 space-y-3">
+   711→                  <button
+   712→                    type="button"
+   713→                    onClick={openAddressModal}
+   714→                    className={cn(
+   715→                      "flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition",
+   716→                      addressConfirmed
+   717→                        ? "border-secondary-500 bg-secondary-50"
+   718→                        : "border-border bg-background hover:border-secondary-500/40",
+   719→                    )}
+   720→                  >
+   721→                    <span className="flex items-center gap-3">
+   722→                      <span
+   723→                        className={cn(
+   724→                          "flex h-9 w-9 items-center justify-center rounded-lg",
+   725→                          addressConfirmed
+   726→                            ? "bg-secondary-500/15 text-secondary-700"
+   727→                            : "bg-muted text-muted-foreground",
+   728→                        )}
+   729→                      >
+   730→                        <MapPin className="h-5 w-5" />
+   731→                      </span>
+   732→                      <span>
+   733→                        <span className="text-foreground block text-sm font-semibold">
+   734→                          {addressConfirmed
+   735→                            ? "Delivery address confirmed"
+   736→                            : "Confirm delivery address"}
+   737→                        </span>
+   738→                        <span className="text-muted-foreground block text-xs">
+   739→                          {addressConfirmed
+   740→                            ? `${address.fullName} · ${address.addressLine}, ${address.city}, ${address.state}`
+   741→                            : "Add the address where the vendor should ship your order."}
+   742→                        </span>
+   743→                      </span>
+   744→                    </span>
+   745→                    <ChevronRight className="text-muted-foreground h-4 w-4" />
+   746→                  </button>
+   747→                  {!addressConfirmed && (
+   748→                    <p className="flex items-start gap-1.5 text-xs text-amber-600">
+   749→                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+   750→                      Standard Delivery requires a confirmed shipping address
+   751→                      before you can place your order.
+   752→                    </p>
+   753→                  )}
+   754→                </div>
+   755→              )}
+   756→            </section>
+   757→          </div>
+   758→
+   759→          {/* ── Right column: Order summary + Place order ── */}
+   760→          <aside className="lg:sticky lg:top-4 lg:h-fit">
+   761→            <section
+   762→              aria-labelledby="checkout-summary-heading"
+   763→              className="rounded-2xl border border-border bg-card p-5 md:p-6"
+   764→            >
+   765→              <h2
+   766→                id="checkout-summary-heading"
+   767→                className="text-foreground mb-4 text-base font-semibold"
+   768→              >
+   769→                Order summary
+   770→              </h2>
+   771→
+   772→              <dl className="space-y-2.5 text-sm">
+   773→                {/* Subtotal */}
+   774→                <div className="flex justify-between">
+   775→                  <dt className="text-muted-foreground">Subtotal</dt>
+   776→                  <dd className="text-foreground font-medium">
+   777→                    {formatNGN(subtotal)}
+   778→                  </dd>
+   779→                </div>
+   780→
+   781→                {/* Delivery fee */}
+   782→                <div className="flex items-start justify-between">
+   783→                  <dt className="text-muted-foreground">
+   784→                    Delivery fee
+   785→                    {deliveryMethod === "STANDARD_DELIVERY" ? (
+   786→                      <span className="block text-xs text-muted-foreground/80">
+   787→                        Vendor will quote
+   788→                      </span>
+   789→                    ) : null}
+   790→                  </dt>
+   791→                  <dd className="text-foreground font-medium">
+   792→                    {deliveryMethod === "PICKUP"
+   793→                      ? "₦0"
+   794→                      : "To be quoted by vendor"}
+   795→                  </dd>
+   796→                </div>
+   797→
+   798→                {/* Processing fee — backend computes the real amount. */}
+   799→                <div className="flex items-start justify-between">
+   800→                  <dt className="text-muted-foreground">
+   801→                    Processing fee
+   802→                    <span className="block text-xs text-muted-foreground/80">
+   803→                      1% (calculated at checkout)
+   804→                    </span>
+   805→                  </dt>
+   806→                  <dd className="text-foreground font-medium">
+   807→                    {deliveryMethod === "PICKUP"
+   808→                      ? `≈ ${formatNGN(estimatedProcessingFee)}`
+   809→                      : "Calculated at checkout"}
+   810→                  </dd>
+   811→                </div>
+   812→              </dl>
+   813→
+   814→              <div className="my-4 border-t border-border" />
+   815→
+   816→              {/* Total */}
+   817→              <div className="flex items-baseline justify-between gap-3">
+   818→                <span className="text-foreground text-sm font-medium">
+   819→                  Total
+   820→                </span>
+   821→                <span className="text-foreground text-right text-base font-bold">
+   822→                  {deliveryMethod === "PICKUP" ? (
+   823→                    <>
+   824→                      ≈ {formatNGN(subtotal + estimatedProcessingFee)}
+   825→                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+   826→                        Subtotal + 1% processing fee (final amount confirmed by
+   827→                        backend)
+   828→                      </span>
+   829→                    </>
+   830→                  ) : (
+   831→                    <>
+   832→                      Subtotal + processing fee + delivery fee (TBD)
+   833→                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+   834→                        Final total shown once the vendor&rsquo;s delivery quote
+   835→                        is agreed.
+   836→                      </span>
+   837→                    </>
+   838→                  )}
+   839→                </span>
+   840→              </div>
+   841→
+   842→              <button
+   843→                type="button"
+   844→                onClick={handlePlaceOrder}
+   845→                disabled={checkout.isPending}
+   846→                className="bg-secondary-500 hover:bg-secondary-600 mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
+   847→              >
+   848→                {checkout.isPending ? (
+   849→                  <>
+   850→                    <Loader2 className="h-4 w-4 animate-spin" /> Placing order…
+   851→                  </>
+   852→                ) : (
+   853→                  <>
+   854→                    Place order <ChevronRight className="h-4 w-4" />
+   855→                  </>
+   856→                )}
+   857→              </button>
+   858→
+   859→              <p className="text-muted-foreground mt-3 text-center text-xs">
+   860→                {deliveryMethod === "PICKUP"
+   861→                  ? "You can initialize payment immediately after placing the order."
+   862→                  : "The vendor will send a delivery quote after you place the order. You pay once the quote is agreed."}
+   863→              </p>
+   864→
+   865→              {/* KwisCrow protection */}
+   866→              <div className="bg-secondary-50 mt-4 flex items-start gap-2 rounded-xl p-3">
+   867→                <ShieldCheck className="text-secondary-600 mt-0.5 h-5 w-5 shrink-0" />
+   868→                <div className="text-muted-foreground text-xs leading-5">
+   869→                  <span className="text-foreground font-semibold">
+   870→                    {KwisCrow.NAME} Buyer Protection.
+   871→                  </span>{" "}
+   872→                  Your payment stays in escrow until you confirm receipt (or
+   873→                  the {KwisCrow.DISPUTE_WINDOW_HOURS}-hour dispute window
+   874→                  closes).
+   875→                </div>
+   876→              </div>
+   877→            </section>
+   878→          </aside>
+   879→        </div>
+   880→      </section>
+   881→
+   882→      <AddressConfirmModal
+   883→        isOpen={addressModalOpen}
+   884→        onClose={() => setAddressModalOpen(false)}
+   885→        address={address}
+   886→        onUpdateAddress={setAddress}
+   887→        errors={errors}
+   888→        profileLoading={profileLoading}
+   889→        onConfirm={saveAddressFromModal}
+   890→        onNavigateToProfile={() => router.push("/profile")}
+   891→      />
+   892→    </div>
+   893→  );
+   894→}
+   895→

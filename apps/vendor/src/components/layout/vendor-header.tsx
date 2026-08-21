@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu, Bell, User, Settings, HelpCircle, LogOut, ChevronDown, Search } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAuthStore } from "@kwikseller/utils";
+import { useAuthStore } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   AppButton,
   SearchAutoSuggest,
   type SearchAutoSuggestItem,
-} from "@kwikseller/ui";
-import { vendorCommerceApi } from "@kwikseller/api-client";
+} from "@/lib/ui";
+import { vendorCommerceApi } from "@/lib/api-client";
 import { useVendorPageContext } from "@/components/vendor-page-context";
 
 export interface VendorHeaderProps {

@@ -18,7 +18,7 @@ set -u
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="/home/z/my-project"
-NEXT_BIN="$ROOT_DIR/node_modules/.bin/next"
+NEXT_BIN="$APP_DIR/node_modules/.bin/next"
 LOG_FILE="$ROOT_DIR/dev.log"
 
 # Cap the V8 heap so the process stays small enough to coexist with the

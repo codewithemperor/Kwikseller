@@ -19,10 +19,10 @@ import {
 } from "@/lib/pool";
 import { formatCurrency, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorPoolStore } from "@/stores/vendor-pool-store";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { VendorPoolOffer } from "@kwikseller/types";
-import { AppButton, EmptyState, FieldInput, SanitizedHTML, Skeleton, SkeletonText, VendorPageHeader } from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { VendorPoolOffer } from "@/lib/types";
+import { AppButton, EmptyState, FieldInput, SanitizedHTML, Skeleton, SkeletonText, VendorPageHeader } from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
 
 function apiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;

@@ -17,9 +17,9 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { AppButton, AppModal, FieldSelect, Skeleton, VendorPageHeader } from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
-import { usersApi, uploadApi } from "@kwikseller/api-client";
+import { AppButton, AppModal, FieldSelect, Skeleton, VendorPageHeader } from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
+import { usersApi, uploadApi } from "@/lib/api-client";
 import { formatDate } from "@/lib/vendor-format";
 
 // ==================== Types ====================

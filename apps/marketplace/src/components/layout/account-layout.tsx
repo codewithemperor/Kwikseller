@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useSyncExternalStore, useState } from "r
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   BarChart3,
@@ -20,21 +19,14 @@ import {
   Tag,
   User as UserIcon,
   Wallet,
-  X,
 } from "lucide-react";
-import { kwikToast, useAuth } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
 import { useCartStore, useWishlistStore } from "@/stores";
 import { cn } from "@/lib/utils";
+import { AccountNavDrawer, type AccountNavLink } from "@/components/drawers/account-nav-drawer";
 
 /* ─── Account navigation config ─────────────────────────────── */
-
-type AccountNavLink = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  /** Exact pathname match for active-state highlighting. */
-  match: (pathname: string) => boolean;
-};
 
 const ACCOUNT_NAV_LINKS: AccountNavLink[] = [
   { href: "/profile", label: "Profile", icon: UserIcon, match: (p) => p === "/profile" },
@@ -66,16 +58,18 @@ function NavLinks({
   pathname,
   cartCount,
   wishlistCount,
+  links,
   onNavigate,
 }: {
   pathname: string;
   cartCount: number;
   wishlistCount: number;
+  links: AccountNavLink[];
   onNavigate?: () => void;
 }) {
   return (
     <nav aria-label="Account" className="flex flex-col gap-1">
-      {ACCOUNT_NAV_LINKS.map((link) => {
+      {links.map((link) => {
         const Icon = link.icon;
         const isActive = link.match(pathname);
         const badge =
@@ -191,6 +185,7 @@ export function AccountLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { logout } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const hideTopBar = pathname === "/orders" || pathname.startsWith("/orders/");
 
   const cartCount = useCartStore((s) => s.items.length);
   const wishlistCount = useWishlistStore((s) => s.itemCount);
@@ -228,53 +223,57 @@ export function AccountLayout({ children }: { children: React.ReactNode }) {
   }, [logout, router]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-kwik-bg-page" data-account-layout>
+    <div className="flex min-h-screen flex-col bg-[#f6f7f8]" data-account-layout>
       {/* ─── Minimal top bar ─── */}
-      <header className="sticky top-0 z-40 border-b border-kwik-border bg-background/95 backdrop-blur-md">
-        <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            {/* Mobile hamburger — toggles the drawer */}
-            <button
-              type="button"
-              onClick={() => setIsDrawerOpen(true)}
-              aria-label="Open account menu"
-              aria-expanded={isDrawerOpen}
-              aria-controls="account-drawer"
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-kwik-muted transition-colors hover:bg-kwik-bg-surface hover:text-kwik-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange lg:hidden"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
+      {!hideTopBar ? (
+        <header className="sticky top-0 z-40 border-b border-kwik-border bg-background/95 backdrop-blur-md">
+          <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2">
+              {/* Mobile hamburger — toggles the drawer */}
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(true)}
+                aria-label="Open account menu"
+                aria-expanded={isDrawerOpen}
+                aria-controls="account-drawer"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-kwik-muted transition-colors hover:bg-kwik-bg-surface hover:text-kwik-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange lg:hidden"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
 
-            {/* Back-to-shop link (logo + name) */}
-            <Link
-              href="/"
-              className="flex items-center gap-2 rounded-lg py-1 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-              aria-label="Back to Kwikseller shop"
-            >
-              <Image
-                src="/icon.png"
-                alt="Kwikseller logo"
-                width={28}
-                height={28}
-                className="rounded-md"
-              />
-              <span className="text-lg font-bold tracking-tight text-kwik-dark">
-                Kwikseller
-              </span>
-            </Link>
-          </div>
+              <Link
+                href="/"
+                className="flex items-center gap-2 rounded-lg py-1 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                aria-label="Back to Kwikseller shop"
+              >
+                <Image
+                  src="/icon.png"
+                  alt="Kwikseller logo"
+                  width={28}
+                  height={28}
+                  className="rounded-md"
+                />
+                <span className="text-lg font-bold tracking-tight text-kwik-dark">
+                  Kwikseller
+                </span>
+              </Link>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <UserChip />
+            <div className="flex items-center gap-2">
+              <UserChip />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : null}
 
       {/* ─── Body: sidebar (desktop) + main content ─── */}
       <div className="flex flex-1">
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 lg:block">
-          <div className="sticky top-16 flex max-h-[calc(100vh-4rem)] flex-col overflow-y-auto border-r border-kwik-border bg-background p-4">
+          <div className={cn(
+            "flex max-h-[calc(100vh-4rem)] flex-col overflow-y-auto border-r border-[#e9eaec] bg-white p-4",
+            hideTopBar ? "sticky top-0 max-h-screen" : "sticky top-16",
+          )}>
             <p className="px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-kwik-gray-light">
               Account
             </p>
@@ -282,6 +281,7 @@ export function AccountLayout({ children }: { children: React.ReactNode }) {
               pathname={pathname}
               cartCount={cartCount}
               wishlistCount={wishlistCount}
+              links={ACCOUNT_NAV_LINKS}
             />
 
             <div className="my-4 h-px bg-kwik-border-light" />
@@ -306,106 +306,22 @@ export function AccountLayout({ children }: { children: React.ReactNode }) {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <main className="min-w-0 flex-1 p-0">
           {children}
         </main>
       </div>
 
       {/* ─── Mobile drawer ─── */}
-      <AnimatePresence>
-        {isDrawerOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] lg:hidden"
-              onClick={closeDrawer}
-              aria-hidden="true"
-            />
-            <motion.div
-              id="account-drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Account navigation"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 320 }}
-              className="fixed bottom-0 left-0 top-0 z-50 flex w-[280px] max-w-[85vw] flex-col overflow-y-auto border-r border-kwik-border bg-background shadow-2xl lg:hidden"
-            >
-              {/* Drawer header */}
-              <div className="flex h-16 items-center justify-between border-b border-kwik-border px-4">
-                <Link
-                  href="/"
-                  onClick={closeDrawer}
-                  className="flex items-center gap-2"
-                  aria-label="Back to Kwikseller shop"
-                >
-                  <Image
-                    src="/icon.png"
-                    alt="Kwikseller logo"
-                    width={24}
-                    height={24}
-                    className="rounded-md"
-                  />
-                  <span className="text-base font-bold text-kwik-dark">Kwikseller</span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={closeDrawer}
-                  aria-label="Close account menu"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl text-kwik-muted transition-colors hover:bg-kwik-bg-surface hover:text-kwik-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Drawer user chip */}
-              <div className="border-b border-kwik-border px-4 py-4">
-                <UserChip clickable={false} />
-              </div>
-
-              {/* Drawer nav */}
-              <div className="flex-1 p-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-kwik-gray-light">
-                  Account
-                </p>
-                <NavLinks
-                  pathname={pathname}
-                  cartCount={cartCount}
-                  wishlistCount={wishlistCount}
-                  onNavigate={closeDrawer}
-                />
-
-                <div className="my-4 h-px bg-kwik-border-light" />
-
-                <Link
-                  href="/"
-                  onClick={closeDrawer}
-                  className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-kwik-muted transition-colors hover:bg-kwik-bg-surface hover:text-kwik-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-orange"
-                >
-                  <ArrowLeft className="h-5 w-5 text-kwik-gray-light" />
-                  <span>Back to Shop</span>
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeDrawer();
-                    handleLogout();
-                  }}
-                  className="mt-1 flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-kwik-red transition-colors hover:bg-kwik-red/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kwik-red"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <AccountNavDrawer
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        onLogout={handleLogout}
+        pathname={pathname}
+        cartCount={cartCount}
+        wishlistCount={wishlistCount}
+        links={ACCOUNT_NAV_LINKS}
+        userChip={<UserChip clickable={false} />}
+      />
     </div>
   );
 }

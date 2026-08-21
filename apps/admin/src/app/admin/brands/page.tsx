@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { brandsApi } from "@/lib/api";
 import type { Brand } from "@/lib/api";
-import { formatRelativeTime } from "@kwikseller/utils";
+import { formatRelativeTime } from "@/lib/utils";
 
 export default function BrandsPage() {
   const router = useRouter();
@@ -211,3 +211,4 @@ export default function BrandsPage() {
     </div>
   );
 }
+

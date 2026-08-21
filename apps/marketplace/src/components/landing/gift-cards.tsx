@@ -13,7 +13,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Card, Chip, Button } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Gift Card Data ──────────────────────────────────────────
 

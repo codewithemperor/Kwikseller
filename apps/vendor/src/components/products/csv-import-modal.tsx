@@ -10,9 +10,9 @@ import {
   DataTable,
   ProgressBar,
   type ColumnDef,
-} from "@kwikseller/ui";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { vendorCommerceApi } from "@/lib/api-client";
+import { kwikToast } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 interface CsvRow {

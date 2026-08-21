@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Chip, Separator } from "@heroui/react";
 import { motion, useInView } from "framer-motion";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import { SectionDivider } from "@/components/landing/section-divider";
 import { SocialProof } from "@/components/landing/social-proof";
 import { AfricaCoverageMap } from "@/components/landing/africa-coverage-map";

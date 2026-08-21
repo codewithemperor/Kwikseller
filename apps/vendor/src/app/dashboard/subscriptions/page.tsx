@@ -7,10 +7,10 @@ import {
   Info,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { AppButton, AppModal, FieldSelect, VendorPageHeader } from "@kwikseller/ui";
+import { AppButton, AppModal, FieldSelect, VendorPageHeader } from "@/lib/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
-import { subscriptionsApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { subscriptionsApi } from "@/lib/api-client";
+import { kwikToast } from "@/lib/utils";
 
 // ==================== Plan data ====================
 

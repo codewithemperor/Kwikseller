@@ -14,7 +14,7 @@ import {
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
-import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
+import { HeroUIProviderWrapper, AuthProvider } from "@/lib/utils";
 
 const fontHeading = Sora({
   subsets: ["latin"],

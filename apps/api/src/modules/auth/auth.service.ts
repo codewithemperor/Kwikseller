@@ -14,9 +14,9 @@ import { randomUUID } from "node:crypto";
 import * as bcrypt from "bcryptjs";
 
 import { PrismaService } from "../../database/prisma.service";
-import { EmailService } from "../../common/services/email.service";
 import { CacheService } from "../../common/services/cache.service";
 import { AuditService } from "../../common/services/audit.service";
+import { JobQueueService } from "../../common/services/job-queue.service";
 
 import {
   RegisterDto,
@@ -96,7 +96,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-    private readonly emailService: EmailService,
+    private readonly jobQueueService: JobQueueService,
     private readonly cacheService: CacheService,
     private readonly auditService: AuditService,
   ) {}
@@ -114,6 +114,20 @@ export class AuthService {
     role: string,
   ): string {
     return `${prefix}:${email.toLowerCase()}:${role}`;
+  }
+
+  private async queueEmail(
+    to: string | string[],
+    subject: string,
+    template: string,
+    variables: Record<string, unknown>,
+  ) {
+    await this.jobQueueService.enqueueEmail({
+      to,
+      subject,
+      template,
+      variables,
+    });
   }
 
   private getLoginRoles(role: AuthUserRole): PrismaUserRole[] {
@@ -332,7 +346,7 @@ export class AuthService {
     );
 
     // Send verification email with OTP
-    await this.emailService.sendEmail(
+    await this.queueEmail(
       user.email,
       "Verify Your Email - KWIKSELLER",
       "email-verify",
@@ -399,7 +413,7 @@ export class AuthService {
       );
 
       // Send verification email with OTP
-      await this.emailService.sendEmail(
+      await this.queueEmail(
         user.email,
         "Verify Your Email - KWIKSELLER",
         "email-verify",
@@ -621,7 +635,7 @@ export class AuthService {
     );
 
     // Send reset email with OTP
-    await this.emailService.sendEmail(
+    await this.queueEmail(
       user.email,
       "Reset Your Password - KWIKSELLER",
       "password-reset",
@@ -792,7 +806,7 @@ export class AuthService {
     );
 
     // Send verification email with OTP
-    await this.emailService.sendEmail(
+    await this.queueEmail(
       user.email,
       "Verify Your Email - KWIKSELLER",
       "email-verify",

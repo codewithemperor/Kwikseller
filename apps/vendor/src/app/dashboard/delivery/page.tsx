@@ -6,7 +6,7 @@ import {
   VendorSoftPanel,
 } from "@/components/dashboard/vendor-dashboard-ui";
 import { unwrapApiData } from "@/lib/vendor-format";
-import { vendorCommerceApi } from "@kwikseller/api-client";
+import { vendorCommerceApi } from "@/lib/api-client";
 import {
   AppButton,
   AppSwitch,
@@ -16,8 +16,8 @@ import {
   SkeletonText,
   VendorMetricCard,
   VendorPageHeader,
-} from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 type DeliverySettings = {

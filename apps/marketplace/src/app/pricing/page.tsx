@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Chip, Separator } from "@heroui/react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   PRICING_COMPARISON_FEATURES as comparisonFeatures,
   PRICING_FAQS as faqs,
@@ -410,7 +410,7 @@ export default function PricingPage() {
                         </div>
 
                         <h3 className="text-xl font-bold">{plan.name}</h3>
-                        <p className="text-sm text-default-500 mt-1.5 max-w-xs">
+                        <p className="text-sm text-default-500 mt-1.5 max-w-sm">
                           {plan.description}
                         </p>
 

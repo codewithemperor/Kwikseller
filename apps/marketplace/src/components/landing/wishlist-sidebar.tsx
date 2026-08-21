@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Heart, Trash2, ShoppingBag, Star, ArrowRight } from 'lucide-react'
 import { Button, Chip } from '@heroui/react'
 import { useWishlistStore } from '@/stores'
-import { kwikToast } from '@kwikseller/utils'
+import { kwikToast } from '@/lib/toast'
 
 function formatCurrency(price: number): string {
   return new Intl.NumberFormat('en-NG', {

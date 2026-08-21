@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { dealsApi } from "@/lib/api";
 import type { Deal } from "@/lib/api";
-import { formatRelativeTime, formatCurrency } from "@kwikseller/utils";
+import { formatRelativeTime, formatCurrency } from "@/lib/utils";
 
 export default function DealsPage() {
   const router = useRouter();
@@ -60,3 +60,4 @@ export default function DealsPage() {
     </div>
   );
 }
+

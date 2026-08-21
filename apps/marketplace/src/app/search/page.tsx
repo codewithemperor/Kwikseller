@@ -376,7 +376,7 @@ function SearchPageContent() {
         ) : (
           <div className="flex gap-6">
             {/* Desktop filter sidebar */}
-            <aside className="hidden lg:block w-64 shrink-0">
+            <aside className="hidden lg:block w-56 shrink-0">
               <div className="sticky top-[calc(var(--header-height)+1rem)] rounded-2xl border border-kwik-border bg-background p-4 dark:bg-white/[0.02] dark:border-white/10">
                 <SearchFiltersPanel
                   state={urlFilters}
@@ -431,7 +431,7 @@ function SearchPageContent() {
               ) : (
                 <>
                   {/* Product grid */}
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
                     {products.map((product) => (
                       <MarketplaceProductCard
                         key={product.id}
@@ -687,7 +687,7 @@ function NoQueryState({
             <TrendingUp className="h-5 w-5 text-kwik-orange" />
             <h2 className="text-base font-semibold text-kwik-dark dark:text-white">Popular right now</h2>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-5">
             {popularSearches.map((product) => (
               <MarketplaceProductCard
                 key={product.id}

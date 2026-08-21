@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePushNotifications, useAuthStore } from "@kwikseller/utils";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useAuthStore } from "@/stores/auth-store";
 
 /**
  * PushNotificationManager — registers the marketplace service worker and

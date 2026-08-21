@@ -23,10 +23,10 @@ import {
   Building2,
   Eye,
 } from "lucide-react";
-import { AppButton, FieldSelect, Skeleton, VendorPageHeader } from "@kwikseller/ui";
+import { AppButton, FieldSelect, Skeleton, VendorPageHeader } from "@/lib/ui";
 import { motion } from "framer-motion";
-import { kwikToast } from "@kwikseller/utils";
-import { storeApi, uploadApi } from "@kwikseller/api-client";
+import { kwikToast } from "@/lib/utils";
+import { storeApi, uploadApi } from "@/lib/api-client";
 
 // ==================== Constants ====================
 

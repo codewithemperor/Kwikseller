@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, X, Check } from "lucide-react";
 import { useReviewStore } from "@/stores/review-store";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 /**

@@ -202,7 +202,7 @@ function ProductsBrowseContent() {
       {/* ── Page header ── */}
       <section className="kwik-gradient relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
-        <div className="container mx-auto max-w-7xl px-4 py-10 md:py-14 relative">
+        <div className="container mx-auto max-w-7xl px-4 py-6 md:py-8 relative">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -320,7 +320,7 @@ function ProductsBrowseContent() {
       <section className="container mx-auto max-w-7xl px-4 py-6">
         <div className="flex gap-6">
           {/* Sidebar filters (desktop) */}
-          <aside className="hidden w-64 shrink-0 md:block">
+          <aside className="hidden w-56 shrink-0 lg:block">
             <FilterPanel
               category={category}
               setCategory={updateFilter(setCategory)}
@@ -510,7 +510,7 @@ function ProductsBrowseContent() {
                 }
               />
             ) : view === "grid" ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {filtered.map((product, idx) => (
                   <motion.div
                     key={product.id}
@@ -530,7 +530,7 @@ function ProductsBrowseContent() {
               // variants) in a denser 3-column grid so the grid/list toggle
               // still changes the browsing density without inventing a
               // second card component.
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filtered.map((product, idx) => (
                   <motion.div
                     key={product.id}

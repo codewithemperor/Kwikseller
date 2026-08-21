@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Prefers‑reduced‑motion hook (same pattern as hero-background.tsx) ────
 

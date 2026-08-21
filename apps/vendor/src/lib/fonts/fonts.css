@@ -1,0 +1,38 @@
+/* KWIKSELLER - Shared Fonts CSS */
+/* Import this in your global CSS if not using Next.js font optimization */
+
+/* Fallback font stack when CSS variables are not defined */
+:root {
+  --font-heading: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-text: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+}
+
+/* Font smoothing */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Base font family for body */
+body {
+  font-family: var(--font-text);
+}
+
+/* Heading font family */
+h1, h2, h3, h4, h5, h6,
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+/* Monospace font family */
+code, pre, kbd, samp,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Text/body font family */
+.font-text {
+  font-family: var(--font-text);
+}

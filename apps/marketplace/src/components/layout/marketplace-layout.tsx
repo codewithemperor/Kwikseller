@@ -17,8 +17,9 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@heroui/react";
-import { OfflineBanner } from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
+import { OfflineBanner } from "@/components/ui/offline-banner";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/layout/notification-bell";
 // Heavy layout components are lazy-loaded (ssr:false) to reduce the

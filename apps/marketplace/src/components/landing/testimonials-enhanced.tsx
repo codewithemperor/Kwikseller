@@ -11,7 +11,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { Button, Card, Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   TESTIMONIALS_OVERALL_RATING as overallRating,
   TESTIMONIALS_RATING_BREAKDOWN as ratingBreakdown,

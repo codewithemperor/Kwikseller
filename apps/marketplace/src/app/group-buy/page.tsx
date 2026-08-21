@@ -3,8 +3,8 @@
 import Link from "next/link";
 import React from "react";
 import { ArrowRight, Bell, Clock3, PackageOpen, Users } from "lucide-react";
-import { marketplaceApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { marketplaceApi } from "@/services/api-client";
+import { kwikToast } from "@/lib/toast";
 
 type PoolCampaign = {
   id: string;
@@ -88,7 +88,7 @@ export default function GroupBuyPage() {
         </div>
       </section>
 
-      <main className="container mx-auto px-4 py-10">
+      <main className="container mx-auto max-w-7xl px-4 py-10">
         {isLoading ? (
           <div className="grid gap-5 md:grid-cols-3">
             {Array.from({ length: 6 }, (_, index) => (
@@ -102,7 +102,7 @@ export default function GroupBuyPage() {
             <p className="mt-2 text-sm leading-6 text-kwik-muted dark:text-white/60">{error}</p>
           </div>
         ) : campaigns.length ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {campaigns.map((campaign) => {
               const progress =
                 campaign.targetQuantity > 0

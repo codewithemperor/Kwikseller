@@ -1,4 +1,5 @@
 import {
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -30,6 +31,24 @@ export class SubmitQuoteDto {
   @IsString()
   @MaxLength(1000)
   note?: string;
+
+  @ApiProperty({
+    description: 'Minimum delivery days for the quoted delivery range.',
+    example: 2,
+    minimum: 1,
+  })
+  @IsInt()
+  @Min(1)
+  minDeliveryDays: number;
+
+  @ApiProperty({
+    description: 'Maximum delivery days for the quoted delivery range.',
+    example: 4,
+    minimum: 1,
+  })
+  @IsInt()
+  @Min(1)
+  maxDeliveryDays: number;
 }
 
 /**
@@ -53,6 +72,24 @@ export class ReviseQuoteDto {
   @IsString()
   @MaxLength(1000)
   note?: string;
+
+  @ApiProperty({
+    description: 'Revised minimum delivery days for the quoted delivery range.',
+    example: 2,
+    minimum: 1,
+  })
+  @IsInt()
+  @Min(1)
+  minDeliveryDays: number;
+
+  @ApiProperty({
+    description: 'Revised maximum delivery days for the quoted delivery range.',
+    example: 3,
+    minimum: 1,
+  })
+  @IsInt()
+  @Min(1)
+  maxDeliveryDays: number;
 }
 
 /**

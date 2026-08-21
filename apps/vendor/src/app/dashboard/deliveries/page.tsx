@@ -19,9 +19,9 @@ import {
   ChevronRight,
   Eye,
 } from "lucide-react";
-import { AppButton, Skeleton, FieldSelect, VendorPageHeader, VendorStatusBadge } from "@kwikseller/ui";
+import { AppButton, Skeleton, FieldSelect, VendorPageHeader, VendorStatusBadge } from "@/lib/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 // ==================== Types ====================
@@ -447,7 +447,7 @@ export default function DeliveriesPage() {
       setError(null);
       try {
         // Try deliveriesApi first (may not exist yet)
-        const apiClient = await import("@kwikseller/api-client");
+        const apiClient = await import("@/lib/api-client");
         const deliveriesApi = (apiClient as Record<string, unknown>).deliveriesApi as {
           list: () => Promise<{ data: unknown }>;
         } | undefined;

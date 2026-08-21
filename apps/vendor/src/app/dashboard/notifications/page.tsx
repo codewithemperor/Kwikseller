@@ -13,10 +13,10 @@ import {
   Mail,
   Smartphone,
 } from "lucide-react";
-import { AppButton, AppSwitch, FieldSelect, Skeleton, VendorPageHeader } from "@kwikseller/ui";
+import { AppButton, AppSwitch, FieldSelect, Skeleton, VendorPageHeader } from "@/lib/ui";
 import { formatDate, unwrapApiData } from "@/lib/vendor-format";
-import { notificationsApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { notificationsApi } from "@/lib/api-client";
+import { kwikToast } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 // ==================== Local types ====================

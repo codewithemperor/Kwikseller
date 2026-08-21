@@ -7,12 +7,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, ArrowLeft, Store } from "lucide-react";
 import { Button, Spinner } from "@heroui/react";
-import { cn, TextInput } from "@kwikseller/ui";
-import { kwikToast, useAuth, usePendingResetEmail } from "@kwikseller/utils";
+import { cn, TextInput } from "@/lib/ui";
+import { kwikToast, useAuth, usePendingResetEmail } from "@/lib/utils";
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormData,
-} from "@kwikseller/types";
+} from "@/lib/types";
 
 interface ForgotPasswordPageProps {
   loginPath: string;

@@ -10,7 +10,7 @@ import {
   ArrowLeft,
   X,
 } from "lucide-react";
-import { Skeleton, VendorPageHeader } from "@kwikseller/ui";
+import { Skeleton, VendorPageHeader } from "@/lib/ui";
 import { formatDate } from "@/lib/vendor-format";
 import { motion } from "framer-motion";
 
@@ -351,7 +351,7 @@ export default function MessagesPage() {
     const load = async () => {
       setIsLoading(true);
       try {
-        const { notificationsApi } = await import("@kwikseller/api-client");
+        const { notificationsApi } = await import("@/lib/api-client");
         const response = await notificationsApi.list({ type: "message" });
         if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
           // API returned data - transform into conversation format if possible

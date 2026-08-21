@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ChevronRight, PackageOpen, SlidersHorizontal } from "lucide-react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import { CategoryCard, type CategoryCardData } from "@/components/landing/shared/category-card";
 import { useCategories, type Category } from "@/lib/api-hooks";
 
@@ -140,7 +140,7 @@ export default function CategoriesPage() {
       <div className="container mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Loading */}
         {isLoading && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
@@ -175,7 +175,7 @@ export default function CategoriesPage() {
                 hidden: {},
                 visible: { transition: { staggerChildren: 0.05 } },
               }}
-              className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
             >
               {filteredCategories.map((category, index) => (
                 <motion.div

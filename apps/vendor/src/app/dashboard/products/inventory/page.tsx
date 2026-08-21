@@ -17,11 +17,11 @@ import {
   SkeletonCard,
   StockBadge,
   type ColumnDef,
-} from "@kwikseller/ui";
-import { VendorPageHeader } from "@kwikseller/ui";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { Product } from "@kwikseller/types";
-import { kwikToast, formatCurrency, formatRelativeTime } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { VendorPageHeader } from "@/lib/ui";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { Product } from "@/lib/types";
+import { kwikToast, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { unwrapApiData } from "@/lib/vendor-format";
 
 type AdjustmentType = "add" | "remove" | "set";

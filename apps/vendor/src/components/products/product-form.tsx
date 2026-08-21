@@ -23,10 +23,10 @@ import {
   TextInput,
   VendorPageHeader,
   type ImageUploadValue,
-} from "@kwikseller/ui";
-import { formatCurrency, kwikToast } from "@kwikseller/utils";
-import { uploadApi, vendorCommerceApi } from "@kwikseller/api-client";
-import type { Product } from "@kwikseller/types";
+} from "@/lib/ui";
+import { formatCurrency, kwikToast } from "@/lib/utils";
+import { uploadApi, vendorCommerceApi } from "@/lib/api-client";
+import type { Product } from "@/lib/types";
 import { unwrapApiData } from "@/lib/vendor-format";
 import {
   productFormSchema,
@@ -127,7 +127,7 @@ function uploadedUrl(response: unknown): string {
  * ProductForm — single-file RHF + zod form for creating / editing a vendor product.
  *
  * 5 tabs (Basic, Pricing, Inventory, Images, Visibility) are rendered inline
- * using the shared @kwikseller/ui RHF inputs. When `productId` is provided,
+ * using the shared @/lib/ui RHF inputs. When `productId` is provided,
  * the product is fetched via `vendorCommerceApi.listProducts` and used as
  * defaultValues (edit mode).
  */

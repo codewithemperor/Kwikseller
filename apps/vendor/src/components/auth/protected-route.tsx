@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore, UserRole } from "@kwikseller/utils";
+import { useAuthStore, UserRole } from "@/lib/utils";
 import { KwiksellerLoader } from "@/components/kwikseller-loader";
 
 interface ProtectedRouteProps {

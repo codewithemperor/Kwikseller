@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore, UserRole } from "@kwikseller/utils";
+import { useAuthStore, UserRole } from "@/lib/utils";
 
 interface AdminGuestRouteProps {
   children: React.ReactNode;
@@ -88,3 +88,4 @@ export function AdminGuestRoute({
 
   return <>{children}</>;
 }
+

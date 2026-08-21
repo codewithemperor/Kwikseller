@@ -15,7 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button, Chip, Card } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Timeline Step Data ─────────────────────────────────────────
 

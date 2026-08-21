@@ -14,7 +14,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   CATEGORY_CARD_ACCENT_COLORS,
   CATEGORY_STYLES,
@@ -680,7 +680,7 @@ export default function CategoryDetailPage() {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-[var(--header-height)] z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 py-3">
             {/* Sort dropdown */}
@@ -752,7 +752,7 @@ export default function CategoryDetailPage() {
       <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex gap-6">
           {/* Desktop sidebar */}
-          <aside className="hidden w-64 shrink-0 lg:block">
+          <aside className="hidden w-56 shrink-0 lg:block">
             <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-lg border border-border bg-background p-4">
               <FilterPanel
                 filters={filters}
@@ -788,7 +788,7 @@ export default function CategoryDetailPage() {
 
             {/* Loading */}
             {productsQuery.isLoading && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {Array.from({ length: 10 }).map((_, i) => (
                   <div
                     key={i}
@@ -837,7 +837,7 @@ export default function CategoryDetailPage() {
             {/* Product grid */}
             {!productsQuery.isLoading && filteredCount > 0 && (
               <>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {visibleProducts.map((product, index) => (
                     <MarketplaceProductCard
                       key={`${product.id}-${index}`}

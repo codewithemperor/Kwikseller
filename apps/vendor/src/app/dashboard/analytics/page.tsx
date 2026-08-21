@@ -13,9 +13,9 @@ import {
   AlertCircle,
   type LucideIcon,
 } from "lucide-react";
-import { AppButton, Skeleton, VendorMetricCard, VendorPageHeader } from "@kwikseller/ui";
+import { AppButton, Skeleton, VendorMetricCard, VendorPageHeader } from "@/lib/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
-import { vendorCommerceApi } from "@kwikseller/api-client";
+import { vendorCommerceApi } from "@/lib/api-client";
 
 // ==================== Types ====================
 

@@ -33,7 +33,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { dashboardApi } from "@/lib/api";
-import { formatCurrency, formatRelativeTime } from "@kwikseller/utils";
+import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 const COLORS = ["#F07A22", "#0D1B5E", "#E8160C", "#B0B0B0", "#5B7FD6"];
 
@@ -255,3 +255,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

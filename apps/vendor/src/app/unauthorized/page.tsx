@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
-import { AppButton, EmptyState } from "@kwikseller/ui";
+import { AppButton, EmptyState } from "@/lib/ui";
 
 export default function UnauthorizedPage() {
   return (

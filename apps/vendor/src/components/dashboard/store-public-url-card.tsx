@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Copy, ExternalLink } from "lucide-react";
-import { useAuthStore, kwikToast } from "@kwikseller/utils";
+import { useAuthStore, kwikToast } from "@/lib/utils";
 
 function storeSlug(name?: string, slug?: string) {
   if (slug?.trim()) return slug.trim();

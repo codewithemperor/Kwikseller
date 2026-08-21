@@ -4,9 +4,9 @@ import React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, PackageOpen } from "lucide-react";
-import { cartApi, checkoutApi, deliveryRatesApi, tokenManager } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
-import type { DeliveryRate } from "@kwikseller/types";
+import { cartApi, checkoutApi, deliveryRatesApi, tokenManager } from "@/services/api-client";
+import { kwikToast } from "@/lib/toast";
+import type { DeliveryRate } from "@/types";
 import {
   StorefrontLoading,
   VendorStorefrontShell,
@@ -226,7 +226,7 @@ export default function VendorCheckoutPage() {
               )}
             </div>
 
-            <aside className="h-fit border border-black/10 p-4 dark:border-white/10">
+            <aside className="h-fit lg:sticky lg:top-24 border border-black/10 p-4 dark:border-white/10">
               <h2 className="text-lg font-semibold">Order summary</h2>
               <div className="mt-4 space-y-3 text-sm">
                 {items.map((item) => (

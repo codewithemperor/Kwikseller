@@ -92,7 +92,7 @@ function CartPageInner() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -216,7 +216,7 @@ function CartPageInner() {
         </div>
 
         {/* Summary */}
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-2xl border border-kwik-border-light bg-kwik-bg-surface p-5">
             <h2 className="font-heading text-lg font-bold text-foreground">Order Summary</h2>
             <dl className="mt-4 space-y-2.5 text-sm">
@@ -255,14 +255,14 @@ function CartPageInner() {
             </Link>
 
             {/* Trust badges */}
-            <div className="mt-5 space-y-2 border-t border-kwik-border-light pt-4 text-xs text-kwik-muted">
-              <p className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-kwik-green" />
-                KwisCrow escrow protection on every order
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-kwik-border-light pt-3 text-xs text-kwik-muted">
+              <p className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-kwik-green" />
+                Escrow protection
               </p>
-              <p className="flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-kwik-orange" />
-                Vendors quote delivery &amp; discount before you pay
+              <p className="flex items-center gap-1.5">
+                <ShoppingBag className="h-3.5 w-3.5 text-kwik-orange" />
+                Vendor-quoted delivery
               </p>
             </div>
           </div>

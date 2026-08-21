@@ -34,9 +34,9 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { vendorCommerceApi } from "@kwikseller/api-client";
-import type { InventoryItem, VendorDashboardMetrics } from "@kwikseller/types";
-import { useAuthStore } from "@kwikseller/utils";
+import { vendorCommerceApi } from "@/lib/api-client";
+import type { InventoryItem, VendorDashboardMetrics } from "@/lib/types";
+import { useAuthStore } from "@/lib/utils";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { cn } from "@/lib/utils";
 

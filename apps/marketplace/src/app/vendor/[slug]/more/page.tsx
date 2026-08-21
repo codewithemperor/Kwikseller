@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, ClipboardList, Info, Moon, ShoppingBag, Store, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { tokenManager } from "@kwikseller/api-client";
+import { tokenManager } from "@/services/api-client";
 import {
   StorefrontLoading,
   VendorStorefrontShell,

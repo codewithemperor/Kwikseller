@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, Package, Heart, LogOut, ChevronDown } from 'lucide-react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 import { AppImage } from '@/components/ui/app-image'
 
 interface ProfileDropdownProps {

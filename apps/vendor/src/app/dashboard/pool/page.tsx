@@ -25,8 +25,8 @@ import {
   FieldSelect,
   SkeletonCard,
   VendorPageHeader,
-} from "@kwikseller/ui";
-import { kwikToast } from "@kwikseller/utils";
+} from "@/lib/ui";
+import { kwikToast } from "@/lib/utils";
 import { VendorProductCard } from "@/components/vendor-product-card";
 
 const sourceFilters: Array<{ label: string; value: VendorPoolSourceFilter }> = [

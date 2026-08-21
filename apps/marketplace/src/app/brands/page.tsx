@@ -20,7 +20,7 @@ export default function BrandsPage() {
   return (
     <main className="min-h-screen bg-background">
       <section className="border-b border-border bg-background">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
           <div>
             <div className="mb-5 inline-flex h-12 w-12 items-center justify-center bg-foreground text-background">
               <Tags className="h-6 w-6" />
@@ -37,7 +37,7 @@ export default function BrandsPage() {
 
       <section className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {Array.from({ length: 8 }).map((_, index) => (
               <div
                 key={index}
@@ -46,7 +46,7 @@ export default function BrandsPage() {
             ))}
           </div>
         ) : filteredBrands.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {filteredBrands.map((brand, i) => (
               <motion.div
                 key={brand.id}

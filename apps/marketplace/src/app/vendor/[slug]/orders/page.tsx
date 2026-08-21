@@ -4,8 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PackageOpen } from "lucide-react";
-import { ordersApi, tokenManager } from "@kwikseller/api-client";
-import type { Order } from "@kwikseller/types";
+import { ordersApi, tokenManager } from "@/services/api-client";
+import type { Order } from "@/types";
 import {
   StorefrontLoading,
   VendorStorefrontShell,

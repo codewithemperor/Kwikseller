@@ -40,7 +40,7 @@ import {
   useTransform,
   animate,
 } from "framer-motion";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStores } from "@/lib/api-hooks";
@@ -811,7 +811,7 @@ export default function VendorsPage() {
           {isLoadingVendors ? (
             <ProductGridSkeleton count={8} columns={4} />
           ) : filteredVendors.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {filteredVendors.map((vendor, index) => (
                 <VendorCard key={vendor.id} vendor={vendor} index={index} />
               ))}

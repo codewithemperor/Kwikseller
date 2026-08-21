@@ -7,9 +7,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, AlertCircle, ShoppingBag, ShieldCheck } from "lucide-react";
 import { Checkbox } from "@heroui/react";
-import { AppButton, cn, TextInput, PasswordInput, OTPVerification } from "@kwikseller/ui";
-import { kwikToast, useAuth } from "@kwikseller/utils";
-import { loginSchema, type LoginFormData } from "@kwikseller/types";
+import { AppButton } from "@/components/ui/app-button";
+import { cn } from "@/lib/utils";
+import { TextInput, PasswordInput } from "@/components/ui/form-inputs";
+import { OTPVerification } from "@/components/ui/otp-verification";
+import { kwikToast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
+import { loginSchema, type LoginFormData } from "@/types";
 
 export interface PortalConfig {
   name: string;
@@ -194,12 +198,9 @@ export function LoginPage({ portal, className }: LoginPageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Checkbox
-                size="sm"
                 isSelected={rememberMe}
-                onValueChange={setRememberMe}
-                classNames={{
-                  wrapper: "rounded-md border-kwik-border",
-                }}
+                onChange={setRememberMe}
+                className="rounded-md border-kwik-border"
               >
                 <span className="text-xs text-kwik-gray">Remember me</span>
               </Checkbox>

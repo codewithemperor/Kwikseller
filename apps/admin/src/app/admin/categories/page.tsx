@@ -14,7 +14,7 @@ import {
   ConfirmDialog,
 } from "@/components/ui";
 import { categoriesApi } from "@/lib/api";
-import type { Category } from "@kwikseller/types";
+import type { Category } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────

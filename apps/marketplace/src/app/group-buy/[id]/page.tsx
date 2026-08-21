@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import React from "react";
 import { ArrowLeft, Bell, CalendarDays, CheckCircle2, Clock3, PackageOpen, Users } from "lucide-react";
-import { marketplaceApi } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { marketplaceApi } from "@/services/api-client";
+import { kwikToast } from "@/lib/toast";
 
 type PoolCampaign = {
   id: string;

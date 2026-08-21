@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'node:crypto';
+import { JobQueueService } from '../../common/services/job-queue.service';
 import { PrismaService } from '../../database/prisma.service';
 import { PaystackService } from '../commerce/paystack.service';
 import {
@@ -39,6 +40,8 @@ type LoadedOrder = {
   agreedAt: Date | null;
   quoteStatus: string;
   deliveryMethod: string | null;
+  estimatedDeliveryStart: Date | null;
+  estimatedDeliveryEnd: Date | null;
   store?: { id: string; vendorId: string | null } | null;
   buyer?: { id: string; email: string } | null;
   quote?: {
@@ -87,6 +90,7 @@ export class QuoteService {
     private readonly eventEmitter: EventEmitter2,
     private readonly paystack: PaystackService,
     private readonly config: ConfigService,
+    private readonly jobQueueService: JobQueueService,
   ) {}
 
   // ─── helpers ────────────────────────────────────────────────────────────────
@@ -193,6 +197,24 @@ export class QuoteService {
     return `KWK-Q-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
   }
 
+  private computeDeliveryRange(minDeliveryDays: number, maxDeliveryDays: number) {
+    if (maxDeliveryDays < minDeliveryDays) {
+      throw new BadRequestException(
+        'Maximum delivery days must be greater than or equal to minimum delivery days',
+      );
+    }
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() + minDeliveryDays);
+
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    end.setDate(end.getDate() + maxDeliveryDays);
+
+    return { start, end };
+  }
+
   private defaultPaymentCallbackUrl(reference: string): string {
     const frontendUrl =
       this.config.get<string>('frontendUrl') ?? 'http://localhost:3000';
@@ -235,6 +257,11 @@ export class QuoteService {
       throw new BadRequestException('Quote amount must be greater than zero');
     }
 
+    const { start, end } = this.computeDeliveryRange(
+      dto.minDeliveryDays,
+      dto.maxDeliveryDays,
+    );
+
     const db = this.db();
     const updated = await db.$transaction(
       async (tx: any) => {
@@ -258,7 +285,18 @@ export class QuoteService {
 
         await tx.order.update({
           where: { id: order.id },
-          data: { quoteStatus: 'QUOTED' },
+          data: {
+            quoteStatus: 'QUOTED',
+            estimatedDeliveryStart: start,
+            estimatedDeliveryEnd: end,
+          },
+        });
+
+        await tx.delivery.updateMany({
+          where: { orderId: order.id },
+          data: {
+            estimatedMinutes: dto.maxDeliveryDays * 24 * 60,
+          },
         });
 
         return next;
@@ -272,6 +310,8 @@ export class QuoteService {
       vendorId: userId,
       buyerId: order.buyerId,
       amount: dto.amount,
+      minDeliveryDays: dto.minDeliveryDays,
+      maxDeliveryDays: dto.maxDeliveryDays,
       note: dto.note ?? null,
     });
 
@@ -300,6 +340,11 @@ export class QuoteService {
       throw new BadRequestException('Quote amount must be greater than zero');
     }
 
+    const { start, end } = this.computeDeliveryRange(
+      dto.minDeliveryDays,
+      dto.maxDeliveryDays,
+    );
+
     const db = this.db();
     await db.$transaction(
       async (tx: any) => {
@@ -323,7 +368,18 @@ export class QuoteService {
 
         await tx.order.update({
           where: { id: order.id },
-          data: { quoteStatus: 'VENDOR_REVISED' },
+          data: {
+            quoteStatus: 'VENDOR_REVISED',
+            estimatedDeliveryStart: start,
+            estimatedDeliveryEnd: end,
+          },
+        });
+
+        await tx.delivery.updateMany({
+          where: { orderId: order.id },
+          data: {
+            estimatedMinutes: dto.maxDeliveryDays * 24 * 60,
+          },
         });
       },
       { maxWait: 15_000, timeout: 30_000 },
@@ -335,6 +391,8 @@ export class QuoteService {
       vendorId: userId,
       buyerId: order.buyerId,
       amount: dto.amount,
+      minDeliveryDays: dto.minDeliveryDays,
+      maxDeliveryDays: dto.maxDeliveryDays,
       note: dto.note ?? null,
     });
 
@@ -399,6 +457,7 @@ export class QuoteService {
             agreedDeliveryFee: agreedAmount,
             agreedAt: now,
             totalAmount: newTotal,
+            status: 'PENDING_PAYMENT',
           },
         });
       },
@@ -540,6 +599,7 @@ export class QuoteService {
             agreedDeliveryFee: agreedAmount,
             agreedAt: now,
             totalAmount: newTotal,
+            status: 'PENDING_PAYMENT',
           },
         });
       },
@@ -841,6 +901,10 @@ export class QuoteService {
       buyerId: userId,
       vendorId: quote.vendorId,
       source: 'quote',
+    });
+
+    await this.jobQueueService.enqueuePaymentVerification({
+      reference: payment.reference,
     });
 
     this.logger.log(

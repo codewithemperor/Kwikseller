@@ -13,7 +13,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { Button, Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Step Data ─────────────────────────────────────────────────
 

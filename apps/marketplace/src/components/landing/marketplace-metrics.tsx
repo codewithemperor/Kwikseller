@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Activity, TrendingUp } from "lucide-react";
 import { Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 import {
   MARKETPLACE_METRICS as metrics,
   WEEKLY_ACTIVITY as weeklyActivity,

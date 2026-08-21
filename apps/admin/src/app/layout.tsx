@@ -2,7 +2,7 @@ import { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Figtree, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
-import { HeroUIProviderWrapper, AuthProvider } from "@kwikseller/utils";
+import { HeroUIProviderWrapper, AuthProvider } from "@/lib/utils";
 import { Toast } from "@heroui/react";
 import { QueryProvider } from "@/lib/query-provider";
 
@@ -78,3 +78,4 @@ export default function RootLayout({
     </html>
   );
 }
+

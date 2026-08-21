@@ -30,7 +30,7 @@ import {
   SkeletonCard,
   VendorStatusBadge,
   type OrderTimelineStep,
-} from "@kwikseller/ui";
+} from "@/lib/ui";
 import {
   adminApi,
   commerceOpsApi,
@@ -38,7 +38,7 @@ import {
   adminDeliveriesApi,
   type AdminCommerceOrder,
 } from "@/lib/api";
-import { formatCurrency, formatRelativeTime } from "@kwikseller/utils";
+import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 /* ─── Helpers ─── */

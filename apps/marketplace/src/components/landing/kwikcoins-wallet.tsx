@@ -16,7 +16,7 @@ import {
   Info,
 } from "lucide-react";
 import { Card, Chip } from "@heroui/react";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Transaction Data ──────────────────────────────────────
 

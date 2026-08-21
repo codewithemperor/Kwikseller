@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Store } from 'lucide-react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 
 /* ============================================================
    PageLoader — Full-screen splash / loading overlay

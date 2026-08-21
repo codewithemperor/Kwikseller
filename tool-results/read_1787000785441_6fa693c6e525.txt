@@ -1,0 +1,942 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import Link from "next/link";
+     5→import { useRouter } from "next/navigation";
+     6→import {
+     7→  AlertCircle,
+     8→  ChevronRight,
+     9→  Heart,
+    10→  Package,
+    11→  RotateCcw,
+    12→  Share2,
+    13→  Shield,
+    14→  ShieldCheck,
+    15→  ShoppingCart,
+    16→  Truck,
+    17→  Zap,
+    18→  Settings2,
+    19→  MessageSquare,
+    20→} from "lucide-react";
+    21→import { motion, AnimatePresence } from "framer-motion";
+    22→import { kwikToast } from "@/lib/toast";
+    23→import {
+    24→  useCartStore,
+    25→  useWishlistStore,
+    26→  useRecentlyViewedStore,
+    27→  usePriceDropStore,
+    28→} from "@/stores";
+    29→import { AppImage } from "@/components/ui/app-image";
+    30→import {
+    31→  ProductGallery,
+    32→  PriceDisplay,
+    33→  RatingDisplay,
+    34→  StockBadge,
+    35→  QuantitySelector,
+    36→  VendorSummary,
+    37→  ReviewSummary,
+    38→  ReviewList,
+    39→  ReviewForm,
+    40→  RelatedProducts,
+    41→  formatCurrency,
+    42→  hasHtmlMarkup,
+    43→  getStockStatus,
+    44→} from "@/components/product/shared";
+    45→import { ProductVariantSelector } from "@/components/product/product-variant-selector";
+    46→import { useReviews, useReviewSummary } from "@/lib/api-hooks";
+    47→import type { MarketplaceProduct, ProductVariant } from "@/data/marketplace-home";
+    48→
+    49→/* ─── Product Description (renders HTML or plain text) ─── */
+    50→function ProductDescription({ description }: { description: string }) {
+    51→  const [expanded, setExpanded] = React.useState(false);
+    52→
+    53→  // Strip HTML for the compact preview
+    54→  const plainText = React.useMemo(() => {
+    55→    if (!hasHtmlMarkup(description)) return description;
+    56→    return description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    57→  }, [description]);
+    58→
+    59→  const fullContentClassName =
+    60→    "text-sm leading-6 text-kwik-gray dark:text-white/65 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-kwik-dark [&_h1]:dark:text-white [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-kwik-dark [&_h2]:dark:text-white [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-kwik-dark [&_h3]:dark:text-white [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_strong]:text-kwik-dark [&_strong]:dark:text-white";
+    61→
+    62→  return (
+    63→    <div>
+    64→      {expanded ? (
+    65→        hasHtmlMarkup(description) ? (
+    66→          <div className={fullContentClassName} dangerouslySetInnerHTML={{ __html: description }} />
+    67→        ) : (
+    68→          <p className={fullContentClassName}>{description}</p>
+    69→        )
+    70→      ) : (
+    71→        <p className="text-sm leading-6 text-kwik-gray dark:text-white/65 line-clamp-3">
+    72→          {plainText}
+    73→        </p>
+    74→      )}
+    75→      {plainText.length > 120 && (
+    76→        <button
+    77→          type="button"
+    78→          onClick={() => setExpanded(!expanded)}
+    79→          className="mt-1 text-xs font-semibold text-kwik-orange hover:underline"
+    80→        >
+    81→          {expanded ? "Show less" : "Read more"}
+    82→        </button>
+    83→      )}
+    84→    </div>
+    85→  );
+    86→}
+    87→
+    88→/* ─── Entrance animation wrapper ─── */
+    89→function FadeIn({
+    90→  children,
+    91→  delay = 0,
+    92→  className = "",
+    93→}: {
+    94→  children: React.ReactNode;
+    95→  delay?: number;
+    96→  className?: string;
+    97→}) {
+    98→  return (
+    99→    <motion.div
+   100→      initial={{ opacity: 0, y: 16 }}
+   101→      animate={{ opacity: 1, y: 0 }}
+   102→      transition={{ duration: 0.4, delay, ease: "easeOut" }}
+   103→      className={className}
+   104→    >
+   105→      {children}
+   106→    </motion.div>
+   107→  );
+   108→}
+   109→
+   110→/* ─── Delivery Estimate Widget (no gradients) ─── */
+   111→function DeliveryEstimateWidget({ stock }: { stock: number }) {
+   112→  const today = new Date();
+   113→  const standardDelivery = new Date(today);
+   114→  standardDelivery.setDate(standardDelivery.getDate() + 4);
+   115→  const expressDelivery = new Date(today);
+   116→  expressDelivery.setDate(expressDelivery.getDate() + 1);
+   117→
+   118→  const formatDate = (d: Date) =>
+   119→    d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
+   120→
+   121→  const stockStatus = getStockStatus(stock);
+   122→
+   123→  return (
+   124→    <div className="rounded-xl border border-border p-4 dark:border-white/10">
+   125→      <div className="mb-3 flex items-center gap-2">
+   126→        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-kwik-orange/10">
+   127→          <Truck className="h-4 w-4 text-kwik-orange" />
+   128→        </div>
+   129→        <h3 className="text-sm font-semibold text-kwik-dark dark:text-white">Delivery Options</h3>
+   130→      </div>
+   131→
+   132→      <div className="space-y-2.5">
+   133→        <div className="flex items-center justify-between rounded-lg bg-kwik-bg-surface px-3 py-2.5 dark:bg-white/5">
+   134→          <div className="flex items-center gap-2.5">
+   135→            <Package className="h-4 w-4 text-kwik-muted dark:text-white/55" />
+   136→            <div>
+   137→              <p className="text-sm font-medium text-kwik-dark dark:text-white">Standard Delivery</p>
+   138→              <p className="text-xs text-kwik-muted dark:text-white/55">3-5 business days</p>
+   139→            </div>
+   140→          </div>
+   141→          <div className="text-right">
+   142→            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">FREE</p>
+   143→            <p className="text-xs text-kwik-muted dark:text-white/55">{formatDate(standardDelivery)}</p>
+   144→          </div>
+   145→        </div>
+   146→
+   147→        <div className="flex items-center justify-between rounded-lg bg-kwik-bg-surface px-3 py-2.5 dark:bg-white/5">
+   148→          <div className="flex items-center gap-2.5">
+   149→            <Zap className="h-4 w-4 text-kwik-orange" />
+   150→            <div>
+   151→              <p className="text-sm font-medium text-kwik-dark dark:text-white">Express Delivery</p>
+   152→              <p className="text-xs text-kwik-muted dark:text-white/55">1-2 business days</p>
+   153→            </div>
+   154→          </div>
+   155→          <div className="text-right">
+   156→            <p className="text-xs font-semibold text-kwik-orange">₦2,500</p>
+   157→            <p className="text-xs text-kwik-muted dark:text-white/55">{formatDate(expressDelivery)}</p>
+   158→          </div>
+   159→        </div>
+   160→
+   161→        {stockStatus === "LOW_STOCK" && (
+   162→          <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-300">
+   163→            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+   164→            Only {stock} left — order soon for faster delivery
+   165→          </div>
+   166→        )}
+   167→        {stockStatus === "OUT_OF_STOCK" && (
+   168→          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-300">
+   169→            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+   170→            Currently out of stock — check back soon
+   171→          </div>
+   172→        )}
+   173→      </div>
+   174→    </div>
+   175→  );
+   176→}
+   177→
+   178→/* ─── Page-level detail section (divider, NOT a nested white card — spec #10) ───
+   179→    Follows the Marketplace Home section treatment: a clear header with icon,
+   180→    separated from the next section by a subtle top border. No card-in-card. */
+   181→function DetailSection({
+   182→  title,
+   183→  description,
+   184→  icon,
+   185→  children,
+   186→}: {
+   187→  title: string;
+   188→  description?: string;
+   189→  icon?: React.ReactNode;
+   190→  children: React.ReactNode;
+   191→}) {
+   192→  return (
+   193→    <section className="border-t border-border py-6 dark:border-white/10">
+   194→      <div className="mb-4 flex items-center gap-3">
+   195→        {icon && (
+   196→          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-kwik-orange/10">
+   197→            {icon}
+   198→          </div>
+   199→        )}
+   200→        <div>
+   201→          <h2 className="text-lg font-semibold text-kwik-dark dark:text-white sm:text-xl">{title}</h2>
+   202→          {description && (
+   203→            <p className="text-xs text-kwik-muted dark:text-white/55">{description}</p>
+   204→          )}
+   205→        </div>
+   206→      </div>
+   207→      {children}
+   208→    </section>
+   209→  );
+   210→}
+   211→
+   212→/* ─── Main Product Detail Page ─── */
+   213→export function ProductDetailPage({
+   214→  product,
+   215→  relatedProducts: relatedProductsProp = [],
+   216→  vendorProducts = [],
+   217→  recommendedProducts = [],
+   218→}: {
+   219→  product: MarketplaceProduct;
+   220→  relatedProducts?: MarketplaceProduct[];
+   221→  vendorProducts?: MarketplaceProduct[];
+   222→  recommendedProducts?: MarketplaceProduct[];
+   223→}) {
+   224→  const router = useRouter();
+   225→
+   226→  // ─── Gallery ───
+   227→  const gallery = React.useMemo(
+   228→    () => (product.images?.length ? product.images : [product.image]),
+   229→    [product.images, product.image],
+   230→  );
+   231→
+   232→  // ─── State ───
+   233→  const [quantity, setQuantity] = React.useState(1);
+   234→  const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(
+   235→    product.variants?.[0] ?? null,
+   236→  );
+   237→  const [variantPrice, setVariantPrice] = React.useState(product.price);
+   238→
+   239→  // ─── Reviews (API-backed, unified — spec #9, #12) ───
+   240→  const reviewsQuery = useReviews(product.id);
+   241→  const reviews = reviewsQuery.data ?? [];
+   242→  const summaryQuery = useReviewSummary(product.id);
+   243→  const reviewSummary = summaryQuery.data;
+   244→
+   245→  // ─── Review filter / sort / helpful-vote state ───
+   246→  type SortKey = "helpful" | "recent" | "rating";
+   247→  const [filterStar, setFilterStar] = React.useState<number | null>(null);
+   248→  const [sortBy, setSortBy] = React.useState<SortKey>("helpful");
+   249→  const [votedReviews, setVotedReviews] = React.useState<Set<string>>(new Set());
+   250→  const [lightbox, setLightbox] = React.useState<{ src: string; alt: string } | null>(null);
+   251→
+   252→  const VOTES_KEY = `kwik:review-votes:${product.id}`;
+   253→
+   254→  React.useEffect(() => {
+   255→    try {
+   256→      const raw = localStorage.getItem(VOTES_KEY);
+   257→      setVotedReviews(raw ? new Set(JSON.parse(raw) as string[]) : new Set());
+   258→    } catch {
+   259→      setVotedReviews(new Set());
+   260→    }
+   261→    setFilterStar(null);
+   262→  }, [VOTES_KEY]);
+   263→
+   264→  React.useEffect(() => {
+   265→    try {
+   266→      const arr = Array.from(votedReviews);
+   267→      if (arr.length) localStorage.setItem(VOTES_KEY, JSON.stringify(arr));
+   268→      else localStorage.removeItem(VOTES_KEY);
+   269→    } catch {
+   270→      // ignore
+   271→    }
+   272→  }, [votedReviews, VOTES_KEY]);
+   273→
+   274→  const visibleReviews = React.useMemo(() => {
+   275→    let list = reviews;
+   276→    if (filterStar !== null) list = list.filter((r) => r.rating === filterStar);
+   277→    const sorted = [...list];
+   278→    if (sortBy === "recent") {
+   279→      sorted.sort((a, b) => {
+   280→        const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+   281→        const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+   282→        return bt - at;
+   283→      });
+   284→    } else if (sortBy === "rating") {
+   285→      sorted.sort((a, b) => b.rating - a.rating);
+   286→    } else {
+   287→      sorted.sort((a, b) => (b.helpful ?? 0) - (a.helpful ?? 0));
+   288→    }
+   289→    return sorted;
+   290→  }, [reviews, filterStar, sortBy]);
+   291→
+   292→  const handleHelpfulVote = React.useCallback((reviewId: string) => {
+   293→    setVotedReviews((prev) => {
+   294→      if (prev.has(reviewId)) return prev;
+   295→      const next = new Set(prev);
+   296→      next.add(reviewId);
+   297→      return next;
+   298→    });
+   299→  }, []);
+   300→
+   301→  // ─── Store hooks ───
+   302→  const addItem = useCartStore((s) => s.addItem);
+   303→  const setCartOpen = useCartStore((s) => s.setCartOpen);
+   304→  const { toggleItem, isInWishlist } = useWishlistStore();
+   305→  const addRecentlyViewed = useRecentlyViewedStore((s) => s.addItem);
+   306→  const checkPriceDrop = usePriceDropStore((s) => s.checkPriceDrop);
+   307→
+   308→  const isWishlisted = isInWishlist(product.id);
+   309→
+   310→  // ─── Derived values ───
+   311→  const effectiveStock = selectedVariant?.stock ?? product.stock ?? 0;
+   312→  const stockStatus = getStockStatus(effectiveStock);
+   313→  const isOutOfStock = stockStatus === "OUT_OF_STOCK" || stockStatus === "UNAVAILABLE";
+   314→  const hasSavings = Boolean(product.comparePrice && product.comparePrice > variantPrice);
+   315→  const savingsAmount = hasSavings ? Number(product.comparePrice) - variantPrice : 0;
+   316→  const savingsPercent = hasSavings && product.comparePrice
+   317→    ? Math.round((savingsAmount / Number(product.comparePrice)) * 100)
+   318→    : 0;
+   319→
+   320→  // Average rating: prefer the API summary, fall back to product.rating
+   321→  const averageRating = reviewSummary?.average ?? product.rating;
+   322→  const totalReviews = reviewSummary?.total ?? product.reviewCount;
+   323→  const distribution = reviewSummary?.distribution ?? {};
+   324→
+   325→  // ─── Track recently viewed + price drop on mount ───
+   326→  React.useEffect(() => {
+   327→    addRecentlyViewed({
+   328→      id: product.id,
+   329→      name: product.name,
+   330→      price: product.price,
+   331→      comparePrice: product.comparePrice,
+   332→      image: product.image,
+   333→      store: product.store,
+   334→    });
+   335→  }, [product, addRecentlyViewed]);
+   336→
+   337→  React.useEffect(() => {
+   338→    const alert = checkPriceDrop(product.id, product.name, product.image, product.price);
+   339→    if (alert) {
+   340→      kwikToast.success(`Price dropped! ${product.name} is now ${formatCurrency(alert.currentPrice)}`);
+   341→    }
+   342→  }, [product.id, product.name, product.image, product.price, checkPriceDrop]);
+   343→
+   344→  // Reset state when product changes
+   345→  React.useEffect(() => {
+   346→    setQuantity(1);
+   347→    setSelectedVariant(product.variants?.[0] ?? null);
+   348→    setVariantPrice(product.price);
+   349→  }, [product.id, product.variants, product.price]);
+   350→
+   351→  // ─── Handlers ───
+   352→  const handleVariantSelect = React.useCallback((variant: ProductVariant) => {
+   353→    setSelectedVariant(variant);
+   354→    setVariantPrice(variant.price);
+   355→  }, []);
+   356→
+   357→  const handleAddToCart = () => {
+   358→    if (isOutOfStock) {
+   359→      kwikToast.error("Out of stock", "This product is currently unavailable.");
+   360→      return;
+   361→    }
+   362→    for (let i = 0; i < quantity; i++) {
+   363→      addItem({
+   364→        productId: product.id,
+   365→        name: product.name,
+   366→        price: variantPrice,
+   367→        comparePrice: product.comparePrice,
+   368→        image: product.image,
+   369→        store: product.store,
+   370→        storeId: product.storeId,
+   371→        storeSlug: product.storeSlug,
+   372→        storeName: product.store,
+   373→        productType: product.productType,
+   374→        productSource: product.productSource,
+   375→        requiresShipping: product.requiresShipping,
+   376→      });
+   377→    }
+   378→    const variantLabel = selectedVariant ? ` (${selectedVariant.name}: ${selectedVariant.options})` : "";
+   379→    kwikToast.success(`${quantity}× ${product.name}${variantLabel} added to cart`);
+   380→    setCartOpen(true);
+   381→  };
+   382→
+   383→  const handleBuyNow = () => {
+   384→    if (isOutOfStock) {
+   385→      kwikToast.error("Out of stock", "This product is currently unavailable.");
+   386→      return;
+   387→    }
+   388→    for (let i = 0; i < quantity; i++) {
+   389→      addItem({
+   390→        productId: product.id,
+   391→        name: product.name,
+   392→        price: variantPrice,
+   393→        comparePrice: product.comparePrice,
+   394→        image: product.image,
+   395→        store: product.store,
+   396→        storeId: product.storeId,
+   397→        storeSlug: product.storeSlug,
+   398→        storeName: product.store,
+   399→        productType: product.productType,
+   400→        productSource: product.productSource,
+   401→        requiresShipping: product.requiresShipping,
+   402→      });
+   403→    }
+   404→    router.push("/checkout");
+   405→  };
+   406→
+   407→  const handleWishlistToggle = () => {
+   408→    toggleItem({
+   409→      id: product.id,
+   410→      name: product.name,
+   411→      price: product.price,
+   412→      originalPrice: product.comparePrice,
+   413→      image: product.image,
+   414→      rating: product.rating,
+   415→      category: product.category,
+   416→    });
+   417→    kwikToast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
+   418→  };
+   419→
+   420→  const handleShare = async () => {
+   421→    const shareUrl = window.location.href;
+   422→    if (navigator.share) {
+   423→      try {
+   424→        await navigator.share({ title: product.name, url: shareUrl });
+   425→        return;
+   426→      } catch {
+   427→        // fall through to clipboard
+   428→      }
+   429→    }
+   430→    if (!navigator.clipboard?.writeText) {
+   431→      kwikToast.info(shareUrl);
+   432→      return;
+   433→    }
+   434→    try {
+   435→      await navigator.clipboard.writeText(shareUrl);
+   436→      kwikToast.success("Link copied to clipboard");
+   437→    } catch {
+   438→      kwikToast.info(shareUrl);
+   439→    }
+   440→  };
+   441→
+   442→  // ─── Sticky bottom bar (IntersectionObserver — efficient, no scroll listener) ───
+   443→  const addToCartRef = React.useRef<HTMLDivElement>(null);
+   444→  const [showStickyBar, setShowStickyBar] = React.useState(false);
+   445→
+   446→  React.useEffect(() => {
+   447→    const el = addToCartRef.current;
+   448→    if (!el) return;
+   449→    const observer = new IntersectionObserver(
+   450→      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+   451→      { threshold: 0 },
+   452→    );
+   453→    observer.observe(el);
+   454→    return () => observer.disconnect();
+   455→  }, []);
+   456→
+   457→  // ─── Trust badges ───
+   458→  const trustItems = [
+   459→    { icon: Truck, title: "Fast Delivery", description: "Quick & reliable shipping" },
+   460→    { icon: Shield, title: "Secure Payment", description: "Protected checkout" },
+   461→    { icon: RotateCcw, title: "Easy Returns", description: "30-day return policy" },
+   462→    { icon: ShieldCheck, title: "Buyer Protection", description: "Money-back guarantee" },
+   463→  ];
+   464→
+   465→  // ─── Breadcrumb category link ───
+   466→  const categoryHref = product.categoryId
+   467→    ? `/categories/${product.categoryId}`
+   468→    : `/categories`;
+   469→
+   470→  return (
+   471→    <div className="min-h-screen bg-background pb-4 pt-4 sm:pt-6">
+   472→      <div className="container mx-auto space-y-6 px-4">
+   473→        {/* Breadcrumb */}
+   474→        <FadeIn>
+   475→          <nav className="flex flex-wrap items-center gap-1.5 text-sm text-kwik-muted dark:text-white/55">
+   476→            <Link href="/" className="hover:text-kwik-orange">
+   477→              Home
+   478→            </Link>
+   479→            <ChevronRight className="h-3.5 w-3.5" />
+   480→            <Link href="/products" className="hover:text-kwik-orange">
+   481→              Products
+   482→            </Link>
+   483→            {product.category && (
+   484→              <>
+   485→                <ChevronRight className="h-3.5 w-3.5" />
+   486→                <Link href={categoryHref} className="hover:text-kwik-orange">
+   487→                  {product.category}
+   488→                </Link>
+   489→              </>
+   490→            )}
+   491→            <ChevronRight className="h-3.5 w-3.5" />
+   492→            <span className="font-medium text-kwik-dark dark:text-white line-clamp-1">
+   493→              {product.name}
+   494→            </span>
+   495→          </nav>
+   496→        </FadeIn>
+   497→
+   498→        {/* ─── Main two-column area ───
+   499→            Sticky gallery uses native CSS position:sticky (spec #3).
+   500→            top = --header-height so it sticks BELOW the header (spec #4).
+   501→            max-height = viewport minus header so the whole gallery (main
+   502→            image + thumbnails) fits within the available viewport (spec #7).
+   503→            self-start keeps the sticky column from stretching to the info
+   504→            column's height. The sticky parent is this grid — when the user
+   505→            scrolls into Reviews / Related Products (outside this grid) the
+   506→            gallery releases naturally (spec #6). No JS scroll listeners. */}
+   507→        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
+   508→          {/* LEFT: Gallery — sticky on large screens, normal flow on mobile */}
+   509→          <div className="lg:sticky lg:top-[var(--header-height)] lg:self-start">
+   510→            <div className="lg:h-[calc(100vh-var(--header-height)-1.5rem)]">
+   511→              <FadeIn className="h-full">
+   512→                <ProductGallery
+   513→                  images={gallery}
+   514→                  alt={product.name}
+   515→                  variant="full"
+   516→                  aspectRatio="1.05/1"
+   517→                  fillViewport
+   518→                  className="h-full"
+   519→                />
+   520→              </FadeIn>
+   521→            </div>
+   522→          </div>
+   523→
+   524→          {/* RIGHT: Purchase Information — compact */}
+   525→          <div className="space-y-4">
+   526→            <FadeIn delay={0.05}>
+   527→              {/* Title + rating + type tag */}
+   528→              <div>
+   529→                <div className="flex items-center gap-2">
+   530→                  {product.store && (
+   531→                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-kwik-orange">
+   532→                      {product.store}
+   533→                    </p>
+   534→                  )}
+   535→                  {product.tag && (
+   536→                    <span className="rounded-full bg-kwik-bg-surface px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-kwik-muted dark:bg-white/10 dark:text-white/60">
+   537→                      {product.tag}
+   538→                    </span>
+   539→                  )}
+   540→                </div>
+   541→                <h1 className="mt-1.5 text-xl font-bold leading-tight text-kwik-dark dark:text-white sm:text-2xl">
+   542→                  {product.name}
+   543→                </h1>
+   544→                <div className="mt-2 flex flex-wrap items-center gap-3">
+   545→                  <RatingDisplay rating={averageRating} reviewCount={totalReviews} size="sm" />
+   546→                  <StockBadge stock={effectiveStock} variant="badge" />
+   547→                </div>
+   548→              </div>
+   549→            </FadeIn>
+   550→
+   551→            {/* Price + description (compact, no card border) */}
+   552→            <FadeIn delay={0.1}>
+   553→              <div className="space-y-3">
+   554→                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+   555→                  <PriceDisplay
+   556→                    price={variantPrice}
+   557→                    comparePrice={product.comparePrice}
+   558→                    size="lg"
+   559→                    showDiscount
+   560→                  />
+   561→                  {hasSavings && (
+   562→                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-300">
+   563→                      Save {formatCurrency(savingsAmount)} ({savingsPercent}%)
+   564→                    </span>
+   565→                  )}
+   566→                </div>
+   567→
+   568→                {/* Description right after price */}
+   569→                {product.description && (
+   570→                  <ProductDescription description={product.description} />
+   571→                )}
+   572→              </div>
+   573→            </FadeIn>
+   574→
+   575→            {/* Variant selector (compact) */}
+   576→            {product.variants && product.variants.length > 0 && (
+   577→              <FadeIn delay={0.12}>
+   578→                <ProductVariantSelector
+   579→                  variants={product.variants}
+   580→                  onVariantSelect={handleVariantSelect}
+   581→                  selectedVariant={selectedVariant}
+   582→                />
+   583→              </FadeIn>
+   584→            )}
+   585→
+   586→            {/* Quantity + Actions (compact single card) */}
+   587→            <FadeIn delay={0.15}>
+   588→              <div ref={addToCartRef} className="space-y-3 rounded-xl border border-border bg-white p-4 dark:border-white/10 dark:bg-white/5">
+   589→                <div className="flex items-center justify-between gap-3">
+   590→                  <QuantitySelector
+   591→                    value={quantity}
+   592→                    onChange={setQuantity}
+   593→                    min={1}
+   594→                    max={Math.max(1, effectiveStock)}
+   595→                    disabled={isOutOfStock}
+   596→                    label="Qty"
+   597→                  />
+   598→                  <div className="flex items-center gap-2">
+   599→                    <button
+   600→                      onClick={handleWishlistToggle}
+   601→                      className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
+   602→                        isWishlisted
+   603→                          ? "border-kwik-orange bg-kwik-orange-tint"
+   604→                          : "border-border hover:border-kwik-orange/50 dark:border-white/10"
+   605→                      }`}
+   606→                      aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+   607→                    >
+   608→                      <Heart
+   609→                        className={`h-4 w-4 ${isWishlisted ? "fill-current text-kwik-orange" : "text-kwik-dark-medium dark:text-white/60"}`}
+   610→                      />
+   611→                    </button>
+   612→                    <button
+   613→                      onClick={handleShare}
+   614→                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-border transition-colors hover:border-kwik-orange/50 dark:border-white/10"
+   615→                      aria-label="Share product"
+   616→                    >
+   617→                      <Share2 className="h-4 w-4 text-kwik-dark-medium dark:text-white/60" />
+   618→                    </button>
+   619→                  </div>
+   620→                </div>
+   621→
+   622→                <div className="grid grid-cols-2 gap-3">
+   623→                  <button
+   624→                    onClick={handleAddToCart}
+   625→                    disabled={isOutOfStock}
+   626→                    className="flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-kwik-orange bg-kwik-orange/5 px-4 text-sm font-semibold text-kwik-orange transition-colors hover:bg-kwik-orange/10 disabled:opacity-50"
+   627→                  >
+   628→                    <ShoppingCart className="h-4 w-4" />
+   629→                    Add to cart
+   630→                  </button>
+   631→                  <button
+   632→                    onClick={handleBuyNow}
+   633→                    disabled={isOutOfStock}
+   634→                    className="flex h-11 items-center justify-center gap-2 rounded-lg bg-kwik-orange px-4 text-sm font-semibold text-white transition-colors hover:bg-kwik-orange-hover disabled:opacity-50"
+   635→                  >
+   636→                    <Zap className="h-4 w-4" />
+   637→                    Buy now
+   638→                  </button>
+   639→                </div>
+   640→              </div>
+   641→            </FadeIn>
+   642→
+   643→            {/* Delivery estimate */}
+   644→            <FadeIn delay={0.15}>
+   645→              <DeliveryEstimateWidget stock={effectiveStock} />
+   646→            </FadeIn>
+   647→
+   648→            {/* Vendor summary (spec #16) */}
+   649→            {product.store && (
+   650→              <FadeIn delay={0.2}>
+   651→                <VendorSummary
+   652→                  storeName={product.store}
+   653→                  storeSlug={product.storeSlug}
+   654→                  storeId={product.storeId}
+   655→                />
+   656→              </FadeIn>
+   657→            )}
+   658→
+   659→            {/* Trust badges */}
+   660→            <FadeIn delay={0.25}>
+   661→              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   662→                {trustItems.map(({ icon: Icon, title, description }) => (
+   663→                  <div
+   664→                    key={title}
+   665→                    className="border border-border bg-white p-3 text-center dark:border-white/10 dark:bg-white/5"
+   666→                  >
+   667→                    <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-kwik-orange/10">
+   668→                      <Icon className="h-4 w-4 text-kwik-orange" />
+   669→                    </div>
+   670→                    <p className="text-xs font-semibold text-kwik-dark dark:text-white">{title}</p>
+   671→                    <p className="mt-0.5 text-[11px] leading-tight text-kwik-muted dark:text-white/55">
+   672→                      {description}
+   673→                    </p>
+   674→                  </div>
+   675→                ))}
+   676→              </div>
+   677→            </FadeIn>
+   678→          </div>
+   679→        </div>
+   680→
+   681→        {/* ─── Below-the-fold sections ───
+   682→            Page-level sections with subtle dividers (spec #10) — no nested
+   683→            white cards. Delivery & Vendor appear once each in the right
+   684→            column above, so they are NOT repeated here (spec #1: the
+   685→            duplicate delivery options came from this section rendering the
+   686→            same DeliveryEstimateWidget a second time; same for VendorSummary). */}
+   687→
+   688→        {/* Specifications */}
+   689→        {product.specifications && product.specifications.length > 0 && (
+   690→          <DetailSection
+   691→            title="Specifications"
+   692→            icon={<Settings2 className="h-4 w-4 text-kwik-orange" />}
+   693→          >
+   694→            <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 dark:border-white/10 dark:bg-white/10">
+   695→              {product.specifications.map((item) => (
+   696→                <div
+   697→                  key={item.label}
+   698→                  className="bg-background px-4 py-3 dark:bg-background"
+   699→                >
+   700→                  <p className="text-[11px] uppercase tracking-wide text-kwik-muted dark:text-white/45">
+   701→                    {item.label}
+   702→                  </p>
+   703→                  <p className="mt-0.5 text-sm font-medium text-kwik-dark dark:text-white">
+   704→                    {item.value || "—"}
+   705→                  </p>
+   706→                </div>
+   707→              ))}
+   708→            </div>
+   709→          </DetailSection>
+   710→        )}
+   711→
+   712→        {/* ─── Reviews & Ratings (unified) ─── */}
+   713→        <DetailSection
+   714→          title="Reviews & Ratings"
+   715→          description={`${totalReviews} ${totalReviews === 1 ? "review" : "reviews"}`}
+   716→          icon={<MessageSquare className="h-4 w-4 text-kwik-orange" />}
+   717→        >
+   718→          <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+   719→            {/* Left: Rating summary + write review */}
+   720→            <div className="space-y-4">
+   721→              {reviewsQuery.isLoading ? (
+   722→                <div className="space-y-3">
+   723→                  <div className="h-24 animate-pulse rounded-xl bg-kwik-bg-surface dark:bg-white/5" />
+   724→                  <div className="h-32 animate-pulse rounded-xl bg-kwik-bg-surface dark:bg-white/5" />
+   725→                </div>
+   726→              ) : totalReviews > 0 ? (
+   727→                <>
+   728→                  <ReviewSummary
+   729→                    average={averageRating}
+   730→                    total={totalReviews}
+   731→                    distribution={distribution}
+   732→                    onFilter={setFilterStar}
+   733→                    activeFilter={filterStar}
+   734→                  />
+   735→                  <ReviewForm productId={product.id} />
+   736→                </>
+   737→              ) : (
+   738→                <div className="space-y-3">
+   739→                  <div className="rounded-xl bg-kwik-bg-surface p-5 text-center dark:bg-white/5">
+   740→                    <p className="text-3xl font-bold text-kwik-dark dark:text-white">—</p>
+   741→                    <p className="mt-1 text-sm text-kwik-muted dark:text-white/55">No reviews yet</p>
+   742→                  </div>
+   743→                  <ReviewForm productId={product.id} />
+   744→                </div>
+   745→              )}
+   746→            </div>
+   747→
+   748→            {/* Right: Review list + sort controls */}
+   749→            <div className="space-y-3">
+   750→              {reviews.length > 0 && (
+   751→                <div className="flex items-center justify-between">
+   752→                  <span className="text-xs text-kwik-muted dark:text-white/55">
+   753→                    Showing <span className="font-semibold text-kwik-dark dark:text-white">{visibleReviews.length}</span> of {totalReviews}
+   754→                    {filterStar !== null && <> · filtered to {filterStar}-star</>}
+   755→                  </span>
+   756→                  <div className="flex gap-1">
+   757→                    {([
+   758→                      { key: "helpful", label: "Helpful" },
+   759→                      { key: "recent", label: "Recent" },
+   760→                      { key: "rating", label: "Top" },
+   761→                    ] as const).map((opt) => (
+   762→                      <button
+   763→                        key={opt.key}
+   764→                        onClick={() => setSortBy(opt.key)}
+   765→                        className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+   766→                          sortBy === opt.key
+   767→                            ? "bg-kwik-dark text-white dark:bg-white dark:text-kwik-dark"
+   768→                            : "bg-kwik-bg-surface text-kwik-muted hover:bg-kwik-border/40 dark:bg-white/5 dark:text-white/60"
+   769→                        }`}
+   770→                        aria-pressed={sortBy === opt.key}
+   771→                      >
+   772→                        {opt.label}
+   773→                      </button>
+   774→                    ))}
+   775→                  </div>
+   776→                </div>
+   777→              )}
+   778→
+   779→              {reviewsQuery.isLoading ? (
+   780→                <div className="space-y-3">
+   781→                  {Array.from({ length: 3 }).map((_, i) => (
+   782→                    <div key={i} className="h-32 animate-pulse rounded-xl bg-kwik-bg-surface dark:bg-white/5" />
+   783→                  ))}
+   784→                </div>
+   785→              ) : visibleReviews.length > 0 ? (
+   786→                <ReviewList
+   787→                  reviews={visibleReviews}
+   788→                  votedReviewIds={votedReviews}
+   789→                  onHelpfulVote={handleHelpfulVote}
+   790→                  onPhotoClick={(src, alt) => setLightbox({ src, alt })}
+   791→                />
+   792→              ) : filterStar !== null ? (
+   793→                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10 text-center dark:border-white/10">
+   794→                  <p className="text-sm font-medium text-kwik-dark dark:text-white">
+   795→                    No {filterStar}-star reviews
+   796→                  </p>
+   797→                  <p className="mt-1 text-xs text-kwik-muted dark:text-white/55">
+   798→                    Try a different filter.
+   799→                  </p>
+   800→                </div>
+   801→              ) : null}
+   802→            </div>
+   803→          </div>
+   804→        </DetailSection>
+   805→
+   806→        {/* ─── Product discovery (spec #17) ─── */}
+   807→
+   808→        {/* Related Products */}
+   809→        {relatedProductsProp.length > 0 && (
+   810→          <RelatedProducts
+   811→            title="Related Products"
+   812→            description="Products in the same category"
+   813→            products={relatedProductsProp}
+   814→            variant="related"
+   815→          />
+   816→        )}
+   817→
+   818→        {/* More From This Vendor */}
+   819→        {vendorProducts.length > 0 && (
+   820→          <RelatedProducts
+   821→            title="More From This Vendor"
+   822→            description={`More from ${product.store}`}
+   823→            products={vendorProducts}
+   824→            variant="vendor"
+   825→          />
+   826→        )}
+   827→
+   828→        {/* You May Also Like */}
+   829→        {recommendedProducts.length > 0 && (
+   830→          <RelatedProducts
+   831→            title="You May Also Like"
+   832→            description="Recommended for you"
+   833→            products={recommendedProducts}
+   834→            variant="recommended"
+   835→          />
+   836→        )}
+   837→      </div>
+   838→
+   839→      {/* ─── Sticky Quick Actions Bar (mobile-first, IntersectionObserver-based) ─── */}
+   840→      <AnimatePresence>
+   841→        {showStickyBar && (
+   842→          <motion.div
+   843→            initial={{ y: 100, opacity: 0 }}
+   844→            animate={{ y: 0, opacity: 1 }}
+   845→            exit={{ y: 100, opacity: 0 }}
+   846→            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+   847→            className="fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 right-0 z-40 md:bottom-0"
+   848→          >
+   849→            <div className="border-t border-border bg-background/95 backdrop-blur-lg shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+   850→              <div className="container mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+   851→                <div className="min-w-0 flex-1">
+   852→                  <p className="truncate text-sm font-semibold text-kwik-dark dark:text-white">{product.name}</p>
+   853→                  <div className="mt-0.5 flex items-center gap-2">
+   854→                    <span className="text-base font-bold text-kwik-orange">
+   855→                      {formatCurrency(variantPrice)}
+   856→                    </span>
+   857→                    {product.comparePrice && (
+   858→                      <span className="text-xs text-kwik-muted line-through dark:text-white/45">
+   859→                        {formatCurrency(product.comparePrice)}
+   860→                      </span>
+   861→                    )}
+   862→                  </div>
+   863→                </div>
+   864→
+   865→                <button
+   866→                  onClick={handleWishlistToggle}
+   867→                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 transition-colors ${
+   868→                    isWishlisted
+   869→                      ? "border-kwik-orange bg-kwik-orange-tint"
+   870→                      : "border-border hover:border-kwik-orange/50 dark:border-white/10"
+   871→                  }`}
+   872→                  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+   873→                >
+   874→                  <Heart
+   875→                    className={`h-5 w-5 ${isWishlisted ? "fill-current text-kwik-orange" : "text-kwik-dark-medium dark:text-white/60"}`}
+   876→                  />
+   877→                </button>
+   878→
+   879→                <button
+   880→                  onClick={handleAddToCart}
+   881→                  className="flex h-11 shrink-0 items-center gap-2 rounded-xl border-2 border-kwik-orange bg-kwik-orange/5 px-4 font-semibold text-kwik-orange transition-colors hover:bg-kwik-orange/10"
+   882→                >
+   883→                  <ShoppingCart className="h-4 w-4" />
+   884→                  <span className="hidden sm:inline">Add to cart</span>
+   885→                </button>
+   886→
+   887→                <button
+   888→                  onClick={handleBuyNow}
+   889→                  className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-kwik-orange px-5 font-semibold text-white transition-colors hover:bg-kwik-orange-hover"
+   890→                >
+   891→                  <Zap className="h-4 w-4" />
+   892→                  <span className="hidden sm:inline">Buy now</span>
+   893→                </button>
+   894→              </div>
+   895→            </div>
+   896→          </motion.div>
+   897→        )}
+   898→      </AnimatePresence>
+   899→
+   900→      {/* Review photo lightbox */}
+   901→      <AnimatePresence>
+   902→        {lightbox && (
+   903→          <motion.div
+   904→            initial={{ opacity: 0 }}
+   905→            animate={{ opacity: 1 }}
+   906→            exit={{ opacity: 0 }}
+   907→            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+   908→            onClick={() => setLightbox(null)}
+   909→            role="dialog"
+   910→            aria-modal="true"
+   911→            aria-label="Review photo"
+   912→          >
+   913→            <button
+   914→              onClick={(e) => {
+   915→                e.stopPropagation();
+   916→                setLightbox(null);
+   917→              }}
+   918→              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+   919→              aria-label="Close photo"
+   920→            >
+   921→              <span className="text-xl">×</span>
+   922→            </button>
+   923→            <motion.div
+   924→              initial={{ scale: 0.92, opacity: 0 }}
+   925→              animate={{ scale: 1, opacity: 1 }}
+   926→              exit={{ scale: 0.92, opacity: 0 }}
+   927→              className="relative max-h-[85vh] max-w-[85vw] overflow-hidden rounded-lg"
+   928→              onClick={(e) => e.stopPropagation()}
+   929→            >
+   930→              <AppImage
+   931→                src={lightbox.src}
+   932→                alt={lightbox.alt}
+   933→                className="max-h-[85vh] max-w-[85vw] object-contain"
+   934→              />
+   935→            </motion.div>
+   936→          </motion.div>
+   937→        )}
+   938→      </AnimatePresence>
+   939→    </div>
+   940→  );
+   941→}
+   942→

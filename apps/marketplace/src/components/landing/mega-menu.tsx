@@ -4,7 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ArrowRight } from 'lucide-react'
-import { cn } from '@kwikseller/ui'
+import { cn } from '@/lib/utils'
 import {
   PRIMARY_NAV_ITEMS,
   type DropdownLink,

@@ -15,8 +15,8 @@ import {
   Store,
   XCircle,
 } from "lucide-react";
-import { checkoutApi } from "@kwikseller/api-client";
-import type { Order, ParentCheckout } from "@kwikseller/types";
+import { checkoutApi } from "@/services/api-client";
+import type { Order, ParentCheckout } from "@/types";
 
 import {
   DEFAULT_PAYMENT_PROVIDER,
@@ -78,6 +78,7 @@ export default function CheckoutVerifyPage() {
   const [parentCheckout, setParentCheckout] = React.useState<ParentCheckout | null>(
     null,
   );
+  const [attempt, setAttempt] = React.useState(0);
 
   // Pull the store actions we need to wire a successful payment back into the
   // workflow.
@@ -89,6 +90,7 @@ export default function CheckoutVerifyPage() {
 
   React.useEffect(() => {
     let mounted = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const verify = async () => {
       if (!reference) {
@@ -140,6 +142,9 @@ export default function CheckoutVerifyPage() {
         setMessage(
           `${provider.label} is still processing your payment. This usually takes a few minutes — we'll update this page when it clears.`,
         );
+        retryTimer = setTimeout(() => {
+          if (mounted) setAttempt((current) => current + 1);
+        }, 5000);
         return;
       }
 
@@ -180,6 +185,9 @@ export default function CheckoutVerifyPage() {
           setMessage(
             `${provider.label} is still processing your payment. This usually takes a few minutes — we'll update this page when it clears.`,
           );
+          retryTimer = setTimeout(() => {
+            if (mounted) setAttempt((current) => current + 1);
+          }, 5000);
         } else {
           setState("failed");
           setHeadline("Payment not completed");
@@ -198,14 +206,18 @@ export default function CheckoutVerifyPage() {
         setMessage(
           `We're still confirming your payment with ${provider.label}. This usually takes a few minutes — please check back shortly or refresh this page.`,
         );
+        retryTimer = setTimeout(() => {
+          if (mounted) setAttempt((current) => current + 1);
+        }, 5000);
       }
     };
 
     verify();
     return () => {
       mounted = false;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [reference, queryStatus, providerKey, orderId, workflowOrder, markToPay, payOrder]);
+  }, [attempt, reference, queryStatus, providerKey, orderId, workflowOrder, markToPay, payOrder]);
 
   return (
     <div className="bg-background min-h-screen">

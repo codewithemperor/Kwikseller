@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Chip, Separator } from "@heroui/react";
 import { motion, useInView } from "framer-motion";
-import { cn } from "@kwikseller/ui";
+import { cn } from "@/lib/utils";
 
 // ─── Animation helpers ─────────────────────────────────────────────
 
@@ -1062,7 +1062,7 @@ export default function PoolPage() {
             </div>
           </AnimatedSection>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {poolCategories.map((cat, index) => {
               const Icon = cat.icon;
               return (

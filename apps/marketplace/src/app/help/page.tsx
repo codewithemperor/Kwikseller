@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@kwikseller/api-client";
+import { api } from "@/services/api-client";
 import {
   ArrowLeft,
   HelpCircle,
@@ -30,7 +30,7 @@ import {
   AlertCircle,
   Ticket,
 } from "lucide-react";
-import { kwikToast } from "@kwikseller/utils";
+import { kwikToast } from "@/lib/toast";
 import { AccountLayout } from "@/components/layout/account-layout";
 import { PageLoading } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";

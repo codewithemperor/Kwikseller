@@ -19,12 +19,12 @@ import {
   Eye,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { AppButton, AppModal, FieldInput, FieldSelect, FieldTextarea, Skeleton, VendorPageHeader, VendorStatCard } from "@kwikseller/ui";
+import { AppButton, AppModal, FieldInput, FieldSelect, FieldTextarea, Skeleton, VendorPageHeader, VendorStatCard } from "@/lib/ui";
 import { formatCurrency, formatDate, unwrapApiData } from "@/lib/vendor-format";
 import { useVendorWalletStore } from "@/stores/vendor-wallet-store";
 import type { WalletTransaction, EscrowHolding } from "@/stores/vendor-wallet-store";
-import { paymentsApi, escrowApi } from "@kwikseller/api-client";
-import { cn, kwikToast } from "@kwikseller/utils";
+import { paymentsApi, escrowApi } from "@/lib/api-client";
+import { cn, kwikToast } from "@/lib/utils";
 
 // ==================== Local types ====================
 

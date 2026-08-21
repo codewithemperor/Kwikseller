@@ -36,7 +36,7 @@ import {
   UtensilsCrossed,
   Watch,
 } from "lucide-react";
-import type { SearchAutoSuggestItem } from "@kwikseller/ui";
+import type { SearchAutoSuggestItem } from "@/components/ui/search-auto-suggest";
 
 // ─── Locale & currency ─────────────────────────────────────────────────────
 

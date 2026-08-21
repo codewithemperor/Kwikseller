@@ -3,8 +3,8 @@
 import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PackageOpen, ShoppingCart, Trash2 } from "lucide-react";
-import { tokenManager } from "@kwikseller/api-client";
-import { kwikToast } from "@kwikseller/utils";
+import { tokenManager } from "@/services/api-client";
+import { kwikToast } from "@/lib/toast";
 import {
   QuantityStepper,
   StorefrontActionLink,
@@ -93,7 +93,7 @@ export default function VendorCartPage() {
               ))}
             </div>
 
-            <aside className="h-fit border border-black/10 p-4 dark:border-white/10">
+            <aside className="h-fit lg:sticky lg:top-24 border border-black/10 p-4 dark:border-white/10">
               <h2 className="text-lg font-semibold">Store checkout</h2>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
