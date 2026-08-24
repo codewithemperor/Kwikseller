@@ -41,6 +41,9 @@ export const registerSchema = z
     storeName: z.string().optional(),
     storeSlug: z.string().optional(),
     storeCategory: z.string().optional(),
+    agreedToTerms: z.boolean().refine((v) => v === true, {
+  message: "You must agree to the Terms & Conditions and Privacy Policy.",
+}),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",

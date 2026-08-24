@@ -18,7 +18,9 @@ import {
   TimeField,
   Select,
   ListBox,
+  Checkbox,
 } from "@heroui/react";
+import { cn } from "@/lib/utils";
 import type { Key } from "@heroui/react";
 import {
   parseDate,
@@ -689,6 +691,68 @@ export function SelectInput<T extends FieldValues>({
   );
 }
 
+// ==================== CHECKBOX INPUT ====================
+
+interface CheckboxInputProps<T extends FieldValues>
+  extends Omit<BaseInputProps<T>, "label" | "placeholder"> {
+  children: React.ReactNode;
+}
+
+export type { CheckboxInputProps };
+
+export function CheckboxInput<T extends FieldValues>({
+  name,
+  control,
+  children,
+  isRequired = false,
+  isDisabled = false,
+  className,
+  description,
+}: CheckboxInputProps<T>) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({
+        field: { value, onChange, name: fieldName, onBlur },
+        fieldState: { error },
+      }) => (
+        <div className="space-x-1.5 flex">
+          <Checkbox
+            name={fieldName}
+            value="on"
+            isSelected={!!value}
+            onChange={onChange}
+            onBlur={onBlur}
+            isDisabled={isDisabled}
+            isRequired={isRequired}
+            isInvalid={!!error}
+            className={cn("rounded-md border-border", className)}
+          >
+            <Checkbox.Content className="flex items-center gap-2">
+              <Checkbox.Control className="shrink-0">
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+            </Checkbox.Content>
+          </Checkbox>
+          <div>
+          <Label>
+            <span className="text-xs leading-relaxed text-muted-foreground">
+                {children}
+              </span>
+          </Label>
+            <FieldError className="pl-6 text-xs">{error?.message}</FieldError>
+              
+          {description && !error && (
+            <Description className="pl-6">{description}</Description>
+          )}
+          </div>
+        </div>
+      )}
+    />
+  );
+}
+
 // ==================== EXPORTS ====================
 
 export { TextInput as Text };
@@ -699,3 +763,4 @@ export { DatePickerInput as DatePicker };
 export { DateRangePickerInput as DateRangePicker };
 export { TimeFieldInput as Time };
 export { SelectInput as Select };
+export { CheckboxInput as Checkbox };

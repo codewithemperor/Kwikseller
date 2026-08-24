@@ -202,7 +202,12 @@ export function LoginPage({ portal, className }: LoginPageProps) {
                 onChange={setRememberMe}
                 className="rounded-md border-kwik-border"
               >
-                <span className="text-xs text-kwik-gray">Remember me</span>
+                <Checkbox.Content>
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <span className="text-xs text-kwik-gray">Remember me</span>
+                </Checkbox.Content>
               </Checkbox>
             </div>
             <Link

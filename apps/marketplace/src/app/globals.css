@@ -100,12 +100,14 @@
   --gray-950: oklch(0.14 0.008 255);
 
   /* ── Surfaces ── */
-  --background: var(--gray-50);
-  --foreground: var(--gray-900);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0 0 0);
   --surface: oklch(1 0 0);
-  --surface-foreground: var(--gray-900);
+  --surface-foreground: oklch(0 0 0);
   --overlay: oklch(1 0 0);
-  --overlay-foreground: var(--gray-900);
+  --overlay-foreground: oklch(0 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0 0 0);
 
   /* ── Primary = Blue (brand) ── */
   --primary: var(--primary-500);
@@ -121,7 +123,7 @@
 
   /* ── Default / neutral ── */
   --default: var(--gray-100);
-  --default-foreground: var(--gray-900);
+  --default-foreground: oklch(0 0 0);
   --muted: var(--gray-400);
 
   /* ── Status ── */
@@ -134,7 +136,7 @@
 
   /* ── Form fields ── */
   --field-background: oklch(1 0 0);
-  --field-foreground: var(--gray-900);
+  --field-foreground: oklch(0 0 0);
   --field-placeholder: var(--gray-400);
   --field-border: var(--gray-300);
 
@@ -149,7 +151,7 @@
   --kwik-orange: var(--secondary-500);
   --kwik-orange-hover: var(--secondary-600);
   --kwik-orange-tint: var(--secondary-50);
-  --kwik-dark: var(--gray-900);
+  --kwik-dark: oklch(0 0 0);
   --kwik-dark-medium: var(--gray-700);
   --kwik-gray: var(--gray-500);
   --kwik-gray-light: var(--gray-400);
@@ -158,9 +160,9 @@
   --kwik-border: var(--gray-200);
   --kwik-border-light: var(--gray-300);
   --kwik-bg-light: var(--gray-100);
-  --kwik-bg-page: var(--gray-50);
-  --kwik-bg-surface: var(--gray-50);
-  --kwik-badge-dark: var(--gray-900);
+  --kwik-bg-page: oklch(1 0 0);
+  --kwik-bg-surface: oklch(1 0 0);
+  --kwik-badge-dark: oklch(0 0 0);
   --kwik-star: oklch(0.75 0.16 70);
   --kwik-green: oklch(0.6 0.16 155);
   --kwik-red: oklch(0.54 0.23 27);
@@ -216,12 +218,14 @@
   /* Gray scale inherits from :root (50=lightest … 950=darkest) */
 
   /* ── Surfaces ── */
-  --background: var(--gray-950);
-  --foreground: var(--gray-100);
-  --surface: var(--gray-900);
-  --surface-foreground: var(--gray-100);
-  --overlay: var(--gray-900);
-  --overlay-foreground: var(--gray-100);
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+  --surface: oklch(0.12 0 0);
+  --surface-foreground: oklch(1 0 0);
+  --overlay: oklch(0.14 0 0);
+  --overlay-foreground: oklch(1 0 0);
+  --card: oklch(0.12 0 0);
+  --card-foreground: oklch(1 0 0);
 
   /* ── Primary = Blue ── */
   --primary: var(--primary-400);
@@ -237,7 +241,7 @@
 
   /* ── Default / neutral ── */
   --default: var(--gray-800);
-  --default-foreground: var(--gray-50);
+  --default-foreground: oklch(1 0 0);
   --muted: var(--gray-400);
 
   /* ── Status ── */
@@ -249,8 +253,8 @@
   --danger-foreground: oklch(0.12 0 0);
 
   /* ── Form fields ── */
-  --field-background: var(--gray-900);
-  --field-foreground: var(--gray-50);
+  --field-background: oklch(0.12 0 0);
+  --field-foreground: oklch(1 0 0);
   --field-placeholder: var(--gray-400);
   --field-border: oklch(1 0 0 / 12%);
 
@@ -264,7 +268,7 @@
   --kwik-orange: var(--secondary-500);
   --kwik-orange-hover: var(--secondary-600);
   --kwik-orange-tint: var(--secondary-100);
-  --kwik-dark: var(--gray-50);
+  --kwik-dark: oklch(1 0 0);
   --kwik-dark-medium: var(--gray-300);
   --kwik-gray: var(--gray-400);
   --kwik-gray-light: var(--gray-500);
@@ -272,10 +276,10 @@
   --kwik-muted-medium: var(--gray-400);
   --kwik-border: oklch(1 0 0 / 10%);
   --kwik-border-light: oklch(1 0 0 / 15%);
-  --kwik-bg-light: var(--gray-900);
-  --kwik-bg-page: var(--gray-950);
-  --kwik-bg-surface: var(--gray-900);
-  --kwik-badge-dark: var(--gray-50);
+  --kwik-bg-light: oklch(0.12 0 0);
+  --kwik-bg-page: oklch(0 0 0);
+  --kwik-bg-surface: oklch(0.12 0 0);
+  --kwik-badge-dark: oklch(1 0 0);
   --kwik-star: oklch(0.8 0.15 70);
   --kwik-green: oklch(0.68 0.15 155);
   --kwik-red: oklch(0.65 0.22 27);
@@ -283,8 +287,8 @@
   --kwik-amber: oklch(0.8 0.15 70);
   --kwik-whatsapp: oklch(0.7 0.17 150);
   --kwik-bg-warm: var(--secondary-100);
-  --kwik-bg-warm-gray: var(--gray-900);
-  --kwik-bg-warm-light: var(--gray-800);
+  --kwik-bg-warm-gray: oklch(0.12 0 0);
+  --kwik-bg-warm-light: oklch(0.16 0 0);
   --kwik-amber-tint: oklch(0.34 0.06 70);
   --kwik-orange-dark: var(--secondary-300);
   --kwik-green-tint: oklch(0.32 0.05 155);

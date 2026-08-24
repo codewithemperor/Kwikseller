@@ -17,10 +17,10 @@ import {
   ShoppingBag,
   Store,
 } from "lucide-react";
-import { Chip, Checkbox } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import { AppButton } from "@/components/ui/app-button";
 import { cn } from "@/lib/utils";
-import { TextInput, PasswordInput } from "@/components/ui/form-inputs";
+import { TextInput, PasswordInput, CheckboxInput } from "@/components/ui/form-inputs";
 import { OTPVerification } from "@/components/ui/otp-verification";
 import { kwikToast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth-context";
@@ -132,7 +132,6 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const [userEmail, setUserEmail] = useState("");
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
 
   const { control, handleSubmit, setValue, watch } = useForm<RegisterFormData>({
@@ -145,6 +144,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
       lastName: "",
       phone: "",
       role: selectedRole,
+      agreedToTerms: true,
     },
   });
 
@@ -172,13 +172,6 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
 
   const onSubmit = async (data: RegisterFormData) => {
     setError(null);
-
-    if (!agreedToTerms) {
-      setError("You must agree to the Terms & Conditions and Privacy Policy.");
-      kwikToast.error("Please accept the terms and conditions.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -418,23 +411,21 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
         />
 
         {/* Terms & conditions */}
-        <div className="flex items-start gap-2.5">
-          <Checkbox
-            isSelected={agreedToTerms}
-            onChange={setAgreedToTerms}
-            className="rounded-md border-kwik-border mt-0.5"
-          />
-          <span className="text-xs leading-relaxed text-kwik-gray">
-            I agree to the{" "}
-            <Link href="/terms" className="text-kwik-orange hover:text-kwik-orange-hover hover:underline">
-              Terms & Conditions
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="text-kwik-orange hover:text-kwik-orange-hover hover:underline">
-              Privacy Policy
-            </Link>
-          </span>
-        </div>
+        <CheckboxInput
+          name="agreedToTerms"
+          control={control}
+          isRequired
+          isDisabled={busy}
+        >
+          I agree to the{" "}
+          <Link href="/terms" className="text-kwik-orange hover:text-kwik-orange-hover hover:underline">
+            Terms & Conditions
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-kwik-orange hover:text-kwik-orange-hover hover:underline">
+            Privacy Policy
+          </Link>
+        </CheckboxInput>
 
         <AppButton
           type="submit"

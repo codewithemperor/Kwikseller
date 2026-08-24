@@ -12,37 +12,37 @@ import {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <GuestRoute>
-      <main className="min-h-screen bg-background text-foreground">
-        <div className="grid min-h-screen lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
-          <section className="hidden border-r border-neutral-200 bg-foreground text-background dark:border-white/10 lg:flex lg:flex-col">
-            <div className="flex items-center justify-between px-10 py-8">
+      <main className="h-full overflow-hidden bg-background text-foreground">
+        <div className="grid h-full min-h-0 lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
+          <section className="hidden h-full min-h-0 flex-col border-r border-neutral-200 bg-foreground text-background dark:border-white/10 lg:flex">
+            <div className="flex items-center justify-between px-8 py-5">
               <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-white/75 hover:text-white">
                 <ArrowLeft className="h-4 w-4" />
                 Marketplace
               </Link>
-              <Image src="/logo-full.png" alt="Kwikseller" width={148} height={38} className="h-9 w-auto" priority />
+              <Image src="/logo-full-dark.png" alt="Kwikseller" width={148} height={38} className="h-9 w-auto" priority />
             </div>
 
-            <div className="flex flex-1 flex-col justify-center px-10 py-12">
+            <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-8 py-6">
               <div className="max-w-xl">
-                <h1 className="font-heading text-4xl font-semibold leading-tight tracking-tight">
+                <h1 className="font-heading text-3xl font-semibold leading-tight tracking-tight">
                   {authSidebarHeading.heading}
                 </h1>
-                <p className="mt-5 max-w-lg text-base leading-7 text-white/70">
+                <p className="mt-3 max-w-lg text-sm leading-6 text-white/70">
                   {authSidebarHeading.body}
                 </p>
               </div>
 
-              <div className="mt-12 grid gap-3">
+              <div className="mt-6 grid gap-2">
                 {authSidebarFeatures.map((item) => {
                   const Icon = item.icon;
                   return (
-                  <div key={item.title} className="border border-white/12 bg-white/[0.03] p-4">
+                  <div key={item.title} className="border border-white/12 bg-white/[0.03] p-3">
                     <div className="flex items-start gap-3">
-                      <Icon className="mt-0.5 h-5 w-5 text-kwik-orange" />
+                      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-kwik-orange" />
                       <div>
                         <p className="text-sm font-semibold text-white">{item.title}</p>
-                        <p className="mt-1 text-sm leading-6 text-white/62">{item.text}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-white/62">{item.text}</p>
                       </div>
                     </div>
                   </div>
@@ -51,7 +51,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
 
-            <div className="border-t border-white/10 px-10 py-6">
+            <div className="border-t border-white/10 px-8 py-4">
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <BadgeCheck className="h-4 w-4 text-kwik-orange" />
                 {authSidebarHeading.footerNote}
@@ -59,7 +59,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </div>
           </section>
 
-          <section className="flex min-h-screen flex-col">
+          <section className="flex h-full min-h-0 flex-col overflow-y-auto">
             <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-white/10 lg:hidden">
               <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-kwik-muted dark:text-white/70">
                 <ArrowLeft className="h-4 w-4" />
