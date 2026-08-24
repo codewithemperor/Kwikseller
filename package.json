@@ -38,6 +38,7 @@
   "dependencies": {
     "@heroui/react": "^3.0.3",
     "@heroui/styles": "^3.0.3",
+    "@internationalized/date": "^3.12.1",
     "axios": "^1.13.6",
     "framer-motion": "^12.38.0"
   }
