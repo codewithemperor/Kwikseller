@@ -10,7 +10,13 @@ async function bootstrap() {
   const apiVersion = process.env.API_VERSION || "v1";
   app.setGlobalPrefix(`api/${apiVersion}`);
 
-  const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
+  const normalizeOrigin = (origin: string) =>
+    origin
+      .trim()
+      .replace(/^\[+|\]+$/g, "")
+      .replace(/^['"]+|['"]+$/g, "")
+      .trim()
+      .replace(/\/+$/, "");
 
   const configuredOrigins = (process.env.CORS_ORIGINS || "")
     .split(",")

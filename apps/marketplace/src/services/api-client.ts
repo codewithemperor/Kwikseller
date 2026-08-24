@@ -48,6 +48,9 @@ export interface ApiError {
   statusCode: number
   message: string
   error?: string
+  code?: string
+  data?: unknown
+  errors?: unknown
   details?: Record<string, string[]>
 }
 
@@ -113,6 +116,28 @@ function processRefreshQueue(error: unknown, token: string | null = null): void 
     else if (token) resolve(token)
   })
   refreshQueue = []
+}
+
+function getReadableErrorMessage(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map((item) => getReadableErrorMessage(item, ''))
+      .filter(Boolean)
+    return messages.length > 0 ? messages.join('. ') : fallback
+  }
+
+  if (value && typeof value === 'object') {
+    const maybeMessage = (value as { message?: unknown }).message
+    if (maybeMessage !== undefined) {
+      return getReadableErrorMessage(maybeMessage, fallback)
+    }
+  }
+
+  return fallback
 }
 
 // ==================== Token Management ====================
@@ -254,11 +279,26 @@ const createApiClient = (): AxiosInstance => {
         }
       }
 
+      if (!error.response) {
+        return Promise.reject({
+          statusCode: 0,
+          message:
+            'Unable to reach the server. Please check your connection and try again.',
+          error: 'Network Error',
+        } satisfies ApiError)
+      }
+
       // Handle other errors
       const apiError: ApiError = {
         statusCode: error.response?.status || 500,
-        message: error.response?.data?.message || error.message || 'An error occurred',
+        message: getReadableErrorMessage(
+          error.response?.data?.message,
+          error.message || 'Request failed. Please try again.',
+        ),
         error: error.response?.data?.error,
+        code: error.response?.data?.code,
+        data: error.response?.data?.data,
+        errors: error.response?.data?.errors,
         details: error.response?.data?.details,
       }
 

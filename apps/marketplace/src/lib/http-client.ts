@@ -32,8 +32,10 @@ export interface ApiErrorResponse {
   statusCode: number;
   code?: string;
   message?: string;
+  error?: string;
   data?: unknown;
   errors?: unknown;
+  details?: Record<string, string[]>;
 }
 
 export class ApiError extends Error implements ApiErrorResponse {
@@ -59,23 +61,70 @@ export class ApiError extends Error implements ApiErrorResponse {
 }
 
 function toApiError(error: unknown): ApiError {
+  if (
+    error &&
+    typeof error === "object" &&
+    "statusCode" in error &&
+    "message" in error
+  ) {
+    const body = error as ApiErrorResponse;
+    return new ApiError(
+      normalizeErrorMessage(body.message, "Request failed. Please try again."),
+      body.statusCode,
+      body.code,
+      body.data,
+      body.errors ?? body.details,
+    );
+  }
+
   if (axios.isAxiosError(error)) {
     const ae = error as AxiosError<ApiErrorResponse>;
     const body = ae.response?.data;
-    const message =
-      body?.message || ae.message || "An error occurred";
+    if (!ae.response) {
+      return new ApiError(
+        "Unable to reach the server. Please check your connection and try again.",
+        0,
+      );
+    }
+
+    const message = normalizeErrorMessage(
+      body?.message,
+      ae.message || "Request failed. Please try again.",
+    );
     return new ApiError(
       message,
       ae.response?.status ?? 0,
       body?.code,
       body?.data,
-      body?.errors,
+      body?.errors ?? body?.details,
     );
   }
   if (error instanceof Error) {
     return new ApiError(error.message, 0);
   }
-  return new ApiError("An unknown error occurred", 0);
+  return new ApiError("Request failed. Please try again.", 0);
+}
+
+function normalizeErrorMessage(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map((item) => normalizeErrorMessage(item, ""))
+      .filter(Boolean);
+    return messages.length > 0 ? messages.join(". ") : fallback;
+  }
+
+  if (value && typeof value === "object") {
+    const maybeMessage = (value as { message?: unknown }).message;
+    if (maybeMessage !== undefined) {
+      return normalizeErrorMessage(maybeMessage, fallback);
+    }
+  }
+
+  return fallback;
 }
 
 // ─── Flat-response api wrapper (delegates to canonical apiClient) ────────────

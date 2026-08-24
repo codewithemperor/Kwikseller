@@ -14,9 +14,46 @@ interface ErrorResponse {
   statusCode: number;
   message: string;
   error?: string;
+  code?: string;
+  data?: Record<string, unknown>;
+  errors?: unknown;
   details?: Record<string, string[]>;
   timestamp: string;
   path: string;
+}
+
+const statusMessages: Record<number, string> = {
+  [HttpStatus.BAD_REQUEST]: 'Please check your request and try again.',
+  [HttpStatus.UNAUTHORIZED]: 'Please sign in to continue.',
+  [HttpStatus.FORBIDDEN]: 'You do not have permission to perform this action.',
+  [HttpStatus.NOT_FOUND]: 'The requested resource was not found.',
+  [HttpStatus.CONFLICT]: 'This record already exists.',
+  [HttpStatus.UNPROCESSABLE_ENTITY]: 'Please check your request and try again.',
+  [HttpStatus.TOO_MANY_REQUESTS]: 'Too many requests. Please try again later.',
+  [HttpStatus.INTERNAL_SERVER_ERROR]:
+    'Something went wrong on our server. Please try again.',
+};
+
+function toReadableMessage(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map((item) => toReadableMessage(item, ''))
+      .filter(Boolean);
+    return messages.length ? messages.join('. ') : fallback;
+  }
+
+  if (value && typeof value === 'object') {
+    const maybeMessage = (value as { message?: unknown }).message;
+    if (maybeMessage !== undefined) {
+      return toReadableMessage(maybeMessage, fallback);
+    }
+  }
+
+  return fallback;
 }
 
 @Catch()
@@ -31,8 +68,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const path = request?.originalUrl ?? request?.url ?? 'unknown';
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'An unexpected error occurred';
+    let message = statusMessages[status];
     let error = 'Internal Server Error';
+    let code: string | undefined;
+    let data: Record<string, unknown> | undefined;
+    let errors: unknown;
     let details: Record<string, string[]> | undefined;
 
     // Handle HTTP exceptions
@@ -44,10 +84,40 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message = exceptionResponse;
       } else if (typeof exceptionResponse === 'object') {
         const responseObj = exceptionResponse as Record<string, unknown>;
-        message = (responseObj.message as string) || exception.message;
-        error = (responseObj.error as string) || 'Error';
+        message = toReadableMessage(
+          responseObj.message,
+          exception.message || statusMessages[status],
+        );
+        error =
+          typeof responseObj.error === 'string'
+            ? responseObj.error
+            : statusMessages[status] || 'Error';
+        code =
+          typeof responseObj.code === 'string' ? responseObj.code : undefined;
+        errors = responseObj.errors;
+        if (responseObj.data && typeof responseObj.data === 'object') {
+          data = responseObj.data as Record<string, unknown>;
+        }
         if (responseObj.details) {
           details = responseObj.details as Record<string, string[]>;
+        }
+
+        const extraData = Object.fromEntries(
+          Object.entries(responseObj).filter(
+            ([key]) =>
+              ![
+                'statusCode',
+                'message',
+                'error',
+                'code',
+                'data',
+                'details',
+                'errors',
+              ].includes(key),
+          ),
+        );
+        if (Object.keys(extraData).length > 0) {
+          data = { ...data, ...extraData };
         }
       }
     }
@@ -116,6 +186,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path,
     };
+
+    if (code) {
+      errorResponse.code = code;
+    }
+
+    if (data) {
+      errorResponse.data = data;
+    }
+
+    if (errors) {
+      errorResponse.errors = errors;
+    }
 
     if (details) {
       errorResponse.details = details;

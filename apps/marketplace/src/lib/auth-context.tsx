@@ -274,14 +274,17 @@ export function AuthProvider({
         if (err instanceof ApiError) {
           if (err.statusCode === 403 && err.code === "EMAIL_NOT_VERIFIED") {
             const payload = err.data as
-              | { user?: { email?: string } }
+              | { email?: string; user?: { email?: string } }
               | undefined;
             return {
               success: false,
               code: "EMAIL_NOT_VERIFIED",
               requiresOTP: true,
               message: err.message,
-              email: payload?.user?.email || normalizedCredentials.email,
+              email:
+                payload?.email ||
+                payload?.user?.email ||
+                normalizedCredentials.email,
             };
           }
           return { success: false, error: err.message };
