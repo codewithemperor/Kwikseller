@@ -1008,8 +1008,6 @@ export const notificationsApi = {
 
   markAllAsRead: () => api.post('/notifications/read-all'),
 
-  getUnreadCount: () => api.get('/notifications/unread-count'),
-
   // Push notifications
   subscribePush: (subscription: PushSubscriptionJSON) =>
     api.post('/notifications/push/subscribe', subscription),

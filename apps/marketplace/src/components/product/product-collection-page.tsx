@@ -8,18 +8,18 @@
  *   /products/new-arrivals
  *   /products/top-rated
  *
- * Each route page is a thin wrapper that calls the relevant React Query
- * hook (`useTrending`, `useNewArrivals`, `useTopProducts`) and passes the
+ * Each route page is a thin wrapper that passes an infinite product query
  * result here. This component owns the breadcrumb, header, client-side
- * sort dropdown, product grid, quick-view modal, and loading / empty /
- * error states — keeping the three route files trivial.
+ * sort dropdown, product grid, quick-view modal, infinite loader, and
+ * loading / empty / error states — keeping the three route files trivial.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  ArrowUp,
   ChevronRight,
   PackageOpen,
   SlidersHorizontal,
@@ -64,6 +64,9 @@ interface ProductCollectionQueryResult {
   data?: MarketplaceProduct[];
   isLoading: boolean;
   isError: boolean;
+  isFetchingNextPage?: boolean;
+  hasNextPage?: boolean;
+  fetchNextPage?: () => void;
 }
 
 export interface ProductCollectionPageProps {
@@ -97,9 +100,18 @@ export function ProductCollectionPage({
   queryResult,
   breadcrumbLabel,
 }: ProductCollectionPageProps) {
-  const { data, isLoading, isError } = queryResult;
+  const {
+    data,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = queryResult;
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
   const [sortOpen, setSortOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [quickViewProduct, setQuickViewProduct] =
     useState<MarketplaceProduct | null>(null);
 
@@ -137,6 +149,34 @@ export function ProductCollectionPage({
 
   const count = sortedProducts.length;
   const sortDisabled = isLoading || isError || count === 0;
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !fetchNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0]?.isIntersecting &&
+          hasNextPage &&
+          !isFetchingNextPage
+        ) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "420px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  useEffect(() => {
+    const handleScroll = () => setShowScrollTop(window.scrollY > 700);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -344,7 +384,38 @@ export function ProductCollectionPage({
             ))}
           </div>
         )}
+
+        {!isLoading && !isError && count > 0 ? (
+          <div ref={sentinelRef} className="flex items-center justify-center py-8">
+            {isFetchingNextPage ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
+                Loading more products...
+              </div>
+            ) : hasNextPage ? (
+              <div className="text-sm text-muted-foreground">Scroll to load more</div>
+            ) : (
+              <div className="text-sm text-muted-foreground">You&apos;ve reached the end of the catalog.</div>
+            )}
+          </div>
+        ) : null}
       </div>
+
+      <AnimatePresence>
+        {showScrollTop ? (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-5 right-5 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-kwik-orange text-white shadow-lg shadow-kwik-orange/20 transition hover:bg-kwik-orange-hover"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp className="h-5 w-5" />
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
 
       {/* ── Quick view ── */}
       <QuickViewModal

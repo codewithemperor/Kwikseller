@@ -18,6 +18,11 @@ import {
   type ResetPasswordFormData,
 } from "@/types";
 
+const otpSlotClass =
+  "h-11 w-10 rounded-lg border border-border bg-background text-base font-semibold text-foreground shadow-none outline-none transition-colors data-[active=true]:border-accent data-[active=true]:ring-2 data-[active=true]:ring-accent/15 data-[invalid=true]:border-danger dark:border-white/12 dark:bg-white/[0.03]";
+const otpGroupClass = "gap-2";
+const otpSeparatorClass = "mx-0 h-px w-3 bg-border";
+
 interface ResetPasswordPageProps {
   loginPath: string;
   forgotPasswordPath?: string;
@@ -259,17 +264,18 @@ export function ResetPasswordPage({
             value={control._formValues?.otp || ""}
             onChange={handleOtpChange}
             isDisabled={busy}
+            className="justify-center gap-2"
           >
-            <InputOTP.Group className="gap-2">
-              <InputOTP.Slot index={0} className="text-xl font-semibold" />
-              <InputOTP.Slot index={1} className="text-xl font-semibold" />
-              <InputOTP.Slot index={2} className="text-xl font-semibold" />
+            <InputOTP.Group className={otpGroupClass}>
+              <InputOTP.Slot index={0} className={otpSlotClass} />
+              <InputOTP.Slot index={1} className={otpSlotClass} />
+              <InputOTP.Slot index={2} className={otpSlotClass} />
             </InputOTP.Group>
-            <InputOTP.Separator />
-            <InputOTP.Group className="gap-2">
-              <InputOTP.Slot index={3} className="text-xl font-semibold" />
-              <InputOTP.Slot index={4} className="text-xl font-semibold" />
-              <InputOTP.Slot index={5} className="text-xl font-semibold" />
+            <InputOTP.Separator className={otpSeparatorClass} />
+            <InputOTP.Group className={otpGroupClass}>
+              <InputOTP.Slot index={3} className={otpSlotClass} />
+              <InputOTP.Slot index={4} className={otpSlotClass} />
+              <InputOTP.Slot index={5} className={otpSlotClass} />
             </InputOTP.Group>
           </InputOTP>
         </div>

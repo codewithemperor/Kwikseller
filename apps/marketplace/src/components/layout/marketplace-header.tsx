@@ -21,6 +21,7 @@ const MegaNav = dynamic(
 );
 
 interface MarketplaceHeaderProps {
+  variant?: "shop" | "account";
   headerRef: RefObject<HTMLElement | null>;
   isScrolled: boolean;
   isSearchPage: boolean;
@@ -40,9 +41,15 @@ interface MarketplaceHeaderProps {
   onToggleFilters: () => void;
   onNavigateStart: () => void;
   onLogout: () => Promise<void>;
+  drawerLabel?: string;
+  drawerButtonClassName?: string;
+  showMegaNav?: boolean;
+  showDesktopSearch?: boolean;
+  showMobileSearch?: boolean;
 }
 
 export function MarketplaceHeader({
+  variant = "shop",
   headerRef,
   isScrolled,
   isSearchPage,
@@ -62,6 +69,11 @@ export function MarketplaceHeader({
   onToggleFilters,
   onNavigateStart,
   onLogout,
+  drawerLabel = "Open menu",
+  drawerButtonClassName = "md:hidden",
+  showMegaNav = true,
+  showDesktopSearch = true,
+  showMobileSearch = true,
 }: MarketplaceHeaderProps) {
   const router = useRouter();
   const desktopSearchBtnRef = useRef<HTMLButtonElement>(null);
@@ -70,6 +82,7 @@ export function MarketplaceHeader({
   return (
     <header
       ref={headerRef}
+      data-marketplace-header={variant}
       className={`sticky top-0 z-40 bg-background/95 backdrop-blur-md transition-shadow duration-300 ${
         isScrolled ? "border-b border-kwik-orange/10 shadow-md" : "border-b border-kwik-border"
       }`}
@@ -80,9 +93,9 @@ export function MarketplaceHeader({
             <Button
               isIconOnly
               variant="ghost"
-              className="md:hidden"
+              className={drawerButtonClassName}
               onPress={onOpenDrawer}
-              aria-label="Open menu"
+              aria-label={drawerLabel}
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -108,10 +121,10 @@ export function MarketplaceHeader({
             </button>
           </div>
 
-          <MegaNav />
+          {showMegaNav ? <MegaNav /> : null}
 
           <div className="flex items-center gap-0 md:gap-2">
-            {!isSearchPage ? (
+            {showDesktopSearch && !isSearchPage ? (
               <div className="relative hidden md:block">
                 <button
                   ref={desktopSearchBtnRef}
@@ -196,7 +209,7 @@ export function MarketplaceHeader({
           </div>
         ) : null}
 
-        {!isSearchPage ? (
+        {showMobileSearch && !isSearchPage ? (
           <div className="px-3 pb-2 md:hidden">
             <motion.button
               type="button"

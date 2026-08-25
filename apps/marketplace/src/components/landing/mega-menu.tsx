@@ -51,8 +51,14 @@ const itemVariants = {
 // Categories are fetched live from the backend so the menu always
 // reflects the real category tree (no hardcoded counts).
 
-function CategoriesDropdown({ onNavigate }: { onNavigate?: () => void }) {
-  const { data: categories, isLoading } = useCategories()
+function CategoriesDropdown({
+  isOpen,
+  onNavigate,
+}: {
+  isOpen: boolean
+  onNavigate?: () => void
+}) {
+  const { data: categories, isLoading } = useCategories(isOpen)
 
   // Show up to 9 categories in the grid; the "View All" CTA covers the rest.
   const visible = (categories ?? []).slice(0, 9)
@@ -282,7 +288,7 @@ function NavItemButton({
                 )}
               >
                 {item.kind === 'categories' ? (
-                  <CategoriesDropdown />
+                  <CategoriesDropdown isOpen={isHovered} />
                 ) : (
                   <StandardDropdown links={item.links ?? []} viewAllHref={item.href} />
                 )}

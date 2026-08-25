@@ -129,6 +129,17 @@ export interface ProductListParams {
   sortOrder?: "asc" | "desc";
 }
 
+function toSearchSort(params: ProductListParams): SearchFilters["sort"] {
+  if (params.sortBy === "price") {
+    return params.sortOrder === "asc" ? "price-low" : "price-high";
+  }
+
+  if (params.sortBy === "createdAt") return "newest";
+  if (params.sortBy === "rating") return "rating";
+  if (params.sortBy === "totalSales") return "popular";
+  return "relevance";
+}
+
 /** Paginated product list with filters + sorting. */
 export function useProducts(params: ProductListParams = {}) {
   return useQuery({
@@ -142,6 +153,65 @@ export function useProducts(params: ProductListParams = {}) {
     },
     placeholderData: keepPreviousData,
   });
+}
+
+/** Infinite product list with filters + sorting. */
+export function useProductsInfinite(params: ProductListParams = {}) {
+  const limit = params.limit ?? 20;
+  const query = useInfiniteQuery({
+    queryKey: ["products", "infinite", params],
+    queryFn: async ({ pageParam }: { pageParam: number }) => {
+      const res = await searchProductsWithFilters({
+        q: params.search,
+        categoryId: params.categoryId,
+        brandId: params.brandId,
+        storeId: params.storeId,
+        sort: toSearchSort(params),
+        page: pageParam,
+        limit,
+      });
+      return {
+        products: (res.data || []).map(toMarketplaceProduct),
+        meta: res.meta
+          ? {
+              page: res.meta.page,
+              limit: res.meta.limit,
+              total: res.meta.total,
+              totalPages: res.meta.pages,
+            }
+          : {
+              page: pageParam,
+              limit,
+              total: res.data?.length ?? 0,
+              totalPages: 1,
+            },
+      };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const page = lastPage.meta?.page ?? 1;
+      const totalPages = lastPage.meta?.totalPages ?? 1;
+      return page < totalPages ? page + 1 : null;
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const pages = query.data?.pages ?? [];
+  const products = pages.flatMap((page) => page.products);
+  const meta = pages[pages.length - 1]?.meta;
+
+  return {
+    products,
+    meta,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isFetching: query.isFetching,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: query.hasNextPage,
+    error: query.error,
+    refetch: query.refetch,
+    fetchNextPage: query.fetchNextPage,
+  };
 }
 
 /** Raw API products (when you need the full Product shape, e.g. detail page). */
@@ -378,13 +448,14 @@ export function useSearchSuggestions(term: string, enabled = true) {
   });
 }
 
-export function useCategories() {
+export function useCategories(enabled = true) {
   return useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
       const res = await fetchCategories();
       return res.data || [];
     },
+    enabled,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -465,7 +536,10 @@ export function useDeal(id: string | undefined) {
   });
 }
 
-export function useStores(params?: { page?: number; limit?: number; search?: string; category?: string }) {
+export function useStores(
+  params?: { page?: number; limit?: number; search?: string; category?: string },
+  enabled = true,
+) {
   return useQuery({
     queryKey: ["stores", params],
     queryFn: async () => {
@@ -478,6 +552,7 @@ export function useStores(params?: { page?: number; limit?: number; search?: str
       const res = await api.get<{ data: unknown[]; meta: unknown }>(`vendors${qs ? `?${qs}` : ""}`);
       return res.data;
     },
+    enabled,
     staleTime: 5 * 60 * 1000,
   });
 }

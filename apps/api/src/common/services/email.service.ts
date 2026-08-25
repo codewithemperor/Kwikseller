@@ -15,10 +15,12 @@ export interface EmailOptions {
   }>;
 }
 
+type EmailProvider = 'smtp' | 'brevo' | 'mailtrap' | 'mailjet';
+
 @Injectable()
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter?: nodemailer.Transporter;
   private templates: Map<string, HandlebarsTemplateDelegate> = new Map();
 
   constructor(private readonly configService: ConfigService) {}
@@ -32,6 +34,12 @@ export class EmailService implements OnModuleInit {
    * Initialize Nodemailer transporter
    */
   private async initializeTransporter() {
+    const provider = this.getEmailProvider();
+    if (provider !== 'smtp') {
+      this.logger.log(`Email provider configured for ${provider} API`);
+      return;
+    }
+
     const smtpHost = this.configService.get<string>('email.host', 'smtp.sendgrid.net');
     const smtpPort = this.configService.get<number>('email.port', 587);
     const smtpUser = this.configService.get<string>('email.user', 'apikey');
@@ -139,21 +147,34 @@ export class EmailService implements OnModuleInit {
     const html = templateFn ? templateFn(templateData) : this.getDefaultTemplate(subject, templateData);
     const text = this.htmlToText(html);
 
-    const fromAddress = this.configService.get<string>(
-      'email.from',
-      'noreply@kwikseller.com',
-    );
-
-    const mailOptions: nodemailer.SendMailOptions = {
-      from: fromAddress,
-      to: Array.isArray(to) ? to.join(', ') : to,
-      subject,
-      html,
-      text,
-    };
-
     try {
-      await this.transporter.sendMail(mailOptions);
+      const provider = this.getEmailProvider();
+      const fromAddress = this.configService.get<string>(
+        'email.from',
+        'noreply@kwikseller.com',
+      );
+
+      if (provider === 'brevo') {
+        await this.sendWithBrevo(to, subject, html, text, fromAddress);
+      } else if (provider === 'mailtrap') {
+        await this.sendWithMailtrap(to, subject, html, text, fromAddress);
+      } else if (provider === 'mailjet') {
+        await this.sendWithMailjet(to, subject, html, text, fromAddress);
+      } else {
+        if (!this.transporter) {
+          throw new Error('SMTP transporter is not initialized');
+        }
+
+        const mailOptions: nodemailer.SendMailOptions = {
+          from: fromAddress,
+          to: Array.isArray(to) ? to.join(', ') : to,
+          subject,
+          html,
+          text,
+        };
+        await this.transporter.sendMail(mailOptions);
+      }
+
       this.logger.log(`Email sent to ${to}: ${subject}`);
       return { success: true };
     } catch (error: unknown) {
@@ -163,6 +184,143 @@ export class EmailService implements OnModuleInit {
       this.logger.debug(`Email content:\n${text}`);
       return { success: false, error: errorMessage };
     }
+  }
+
+  private getEmailProvider(): EmailProvider {
+    const provider = this.configService
+      .get<string>('email.provider', 'smtp')
+      .toLowerCase();
+
+    if (provider === 'brevo' || provider === 'mailtrap' || provider === 'mailjet') {
+      return provider;
+    }
+
+    return 'smtp';
+  }
+
+  private getRecipients(to: string | string[]) {
+    const recipients = Array.isArray(to) ? to : to.split(',');
+    return recipients
+      .map((email) => email.trim())
+      .filter(Boolean)
+      .map((email) => ({ email }));
+  }
+
+  private parseFromAddress(fromAddress: string) {
+    const match = fromAddress.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+    if (match) {
+      return {
+        name: match[1].replace(/^"|"$/g, '').trim() || 'KWIKSELLER',
+        email: match[2].trim(),
+      };
+    }
+
+    return { name: 'KWIKSELLER', email: fromAddress.trim() };
+  }
+
+  private async sendWithBrevo(
+    to: string | string[],
+    subject: string,
+    html: string,
+    text: string,
+    fromAddress: string,
+  ) {
+    const apiKey = this.configService.get<string>('email.apiKey');
+    if (!apiKey) {
+      throw new Error('BREVO_API_KEY is required when EMAIL_PROVIDER=brevo');
+    }
+
+    await this.postEmailApi('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: this.parseFromAddress(fromAddress),
+        to: this.getRecipients(to),
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+  }
+
+  private async sendWithMailtrap(
+    to: string | string[],
+    subject: string,
+    html: string,
+    text: string,
+    fromAddress: string,
+  ) {
+    const apiKey = this.configService.get<string>('email.apiKey');
+    if (!apiKey) {
+      throw new Error('MAILTRAP_API_KEY is required when EMAIL_PROVIDER=mailtrap');
+    }
+
+    const from = this.parseFromAddress(fromAddress);
+    await this.postEmailApi('https://send.api.mailtrap.io/api/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: this.getRecipients(to),
+        subject,
+        html,
+        text,
+        category: 'transactional',
+      }),
+    });
+  }
+
+  private async sendWithMailjet(
+    to: string | string[],
+    subject: string,
+    html: string,
+    text: string,
+    fromAddress: string,
+  ) {
+    const apiKey = this.configService.get<string>('email.apiKey');
+    const apiSecret = this.configService.get<string>('email.apiSecret');
+    if (!apiKey || !apiSecret) {
+      throw new Error('MAILJET_API_KEY and MAILJET_API_SECRET are required when EMAIL_PROVIDER=mailjet');
+    }
+
+    const from = this.parseFromAddress(fromAddress);
+    await this.postEmailApi('https://api.mailjet.com/v3.1/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        Messages: [
+          {
+            From: { Email: from.email, Name: from.name },
+            To: this.getRecipients(to).map((recipient) => ({ Email: recipient.email })),
+            Subject: subject,
+            TextPart: text,
+            HTMLPart: html,
+          },
+        ],
+      }),
+    });
+  }
+
+  private async postEmailApi(url: string, init: RequestInit) {
+    const response = await fetch(url, init);
+    if (response.ok) {
+      return;
+    }
+
+    const body = await response.text().catch(() => '');
+    throw new Error(
+      `Email API request failed with status ${response.status}${body ? `: ${body}` : ''}`,
+    );
   }
 
   /**

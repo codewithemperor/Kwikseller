@@ -9,23 +9,23 @@ import { useNotificationStore, type NotificationType } from '@/stores/notificati
 const ICON_MAP: Record<NotificationType, { icon: React.ElementType; colorClass: string; bgClass: string }> = {
   success: {
     icon: CheckCircle2,
-    colorClass: 'text-kwik-green',
-    bgClass: 'bg-kwik-green/10 border-kwik-green/20',
+    colorClass: 'text-success-foreground',
+    bgClass: 'bg-success border-success text-success-foreground',
   },
   error: {
     icon: XCircle,
-    colorClass: 'text-kwik-red',
-    bgClass: 'bg-kwik-red/10 border-kwik-red/20',
+    colorClass: 'text-danger-foreground',
+    bgClass: 'bg-danger border-danger text-danger-foreground',
   },
   info: {
     icon: Info,
-    colorClass: 'text-kwik-blue',
-    bgClass: 'bg-kwik-blue/10 border-kwik-blue/20',
+    colorClass: 'text-white',
+    bgClass: 'bg-kwik-blue border-kwik-blue text-white',
   },
   warning: {
     icon: AlertTriangle,
-    colorClass: 'text-kwik-amber',
-    bgClass: 'bg-kwik-amber/10 border-kwik-amber/20',
+    colorClass: 'text-warning-foreground',
+    bgClass: 'bg-warning border-warning text-warning-foreground',
   },
 }
 
@@ -53,21 +53,21 @@ function NotificationToast({
       animate="animate"
       exit="exit"
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className={`relative flex items-start gap-3 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border p-4 shadow-xl backdrop-blur-xl ${bgClass} bg-background/90`}
+      className={`relative flex items-start gap-3 w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border p-4 shadow-none ${bgClass}`}
       role="alert"
     >
       {/* Icon */}
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-kwik-bg-surface ${colorClass}`}>
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 ${colorClass}`}>
         <Icon className="h-4 w-4" />
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-kwik-dark leading-tight">
+        <p className="text-sm font-semibold leading-tight">
           {notification.title}
         </p>
         {notification.message && (
-          <p className="mt-0.5 text-xs text-kwik-gray-light leading-relaxed">
+          <p className="mt-0.5 text-xs leading-relaxed opacity-80">
             {notification.message}
           </p>
         )}
@@ -77,7 +77,7 @@ function NotificationToast({
       <button
         type="button"
         onClick={onDismiss}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-kwik-muted hover:text-kwik-dark hover:bg-kwik-bg-surface transition-colors duration-200"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-current/70 transition-colors duration-200 hover:bg-white/15 hover:text-current"
         aria-label="Dismiss notification"
       >
         <X className="h-3.5 w-3.5" />
@@ -86,10 +86,10 @@ function NotificationToast({
       {/* Auto-dismiss progress bar */}
       <motion.div
         className="absolute bottom-0 left-3 right-3 h-[2px] rounded-full overflow-hidden"
-        style={{ backgroundColor: 'var(--kwik-border)' }}
+        style={{ backgroundColor: 'rgb(255 255 255 / 0.18)' }}
       >
         <motion.div
-          className={`h-full rounded-full ${notification.type === 'success' ? 'bg-kwik-green' : notification.type === 'error' ? 'bg-kwik-red' : notification.type === 'warning' ? 'bg-kwik-amber' : 'bg-kwik-blue'}`}
+          className="h-full rounded-full bg-white/80"
           initial={{ width: '100%' }}
           animate={{ width: '0%' }}
           transition={{ duration: 3, ease: 'linear' }}

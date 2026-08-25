@@ -9,3 +9,6 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: true
+peerDependencyRules:
+  allowedVersions:
+    eslint: ^10.0.0

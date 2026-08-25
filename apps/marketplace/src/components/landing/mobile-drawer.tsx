@@ -42,7 +42,7 @@ export function MobileDrawer({
 }: MobileDrawerProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { data: categories } = useCategories()
+  const { data: categories } = useCategories(isOpen)
 
   // Track which accordion sections are expanded. Multiple may be open at once
   // so the user can compare routes across sections.

@@ -14,6 +14,13 @@
 
 import { toast } from "@heroui/react";
 
+const TOAST_TIMEOUT = {
+  success: 2800,
+  info: 2800,
+  warning: 3400,
+  error: 4200,
+} as const;
+
 export const kwikToast = {
   promise<T>(
     promise: Promise<T>,
@@ -26,19 +33,36 @@ export const kwikToast = {
     return toast.promise(promise, messages);
   },
 
+  loading(title: string, description?: string) {
+    return toast(title, {
+      description,
+      isLoading: true,
+      timeout: 0,
+      variant: "accent",
+    });
+  },
+
+  close(id: string) {
+    toast.close(id);
+  },
+
   success(title: string, description?: string) {
-    return toast.success(title, { description, timeout: 4000 });
+    return toast.success(title, { description, timeout: TOAST_TIMEOUT.success });
   },
 
   error(title: string, description?: string) {
-    return toast.danger(title, { description, timeout: 6000 });
+    return toast.danger(title, { description, timeout: TOAST_TIMEOUT.error });
   },
 
   warning(title: string, description?: string) {
-    return toast.warning(title, { description, timeout: 5000 });
+    return toast.warning(title, { description, timeout: TOAST_TIMEOUT.warning });
   },
 
   info(title: string, description?: string) {
-    return toast(title, { variant: "accent", description, timeout: 4000 });
+    return toast(title, {
+      variant: "accent",
+      description,
+      timeout: TOAST_TIMEOUT.info,
+    });
   },
 };

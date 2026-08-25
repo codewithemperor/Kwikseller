@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, ArrowLeft } from "lucide-react";
-import { Button, Spinner } from "@heroui/react";
 import { TextInput } from "@/components/ui/form-inputs";
+import { AppButton } from "@/components/ui/app-button";
 import { kwikToast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth-context";
 import { usePendingResetEmail } from "@/stores/auth-store";
@@ -87,27 +87,17 @@ export function ForgotPasswordPage({
           isDisabled={busy}
         />
 
-        <Button
+        <AppButton
           type="submit"
-          variant="primary"
           fullWidth
           size="lg"
-          isPending={busy}
-          isDisabled={busy}
-          onPress={() => {}}
-          className="mt-2 rounded-xl font-semibold"
+          isLoading={busy}
+          disabled={busy}
+          loadingLabel="Sending code..."
+          className="mt-2"
         >
-          {({ isPending }) =>
-            isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Sending code...
-              </span>
-            ) : (
-              "Send Verification Code"
-            )
-          }
-        </Button>
+          Send Verification Code
+        </AppButton>
 
         <Link
           href={loginPath}

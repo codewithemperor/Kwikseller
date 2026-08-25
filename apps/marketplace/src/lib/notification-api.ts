@@ -6,8 +6,7 @@
  * added in `apps/api/src/modules/notifications/user-notifications.controller.ts`).
  *
  * Hooks:
- *   useNotifications()                  — paginated list, polls every 30s
- *   useUnreadNotificationCount()        — unread badge count, polls every 30s
+ *   useNotifications()                  — paginated list + unread source, polls every 30s
  *   useMarkNotificationAsRead()         — mutation, marks one as read
  *   useMarkAllNotificationsAsRead()     — mutation, marks all as read
  *
@@ -50,17 +49,12 @@ interface NotificationListResponse {
   };
 }
 
-interface UnreadCountResponse {
-  count: number;
-}
-
 // ─── Query keys ────────────────────────────────────────────────────────────
 
 export const notificationKeys = {
   all: ["notifications"] as const,
   list: (page: number, limit: number) =>
     ["notifications", "list", { page, limit }] as const,
-  unreadCount: () => ["notifications", "unread-count"] as const,
 };
 
 // ─── Hooks ─────────────────────────────────────────────────────────────────
@@ -107,41 +101,9 @@ export function useNotifications(
 }
 
 /**
- * Fetches the unread notification count for the badge. Polls every 30s.
- *
- * Pass `isAuthenticated: false` to disable.
- */
-export function useUnreadNotificationCount(
-  options: { isAuthenticated?: boolean } = {},
-) {
-  const { isAuthenticated = true } = options;
-  return useQuery<number>({
-    queryKey: notificationKeys.unreadCount(),
-    queryFn: async () => {
-      const res = await api.get<UnreadCountResponse>("notifications/unread-count");
-      const raw = res as unknown as Partial<UnreadCountResponse> & {
-        data?: UnreadCountResponse;
-      };
-      const count =
-        typeof raw?.count === "number"
-          ? raw.count
-          : typeof raw?.data?.count === "number"
-            ? raw.data.count
-            : 0;
-      return count;
-    },
-    enabled: isAuthenticated,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
-}
-
-/**
  * Mutation: mark a single notification as read.
  *
- * On success, invalidates both the list and the unread-count query so the
- * UI updates immediately. Also performs an optimistic update on the cached
- * list so the bell feels instant.
+ * Optimistically updates the cached list so the bell feels instant.
  */
 export function useMarkNotificationAsRead() {
   const queryClient = useQueryClient();
@@ -153,8 +115,8 @@ export function useMarkNotificationAsRead() {
       return res;
     },
     onMutate: async (notificationId: string) => {
-      // Optimistic update: flip isRead on the cached list, decrement the
-      // unread count.
+      // Optimistic update: flip isRead on the cached list. The badge derives
+      // its count from this same list, so no second unread-count cache exists.
       await queryClient.cancelQueries({ queryKey: notificationKeys.all });
       queryClient.setQueriesData<NotificationListResponse>(
         { queryKey: ["notifications", "list"], exact: false },
@@ -168,10 +130,6 @@ export function useMarkNotificationAsRead() {
           };
         },
       );
-      queryClient.setQueryData<number>(
-        notificationKeys.unreadCount(),
-        (old) => Math.max(0, (old ?? 0) - 1),
-      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });
@@ -182,8 +140,8 @@ export function useMarkNotificationAsRead() {
 /**
  * Mutation: mark ALL notifications as read.
  *
- * On success, invalidates both the list and the unread-count query so the
- * UI updates immediately.
+ * Optimistically marks the cached list as read so the badge updates from the
+ * same query response used by the dropdown.
  */
 export function useMarkAllNotificationsAsRead() {
   const queryClient = useQueryClient();
@@ -206,7 +164,6 @@ export function useMarkAllNotificationsAsRead() {
           };
         },
       );
-      queryClient.setQueryData<number>(notificationKeys.unreadCount(), 0);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });

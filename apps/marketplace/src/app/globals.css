@@ -21,8 +21,7 @@
    LAYOUT TOKENS  —  header height + z-index scale
    ============================================================ */
 :root {
-  /* Marketplace header height. Refined at runtime by a ResizeObserver
-     in MarketplaceLayout so sticky offsets always match the real header. */
+  /* Marketplace header height for sticky offsets inside storefront pages. */
   --header-height: 116px; /* mobile: logo row + mobile search row */
 }
 @media (min-width: 768px) {

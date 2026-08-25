@@ -12,9 +12,9 @@ import {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <GuestRoute>
-      <main className="h-full overflow-hidden bg-background text-foreground">
-        <div className="grid h-full min-h-0 lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
-          <section className="hidden h-full min-h-0 flex-col border-r border-neutral-200 bg-foreground text-background dark:border-white/10 lg:flex">
+      <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
+        <div className="grid h-dvh min-h-dvh lg:grid-cols-[minmax(420px,0.92fr)_minmax(520px,1fr)]">
+          <section className="hidden h-dvh min-h-dvh flex-col border-r border-neutral-200 bg-foreground text-background dark:border-white/10 lg:flex">
             <div className="flex items-center justify-between px-8 py-5">
               <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-white/75 hover:text-white">
                 <ArrowLeft className="h-4 w-4" />
@@ -59,7 +59,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </div>
           </section>
 
-          <section className="flex h-full min-h-0 flex-col overflow-y-auto">
+          <section className="flex h-dvh min-h-dvh flex-col overflow-y-auto">
             <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-white/10 lg:hidden">
               <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-kwik-muted dark:text-white/70">
                 <ArrowLeft className="h-4 w-4" />

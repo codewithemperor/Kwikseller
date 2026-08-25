@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import {
   useNotifications,
-  useUnreadNotificationCount,
   useMarkNotificationAsRead,
   useMarkAllNotificationsAsRead,
   timeAgo,
@@ -22,8 +21,8 @@ import {
  * Behaviour:
  *   - When unauthenticated → renders nothing (the bell only makes sense for
  *     logged-in users; a guaranteed 401 would just spam the console).
- *   - When authenticated → shows the live unread count badge; clicking opens
- *     a dropdown with the most recent 12 notifications.
+ *   - When authenticated → fetches the latest notifications once and derives
+ *     the unread badge from that same response.
  *   - Loading → skeleton rows.
  *   - Error → friendly retry message.
  *   - Empty → "No notifications yet".
@@ -31,8 +30,8 @@ import {
  *     notification's `data.orderId` is present).
  *   - "Mark all read" → bulk PATCH.
  *
- * Polls every 30s (see `notification-api.ts`) so the badge stays fresh
- * without a WebSocket.
+ * Polls every 30s (see `notification-api.ts`) so the badge stays fresh without
+ * a second unread-count request or a WebSocket.
  */
 export function NotificationBell({ className }: { className?: string }) {
   const router = useRouter();
@@ -53,7 +52,6 @@ export function NotificationBell({ className }: { className?: string }) {
     page: 1,
     limit: 12,
   });
-  const unreadQuery = useUnreadNotificationCount({ isAuthenticated });
   const markAsRead = useMarkNotificationAsRead();
   const markAllAsRead = useMarkAllNotificationsAsRead();
 
@@ -76,12 +74,14 @@ export function NotificationBell({ className }: { className?: string }) {
     };
   }, [open]);
 
-  // Unauthenticated users see no bell — saves an empty UI element and a
-  // guaranteed 401 from the unread-count query.
+  // Unauthenticated users see no bell — saves an empty UI element and prevents
+  // notification requests entirely.
   if (!isAuthenticated) return null;
 
-  const unreadCount = mounted ? (unreadQuery.data ?? 0) : 0;
   const notifications = data?.data ?? [];
+  const unreadCount = mounted
+    ? notifications.filter((notification) => !notification.isRead).length
+    : 0;
 
   function handleNotificationClick(n: Notification) {
     if (!n.isRead) markAsRead.mutate(n.id);

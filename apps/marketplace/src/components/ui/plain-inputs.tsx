@@ -13,7 +13,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 const baseControl =
-  "mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none ring-0 transition placeholder:text-muted-foreground focus:border-border focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white";
+  "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground shadow-none outline-none ring-0 transition-colors placeholder:text-muted-foreground/70 hover:border-muted-foreground/45 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/12 dark:bg-white/[0.03] dark:text-white";
 
 export type FieldInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
@@ -122,10 +122,10 @@ export function FieldAutocomplete({
           <Autocomplete.ClearButton className="text-muted hover:text-foreground" />
           <Autocomplete.Indicator className="text-muted" />
         </Autocomplete.Trigger>
-        <Autocomplete.Popover className="rounded-lg border border-border bg-background p-2 shadow-lg dark:border-white/10 dark:bg-[#07111f]">
+        <Autocomplete.Popover className="rounded-lg border border-border bg-background p-2 shadow-none dark:border-white/12 dark:bg-[#07111f]">
           <Autocomplete.Filter filter={contains}>
             <SearchField autoFocus name="search" variant="secondary">
-              <SearchField.Group className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 dark:border-white/10 dark:bg-white/5">
+              <SearchField.Group className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 shadow-none transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15 dark:border-white/12 dark:bg-white/[0.03]">
                 <SearchField.SearchIcon className="h-4 w-4 text-muted" />
                 <SearchField.Input
                   placeholder={searchPlaceholder}

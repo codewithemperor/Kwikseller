@@ -66,6 +66,17 @@ import { PaymentsModule } from './payments/payments.module';
             url: process.env.REDIS_URL || 'redis://localhost:6379',
           },
           email: {
+            provider: process.env.EMAIL_PROVIDER || 'smtp',
+            apiKey:
+              process.env.EMAIL_API_KEY ||
+              process.env.BREVO_API_KEY ||
+              process.env.MAILTRAP_API_KEY ||
+              process.env.MAILJET_API_KEY ||
+              '',
+            apiSecret:
+              process.env.EMAIL_API_SECRET ||
+              process.env.MAILJET_API_SECRET ||
+              '',
             host: process.env.SMTP_HOST || 'smtp.sendgrid.net',
             port: parseInt(process.env.SMTP_PORT || '587', 10),
             user: process.env.SMTP_USER || 'apikey',

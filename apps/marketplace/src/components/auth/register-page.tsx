@@ -433,7 +433,7 @@ export function RegisterPage({ portal, className }: RegisterPageProps) {
           size="lg"
           isLoading={busy}
           loadingLabel="Creating account..."
-          className="mt-2 rounded-xl"
+          className="mt-2"
         >
           Create Account
         </AppButton>

@@ -11,6 +11,12 @@ import {
 } from "@heroui/react";
 import { AlertCircle } from "lucide-react";
 import { maskEmail } from "@/lib/utils";
+import { kwikToast } from "@/lib/toast";
+
+const otpSlotClass =
+  "h-11 w-10 rounded-lg border border-border bg-background text-base font-semibold text-foreground shadow-none outline-none transition-colors data-[active=true]:border-accent data-[active=true]:ring-2 data-[active=true]:ring-accent/15 data-[invalid=true]:border-danger dark:border-white/12 dark:bg-white/[0.03]";
+const otpGroupClass = "gap-2";
+const otpSeparatorClass = "mx-0 h-px w-3 bg-border";
 
 export interface OTPVerificationProps {
   email: string;
@@ -30,6 +36,7 @@ export function OTPVerification({
   const [value, setValue] = React.useState("");
   const [isComplete, setIsComplete] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isResending, setIsResending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = React.useState(60);
 
@@ -39,7 +46,7 @@ export function OTPVerification({
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  const handleComplete = (code: string) => {
+  const handleComplete = () => {
     setIsComplete(true);
     setError(null);
   };
@@ -62,13 +69,18 @@ export function OTPVerification({
   };
 
   const handleResend = async () => {
-    if (resendCooldown > 0 || isLoading) return;
+    if (resendCooldown > 0 || isLoading || isResending) return;
+    const toastId = kwikToast.loading("Resending verification code...");
+    setIsResending(true);
     try {
       await onResend();
       setResendCooldown(60);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resend code");
+    } finally {
+      kwikToast.close(toastId);
+      setIsResending(false);
     }
   };
 
@@ -98,18 +110,19 @@ export function OTPVerification({
               setError(null);
             }}
             onComplete={handleComplete}
-            isDisabled={isLoading || isSubmitting}
+            isDisabled={isLoading || isSubmitting || isResending}
+            className="justify-center gap-2"
           >
-            <InputOTP.Group>
-              <InputOTP.Slot index={0} />
-              <InputOTP.Slot index={1} />
-              <InputOTP.Slot index={2} />
+            <InputOTP.Group className={otpGroupClass}>
+              <InputOTP.Slot index={0} className={otpSlotClass} />
+              <InputOTP.Slot index={1} className={otpSlotClass} />
+              <InputOTP.Slot index={2} className={otpSlotClass} />
             </InputOTP.Group>
-            <InputOTP.Separator />
-            <InputOTP.Group>
-              <InputOTP.Slot index={3} />
-              <InputOTP.Slot index={4} />
-              <InputOTP.Slot index={5} />
+            <InputOTP.Separator className={otpSeparatorClass} />
+            <InputOTP.Group className={otpGroupClass}>
+              <InputOTP.Slot index={3} className={otpSlotClass} />
+              <InputOTP.Slot index={4} className={otpSlotClass} />
+              <InputOTP.Slot index={5} className={otpSlotClass} />
             </InputOTP.Group>
           </InputOTP>
         </div>
@@ -125,10 +138,10 @@ export function OTPVerification({
           variant="primary"
           size="lg"
           fullWidth
-          isDisabled={!isComplete || isLoading || isSubmitting}
+          isDisabled={!isComplete || isLoading || isSubmitting || isResending}
           isPending={isSubmitting}
           type="submit"
-          className="font-semibold rounded-xl"
+          className="rounded-lg font-semibold shadow-none"
         >
           {isSubmitting ? (
             <span className="flex items-center gap-2">
@@ -150,10 +163,17 @@ export function OTPVerification({
         ) : (
           <button
             onClick={handleResend}
-            disabled={isLoading}
-            className="bg-black font-medium hover:underline disabled:opacity-50"
+            disabled={isLoading || isResending}
+            className="inline-flex items-center gap-1.5 bg-transparent font-semibold text-kwik-orange transition hover:text-kwik-orange-hover hover:underline disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="text-primary-500">Resend</span>
+            {isResending ? (
+              <>
+                <Spinner color="current" size="sm" />
+                Sending...
+              </>
+            ) : (
+              "Resend"
+            )}
           </button>
         )}
       </div>

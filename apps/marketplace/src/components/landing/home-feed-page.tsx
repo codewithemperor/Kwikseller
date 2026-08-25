@@ -5,7 +5,6 @@ import React from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  Check,
   ChevronRight,
   Clock3,
   Download,
@@ -17,17 +16,13 @@ import {
   Sparkle,
   Sparkles,
   Store,
-  Truck,
   Users,
   Zap,
 } from "lucide-react";
 import { marketplaceApi } from "@/services/api-client";
 import { kwikToast } from "@/lib/toast";
 import { AppImage } from "@/components/ui/app-image";
-import { EmptyState } from "@/components/ui/empty-state";
 import { QuickViewModal } from "@/components/landing/quick-view-modal";
-import { RecentlyViewedSection } from "@/components/landing/recently-viewed-section";
-import { NewsletterSection } from "@/components/landing/newsletter-section";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { ProductSection } from "@/components/landing/shared/product-section";
 import { CategoryCard } from "@/components/landing/shared/category-card";
@@ -327,13 +322,6 @@ export function MarketplaceHomeFeedPage() {
   const [activeBanner, setActiveBanner] = React.useState(0);
   const [quickViewProduct, setQuickViewProduct] = React.useState<MarketplaceProduct | null>(null);
 
-  // Infinite scroll state for "Browse All Products"
-  const [moreProducts, setMoreProducts] = React.useState<MarketplaceProduct[]>([]);
-  const [morePage, setMorePage] = React.useState(0);
-  const [moreTotalPages, setMoreTotalPages] = React.useState(1);
-  const [moreIsLoading, setMoreIsLoading] = React.useState(false);
-  const sentinelRef = React.useRef<HTMLDivElement>(null);
-
   const setCachedHomeFeed = useHomeFeedStore((state) => state.setHomeFeed);
   const cartItems = useCartStore((state) => state.items);
   const wishlistItems = useWishlistStore((state) => state.items);
@@ -388,51 +376,6 @@ export function MarketplaceHomeFeedPage() {
     loadFeed();
     return () => { isMounted = false; };
   }, [setCachedHomeFeed]);
-
-  // ---- Load page 1 of "Browse All Products" after the feed is ready ----
-  const loadMoreProducts = React.useCallback(async (page: number) => {
-    setMoreIsLoading(true);
-    try {
-      // The `api` wrapper already extracts res.data, so `result` IS the
-      // ApiResponse body: { success, data: [...products], meta: {...}, timestamp }
-      const result = await marketplaceApi.getHomeFeedMore({ page, limit: 20 }) as {
-        data: MarketplaceProduct[];
-        meta?: { page: number; limit: number; total: number; totalPages: number };
-      };
-      const products = result.data ?? [];
-      const meta = result.meta ?? { page, totalPages: 1 };
-      setMoreProducts(prev => page === 1 ? products : [...prev, ...products]);
-      setMorePage(meta.page);
-      setMoreTotalPages(meta.totalPages);
-    } catch {
-      // Silently fail — the curated sections above still render
-    } finally {
-      setMoreIsLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (feed && morePage === 0) {
-      loadMoreProducts(1);
-    }
-  }, [feed, morePage, loadMoreProducts]);
-
-  // ---- IntersectionObserver for infinite scroll ----
-  React.useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !moreIsLoading && morePage < moreTotalPages) {
-          loadMoreProducts(morePage + 1);
-        }
-      },
-      { rootMargin: "300px" },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [moreIsLoading, morePage, moreTotalPages, loadMoreProducts]);
 
   // ---- Banner auto-rotation ----
   React.useEffect(() => {
@@ -692,6 +635,33 @@ export function MarketplaceHomeFeedPage() {
           />
         </div>
 
+        {/* Top Vendors — real verified stores by product count */}
+        {feed.topVendors.length > 0 && (
+          <section>
+            <div className="-mx-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                  <Store className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-white md:text-xl">Top Vendors</h2>
+                  <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">Verified stores with the most products on the marketplace.</p>
+                </div>
+              </div>
+              <Link href="/vendors" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
+                View more <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="container-px bg-background py-4">
+              <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+                {feed.topVendors.slice(0, 8).map((vendor) => (
+                  <TopVendorCard key={vendor.id} vendor={vendor} />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* New Arrivals + Group Buy desk — two-column layout */}
         <div className="container-px grid gap-8 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px]">
           <ProductSection
@@ -795,64 +765,6 @@ export function MarketplaceHomeFeedPage() {
           </div>
         </section>
 
-        {/* Top Vendors — real verified stores by product count */}
-        {feed.topVendors.length > 0 && (
-          <section>
-            <div className="-mx-4 flex items-center justify-between gap-3 bg-kwik-blue px-4 py-3 text-white md:mx-0">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
-                  <Store className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-white md:text-xl">Top Vendors</h2>
-                  <p className="mt-0.5 max-w-2xl text-xs leading-5 text-white/70 md:text-sm">Verified stores with the most products on the marketplace.</p>
-                </div>
-              </div>
-              <Link href="/vendors" className="inline-flex shrink-0 items-center gap-1 bg-kwik-orange px-3 py-2 text-xs font-semibold text-white">
-                View more <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="container-px bg-background py-4">
-              <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
-                {feed.topVendors.slice(0, 8).map((vendor) => (
-                  <TopVendorCard key={vendor.id} vendor={vendor} />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Delivery agents leaderboard — CTA banner */}
-        <section className="container-px py-2">
-          <Link
-            href="/delivery-agents"
-            className="group relative block overflow-hidden rounded-3xl border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-kwik-orange/10 sm:p-8"
-          >
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-kwik-orange text-white shadow-md transition-transform duration-300 group-hover:scale-110">
-                  <Truck className="h-6 w-6" />
-                </div>
-                <div>
-                  <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-kwik-orange-tint px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-kwik-orange">
-                    <Sparkles className="h-3 w-3" /> Top-rated couriers
-                  </div>
-                  <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
-                    Meet our delivery agents
-                  </h2>
-                  <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                    Real ratings from real buyers. See who&apos;s delivering your orders across Nigeria — ranked by speed, care, and friendliness.
-                  </p>
-                </div>
-              </div>
-              <div className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-kwik-orange px-5 text-sm font-semibold text-white shadow-sm transition-all duration-300 group-hover:bg-kwik-orange-dark group-hover:shadow-md">
-                View leaderboard
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </div>
-            </div>
-          </Link>
-        </section>
-
         {/* Checkout CTA */}
         <section className="bg-foreground px-5 py-6 text-background md:px-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -872,47 +784,6 @@ export function MarketplaceHomeFeedPage() {
             </Link>
           </div>
         </section>
-
-        {/* Newsletter */}
-        <div className="max-w-4xl mx-auto">
-          <NewsletterSection />
-        </div>
-
-        {/* Recently viewed (only renders when the buyer has viewed products) */}
-        <RecentlyViewedSection />
-
-        {/* ==================== Browse All Products — Infinite Scroll ==================== */}
-        {moreProducts.length > 0 && (
-          <div className="container-px">
-            <ProductSection
-              title="Browse All Products"
-              description="Scroll to load more products from the marketplace."
-              products={moreProducts}
-              viewAllHref="/search"
-              icon={PackageOpen}
-              onQuickView={setQuickViewProduct}
-            >
-              {/* Infinite scroll sentinel — IntersectionObserver triggers loadMoreProducts when this enters the viewport */}
-              {morePage < moreTotalPages && (
-                <div ref={sentinelRef} className="flex items-center justify-center py-8">
-                  {moreIsLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-kwik-orange border-t-transparent" />
-                      Loading more products...
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Scroll to load more</div>
-                  )}
-                </div>
-              )}
-              {morePage >= moreTotalPages && moreProducts.length > 0 && (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  You&apos;ve reached the end of the catalog.
-                </div>
-              )}
-            </ProductSection>
-          </div>
-        )}
       </div>
 
       <QuickViewModal product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} />

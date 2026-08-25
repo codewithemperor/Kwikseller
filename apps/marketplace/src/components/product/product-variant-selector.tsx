@@ -158,10 +158,10 @@ export function ProductVariantSelector({
                     whileTap={{ scale: 0.95 }}
                     onClick={() => !outOfStock && handleSelect(groupName, variant)}
                     disabled={outOfStock}
-                    className={`relative flex h-10 min-w-[48px] items-center justify-center rounded-xl border-2 px-4 text-sm font-medium transition-all duration-200 ${
+                    className={`relative flex h-10 min-w-[48px] items-center justify-center rounded-lg border px-4 text-sm font-medium shadow-none transition-colors duration-200 ${
                       isSelected
-                        ? "border-kwik-orange bg-kwik-orange/10 text-kwik-orange shadow-sm shadow-kwik-orange/10"
-                        : "border-kwik-border text-kwik-dark-medium hover:border-kwik-orange/50 hover:bg-kwik-orange/5"
+                        ? "border-kwik-orange bg-kwik-orange/10 text-kwik-orange"
+                        : "border-kwik-border bg-background text-kwik-dark-medium hover:border-kwik-orange/50 hover:bg-kwik-orange/5"
                     } ${outOfStock ? "opacity-40 cursor-not-allowed line-through" : "cursor-pointer"}`}
                     aria-label={variant.options}
                     title={`${variant.options}${outOfStock ? " (Out of stock)" : ""}`}
@@ -189,7 +189,7 @@ export function ProductVariantSelector({
         <motion.div
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 rounded-xl bg-kwik-red/10 px-3 py-2.5 text-sm font-medium text-kwik-red"
+          className="flex items-center gap-2 rounded-lg bg-kwik-red/10 px-3 py-2.5 text-sm font-medium text-kwik-red"
         >
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           Out of stock

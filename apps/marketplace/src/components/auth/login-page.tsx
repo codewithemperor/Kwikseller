@@ -200,10 +200,10 @@ export function LoginPage({ portal, className }: LoginPageProps) {
               <Checkbox
                 isSelected={rememberMe}
                 onChange={setRememberMe}
-                className="rounded-md border-kwik-border"
+                className="group block"
               >
-                <Checkbox.Content>
-                  <Checkbox.Control>
+                <Checkbox.Content className="!flex !flex-row !items-center !gap-2">
+                  <Checkbox.Control className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background text-accent-foreground shadow-none transition-colors group-data-[selected=true]:border-accent group-data-[selected=true]:bg-accent dark:border-white/20">
                     <Checkbox.Indicator />
                   </Checkbox.Control>
                   <span className="text-xs text-kwik-gray">Remember me</span>
@@ -225,7 +225,7 @@ export function LoginPage({ portal, className }: LoginPageProps) {
           size="lg"
           isLoading={isSubmitting || isLoading}
           loadingLabel="Signing in..."
-          className="mt-2 rounded-xl"
+          className="mt-2"
         >
           Sign in to {portal.name}
         </AppButton>

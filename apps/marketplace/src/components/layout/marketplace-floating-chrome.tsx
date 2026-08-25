@@ -63,6 +63,8 @@ interface MarketplaceFloatingChromeProps {
   isSearchOverlayOpen: boolean;
   isWishlistOpen: boolean;
   showSearchOverlay: boolean;
+  showFooter?: boolean;
+  showMobileBottomNav?: boolean;
   onCloseSearchOverlay: () => void;
   onCloseWishlist: () => void;
   onNavigateStart: () => void;
@@ -95,6 +97,8 @@ export function MarketplaceFloatingChrome({
   isSearchOverlayOpen,
   isWishlistOpen,
   showSearchOverlay,
+  showFooter = true,
+  showMobileBottomNav = true,
   onCloseSearchOverlay,
   onCloseWishlist,
   onNavigateStart,
@@ -109,8 +113,8 @@ export function MarketplaceFloatingChrome({
       <CartDrawer />
       <ComparePanel />
       <WishlistSidebar isOpen={isWishlistOpen} onClose={onCloseWishlist} />
-      <MobileBottomNav onNavigateStart={onNavigateStart} />
-      <EnhancedFooter />
+      {showMobileBottomNav ? <MobileBottomNav onNavigateStart={onNavigateStart} /> : null}
+      {showFooter ? <EnhancedFooter /> : null}
     </>
   );
 }

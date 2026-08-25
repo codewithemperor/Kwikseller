@@ -130,6 +130,32 @@ export class AuthService {
     });
   }
 
+  private async getOrCreateEmailVerificationOtp(user: {
+    id: string;
+    email: string;
+    role: PrismaUserRole;
+  }): Promise<string> {
+    const cacheKey = this.getEmailRoleCacheKey(
+      "email-verification",
+      user.email,
+      user.role,
+    );
+    const existing = await this.cacheService.get<{ otp?: string }>(cacheKey);
+
+    if (existing?.otp) {
+      return existing.otp;
+    }
+
+    const otp = this.generateOTP();
+    await this.cacheService.set(
+      cacheKey,
+      { userId: user.id, email: user.email, role: user.role, otp },
+      this.otpExpiry,
+    );
+
+    return otp;
+  }
+
   private getLoginRoles(role: AuthUserRole): PrismaUserRole[] {
     if (role === AuthUserRole.ADMIN) {
       return [PrismaUserRole.ADMIN, PrismaUserRole.SUPER_ADMIN];
@@ -198,7 +224,7 @@ export class AuthService {
 
     if (existingUser) {
       throw new ConflictException(
-        "User with this email already exists for this role",
+        "User with this email already exists, Please login instead",
       );
     }
 
@@ -338,12 +364,7 @@ export class AuthService {
     });
 
     // Generate email verification OTP
-    const otp = this.generateOTP();
-    await this.cacheService.set(
-      this.getEmailRoleCacheKey("email-verification", user.email, user.role),
-      { userId: user.id, email: user.email, role: user.role, otp },
-      this.otpExpiry,
-    );
+    const otp = await this.getOrCreateEmailVerificationOtp(user);
 
     // Send verification email with OTP
     await this.queueEmail(
@@ -404,13 +425,7 @@ export class AuthService {
 
     // Check if email is verified before generating tokens
     if (!user.emailVerified) {
-      // Generate and send OTP for email verification
-      const otp = this.generateOTP();
-      await this.cacheService.set(
-        this.getEmailRoleCacheKey("email-verification", user.email, user.role),
-        { userId: user.id, email: user.email, role: user.role, otp },
-        this.otpExpiry,
-      );
+      const otp = await this.getOrCreateEmailVerificationOtp(user);
 
       // Send verification email with OTP
       await this.queueEmail(
@@ -797,13 +812,7 @@ export class AuthService {
       };
     }
 
-    // Generate new OTP
-    const otp = this.generateOTP();
-    await this.cacheService.set(
-      this.getEmailRoleCacheKey("email-verification", user.email, user.role),
-      { userId: user.id, email: user.email, role: user.role, otp },
-      this.otpExpiry,
-    );
+    const otp = await this.getOrCreateEmailVerificationOtp(user);
 
     // Send verification email with OTP
     await this.queueEmail(

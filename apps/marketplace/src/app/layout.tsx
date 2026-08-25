@@ -1,14 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/lib/auth-context";
 import { HeroUIProviderWrapper } from "@/lib/heroui-provider";
-import { MarketplaceLayout } from "@/components/layout/marketplace-layout";
 import { ToastProvider } from "@/components/layout/toast-provider";
-import { NotificationToastStack } from "@/components/landing/notification-toast";
 import {
   fontHeading,
   fontText,
@@ -122,11 +119,7 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <Suspense fallback={null}>
-                  <MarketplaceLayout>
-                    {children}
-                  </MarketplaceLayout>
-                </Suspense>
+                {children}
                 <ToastProvider />
                 <Toaster
                   position="top-right"
@@ -135,20 +128,19 @@ export default function RootLayout({
                   toastOptions={{
                     unstyled: false,
                     classNames: {
-                      toast: "!rounded-2xl !border !border-kwik-border/60 !shadow-xl !backdrop-blur-xl !bg-background/95",
-                      title: "!text-sm !font-semibold !text-kwik-dark",
-                      description: "!text-xs !text-kwik-gray-light",
-                      actionButton: "!rounded-lg !bg-kwik-orange !px-3 !py-1.5 !text-xs !font-semibold !text-white",
-                      cancelButton: "!rounded-lg !bg-kwik-bg-surface !px-3 !py-1.5 !text-xs !font-medium !text-kwik-gray",
-                      success: "!border-kwik-green/30",
-                      error: "!border-kwik-red/30",
-                      info: "!border-kwik-blue/30",
-                      warning: "!border-kwik-amber/30",
-                      closeButton: "!top-3 !right-3 !left-auto !bg-kwik-bg-surface !border-kwik-border !text-kwik-muted hover:!text-kwik-dark hover:!bg-kwik-border/50",
+                      toast: "!rounded-xl !border !border-foreground !bg-foreground !text-background !shadow-none",
+                      title: "!text-sm !font-semibold !text-background",
+                      description: "!text-xs !text-background/75",
+                      actionButton: "!rounded-md !bg-kwik-orange !px-3 !py-1.5 !text-xs !font-semibold !text-white",
+                      cancelButton: "!rounded-md !bg-white/15 !px-3 !py-1.5 !text-xs !font-medium !text-background",
+                      success: "!border-success !bg-success !text-success-foreground",
+                      error: "!border-danger !bg-danger !text-danger-foreground",
+                      info: "!border-kwik-blue !bg-kwik-blue !text-white",
+                      warning: "!border-warning !bg-warning !text-warning-foreground",
+                      closeButton: "!top-3 !right-3 !left-auto !border-transparent !bg-transparent !text-current/70 hover:!bg-white/15 hover:!text-current",
                     },
                   }}
                 />
-                <NotificationToastStack />
               </ThemeProvider>
             </AuthProvider>
           </QueryProvider>
