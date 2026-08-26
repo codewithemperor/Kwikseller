@@ -46,6 +46,12 @@ export function useMarketplaceShellController() {
   );
 
   const isSearchPage = pathname === "/search";
+  const isProductListingPage =
+    isSearchPage ||
+    pathname === "/products" ||
+    pathname.startsWith("/products/") ||
+    pathname.startsWith("/categories/") ||
+    pathname === "/deals";
   const searchQuery = searchParams.get("q") || "";
   const cartItemCount = useCartStore((state) => state.items.length);
   const setCartOpen = useCartStore((state) => state.setCartOpen);
@@ -165,6 +171,7 @@ export function useMarketplaceShellController() {
     headerRef,
     isClientMounted,
     isSearchPage,
+    isProductListingPage,
     searchQuery,
     cartItemCount,
     setShowFilters,

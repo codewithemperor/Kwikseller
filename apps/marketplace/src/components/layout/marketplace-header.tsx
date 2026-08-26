@@ -14,6 +14,7 @@ import { ProfileDropdown } from "@/components/layout/profile-dropdown";
 import type { UserStore } from "@/stores/auth-store";
 import { InlineSearchBar } from "./inline-search-bar";
 import { WishlistNavButton } from "./wishlist-nav-button";
+import type { HeaderSearchConfig } from "./marketplace-shell-context";
 
 const MegaNav = dynamic(
   () => import("@/components/landing/mega-menu").then((module) => ({ default: module.MegaNav })),
@@ -46,6 +47,7 @@ interface MarketplaceHeaderProps {
   showMegaNav?: boolean;
   showDesktopSearch?: boolean;
   showMobileSearch?: boolean;
+  headerSearchConfig?: HeaderSearchConfig | null;
 }
 
 export function MarketplaceHeader({
@@ -74,10 +76,13 @@ export function MarketplaceHeader({
   showMegaNav = true,
   showDesktopSearch = true,
   showMobileSearch = true,
+  headerSearchConfig,
 }: MarketplaceHeaderProps) {
   const router = useRouter();
   const desktopSearchBtnRef = useRef<HTMLButtonElement>(null);
   const [isAutoSuggestOpen, setIsAutoSuggestOpen] = useState(false);
+  const inlineSearch = headerSearchConfig;
+  const showInlineSearch = Boolean(inlineSearch) || isSearchPage;
 
   return (
     <header
@@ -197,14 +202,19 @@ export function MarketplaceHeader({
           </div>
         </div>
 
-        {isSearchPage ? (
+        {showInlineSearch ? (
           <div className="px-3 pb-2 md:px-4 md:pb-3">
             <InlineSearchBar
-              query={searchQuery}
-              onSearch={onSearchSubmit}
-              onBack={onSearchBack}
-              showFilters={showFilters}
-              onToggleFilters={onToggleFilters}
+              query={inlineSearch?.value ?? searchQuery}
+              onSearch={inlineSearch?.onSubmit ?? onSearchSubmit}
+              onInputChange={inlineSearch?.onChange}
+              onBack={inlineSearch?.onBack ?? onSearchBack}
+              showBackButton={!inlineSearch}
+              showFilters={inlineSearch?.showFilters ?? showFilters}
+              onToggleFilters={inlineSearch?.onToggleFilters ?? onToggleFilters}
+              placeholder={inlineSearch?.placeholder}
+              showFilterButton={inlineSearch ? Boolean(inlineSearch.onToggleFilters) : true}
+              activeFilterCount={inlineSearch?.activeFilterCount}
             />
           </div>
         ) : null}

@@ -13,9 +13,13 @@ export interface SearchFiltersState {
   maxPrice?: number;
   rating?: number;
   category?: string; // slug
+  categoryIds?: string[];
   brandId?: string; // id
+  brandIds?: string[];
   storeId?: string; // id
+  storeIds?: string[];
   state?: string; // name
+  states?: string[];
 }
 
 interface SearchFiltersProps {
@@ -24,13 +28,14 @@ interface SearchFiltersProps {
   onChange: (next: Partial<SearchFiltersState>) => void;
   onReset: () => void;
   className?: string;
+  showHeader?: boolean;
 }
 
 function FilterSection({
   title,
   icon,
   children,
-  defaultOpen = true,
+  defaultOpen = false,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -68,34 +73,40 @@ export function SearchFilters({
   onChange,
   onReset,
   className,
+  showHeader = true,
 }: SearchFiltersProps) {
   const hasActiveFilters =
     state.minPrice !== undefined ||
     state.maxPrice !== undefined ||
     state.rating !== undefined ||
     state.category !== undefined ||
+    (state.categoryIds?.length ?? 0) > 0 ||
     state.brandId !== undefined ||
+    (state.brandIds?.length ?? 0) > 0 ||
     state.storeId !== undefined ||
-    state.state !== undefined;
+    (state.storeIds?.length ?? 0) > 0 ||
+    state.state !== undefined ||
+    (state.states?.length ?? 0) > 0;
 
   return (
     <div className={cn("flex flex-col", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-kwik-border pb-3 dark:border-white/10">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-kwik-orange" />
-          <h2 className="text-sm font-semibold text-kwik-dark dark:text-white">Filters</h2>
+      {showHeader ? (
+        <div className="flex items-center justify-between border-b border-kwik-border pb-3 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-kwik-orange" />
+            <h2 className="text-sm font-semibold text-kwik-dark dark:text-white">Filters</h2>
+          </div>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={onReset}
+              className="text-[11px] font-medium text-kwik-muted hover:text-kwik-red transition-colors"
+            >
+              Reset
+            </button>
+          ) : null}
         </div>
-        {hasActiveFilters ? (
-          <button
-            type="button"
-            onClick={onReset}
-            className="text-[11px] font-medium text-kwik-muted hover:text-kwik-red transition-colors"
-          >
-            Reset
-          </button>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* Price */}
       <FilterSection title="Price" icon={<Tag className="h-4 w-4" />}>
@@ -119,8 +130,9 @@ export function SearchFilters({
       <FilterSection title="Category" icon={<Tag className="h-4 w-4" />}>
         <FacetList
           facets={meta?.categories ?? []}
-          selected={state.category}
-          onSelect={(v) => onChange({ category: v })}
+          selected={state.categoryIds ?? state.category}
+          multiple
+          onSelect={(v) => onChange({ category: undefined, categoryIds: Array.isArray(v) ? v : v ? [v] : undefined })}
           emptyMessage="No categories match your search"
         />
       </FilterSection>
@@ -129,8 +141,9 @@ export function SearchFilters({
       <FilterSection title="Vendor" icon={<Store className="h-4 w-4" />}>
         <FacetList
           facets={meta?.stores ?? []}
-          selected={state.storeId}
-          onSelect={(v) => onChange({ storeId: v })}
+          selected={state.storeIds ?? state.storeId}
+          multiple
+          onSelect={(v) => onChange({ storeId: undefined, storeIds: Array.isArray(v) ? v : v ? [v] : undefined })}
           emptyMessage="No vendors match your search"
         />
       </FilterSection>
@@ -140,8 +153,9 @@ export function SearchFilters({
         <FilterSection title="Brand" icon={<Tag className="h-4 w-4" />}>
           <FacetList
             facets={meta?.brands ?? []}
-            selected={state.brandId}
-            onSelect={(v) => onChange({ brandId: v })}
+            selected={state.brandIds ?? state.brandId}
+            multiple
+            onSelect={(v) => onChange({ brandId: undefined, brandIds: Array.isArray(v) ? v : v ? [v] : undefined })}
             emptyMessage="No brands match your search"
           />
         </FilterSection>
@@ -152,8 +166,9 @@ export function SearchFilters({
         <FilterSection title="Location" icon={<MapPin className="h-4 w-4" />}>
           <FacetList
             facets={meta?.states ?? []}
-            selected={state.state}
-            onSelect={(v) => onChange({ state: v })}
+            selected={state.states ?? state.state}
+            multiple
+            onSelect={(v) => onChange({ state: undefined, states: Array.isArray(v) ? v : v ? [v] : undefined })}
             emptyMessage="No locations match your search"
           />
         </FilterSection>

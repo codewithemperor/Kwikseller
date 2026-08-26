@@ -630,25 +630,60 @@ export class ProductsService {
   // -------------------------------------------------------------------
   private buildSearchWhere(dto: SearchProductsDto, query: string): Prisma.ProductWhereInput {
     const where: Prisma.ProductWhereInput = { status: ProductStatus.ACTIVE };
+    const categoryIds = dto.categoryIds?.filter(Boolean) ?? [];
+    const brandIds = dto.brandIds?.filter(Boolean) ?? [];
+    const storeIds = dto.storeIds?.filter(Boolean) ?? [];
+    const states = dto.states?.map((state) => state.trim()).filter(Boolean) ?? [];
 
     // ---- Category ----
-    if (dto.categoryId) {
+    if (categoryIds.length > 0) {
+      where.category = {
+        OR: [
+          { id: { in: categoryIds } },
+          { slug: { in: categoryIds } },
+        ],
+      };
+    } else if (dto.categoryId) {
       where.categoryId = dto.categoryId;
     } else if (dto.category) {
       where.category = { OR: [{ slug: dto.category }, { id: dto.category }] };
     }
 
     // ---- Brand ----
-    if (dto.brandId) {
+    if (brandIds.length > 0) {
+      where.brand = {
+        OR: [
+          { id: { in: brandIds } },
+          { slug: { in: brandIds } },
+        ],
+      };
+    } else if (dto.brandId) {
       where.brandId = dto.brandId;
     }
 
     // ---- Store + State (state filters inside store.deliveryZones) ----
     const storeFilter: Prisma.StoreWhereInput = {};
-    if (dto.storeId) {
+    if (storeIds.length > 0) {
+      storeFilter.OR = [
+        { id: { in: storeIds } },
+        { slug: { in: storeIds } },
+      ];
+    } else if (dto.storeId) {
       storeFilter.id = dto.storeId;
     }
-    if (dto.state) {
+    if (states.length > 0) {
+      storeFilter.deliveryZones = {
+        some: {
+          state: {
+            OR: states.flatMap((state) => [
+              { name: state },
+              { code: state.toUpperCase() },
+              { id: state },
+            ]),
+          },
+        },
+      };
+    } else if (dto.state) {
       const state = dto.state.trim();
       if (state) {
         storeFilter.deliveryZones = {
@@ -723,12 +758,16 @@ export class ProductsService {
     if (exclude === 'category') {
       dtoClone.categoryId = undefined;
       dtoClone.category = undefined;
+      dtoClone.categoryIds = undefined;
     } else if (exclude === 'brand') {
       dtoClone.brandId = undefined;
+      dtoClone.brandIds = undefined;
     } else if (exclude === 'store') {
       dtoClone.storeId = undefined;
+      dtoClone.storeIds = undefined;
     } else if (exclude === 'state') {
       dtoClone.state = undefined;
+      dtoClone.states = undefined;
     } else if (exclude === 'price') {
       dtoClone.minPrice = undefined;
       dtoClone.maxPrice = undefined;

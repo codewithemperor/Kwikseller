@@ -1,6 +1,14 @@
-import { IsOptional, IsString, IsInt, IsNumber, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsInt, IsNumber, Min, Max, IsArray } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+function toStringArray(value: unknown): string[] | undefined {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [];
+  const cleaned = raw
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+  return cleaned.length > 0 ? cleaned : undefined;
+}
 
 /**
  * SearchProductsDto
@@ -38,15 +46,33 @@ export class SearchProductsDto {
   @IsString()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by multiple category ids/slugs', type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toStringArray(value))
+  @IsArray()
+  categoryIds?: string[];
+
   @ApiPropertyOptional({ description: 'Filter by brand id' })
   @IsOptional()
   @IsString()
   brandId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by multiple brand ids/slugs', type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toStringArray(value))
+  @IsArray()
+  brandIds?: string[];
+
   @ApiPropertyOptional({ description: 'Filter by store id' })
   @IsOptional()
   @IsString()
   storeId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by multiple store ids/slugs', type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toStringArray(value))
+  @IsArray()
+  storeIds?: string[];
 
   @ApiPropertyOptional({ description: 'Minimum price (inclusive)', minimum: 0 })
   @IsOptional()
@@ -80,6 +106,15 @@ export class SearchProductsDto {
   @IsOptional()
   @IsString()
   state?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by multiple state names, codes, or ids',
+    type: [String],
+  })
+  @IsOptional()
+  @Transform(({ value }) => toStringArray(value))
+  @IsArray()
+  states?: string[];
 
   @ApiPropertyOptional({
     description: 'Sort preset',

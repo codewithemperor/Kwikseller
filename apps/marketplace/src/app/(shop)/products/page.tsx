@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button, Checkbox, Drawer } from "@heroui/react";
 import {
-  SlidersHorizontal,
   X,
   LayoutGrid,
   List,
@@ -20,7 +20,10 @@ import {
 import { ProductGridSkeleton } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+import { ProductListingToolbar } from "@/components/product/product-listing-toolbar";
+import { useHeaderSearch } from "@/components/layout/marketplace-shell-context";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+import { productMatchesQuery } from "@/lib/product-search";
 
 // Quick-view modal is dynamically imported (client-only) to keep the
 // browse bundle small — same pattern as /categories and /search.
@@ -57,14 +60,12 @@ function ProductsBrowseContent() {
   const searchParams = useSearchParams();
 
   const initialQuery = searchParams.get("q") ?? "";
-  const initialCategory = searchParams.get("category") ?? "all";
-  const initialVendor = searchParams.get("vendor") ?? "all";
-  const initialBrandId = searchParams.get("brandId") ?? "";
+  const initialCategories = searchParams.get("categoryIds")?.split(",").filter(Boolean) ?? [];
+  const initialVendors = searchParams.get("storeIds")?.split(",").filter(Boolean) ?? [];
 
   const [query, setQuery] = useState(initialQuery);
-  const [category, setCategory] = useState<string>(initialCategory);
-  const [vendor, setVendor] = useState<string>(initialVendor);
-  const [brandId, setBrandId] = useState<string>(initialBrandId);
+  const [categoryIds, setCategoryIds] = useState<string[]>(initialCategories);
+  const [storeIds, setStoreIds] = useState<string[]>(initialVendors);
   const [sort, setSort] = useState<SortOption>("popular");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
@@ -72,6 +73,7 @@ function ProductsBrowseContent() {
   const [onlyDiscounted, setOnlyDiscounted] = useState(false);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
+  const [serverQuery, setServerQuery] = useState(initialQuery);
   const [shouldLoadFilters, setShouldLoadFilters] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -95,12 +97,11 @@ function ProductsBrowseContent() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    if (category !== "all") params.set("category", category);
-    if (vendor !== "all") params.set("vendor", vendor);
-    if (brandId) params.set("brandId", brandId);
+    if (categoryIds.length) params.set("categoryIds", categoryIds.join(","));
+    if (storeIds.length) params.set("storeIds", storeIds.join(","));
     const qs = params.toString();
     router.replace(qs ? `/products?${qs}` : "/products", { scroll: false });
-  }, [query, category, vendor, brandId, router]);
+  }, [query, categoryIds, storeIds, router]);
 
   const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
 
@@ -111,7 +112,6 @@ function ProductsBrowseContent() {
   const categoryOptions = useMemo(() => {
     const cats = categoriesQuery.data ?? [];
     return [
-      { label: "All Categories", value: "all" },
       ...cats.map((c: { name: string; slug: string }) => ({
         label: c.name,
         value: c.slug,
@@ -125,7 +125,6 @@ function ProductsBrowseContent() {
       slug: string;
     }>;
     return [
-      { label: "All Vendors", value: "all" },
       ...stores.map((s) => ({ label: s.name, value: s.slug })),
     ];
   }, [storesQuery.data]);
@@ -143,23 +142,24 @@ function ProductsBrowseContent() {
     sort === "price-asc" ? "asc" : "desc";
 
   const productsQuery = useProductsInfinite({
-    search: debouncedQuery.trim() || undefined,
-    categoryId: category !== "all" ? category : undefined,
-    storeId: vendor !== "all" ? vendor : undefined,
-    brandId: brandId || undefined,
+    search: serverQuery.trim() || undefined,
+    categoryIds: categoryIds.length > 0 ? categoryIds : undefined,
+    storeIds: storeIds.length > 0 ? storeIds : undefined,
     sortBy: sortByParam,
     sortOrder: sortOrderParam,
     limit: PAGE_SIZE,
   });
 
   const apiProducts: MarketplaceProduct[] = productsQuery.products;
-  const meta = productsQuery.meta;
-  const totalCount = meta?.total ?? apiProducts.length;
 
   // Apply client-side filters the API doesn't support (price ceiling,
   // "on sale" toggle, "in stock" toggle) to the page's products.
   const filtered = useMemo(() => {
     let list = apiProducts.slice();
+    const term = debouncedQuery.trim();
+    if (term) {
+      list = list.filter((p) => productMatchesQuery(p, term));
+    }
     list = list.filter((p) => p.price <= priceMax);
     if (onlyDiscounted) {
       list = list.filter((p) => p.comparePrice && p.comparePrice > p.price);
@@ -168,20 +168,36 @@ function ProductsBrowseContent() {
       list = list.filter((p) => (p.stock ?? 0) > 0);
     }
     return list;
-  }, [apiProducts, priceMax, onlyDiscounted, onlyInStock]);
+  }, [apiProducts, debouncedQuery, priceMax, onlyDiscounted, onlyInStock]);
+
+  useEffect(() => {
+    const term = debouncedQuery.trim();
+    if (!term) {
+      if (serverQuery) setServerQuery("");
+      return;
+    }
+
+    if (serverQuery === term || productsQuery.isLoading) return;
+
+    const hasLoadedMatch = apiProducts.some((product) =>
+      productMatchesQuery(product, term),
+    );
+
+    if (!hasLoadedMatch) {
+      setServerQuery(term);
+    }
+  }, [apiProducts, debouncedQuery, productsQuery.isLoading, serverQuery]);
 
   const activeFilterCount =
-    (category !== "all" ? 1 : 0) +
-    (vendor !== "all" ? 1 : 0) +
-    (brandId ? 1 : 0) +
+    categoryIds.length +
+    storeIds.length +
     (onlyDiscounted ? 1 : 0) +
     (onlyInStock ? 1 : 0) +
     (priceMax < 50000 ? 1 : 0);
 
   function clearFilters() {
-    setCategory("all");
-    setVendor("all");
-    setBrandId("");
+    setCategoryIds([]);
+    setStoreIds([]);
     setPriceMax(50000);
     setOnlyDiscounted(false);
     setOnlyInStock(false);
@@ -195,6 +211,19 @@ function ProductsBrowseContent() {
   const hasMoreProducts = Boolean(productsQuery.hasNextPage);
   const isFetchingNextPage = productsQuery.isFetchingNextPage;
   const fetchNextPage = productsQuery.fetchNextPage;
+  const headerSearchConfig = useMemo(
+    () => ({
+      value: query,
+      onChange: setQuery,
+      placeholder: "Search loaded products, then the full catalog...",
+      onToggleFilters: () => setShowFilters(true),
+      showFilters,
+      activeFilterCount,
+    }),
+    [activeFilterCount, query, showFilters],
+  );
+
+  useHeaderSearch(headerSearchConfig);
 
   useEffect(() => {
     if (!productsQuery.isLoading && !shouldLoadFilters) {
@@ -238,99 +267,60 @@ function ProductsBrowseContent() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* ── Sort + filter bar ── (no in-page search — header search is the
-          universal entry point, spec #15. Text filtering still works via
-          ?q= URL param; this bar handles sorting and filters.) */}
-      <section className="sticky top-[var(--header-height)] z-30 border-b border-border bg-background/95 backdrop-blur-md">
-        <div className="container mx-auto max-w-7xl px-4 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            {/* Result count */}
-            <div className="flex-1">
-              <h1 className="font-heading text-2xl font-bold text-foreground md:text-3xl">
-                All Products
-              </h1>
-              <p className="text-sm text-kwik-gray-light dark:text-white/70">
-                {productsQuery.isLoading ? (
-                  <span className="text-kwik-muted">Loading…</span>
-                ) : (
-                  <>
-                    <span className="font-semibold text-kwik-dark dark:text-white">{totalCount}</span>{" "}
-                    product{totalCount !== 1 ? "s" : ""}
-                    {query ? <> · filtering by &ldquo;<span className="font-semibold text-kwik-orange">{query}</span>&rdquo;</> : null}
-                  </>
-                )}
-              </p>
-            </div>
+      <ProductListingToolbar
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Products" },
+        ]}
+        sortControl={
+          <div className="flex items-center gap-2">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              aria-label="Sort products"
+              className="h-8 rounded-lg border border-border bg-surface px-2.5 text-xs font-medium text-foreground focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/15"
+            >
+              {sortOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
 
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOption)}
-                  aria-label="Sort products"
-                  className="h-11 appearance-none rounded-xl border border-border bg-surface pl-9 pr-8 text-sm font-medium text-foreground focus:border-kwik-orange focus:outline-none focus:ring-2 focus:ring-kwik-orange/20"
-                >
-                  {sortOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-kwik-muted" />
-              </div>
-
-              {/* Filter toggle (mobile) */}
+            {/* View toggle */}
+            <div className="hidden items-center rounded-xl border border-border bg-surface p-1 md:flex">
               <button
                 type="button"
-                onClick={() => setShowFilters((v) => !v)}
-                className="relative inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-muted md:hidden"
-                aria-label="Toggle filters"
+                onClick={() => setView("grid")}
+                aria-label="Grid view"
+                aria-pressed={view === "grid"}
+                className={cn(
+                  "rounded-lg p-2 transition",
+                  view === "grid"
+                    ? "bg-kwik-orange text-white"
+                    : "text-kwik-muted hover:text-foreground",
+                )}
               >
-                <SlidersHorizontal className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kwik-orange px-1 text-[10px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
+                <LayoutGrid className="h-4 w-4" />
               </button>
-
-              {/* View toggle */}
-              <div className="hidden items-center rounded-xl border border-border bg-surface p-1 md:flex">
-                <button
-                  type="button"
-                  onClick={() => setView("grid")}
-                  aria-label="Grid view"
-                  aria-pressed={view === "grid"}
-                  className={cn(
-                    "rounded-lg p-2 transition",
-                    view === "grid"
-                      ? "bg-kwik-orange text-white"
-                      : "text-kwik-muted hover:text-foreground",
-                  )}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("list")}
-                  aria-label="List view"
-                  aria-pressed={view === "list"}
-                  className={cn(
-                    "rounded-lg p-2 transition",
-                    view === "list"
-                      ? "bg-kwik-orange text-white"
-                      : "text-kwik-muted hover:text-foreground",
-                  )}
-                >
-                  <List className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                aria-label="List view"
+                aria-pressed={view === "list"}
+                className={cn(
+                  "rounded-lg p-2 transition",
+                  view === "list"
+                    ? "bg-kwik-orange text-white"
+                    : "text-kwik-muted hover:text-foreground",
+                )}
+              >
+                <List className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* ── Body: sidebar filters + product grid ── */}
       <section className="container mx-auto max-w-7xl px-4 py-6">
@@ -338,10 +328,10 @@ function ProductsBrowseContent() {
           {/* Sidebar filters (desktop) */}
           <aside className="hidden w-56 shrink-0 lg:block">
             <FilterPanel
-              category={category}
-              setCategory={updateFilter(setCategory)}
-              vendor={vendor}
-              setVendor={updateFilter(setVendor)}
+              categoryIds={categoryIds}
+              setCategoryIds={updateFilter(setCategoryIds)}
+              storeIds={storeIds}
+              setStoreIds={updateFilter(setStoreIds)}
               priceMax={priceMax}
               setPriceMax={updateFilter(setPriceMax)}
               onlyDiscounted={onlyDiscounted}
@@ -356,78 +346,32 @@ function ProductsBrowseContent() {
           </aside>
 
           {/* Mobile filter drawer */}
-          <AnimatePresence>
-            {showFilters ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 md:hidden"
-              >
-                <div
-                  className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                  onClick={() => setShowFilters(false)}
-                />
-                <motion.div
-                  initial={{ x: "-100%" }}
-                  animate={{ x: 0 }}
-                  exit={{ x: "-100%" }}
-                  transition={{ type: "spring", damping: 28, stiffness: 280 }}
-                  className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-background p-4 shadow-2xl"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-heading text-lg font-semibold text-foreground">
-                      Filters
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => setShowFilters(false)}
-                      aria-label="Close filters"
-                      className="rounded-lg p-1.5 text-kwik-muted hover:bg-muted hover:text-foreground"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <FilterPanel
-                    category={category}
-                    setCategory={updateFilter(setCategory)}
-                    vendor={vendor}
-                    setVendor={updateFilter(setVendor)}
-                    priceMax={priceMax}
-                    setPriceMax={updateFilter(setPriceMax)}
-                    onlyDiscounted={onlyDiscounted}
-                    setOnlyDiscounted={updateFilter(setOnlyDiscounted)}
-                    onlyInStock={onlyInStock}
-                    setOnlyInStock={updateFilter(setOnlyInStock)}
-                    activeFilterCount={activeFilterCount}
-                    onClear={clearFilters}
-                    categoryOptions={categoryOptions}
-                    vendorOptions={vendorOptions}
-                  />
-                </motion.div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+          <ProductFilterDrawer
+            open={showFilters}
+            onClose={() => setShowFilters(false)}
+            filters={{
+              categoryIds,
+              storeIds,
+              priceMax,
+              onlyDiscounted,
+              onlyInStock,
+            }}
+            activeFilterCount={activeFilterCount}
+            categoryOptions={categoryOptions}
+            vendorOptions={vendorOptions}
+            onApply={(next) => {
+              setCategoryIds(next.categoryIds);
+              setStoreIds(next.storeIds);
+              setPriceMax(next.priceMax);
+              setOnlyDiscounted(next.onlyDiscounted);
+              setOnlyInStock(next.onlyInStock);
+            }}
+            onClear={clearFilters}
+          />
 
           {/* Results */}
           <div className="min-w-0 flex-1">
-            {/* Result count + active chips */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-kwik-muted">
-                Showing{" "}
-                <span className="font-semibold text-foreground">
-                  {filtered.length}
-                </span>{" "}
-                {filtered.length !== totalCount ? (
-                  <>
-                    of{" "}
-                    <span className="font-semibold text-foreground">
-                      {totalCount}
-                    </span>{" "}
-                  </>
-                ) : null}
-                products
-              </p>
+            <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
               {activeFilterCount > 0 ? (
                 <button
                   type="button"
@@ -442,36 +386,30 @@ function ProductsBrowseContent() {
             {/* Active filter chips */}
             {activeFilterCount > 0 ? (
               <div className="mb-4 flex flex-wrap gap-2">
-                {category !== "all" ? (
+                {categoryIds.map((categoryId) => (
                   <FilterChip
+                    key={categoryId}
                     label={
-                      categoryOptions.find((c) => c.value === category)?.label ??
-                      category
+                      categoryOptions.find((c) => c.value === categoryId)?.label ??
+                      categoryId
                     }
                     onRemove={() => {
-                      setCategory("all");
+                      setCategoryIds((current) => current.filter((id) => id !== categoryId));
                     }}
                   />
-                ) : null}
-                {vendor !== "all" ? (
+                ))}
+                {storeIds.map((storeId) => (
                   <FilterChip
+                    key={storeId}
                     label={
-                      vendorOptions.find((v) => v.value === vendor)?.label ??
-                      vendor
+                      vendorOptions.find((v) => v.value === storeId)?.label ??
+                      storeId
                     }
                     onRemove={() => {
-                      setVendor("all");
+                      setStoreIds((current) => current.filter((id) => id !== storeId));
                     }}
                   />
-                ) : null}
-                {brandId ? (
-                  <FilterChip
-                    label="Brand filter"
-                    onRemove={() => {
-                      setBrandId("");
-                    }}
-                  />
-                ) : null}
+                ))}
                 {onlyDiscounted ? (
                   <FilterChip label="On sale" onRemove={() => {
                     setOnlyDiscounted(false);
@@ -497,7 +435,7 @@ function ProductsBrowseContent() {
               <EmptyState
                 variant="search"
                 title="No products found"
-                description="Try adjusting your search or filters to find what you're looking for."
+                  description="Try adjusting your search or filters to find what you're looking for."
                 action={
                   <button
                     type="button"
@@ -558,7 +496,7 @@ function ProductsBrowseContent() {
               ) : hasMoreProducts ? (
                 <div className="text-sm text-muted-foreground">Scroll to load more</div>
               ) : filtered.length > 0 ? (
-                <div className="text-sm text-muted-foreground">You&apos;ve reached the end of the catalog.</div>
+                <div className="text-sm text-muted-foreground">You&apos;re at the end of the catalog.</div>
               ) : null}
             </div>
           </div>
@@ -573,7 +511,7 @@ function ProductsBrowseContent() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="fixed bottom-5 right-5 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-kwik-orange text-white shadow-lg shadow-kwik-orange/20 transition hover:bg-kwik-orange-hover"
+            className="fixed bottom-24 left-5 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-kwik-orange text-white shadow-lg shadow-kwik-orange/20 transition hover:bg-kwik-orange-hover md:bottom-5"
             aria-label="Scroll to top"
           >
             <ArrowUp className="h-5 w-5" />
@@ -594,10 +532,10 @@ function ProductsBrowseContent() {
 // ── Filter panel (shared by desktop sidebar + mobile drawer) ──────────────
 
 interface FilterPanelProps {
-  category: string;
-  setCategory: (v: string) => void;
-  vendor: string;
-  setVendor: (v: string) => void;
+  categoryIds: string[];
+  setCategoryIds: (v: string[]) => void;
+  storeIds: string[];
+  setStoreIds: (v: string[]) => void;
   priceMax: number;
   setPriceMax: (v: number) => void;
   onlyDiscounted: boolean;
@@ -608,12 +546,19 @@ interface FilterPanelProps {
   onClear: () => void;
   categoryOptions: { label: string; value: string }[];
   vendorOptions: { label: string; value: string }[];
+  showHeader?: boolean;
 }
 
 function FilterPanel(props: FilterPanelProps) {
+  const toggleValue = (values: string[], value: string) =>
+    values.includes(value)
+      ? values.filter((item) => item !== value)
+      : [...values, value];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col">
+      {props.showHeader !== false ? (
+        <div className="flex items-center justify-between border-b border-border pb-3">
         <h2 className="font-heading text-sm font-semibold uppercase tracking-wide text-foreground">
           Filters
         </h2>
@@ -627,60 +572,59 @@ function FilterPanel(props: FilterPanelProps) {
           </button>
         ) : null}
       </div>
+      ) : null}
 
-      {/* Category */}
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
-          Category
-        </h3>
+      <ProductFilterSection title="Category">
         <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
           {props.categoryOptions.map((c) => (
-            <button
+            <Checkbox
               key={c.value}
-              type="button"
-              onClick={() => props.setCategory(c.value)}
+              isSelected={props.categoryIds.includes(c.value)}
+              onChange={() => props.setCategoryIds(toggleValue(props.categoryIds, c.value))}
               className={cn(
-                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition",
-                props.category === c.value
+                "group flex w-full rounded-lg px-2.5 py-2 text-sm transition-colors",
+                props.categoryIds.includes(c.value)
                   ? "bg-kwik-orange-tint font-medium text-kwik-orange"
                   : "text-foreground hover:bg-muted",
               )}
             >
-              {c.label}
-            </button>
+              <Checkbox.Content className="!flex !flex-row !items-center !gap-2">
+                <Checkbox.Control className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background text-accent-foreground shadow-none transition-colors group-data-[selected=true]:border-accent group-data-[selected=true]:bg-accent dark:border-white/20">
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <span className="min-w-0 flex-1 truncate">{c.label}</span>
+              </Checkbox.Content>
+            </Checkbox>
           ))}
         </div>
-      </div>
+      </ProductFilterSection>
 
-      {/* Vendor */}
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
-          Vendor
-        </h3>
+      <ProductFilterSection title="Vendor">
         <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
           {props.vendorOptions.map((v) => (
-            <button
+            <Checkbox
               key={v.value}
-              type="button"
-              onClick={() => props.setVendor(v.value)}
+              isSelected={props.storeIds.includes(v.value)}
+              onChange={() => props.setStoreIds(toggleValue(props.storeIds, v.value))}
               className={cn(
-                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition",
-                props.vendor === v.value
+                "group flex w-full rounded-lg px-2.5 py-2 text-sm transition-colors",
+                props.storeIds.includes(v.value)
                   ? "bg-kwik-orange-tint font-medium text-kwik-orange"
                   : "text-foreground hover:bg-muted",
               )}
             >
-              {v.label}
-            </button>
+              <Checkbox.Content className="!flex !flex-row !items-center !gap-2">
+                <Checkbox.Control className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background text-accent-foreground shadow-none transition-colors group-data-[selected=true]:border-accent group-data-[selected=true]:bg-accent dark:border-white/20">
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <span className="min-w-0 flex-1 truncate">{v.label}</span>
+              </Checkbox.Content>
+            </Checkbox>
           ))}
         </div>
-      </div>
+      </ProductFilterSection>
 
-      {/* Price */}
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-kwik-muted">
-          Max Price
-        </h3>
+      <ProductFilterSection title="Max Price">
         <input
           type="range"
           min={2000}
@@ -695,29 +639,174 @@ function FilterPanel(props: FilterPanelProps) {
           <span>{formatNGN(2000)}</span>
           <span className="font-semibold text-foreground">{formatNGN(props.priceMax)}</span>
         </div>
-      </div>
+      </ProductFilterSection>
 
-      {/* Toggles */}
-      <div className="space-y-2">
-        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-muted">
-          <span className="text-sm text-foreground">On sale only</span>
-          <input
-            type="checkbox"
-            checked={props.onlyDiscounted}
-            onChange={(e) => props.setOnlyDiscounted(e.target.checked)}
-            className="h-4 w-4 accent-kwik-orange"
-          />
-        </label>
-        <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-muted">
-          <span className="text-sm text-foreground">In stock only</span>
-          <input
-            type="checkbox"
-            checked={props.onlyInStock}
-            onChange={(e) => props.setOnlyInStock(e.target.checked)}
-            className="h-4 w-4 accent-kwik-orange"
-          />
-        </label>
-      </div>
+      <ProductFilterSection title="Availability">
+        <div className="space-y-2">
+          <Checkbox
+            isSelected={props.onlyDiscounted}
+            onChange={() => props.setOnlyDiscounted(!props.onlyDiscounted)}
+            className={cn(
+              "group flex w-full rounded-lg px-2.5 py-2 text-sm transition-colors",
+              props.onlyDiscounted
+                ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+                : "text-foreground hover:bg-muted",
+            )}
+          >
+            <Checkbox.Content className="!flex !flex-row !items-center !gap-2">
+              <Checkbox.Control className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background text-accent-foreground shadow-none transition-colors group-data-[selected=true]:border-accent group-data-[selected=true]:bg-accent dark:border-white/20">
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <span className="min-w-0 flex-1 truncate">On sale only</span>
+            </Checkbox.Content>
+          </Checkbox>
+          <Checkbox
+            isSelected={props.onlyInStock}
+            onChange={() => props.setOnlyInStock(!props.onlyInStock)}
+            className={cn(
+              "group flex w-full rounded-lg px-2.5 py-2 text-sm transition-colors",
+              props.onlyInStock
+                ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+                : "text-foreground hover:bg-muted",
+            )}
+          >
+            <Checkbox.Content className="!flex !flex-row !items-center !gap-2">
+              <Checkbox.Control className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background text-accent-foreground shadow-none transition-colors group-data-[selected=true]:border-accent group-data-[selected=true]:bg-accent dark:border-white/20">
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <span className="min-w-0 flex-1 truncate">In stock only</span>
+            </Checkbox.Content>
+          </Checkbox>
+        </div>
+      </ProductFilterSection>
+    </div>
+  );
+}
+
+interface ProductFilterDraft {
+  categoryIds: string[];
+  storeIds: string[];
+  priceMax: number;
+  onlyDiscounted: boolean;
+  onlyInStock: boolean;
+}
+
+function ProductFilterDrawer({
+  open,
+  onClose,
+  filters,
+  activeFilterCount,
+  categoryOptions,
+  vendorOptions,
+  onApply,
+  onClear,
+}: {
+  open: boolean;
+  onClose: () => void;
+  filters: ProductFilterDraft;
+  activeFilterCount: number;
+  categoryOptions: { label: string; value: string }[];
+  vendorOptions: { label: string; value: string }[];
+  onApply: (next: ProductFilterDraft) => void;
+  onClear: () => void;
+}) {
+  const [draft, setDraft] = useState<ProductFilterDraft>(filters);
+
+  useEffect(() => {
+    if (open) setDraft(filters);
+  }, [filters, open]);
+
+  const clearDraft = () => {
+    const next = {
+      categoryIds: [],
+      storeIds: [],
+      priceMax: 50000,
+      onlyDiscounted: false,
+      onlyInStock: false,
+    };
+    setDraft(next);
+    onClear();
+    onClose();
+  };
+
+  return (
+    <Drawer.Backdrop isOpen={open} onOpenChange={(next) => !next && onClose()} variant="blur">
+      <Drawer.Content placement="right" className="lg:hidden">
+        <Drawer.Dialog className="flex h-full flex-col border-l border-border bg-background">
+          <Drawer.CloseTrigger />
+          <Drawer.Header>
+            <Drawer.Heading>Filters</Drawer.Heading>
+          </Drawer.Header>
+          <Drawer.Body className="flex-1 overflow-y-auto">
+            <FilterPanel
+              categoryIds={draft.categoryIds}
+              setCategoryIds={(value) => setDraft((current) => ({ ...current, categoryIds: value }))}
+              storeIds={draft.storeIds}
+              setStoreIds={(value) => setDraft((current) => ({ ...current, storeIds: value }))}
+              priceMax={draft.priceMax}
+              setPriceMax={(value) => setDraft((current) => ({ ...current, priceMax: value }))}
+              onlyDiscounted={draft.onlyDiscounted}
+              setOnlyDiscounted={(value) => setDraft((current) => ({ ...current, onlyDiscounted: value }))}
+              onlyInStock={draft.onlyInStock}
+              setOnlyInStock={(value) => setDraft((current) => ({ ...current, onlyInStock: value }))}
+              activeFilterCount={activeFilterCount}
+              onClear={clearDraft}
+              categoryOptions={categoryOptions}
+              vendorOptions={vendorOptions}
+              showHeader={false}
+            />
+          </Drawer.Body>
+          <Drawer.Footer className="shrink-0 gap-2 border-t border-border bg-background">
+            <Button slot="close" variant="secondary" onPress={clearDraft}>
+              Clear all
+            </Button>
+            <Button
+              slot="close"
+              variant="primary"
+              onPress={() => {
+                onApply(draft);
+                onClose();
+              }}
+            >
+              Apply filters
+            </Button>
+          </Drawer.Footer>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
+  );
+}
+
+function ProductFilterSection({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-b border-border py-4">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span
+          className={cn(
+            "text-xs text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        >
+          v
+        </span>
+      </button>
+      {open ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }

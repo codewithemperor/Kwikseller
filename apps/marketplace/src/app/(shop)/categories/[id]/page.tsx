@@ -1,27 +1,18 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { Button, Checkbox, Drawer } from "@heroui/react";
 import {
   ArrowLeft,
-  ChevronRight,
-  Filter,
   PackageOpen,
-  SlidersHorizontal,
   Star,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  CATEGORY_CARD_ACCENT_COLORS,
-  CATEGORY_STYLES,
-  DEFAULT_CATEGORY_STYLE,
-  type CategoryStyle,
-} from "@/constants/marketplace";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+import { ProductListingToolbar } from "@/components/product/product-listing-toolbar";
 import {
   useBrands,
   useCategoryBySlug,
@@ -30,6 +21,8 @@ import {
   type Category,
 } from "@/lib/api-hooks";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+import { productMatchesQuery } from "@/lib/product-search";
+import { useHeaderSearch } from "@/components/layout/marketplace-shell-context";
 
 const QuickViewModal = dynamic(
   () =>
@@ -59,34 +52,6 @@ const SORT_OPTIONS: { value: SortValue; label: string }[] = [
 ];
 
 const PAGE_SIZE = 12;
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function resolveCategoryStyle(
-  name: string,
-  slug: string,
-  index: number,
-): CategoryStyle {
-  const key = (slug || "").toLowerCase();
-  if (CATEGORY_STYLES[key]) return CATEGORY_STYLES[key];
-  for (const [k, v] of Object.entries(CATEGORY_STYLES)) {
-    if (name.toLowerCase().includes(k) || key.includes(k)) return v;
-  }
-  const colorIdx = index % CATEGORY_CARD_ACCENT_COLORS.length;
-  return {
-    color: CATEGORY_CARD_ACCENT_COLORS[colorIdx],
-    textColor: CATEGORY_CARD_ACCENT_COLORS[colorIdx],
-    Icon: DEFAULT_CATEGORY_STYLE.Icon,
-  };
-}
-
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 /**
  * Normalize the category response shape.
@@ -120,47 +85,37 @@ function FilterCheckbox({
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
-  label: string;
+  label: React.ReactNode;
   count?: number;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2.5 py-1.5 text-sm text-foreground group">
-      <span
-        className={cn(
-          "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-          checked
-            ? "border-kwik-orange bg-kwik-orange text-white"
-            : "border-border bg-background group-hover:border-kwik-orange",
-        )}
-      >
-        {checked && (
-          <svg
-            className="h-3 w-3"
-            viewBox="0 0 12 12"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M2.5 6L5 8.5L9.5 3.5"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="sr-only"
-      />
-      <span className="flex-1 truncate">{label}</span>
-      {typeof count === "number" && (
-        <span className="text-xs text-muted-foreground">{count}</span>
+    <Checkbox
+      isSelected={checked}
+      onChange={() => onChange(!checked)}
+      className={cn(
+        "group flex w-full rounded-lg px-2.5 py-2 text-sm transition-colors",
+        checked
+          ? "bg-kwik-orange-tint font-medium text-kwik-orange"
+          : "text-foreground hover:bg-muted",
       )}
-    </label>
+    >
+      <Checkbox.Content className="!flex !flex-row !items-center !gap-2">
+        <Checkbox.Control className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-background text-accent-foreground shadow-none transition-colors group-data-[selected=true]:border-accent group-data-[selected=true]:bg-accent dark:border-white/20">
+          <Checkbox.Indicator />
+        </Checkbox.Control>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {typeof count === "number" ? (
+          <span
+            className={cn(
+              "shrink-0 text-xs",
+              checked ? "text-kwik-orange" : "text-muted-foreground",
+            )}
+          >
+            {count}
+          </span>
+        ) : null}
+      </Checkbox.Content>
+    </Checkbox>
   );
 }
 
@@ -192,6 +147,7 @@ function FilterPanel({
   onSubCategoryChange,
   onClear,
   priceBounds,
+  showHeader = true,
 }: {
   filters: FilterState;
   setFilters: (next: FilterState) => void;
@@ -202,6 +158,7 @@ function FilterPanel({
   onSubCategoryChange: (id: string | null) => void;
   onClear: () => void;
   priceBounds: { min: number; max: number };
+  showHeader?: boolean;
 }) {
   const toggleBrand = (id: string) => {
     setFilters({
@@ -213,9 +170,10 @@ function FilterPanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col">
       {/* Active filters / clear */}
-      <div className="flex items-center justify-between">
+      {showHeader ? (
+        <div className="flex items-center justify-between border-b border-border pb-3">
         <h3 className="text-sm font-semibold text-foreground">Filters</h3>
         <button
           type="button"
@@ -225,13 +183,11 @@ function FilterPanel({
           Clear all
         </button>
       </div>
+      ) : null}
 
       {/* Sub-categories */}
       {subCategories.length > 0 && (
-        <div className="border-t border-border pt-4">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Sub-categories
-          </h4>
+        <CategoryFilterSection title="Sub-categories">
           <div className="space-y-1">
             <button
               type="button"
@@ -261,14 +217,11 @@ function FilterPanel({
               </button>
             ))}
           </div>
-        </div>
+        </CategoryFilterSection>
       )}
 
       {/* Price range */}
-      <div className="border-t border-border pt-4">
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Price range
-        </h4>
+      <CategoryFilterSection title="Price range">
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -292,14 +245,11 @@ function FilterPanel({
             className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-kwik-orange"
           />
         </div>
-      </div>
+      </CategoryFilterSection>
 
       {/* Brands */}
       {brands.length > 0 && (
-        <div className="border-t border-border pt-4">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Brands
-          </h4>
+        <CategoryFilterSection title="Brands">
           <div className="max-h-48 space-y-0.5 overflow-y-auto pr-1">
             {brands.map((brand) => (
               <FilterCheckbox
@@ -311,62 +261,174 @@ function FilterPanel({
               />
             ))}
           </div>
-        </div>
+        </CategoryFilterSection>
       )}
 
       {/* Rating */}
-      <div className="border-t border-border pt-4">
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Customer rating
-        </h4>
+      <CategoryFilterSection title="Customer rating">
         <div className="space-y-1">
-          {[4, 3, 2, 1].map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() =>
-                setFilters({
-                  ...filters,
-                  minRating: filters.minRating === r ? 0 : r,
-                })
-              }
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                filters.minRating === r
-                  ? "bg-kwik-orange-tint font-medium text-kwik-orange"
-                  : "text-foreground hover:bg-muted",
-              )}
-            >
-              <span className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      i < r
-                        ? "fill-kwik-orange text-kwik-orange"
-                        : "text-muted-foreground/40",
-                    )}
-                  />
-                ))}
-              </span>
-              <span className="text-xs">&amp; up</span>
-            </button>
-          ))}
+          {[4, 3, 2, 1].map((r) => {
+            const isActive = filters.minRating === r;
+            return (
+              <FilterCheckbox
+                key={r}
+                checked={isActive}
+                onChange={() =>
+                  setFilters({
+                    ...filters,
+                    minRating: isActive ? 0 : r,
+                  })
+                }
+                label={
+                  <span className="flex items-center gap-1">
+                    <span className="flex">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            i < r
+                              ? "fill-kwik-orange text-kwik-orange"
+                              : "text-muted-foreground/40",
+                          )}
+                        />
+                      ))}
+                    </span>
+                    <span className="text-xs">&amp; up</span>
+                  </span>
+                }
+              />
+            );
+          })}
         </div>
-      </div>
+      </CategoryFilterSection>
 
       {/* Availability */}
-      <div className="border-t border-border pt-4">
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Availability
-        </h4>
+      <CategoryFilterSection title="Availability">
         <FilterCheckbox
           checked={filters.inStockOnly}
           onChange={(next) => setFilters({ ...filters, inStockOnly: next })}
           label="In stock only"
         />
-      </div>
+      </CategoryFilterSection>
+    </div>
+  );
+}
+
+function CategoryFilterDrawer({
+  open,
+  onClose,
+  filters,
+  activeSubCategoryId,
+  brands,
+  brandCounts,
+  subCategories,
+  priceBounds,
+  onApply,
+  onClear,
+}: {
+  open: boolean;
+  onClose: () => void;
+  filters: FilterState;
+  activeSubCategoryId: string | null;
+  brands: { id: string; name: string }[];
+  brandCounts: Record<string, number>;
+  subCategories: Category[];
+  priceBounds: { min: number; max: number };
+  onApply: (filters: FilterState, subCategoryId: string | null) => void;
+  onClear: () => void;
+}) {
+  const [draftFilters, setDraftFilters] = useState<FilterState>(filters);
+  const [draftSubCategoryId, setDraftSubCategoryId] = useState<string | null>(
+    activeSubCategoryId,
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+    setDraftFilters(filters);
+    setDraftSubCategoryId(activeSubCategoryId);
+  }, [activeSubCategoryId, filters, open]);
+
+  const handleClear = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setDraftSubCategoryId(null);
+    onClear();
+    onClose();
+  };
+
+  return (
+    <Drawer.Backdrop isOpen={open} onOpenChange={(next) => !next && onClose()} variant="blur">
+      <Drawer.Content placement="right" className="lg:hidden">
+        <Drawer.Dialog className="flex h-full flex-col border-l border-border bg-background">
+          <Drawer.CloseTrigger />
+          <Drawer.Header>
+            <Drawer.Heading>Filters</Drawer.Heading>
+          </Drawer.Header>
+          <Drawer.Body className="flex-1 overflow-y-auto">
+            <FilterPanel
+              filters={draftFilters}
+              setFilters={setDraftFilters}
+              brands={brands}
+              brandCounts={brandCounts}
+              subCategories={subCategories}
+              activeSubCategoryId={draftSubCategoryId}
+              onSubCategoryChange={setDraftSubCategoryId}
+              onClear={handleClear}
+              priceBounds={priceBounds}
+              showHeader={false}
+            />
+          </Drawer.Body>
+          <Drawer.Footer className="shrink-0 gap-2 border-t border-border bg-background">
+            <Button slot="close" variant="secondary" onPress={handleClear}>
+              Clear all
+            </Button>
+            <Button
+              slot="close"
+              variant="primary"
+              onPress={() => {
+                onApply(draftFilters, draftSubCategoryId);
+                onClose();
+              }}
+            >
+              Apply filters
+            </Button>
+          </Drawer.Footer>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
+  );
+}
+
+function CategoryFilterSection({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-b border-border py-4">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span
+          className={cn(
+            "text-xs text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        >
+          v
+        </span>
+      </button>
+      {open ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }
@@ -375,7 +437,6 @@ function FilterPanel({
 
 export default function CategoryDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const idParam = params?.id ?? "";
 
   // Category metadata (param is treated as a slug — CategoryCard links to
@@ -386,11 +447,13 @@ export default function CategoryDetailPage() {
     () => normalizeCategory(rawCategoryData),
     [rawCategoryData],
   );
+  const [serverSearchQuery, setServerSearchQuery] = useState("");
 
   // Products — fetch a generous batch for the resolved category, then filter,
   // sort and paginate client-side for an instant, consistent UX.
   const productsQuery = useProducts({
     categoryId: category?.id,
+    search: serverSearchQuery || undefined,
     limit: 100,
   });
 
@@ -407,8 +470,9 @@ export default function CategoryDetailPage() {
 
   // ── UI state ──
   const [sortBy, setSortBy] = useState<SortValue>("relevance");
-  const [sortOpen, setSortOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [activeSubCategoryId, setActiveSubCategoryId] = useState<string | null>(
     null,
   );
@@ -417,11 +481,19 @@ export default function CategoryDetailPage() {
   const [quickViewProduct, setQuickViewProduct] =
     useState<MarketplaceProduct | null>(null);
 
+  React.useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setDebouncedSearchQuery(searchQuery.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
   // Reset visible count when filters/search/sort change. Using the
   // "adjust state during render" pattern (instead of useEffect) avoids
   // cascading renders — see https://react.dev/reference/react/useState#storing-information-from-previous-renders
   const [resetKey, setResetKey] = useState("");
-  const currentResetKey = `${sortBy}|${JSON.stringify(filters)}|${activeSubCategoryId}`;
+  const currentResetKey = `${sortBy}|${JSON.stringify(filters)}|${activeSubCategoryId}|${debouncedSearchQuery}`;
   if (currentResetKey !== resetKey) {
     setResetKey(currentResetKey);
     setVisibleCount(PAGE_SIZE);
@@ -444,6 +516,29 @@ export default function CategoryDetailPage() {
     }
     return [];
   }, [productsQuery.data, rawCategoryData]);
+
+  React.useEffect(() => {
+    const term = debouncedSearchQuery.trim();
+    if (!term) {
+      if (serverSearchQuery) setServerSearchQuery("");
+      return;
+    }
+
+    if (serverSearchQuery === term || productsQuery.isLoading) return;
+
+    const hasLoadedMatch = allProducts.some((product) =>
+      productMatchesQuery(product, term),
+    );
+
+    if (!hasLoadedMatch) {
+      setServerSearchQuery(term);
+    }
+  }, [
+    allProducts,
+    debouncedSearchQuery,
+    productsQuery.isLoading,
+    serverSearchQuery,
+  ]);
 
   // Price bounds (for the placeholder hints in the price filter).
   const priceBounds = useMemo(() => {
@@ -482,6 +577,12 @@ export default function CategoryDetailPage() {
     // selected child category.
     if (activeSubCategoryId) {
       list = list.filter((p) => p.categoryId === activeSubCategoryId);
+    }
+
+    if (debouncedSearchQuery) {
+      list = list.filter((p) =>
+        productMatchesQuery(p, debouncedSearchQuery),
+      );
     }
 
     // Price range
@@ -536,7 +637,7 @@ export default function CategoryDetailPage() {
         break;
     }
     return sorted;
-  }, [allProducts, filters, sortBy, activeSubCategoryId]);
+  }, [allProducts, debouncedSearchQuery, filters, sortBy, activeSubCategoryId]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const hasMore = visibleCount < filteredProducts.length;
@@ -551,13 +652,28 @@ export default function CategoryDetailPage() {
     setActiveSubCategoryId(null);
   }, []);
 
-  const categoryStyle = category
-    ? resolveCategoryStyle(category.name, category.slug, 0)
-    : null;
-  const CategoryIcon = categoryStyle?.Icon ?? DEFAULT_CATEGORY_STYLE.Icon;
-
-  const productCount = allProducts.length;
   const filteredCount = filteredProducts.length;
+  const categoryName = category?.name ?? "Category";
+  const activeFilterCount =
+    filters.brandIds.length +
+    (filters.minRating ? 1 : 0) +
+    (filters.inStockOnly ? 1 : 0) +
+    (filters.minPrice ? 1 : 0) +
+    (filters.maxPrice ? 1 : 0) +
+    (activeSubCategoryId ? 1 : 0);
+  const headerSearchConfig = useMemo(
+    () => ({
+      value: searchQuery,
+      onChange: setSearchQuery,
+      placeholder: `Search in ${categoryName}...`,
+      onToggleFilters: () => setMobileFiltersOpen(true),
+      showFilters: mobileFiltersOpen,
+      activeFilterCount,
+    }),
+    [activeFilterCount, categoryName, mobileFiltersOpen, searchQuery],
+  );
+
+  useHeaderSearch(category ? headerSearchConfig : null);
 
   // ── Loading ──
   if (categoryQuery.isLoading) {
@@ -633,120 +749,27 @@ export default function CategoryDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Header ── */}
-      <div className="border-b border-border bg-background">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-1.5 py-3 text-xs text-muted-foreground">
-            <Link
-              href="/"
-              className="transition-colors hover:text-kwik-orange"
-            >
-              Home
-            </Link>
-            <ChevronRight className="h-3 w-3" />
-            <Link
-              href="/categories"
-              className="transition-colors hover:text-kwik-orange"
-            >
-              Categories
-            </Link>
-            <ChevronRight className="h-3 w-3" />
-            <span className="font-medium text-foreground">{category.name}</span>
-          </nav>
-
-          {/* Category info */}
-          <div className="flex items-center gap-4 pb-5">
-            <div
-              className={cn(
-                "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-md",
-                categoryStyle?.color,
-              )}
-            >
-              <CategoryIcon className="h-7 w-7" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-                {category.name}
-              </h1>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {productCount > 0
-                  ? `${productCount} product${productCount !== 1 ? "s" : ""} available`
-                  : "Browse products in this category"}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Toolbar ── */}
-      <div className="sticky top-[var(--header-height)] z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 py-3">
-            {/* Sort dropdown */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setSortOpen((v) => !v)}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                aria-expanded={sortOpen}
-              >
-                <SlidersHorizontal className="h-4 w-4 text-kwik-orange" />
-                <span className="hidden sm:inline">Sort:</span>
-                <span className="max-w-[100px] truncate">
-                  {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
-                </span>
-              </button>
-              <AnimatePresence>
-                {sortOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setSortOpen(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
-                    >
-                      {SORT_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setSortBy(opt.value);
-                            setSortOpen(false);
-                          }}
-                          className={cn(
-                            "block w-full px-3 py-2.5 text-left text-sm transition-colors",
-                            sortBy === opt.value
-                              ? "bg-kwik-orange-tint font-medium text-kwik-orange"
-                              : "text-foreground hover:bg-muted",
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Mobile filter toggle */}
-            <button
-              type="button"
-              onClick={() => setMobileFiltersOpen(true)}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted lg:hidden"
-            >
-              <Filter className="h-4 w-4 text-kwik-orange" />
-              <span className="hidden xs:inline">Filters</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <ProductListingToolbar
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Categories", href: "/categories" },
+          { label: category.name },
+        ]}
+        sortControl={
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as SortValue)}
+            aria-label="Sort products"
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground outline-none transition-colors hover:border-kwik-orange/50 focus:border-kwik-orange focus:ring-2 focus:ring-kwik-orange/15"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        }
+      />
 
       {/* ── Body: sidebar + product grid ── */}
       <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -770,22 +793,6 @@ export default function CategoryDetailPage() {
 
           {/* Product area */}
           <div className="min-w-0 flex-1">
-            {/* Results meta */}
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                {productsQuery.isLoading ? (
-                  "Loading products…"
-                ) : (
-                  <>
-                    <span className="font-semibold text-foreground">
-                      {filteredCount}
-                    </span>{" "}
-                    product{filteredCount !== 1 ? "s" : ""}
-                  </>
-                )}
-              </p>
-            </div>
-
             {/* Loading */}
             {productsQuery.isLoading && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -857,18 +864,14 @@ export default function CategoryDetailPage() {
                       }
                       className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-background px-8 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                     >
-                      Load more products
-                      <span className="ml-2 text-muted-foreground">
-                        ({filteredCount - visibleCount} remaining)
-                      </span>
+                      Load more
                     </button>
                   </div>
                 )}
 
                 {!hasMore && filteredCount > PAGE_SIZE && (
                   <p className="mt-8 text-center text-sm text-muted-foreground">
-                    You&apos;ve seen all {filteredCount} products in{" "}
-                    {category.name}
+                    You&apos;ve seen all {category.name}
                   </p>
                 )}
               </>
@@ -877,64 +880,21 @@ export default function CategoryDetailPage() {
         </div>
       </div>
 
-      {/* ── Mobile filter drawer ── */}
-      <AnimatePresence>
-        {mobileFiltersOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 lg:hidden"
-              onClick={() => setMobileFiltersOpen(false)}
-            />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 right-0 top-0 z-50 flex w-[85%] max-w-sm flex-col bg-background shadow-xl lg:hidden"
-            >
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <h2 className="text-base font-semibold text-foreground">
-                  Filters
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setMobileFiltersOpen(false)}
-                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  aria-label="Close filters"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                <FilterPanel
-                  filters={filters}
-                  setFilters={setFilters}
-                  brands={relevantBrands}
-                  brandCounts={brandCounts}
-                  subCategories={subCategories}
-                  activeSubCategoryId={activeSubCategoryId}
-                  onSubCategoryChange={setActiveSubCategoryId}
-                  onClear={handleClearFilters}
-                  priceBounds={priceBounds}
-                />
-              </div>
-              <div className="border-t border-border p-4">
-                <button
-                  type="button"
-                  onClick={() => setMobileFiltersOpen(false)}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-md bg-kwik-orange px-5 text-sm font-semibold text-white transition-colors hover:bg-kwik-orange-hover"
-                >
-                  Show {filteredCount} result{filteredCount !== 1 ? "s" : ""}
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <CategoryFilterDrawer
+        open={mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+        filters={filters}
+        activeSubCategoryId={activeSubCategoryId}
+        brands={relevantBrands}
+        brandCounts={brandCounts}
+        subCategories={subCategories}
+        priceBounds={priceBounds}
+        onApply={(nextFilters, nextSubCategoryId) => {
+          setFilters(nextFilters);
+          setActiveSubCategoryId(nextSubCategoryId);
+        }}
+        onClear={handleClearFilters}
+      />
 
       {/* ── Quick view ── */}
       <QuickViewModal

@@ -18,18 +18,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowUp,
-  ChevronRight,
-  PackageOpen,
-  SlidersHorizontal,
-  type LucideIcon,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowUp, PackageOpen, type LucideIcon } from "lucide-react";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
+import { ProductListingToolbar } from "@/components/product/product-listing-toolbar";
+import { useHeaderSearch } from "@/components/layout/marketplace-shell-context";
 import { ProductGridSkeleton } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { MarketplaceProduct } from "@/data/marketplace-home";
+import { productMatchesQuery } from "@/lib/product-search";
 
 // Quick-view modal is dynamically imported (client-only) — same pattern as
 // /categories and /products to keep the bundle small.
@@ -75,6 +71,7 @@ export interface ProductCollectionPageProps {
   icon: LucideIcon;
   queryResult: ProductCollectionQueryResult;
   breadcrumbLabel: string;
+  onSearchFallback?: (query: string) => void;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -94,11 +91,9 @@ function readTotalSales(p: MarketplaceProduct): number {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function ProductCollectionPage({
-  title,
-  description,
-  icon: Icon,
   queryResult,
   breadcrumbLabel,
+  onSearchFallback,
 }: ProductCollectionPageProps) {
   const {
     data,
@@ -109,16 +104,47 @@ export function ProductCollectionPage({
     isFetchingNextPage,
   } = queryResult;
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
-  const [sortOpen, setSortOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [quickViewProduct, setQuickViewProduct] =
     useState<MarketplaceProduct | null>(null);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setDebouncedSearchQuery(searchQuery.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!onSearchFallback) return;
+
+    const term = debouncedSearchQuery.trim();
+    if (!term) {
+      onSearchFallback("");
+      return;
+    }
+
+    if (isLoading) return;
+
+    const hasLoadedMatch = (data ?? []).some((product) =>
+      productMatchesQuery(product, term),
+    );
+
+    if (!hasLoadedMatch) {
+      onSearchFallback(term);
+    }
+  }, [data, debouncedSearchQuery, isLoading, onSearchFallback]);
+
   // Client-side sort over the (already API-sorted) list. `relevance` keeps
   // the API's default ordering.
   const sortedProducts = useMemo<MarketplaceProduct[]>(() => {
-    const list = (data ?? []).slice();
+    const list = (data ?? [])
+      .filter((product) => productMatchesQuery(product, debouncedSearchQuery))
+      .slice();
     switch (sortBy) {
       case "price-asc":
         list.sort((a, b) => a.price - b.price);
@@ -145,10 +171,23 @@ export function ProductCollectionPage({
         break;
     }
     return list;
-  }, [data, sortBy]);
+  }, [data, debouncedSearchQuery, sortBy]);
 
   const count = sortedProducts.length;
   const sortDisabled = isLoading || isError || count === 0;
+  const headerSearchConfig = useMemo(
+    () => ({
+      value: searchQuery,
+      onChange: setSearchQuery,
+      placeholder: `Search ${breadcrumbLabel.toLowerCase()} products...`,
+      onToggleFilters: undefined,
+      showFilters: false,
+      activeFilterCount: 0,
+    }),
+    [breadcrumbLabel, searchQuery],
+  );
+
+  useHeaderSearch(headerSearchConfig);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -180,137 +219,28 @@ export function ProductCollectionPage({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Header ── */}
-      <div className="border-b border-border bg-background">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* Breadcrumb */}
-          <nav
-            className="flex items-center gap-1.5 py-3 text-xs text-muted-foreground"
-            aria-label="Breadcrumb"
+      <ProductListingToolbar
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Products", href: "/products" },
+          { label: breadcrumbLabel },
+        ]}
+        sortControl={
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as SortOption)}
+            aria-label="Sort products"
+            disabled={sortDisabled}
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground outline-none transition-colors hover:border-kwik-orange/50 focus:border-kwik-orange focus:ring-2 focus:ring-kwik-orange/15 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Link href="/" className="transition-colors hover:text-kwik-orange">
-              Home
-            </Link>
-            <ChevronRight className="h-3 w-3" aria-hidden="true" />
-            <Link
-              href="/products"
-              className="transition-colors hover:text-kwik-orange"
-            >
-              Products
-            </Link>
-            <ChevronRight className="h-3 w-3" aria-hidden="true" />
-            <span className="font-medium text-foreground">{breadcrumbLabel}</span>
-          </nav>
-
-          {/* Title block */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="flex items-center gap-4 pb-5"
-          >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-kwik-orange-tint text-kwik-orange ring-1 ring-kwik-orange/20">
-              <Icon className="h-7 w-7" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-                {title}
-              </h1>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {description}
-              </p>
-            </div>
-            {!isLoading && !isError && (
-              <div className="hidden text-right sm:block">
-                <span className="text-2xl font-bold text-foreground">
-                  {count}
-                </span>
-                <span className="ml-1 text-sm text-muted-foreground">
-                  product{count !== 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </div>
-
-      {/* ── Toolbar (sticky) ── */}
-      <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3 py-3">
-            <p className="text-sm text-muted-foreground">
-              {isLoading ? (
-                "Loading products…"
-              ) : isError ? (
-                "Couldn\u2019t load products."
-              ) : (
-                <>
-                  <span className="font-semibold text-foreground">{count}</span>{" "}
-                  product{count !== 1 ? "s" : ""}
-                </>
-              )}
-            </p>
-
-            {/* Sort dropdown — mirrors the pattern in /categories/[id] */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setSortOpen((v) => !v)}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                aria-expanded={sortOpen}
-                aria-haspopup="menu"
-                disabled={sortDisabled}
-              >
-                <SlidersHorizontal className="h-4 w-4 text-kwik-orange" />
-                <span className="hidden sm:inline">Sort:</span>
-                <span className="max-w-[100px] truncate">
-                  {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
-                </span>
-              </button>
-              <AnimatePresence>
-                {sortOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setSortOpen(false)}
-                      aria-hidden="true"
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
-                      role="menu"
-                    >
-                      {SORT_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={sortBy === opt.value}
-                          onClick={() => {
-                            setSortBy(opt.value);
-                            setSortOpen(false);
-                          }}
-                          className={cn(
-                            "block w-full px-3 py-2.5 text-left text-sm transition-colors",
-                            sortBy === opt.value
-                              ? "bg-kwik-orange-tint font-medium text-kwik-orange"
-                              : "text-foreground hover:bg-muted",
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-      </div>
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        }
+      />
 
       {/* ── Body ── */}
       <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -395,7 +325,7 @@ export function ProductCollectionPage({
             ) : hasNextPage ? (
               <div className="text-sm text-muted-foreground">Scroll to load more</div>
             ) : (
-              <div className="text-sm text-muted-foreground">You&apos;ve reached the end of the catalog.</div>
+              <div className="text-sm text-muted-foreground">You&apos;re at the end of the catalog.</div>
             )}
           </div>
         ) : null}
@@ -409,7 +339,7 @@ export function ProductCollectionPage({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="fixed bottom-5 right-5 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-kwik-orange text-white shadow-lg shadow-kwik-orange/20 transition hover:bg-kwik-orange-hover"
+            className="fixed bottom-24 left-5 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full bg-kwik-orange text-white shadow-lg shadow-kwik-orange/20 transition hover:bg-kwik-orange-hover md:bottom-5"
             aria-label="Scroll to top"
           >
             <ArrowUp className="h-5 w-5" />

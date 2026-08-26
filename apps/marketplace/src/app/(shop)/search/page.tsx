@@ -3,10 +3,12 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { SlidersHorizontal, Search as SearchIcon, TrendingUp, History, Clock, Flame, Sparkles, Trash2, X } from "lucide-react";
+import { Search as SearchIcon, TrendingUp, History, Clock, Flame, Sparkles, Trash2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarketplaceProductCard } from "@/components/landing/shared/marketplace-product-card";
 import { ProductGridSkeleton } from "@/components/ui/loading-state";
+import { ProductListingToolbar } from "@/components/product/product-listing-toolbar";
+import { useHeaderSearch } from "@/components/layout/marketplace-shell-context";
 import {
   useSearchInfinite,
   useTrending,
@@ -57,16 +59,18 @@ function timeAgo(ts: number): string {
 
 const PAGE_SIZE = 20;
 
-function isFiltersEmpty(f: SearchFiltersState): boolean {
+function isEmptyFilterValue(value: unknown): boolean {
   return (
-    f.minPrice === undefined &&
-    f.maxPrice === undefined &&
-    f.rating === undefined &&
-    !f.category &&
-    !f.brandId &&
-    !f.storeId &&
-    !f.state
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0) ||
+    (typeof value === "number" && Number.isNaN(value))
   );
+}
+
+function isFiltersEmpty(f: SearchFiltersState): boolean {
+  return Object.values(f).every(isEmptyFilterValue);
 }
 
 function parseFiltersFromParams(
@@ -78,14 +82,18 @@ function parseFiltersFromParams(
     maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
     rating: params.get("rating") ? Number(params.get("rating")) : undefined,
     category: params.get("category") ?? undefined,
+    categoryIds: params.get("categoryIds")?.split(",").filter(Boolean) ?? undefined,
     brandId: params.get("brandId") ?? undefined,
+    brandIds: params.get("brandIds")?.split(",").filter(Boolean) ?? undefined,
     storeId: params.get("storeId") ?? undefined,
+    storeIds: params.get("storeIds")?.split(",").filter(Boolean) ?? undefined,
     state: params.get("state") ?? undefined,
+    states: params.get("states")?.split(",").filter(Boolean) ?? undefined,
   };
   // Strip NaN / undefined
   for (const k of Object.keys(filters) as (keyof SearchFiltersState)[]) {
     const v = filters[k];
-    if (v === undefined || v === null || (typeof v === "number" && Number.isNaN(v))) {
+    if (isEmptyFilterValue(v)) {
       delete filters[k];
     }
   }
@@ -110,9 +118,13 @@ function buildSearchParams(
     params.set("rating", String(filters.rating));
   }
   if (filters.category) params.set("category", filters.category);
+  if (filters.categoryIds?.length) params.set("categoryIds", filters.categoryIds.join(","));
   if (filters.brandId) params.set("brandId", filters.brandId);
+  if (filters.brandIds?.length) params.set("brandIds", filters.brandIds.join(","));
   if (filters.storeId) params.set("storeId", filters.storeId);
+  if (filters.storeIds?.length) params.set("storeIds", filters.storeIds.join(","));
   if (filters.state) params.set("state", filters.state);
+  if (filters.states?.length) params.set("states", filters.states.join(","));
   if (sort !== "relevance") params.set("sort", sort);
   return params;
 }
@@ -173,9 +185,9 @@ function SearchPageContent() {
   const handleFilterChange = useCallback(
     (next: Partial<SearchFiltersState>) => {
       const merged = { ...urlFilters, ...next };
-      // Remove undefined values.
+      // Remove empty values so cleared multi-select filters disappear from the URL.
       for (const k of Object.keys(merged) as (keyof SearchFiltersState)[]) {
-        if (merged[k] === undefined || merged[k] === null || Number.isNaN(merged[k] as number)) {
+        if (isEmptyFilterValue(merged[k])) {
           delete merged[k];
         }
       }
@@ -194,6 +206,23 @@ function SearchPageContent() {
   const handleResetFilters = useCallback(() => {
     pushUrl({ filters: {} });
   }, [pushUrl]);
+
+  const [toolbarQuery, setToolbarQuery] = useState(query);
+
+  useEffect(() => {
+    setToolbarQuery(query);
+  }, [query]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const nextQuery = toolbarQuery.trim();
+      if (nextQuery !== query) {
+        pushUrl({ query: nextQuery });
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [pushUrl, query, toolbarQuery]);
 
   const handleLoadMore = useCallback(() => {
     fetchNextPage();
@@ -244,12 +273,28 @@ function SearchPageContent() {
         onRemove: () => handleFilterChange({ category: undefined }),
       });
     }
+    for (const categoryId of urlFilters.categoryIds ?? []) {
+      const cat = meta?.categories?.find((c) => c.slug === categoryId || c.id === categoryId);
+      chips.push({
+        key: `category-${categoryId}`,
+        label: cat?.name ?? categoryId,
+        onRemove: () => handleFilterChange({ categoryIds: urlFilters.categoryIds?.filter((id) => id !== categoryId) }),
+      });
+    }
     if (urlFilters.storeId) {
       const store = meta?.stores?.find((s) => s.id === urlFilters.storeId || s.slug === urlFilters.storeId);
       chips.push({
         key: "storeId",
         label: store?.name ?? urlFilters.storeId,
         onRemove: () => handleFilterChange({ storeId: undefined }),
+      });
+    }
+    for (const storeId of urlFilters.storeIds ?? []) {
+      const store = meta?.stores?.find((s) => s.id === storeId || s.slug === storeId);
+      chips.push({
+        key: `store-${storeId}`,
+        label: store?.name ?? storeId,
+        onRemove: () => handleFilterChange({ storeIds: urlFilters.storeIds?.filter((id) => id !== storeId) }),
       });
     }
     if (urlFilters.brandId) {
@@ -260,6 +305,14 @@ function SearchPageContent() {
         onRemove: () => handleFilterChange({ brandId: undefined }),
       });
     }
+    for (const brandId of urlFilters.brandIds ?? []) {
+      const brand = meta?.brands?.find((b) => b.id === brandId || b.slug === brandId);
+      chips.push({
+        key: `brand-${brandId}`,
+        label: brand?.name ?? brandId,
+        onRemove: () => handleFilterChange({ brandIds: urlFilters.brandIds?.filter((id) => id !== brandId) }),
+      });
+    }
     if (urlFilters.state) {
       const st = meta?.states?.find((s) => s.name === urlFilters.state || s.code === urlFilters.state);
       chips.push({
@@ -268,8 +321,30 @@ function SearchPageContent() {
         onRemove: () => handleFilterChange({ state: undefined }),
       });
     }
+    for (const state of urlFilters.states ?? []) {
+      const st = meta?.states?.find((s) => s.name === state || s.code === state || s.id === state);
+      chips.push({
+        key: `state-${state}`,
+        label: st?.name ?? state,
+        onRemove: () => handleFilterChange({ states: urlFilters.states?.filter((value) => value !== state) }),
+      });
+    }
     return chips;
   }, [urlFilters, meta, handleFilterChange]);
+
+  const headerSearchConfig = useMemo(
+    () => ({
+      value: toolbarQuery,
+      onChange: setToolbarQuery,
+      placeholder: "Search products, stores, brands, and categories...",
+      onToggleFilters: () => setDrawerOpen(true),
+      showFilters: drawerOpen,
+      activeFilterCount: activeChips.length,
+    }),
+    [activeChips.length, drawerOpen, toolbarQuery],
+  );
+
+  useHeaderSearch(headerSearchConfig);
 
   const trendingQuery = useTrending(5);
   const trendingSearchesQuery = useTrendingSearches(12);
@@ -307,57 +382,21 @@ function SearchPageContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky results toolbar */}
-      {hasQuery ? (
-        <div className="sticky top-[var(--header-height)] z-20 border-b border-kwik-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3 py-3">
-              {/* Result count */}
-              <div className="flex-1 min-w-0">
-                {isLoading ? (
-                  <span className="text-sm text-kwik-muted">Searching…</span>
-                ) : (
-                  <p className="text-sm text-kwik-gray-light dark:text-white/70">
-                    <span className="font-semibold text-kwik-dark dark:text-white">{totalResults}</span>{" "}
-                    result{totalResults !== 1 ? "s" : ""}
-                    {query ? (
-                      <>
-                        {" "}for <span className="font-semibold text-kwik-orange">&ldquo;{query}&rdquo;</span>
-                      </>
-                    ) : null}
-                  </p>
-                )}
-              </div>
-
-              {/* Mobile: Filter button */}
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-kwik-border bg-background px-3 text-sm font-medium text-kwik-dark transition hover:border-kwik-orange/50 hover:bg-kwik-bg-light lg:hidden dark:bg-white/5 dark:text-white dark:border-white/10 dark:hover:bg-white/10"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Filters
-                {activeChips.length > 0 ? (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-kwik-orange px-1 text-[10px] font-bold text-white">
-                    {activeChips.length}
-                  </span>
-                ) : null}
-              </button>
-
-              <SortDropdown value={urlSort} onChange={handleSortChange} />
-            </div>
-
-            {/* Active filter chips */}
-            {activeChips.length > 0 ? (
-              <ActiveFilters
-                chips={activeChips}
-                onClearAll={handleResetFilters}
-                className="pb-3"
-              />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <ProductListingToolbar
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Search" },
+        ]}
+        sortControl={<SortDropdown value={urlSort} onChange={handleSortChange} />}
+      >
+        {activeChips.length > 0 ? (
+          <ActiveFilters
+            chips={activeChips}
+            onClearAll={handleResetFilters}
+            className="pb-3"
+          />
+        ) : null}
+      </ProductListingToolbar>
 
       {/* Results area */}
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
@@ -465,18 +504,13 @@ function SearchPageContent() {
                             Loading…
                           </>
                         ) : (
-                          <>
-                            Load more
-                            <span className="text-xs text-kwik-muted">
-                              ({totalResults - products.length} left)
-                            </span>
-                          </>
+                          "Load more"
                         )}
                       </button>
                     </div>
                   ) : hasResults ? (
                     <p className="mt-8 text-center text-xs text-kwik-muted">
-                      You&rsquo;ve reached the end — showing all {products.length} of {totalResults} results
+                      You&rsquo;re at the end of the results.
                     </p>
                   ) : null}
                 </>

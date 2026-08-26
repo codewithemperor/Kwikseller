@@ -122,8 +122,11 @@ export interface ProductListParams {
   limit?: number;
   search?: string;
   categoryId?: string;
+  categoryIds?: string[];
   brandId?: string;
+  brandIds?: string[];
   storeId?: string;
+  storeIds?: string[];
   isFeatured?: boolean;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
@@ -164,8 +167,11 @@ export function useProductsInfinite(params: ProductListParams = {}) {
       const res = await searchProductsWithFilters({
         q: params.search,
         categoryId: params.categoryId,
+        categoryIds: params.categoryIds,
         brandId: params.brandId,
+        brandIds: params.brandIds,
         storeId: params.storeId,
+        storeIds: params.storeIds,
         sort: toSearchSort(params),
         page: pageParam,
         limit,

@@ -1,0 +1,116 @@
+Kwikseller Weekly Work Report
+Week Ending: August 26, 2026
+
+Executive Summary
+This week focused on improving the marketplace customer experience, cleaning up layout structure, reducing frontend/API friction, and stabilizing authentication, email, product listing, search, and filtering flows. The work also included backend support for improved filtering and better user-facing error handling.
+
+Completed Work
+
+1. Marketplace Layout Cleanup
+- Refactored the marketplace layout so pages are grouped more cleanly by purpose.
+- Auth pages were separated from the general marketplace layout so they no longer show the marketplace header, sidebar, or footer.
+- Account and shop layouts were aligned to share the same marketplace header behavior where appropriate.
+- Improved layout behavior for account/profile/order pages so content starts below the header instead of being overlapped by it.
+- Adjusted sidebar/content sizing so sidebar and main content use the available screen height correctly.
+- Removed unnecessary footer space from auth pages.
+
+2. Auth Page Improvements
+- Fixed the register page terms agreement checkbox so the checkbox control is visible and aligned on the same row as the label.
+- Set the terms agreement checkbox to be checked by default.
+- Improved login/register form input styling to be more compact, modern, and consistent.
+- Reduced excessive icon padding inside form inputs.
+- Removed unwanted input shadows and overly rounded styling.
+- Improved checkbox styling to match the desired bordered, no-shadow HeroUI pattern.
+- Fixed Next.js Suspense issue for pages using useSearchParams, including the login flow.
+
+3. Toast and Alert Improvements
+- Updated marketplace toast styling so toast text is readable against solid backgrounds.
+- Improved toast appearance to feel more intentional and less default.
+- Reviewed marketplace alert/toast behavior and adjusted implementation details for better usability.
+
+4. Email Integration
+- Integrated Mailjet for transactional email sending.
+- Added Mailjet API configuration support.
+- Reworked email sending away from direct SMTP assumptions, which is important because Render free services do not allow normal SMTP ports.
+- Clarified that old SMTP environment variables can remain harmlessly unused if the app now prioritizes Mailjet configuration.
+
+5. Authentication/API Error Handling
+- Improved backend authentication error handling so users receive clear English messages instead of generic "an error occurred" responses.
+- Reviewed registration/login failure cases such as duplicate email and forbidden login responses.
+- Improved API-side handling so expected business errors can be shown properly on the frontend.
+
+6. Homepage Performance and API Request Reduction
+- Reviewed marketplace homepage request behavior.
+- Reduced unnecessary requests for guests by preventing notification/unread calls when no session is active.
+- Reworked homepage loading so main content can load first while secondary content can load in the background.
+- Removed non-essential homepage sections including recently viewed, delivery agents, join Kwikseller, and extra browse-all-products blocks.
+- Shifted top vendor content upward to improve page flow.
+
+7. Product Listing and Infinite Scroll
+- Improved product listing pages to use a consistent structure based on the search page layout.
+- Added reusable product listing toolbar behavior for breadcrumbs and sorting.
+- Removed large page headings/descriptions from product listing screens where they interrupted the layout.
+- Added/standardized infinite scroll behavior across product listing pages.
+- Improved "end of catalog" messaging by removing unnecessary numeric counts.
+- Moved scroll-to-top controls so they do not conflict with the order tracking/floating action components.
+- Investigated why product pages were showing "You've reached the end of the catalog" too early and adjusted pagination/meta handling.
+
+8. Search and Filter Experience
+- Moved contextual product search behavior into the marketplace header area so the search bar can remain accessible while scrolling.
+- Preserved page-specific search behavior so category/product pages filter the current page context instead of always redirecting to the global search page.
+- Added debounced searching to avoid API calls on every typed letter.
+- Standardized product/search/category/deals filter drawer behavior.
+- All active filter drawers now open from the right side consistently.
+- Added Apply Filters buttons to drawers so filters are not applied immediately on every tap.
+- Added Clear All actions to drawers.
+- Made drawer footers sticky at the bottom while drawer content scrolls.
+- Removed duplicate "Filters" titles inside drawer content.
+- Converted vendor, category, brand, and location filters to checkbox-style multi-select controls.
+- Updated filter checkboxes to use HeroUI compound anatomy with bordered controls and no shadow.
+- Replaced radio-like/dot-style filter rows with checkbox rows for a cleaner and more consistent UI.
+- Ensured accordion filter sections are closed by default.
+
+9. Backend Product Filter Support
+- Added backend support for multiple category filters.
+- Added backend support for multiple brand filters.
+- Added backend support for multiple vendor/store filters.
+- Added backend support for multiple state/location filters.
+- Updated search query handling so arrays can be passed from the frontend as comma-separated query parameters.
+- Preserved backward compatibility with existing single-value filters.
+
+10. TypeScript and Build-Related Fixes
+- Fixed AppButton typing so custom className usage is supported.
+- Fixed a Next.js build issue where useSearchParams needed a Suspense boundary.
+- Fixed TypeScript error in the search page where activeChips was used before declaration.
+- Avoided running lint/build/start when requested, and only used targeted safe checks where appropriate.
+
+Business Impact
+- Marketplace auth screens now look cleaner and behave correctly.
+- Customers can register without confusion around the terms checkbox.
+- Search and product browsing now feel more consistent across products, categories, deals, and curated product pages.
+- Mobile filtering is now more deliberate because users can select multiple filters before applying.
+- Guest users avoid unnecessary notification requests, reducing wasted API calls.
+- Mail delivery is now compatible with Render-hosted deployments using Mailjet rather than unsupported SMTP ports.
+- Backend filtering is more flexible and better aligned with the marketplace UI.
+- Error messages are clearer for customers, reducing confusion and support burden.
+
+Validation Notes
+- TypeScript/build issues reported during the week were addressed where identified.
+- Final safe checks included targeted searches and git diff whitespace checks.
+- Full lint/build/start commands were not run after the instruction to avoid them.
+
+Key Files/Areas Worked On
+- Marketplace layout and header components.
+- Marketplace auth pages and form controls.
+- Marketplace toast provider.
+- Search page and reusable search filter components.
+- Product listing, category listing, deals, and curated product pages.
+- Marketplace API hooks and API query serialization.
+- Backend product search DTO and product search service.
+- Backend authentication/email handling.
+
+Next Recommended Follow-Up
+- Run a full typecheck/build in a controlled window before deployment.
+- Manually test the mobile filter drawer on search, products, categories, and deals.
+- Confirm Mailjet sender verification and production environment variables on Render.
+- Confirm product search API responses with multiple category/vendor/brand/location filters in production.

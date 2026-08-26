@@ -159,12 +159,16 @@ export interface SearchFilters {
   q?: string;
   category?: string; // slug or id
   categoryId?: string;
+  categoryIds?: string[];
   brandId?: string;
+  brandIds?: string[];
   storeId?: string;
+  storeIds?: string[];
   minPrice?: number;
   maxPrice?: number;
   rating?: number; // minimum rating (e.g. 4 = "4 stars & above")
   state?: string; // state name/code
+  states?: string[];
   sort?: "relevance" | "price-low" | "price-high" | "rating" | "newest" | "popular";
   page?: number;
   limit?: number;
@@ -223,8 +227,13 @@ export const searchProductsWithFilters = async (
   // Drop undefined values so axios doesn't serialize them as "undefined".
   const params: Record<string, string | number> = {};
   for (const [k, v] of Object.entries(filters)) {
+    if (Array.isArray(v) && v.length === 0) continue;
     if (v !== undefined && v !== null && v !== "") {
-      params[k] = typeof v === "number" ? String(v) : v;
+      params[k] = Array.isArray(v)
+        ? v.join(",")
+        : typeof v === "number"
+          ? String(v)
+          : v;
     }
   }
   return api.get<Product[]>("/products/search", { params }) as Promise<SearchResponse>;
